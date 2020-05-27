@@ -31,7 +31,10 @@ package com.yupiik.maven.mojo;
 import com.yupiik.maven.service.AsciidoctorInstance;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.SystemStreamLog;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
@@ -40,31 +43,65 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static java.util.Locale.ROOT;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 class SlidesMojoTest {
+    private static AsciidoctorInstance asciidoctor;
+
+    @BeforeAll
+    static void init() {
+        asciidoctor = new AsciidoctorInstance();
+    }
+
+    @AfterAll
+    static void destroy() {
+        asciidoctor.destroy();
+    }
+
     @Test
-    void render(@TempDir final Path temp) throws MojoExecutionException, IOException {
+    void renderReveal(@TempDir final Path temp) throws MojoExecutionException, IOException {
         final var output = temp.resolve("output");
+        final String html = execute(output, "revealjs");
+        Stream.of(
+                "<link rel=\"stylesheet\" href=\"css/yupiik.revealjs.css\">",
+                "<div class=\"reveal\">")
+                .forEach(it -> assertTrue(html.contains(it), () -> "Not in '" + html + "':\n\n'" + it + "'"));
+    }
+
+    @Test
+    void renderBespoke(@TempDir final Path temp) throws MojoExecutionException, IOException {
+        final var output = temp.resolve("output");
+        final String html = execute(output, "bespoke");
+        Stream.of(
+                "<article class=\"deck\">",
+                "<h1>My Awesome Presentation</h1>",
+                "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">")
+                .forEach(it -> assertTrue(html.contains(it), () -> "Not in '" + html + "':\n\n'" + it + "'"));
+    }
+
+    private String execute(final Path output, final String slider) throws MojoExecutionException, IOException {
+        final var outputHtml = output.resolve(slider + ".html");
+        if (Files.exists(output)) { // rerunning a test without clean
+            Files.delete(output);
+        }
+        newMojo(asciidoctor, output, slider).execute();
+        assertTrue(Files.exists(outputHtml));
+        return Files.readString(outputHtml);
+    }
+
+    private SlidesMojo newMojo(final AsciidoctorInstance asciidoctor, final Path output, final String slider) {
         final var mojo = new SlidesMojo();
-        final var asciidoctor = new AsciidoctorInstance();
-        mojo.setSource(new File("src/test/resources/src/main/slides/index.adoc"));
+        mojo.setSource(new File("src/test/resources/src/main/slides/" + slider + ".adoc"));
         mojo.setTargetDirectory(output.toFile());
         mojo.setWorkDir(new File("target/classes/yupiik-tools-maven-plugin"));
         mojo.setAsciidoctor(asciidoctor);
+        mojo.setSlider(SlidesMojo.Slider.valueOf(slider.toUpperCase(ROOT)));
         mojo.setMode(SlidesMojo.Mode.DEFAULT);
         mojo.setLog(new SystemStreamLog());
-
-        final var outputHtml = output.resolve("index.html");
-        assertFalse(Files.exists(outputHtml));
-        mojo.execute();
-        asciidoctor.destroy();
-        assertTrue(Files.exists(outputHtml));
-        final var html = Files.readString(outputHtml);
-        Stream.of(
-                "")
-                .forEach(it -> assertTrue(html.contains(it), () -> "'" + it + "' not in '" + html + "'"));
+        return mojo;
     }
 }

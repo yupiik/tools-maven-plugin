@@ -36,6 +36,8 @@ import org.asciidoctor.jruby.internal.JRubyAsciidoctor;
 import javax.annotation.PreDestroy;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -83,6 +85,16 @@ public class AsciidoctorInstance {
         });
         asciidoctor.requireLibrary("asciidoctor-diagram");
         asciidoctor.requireLibrary("asciidoctor-revealjs");
+        try {
+            asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
+                    .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
+                    .findFirst()
+                    .map(it -> it.resolve("lib/asciidoctor-bespoke.rb"))
+                    .orElseThrow(() -> new IllegalStateException("bespoke was not bundled at build time"))
+                    .toAbsolutePath().normalize().toString());
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
         return asciidoctor;
     }
 

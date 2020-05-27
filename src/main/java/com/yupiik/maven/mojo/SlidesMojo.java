@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.Thread.sleep;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ROOT;
 
 @Setter
 @Mojo(name = "slides")
@@ -84,6 +85,12 @@ public class SlidesMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.slides.mode", defaultValue = "DEFAULT")
     private Mode mode;
+
+    /**
+     * Which renderer (slide) to use.
+     */
+    @Parameter(property = "yupiik.slides.slider", defaultValue = "BESPOKE")
+    private Slider slider;
 
     /**
      * For SERVE mode, which port to bind.
@@ -233,34 +240,54 @@ public class SlidesMojo extends BaseMojo {
 
     private void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
+        slider.postProcess(toOutputPath());
         getLog().info("Rendered '" + source.getName() + "'");
     }
 
     private Options createOptions() {
+        // ensure js is copied
+        final var jsSrc = workDir.toPath().resolve(
+                "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".js").normalize();
+        if (Files.exists(jsSrc)) {
+            final var relative = "js/" + jsSrc.getFileName();
+            final var target = targetDirectory.toPath().resolve(relative);
+            try {
+                mkdirs(target.getParent());
+                Files.copy(jsSrc, target);
+            } catch (final MojoExecutionException | IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
         return OptionsBuilder.options()
                 .safe(SafeMode.UNSAFE)
-                .backend("revealjs")
+                .backend(slider.name().toLowerCase(ROOT))
                 .inPlace(false)
                 .toDir(targetDirectory)
                 .destinationDir(targetDirectory)
                 .mkDirs(true)
+                .toFile(toOutputPath().toFile())
                 .baseDir(source.toPath().getParent().toAbsolutePath().normalize().toFile())
-                .attributes(AttributesBuilder.attributes()
+                .attributes(slider.append(AttributesBuilder.attributes()
                         .linkCss(false)
                         .dataUri(true)
+                        .attribute("stem")
+                        .attribute("source-highlighter", "highlightjs")
                         .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3")
                         .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css")
-                        .attribute("revealjsdir", "//cdnjs.cloudflare.com/ajax/libs/reveal.js/3.8.0/")
-                        .attribute("revealjs_theme", "black")
-                        .attribute("revealjs_transition", "linear")
-                        .attribute("source-highlighter", "highlightjs")
                         .attribute("customcss", findCss())
-                        .attributes(attributes == null ? emptyMap() : attributes))
+                        .attributes(attributes == null ? emptyMap() : attributes)))
                 .get();
     }
 
+    private Path toOutputPath() {
+        return targetDirectory.toPath()
+                .resolve(source.toPath().getFileName().toString().replaceFirst(".adoc$", ".html"));
+    }
+
     private String findCss() {
-        final var cssSource = (customCss != null ? customCss.toPath() : workDir.toPath().resolve("slides/yupiik.css")).normalize();
+        final var cssSource = (customCss != null ? customCss.toPath() : workDir.toPath().resolve(
+                "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".css")).normalize();
         final var relative = "css/" + cssSource.getFileName();
         final var target = targetDirectory.toPath().resolve(relative);
         try {
@@ -276,5 +303,57 @@ public class SlidesMojo extends BaseMojo {
         DEFAULT,
         WATCH,
         SERVE
+    }
+
+    public enum Slider {
+        REVEALJS {
+            @Override
+            protected AttributesBuilder append(final AttributesBuilder builder) {
+                return builder
+                        .attribute("revealjsdir", "//cdnjs.cloudflare.com/ajax/libs/reveal.js/3.8.0/")
+                        .attribute("revealjs_theme", "black")
+                        .attribute("revealjs_transition", "linear");
+            }
+        },
+        BESPOKE {
+            @Override
+            protected AttributesBuilder append(final AttributesBuilder builder) {
+                return builder;
+            }
+
+            @Override
+            protected void postProcess(final Path path) {
+                try {
+                    Files.writeString(path, Files.readString(path)
+                            .replace(
+                                    "<script src=\"build/build.js\"></script>",
+                                    "\n" +
+                                            "<script src=\"//cdnjs.cloudflare.com/ajax/libs/bespoke.js/1.1.0/bespoke.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-classes@1.0.0/dist/bespoke-classes.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-bullets@1.1.0/dist/bespoke-bullets.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-fullscreen@1.0.0/dist/bespoke-fullscreen.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-hash@1.1.0/dist/bespoke-hash.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-nav@1.0.2/dist/bespoke-nav.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-overview@1.0.5/dist/bespoke-overview.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-scale@1.0.1/dist/bespoke-scale.min.js\"></script>\n" +
+                                            "<script src=\"//unpkg.com/bespoke-title@1.0.0/dist/bespoke-title.min.js\"></script>\n" +
+                                            "<script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js\"></script>\n" +
+                                            "<script src=\"js/yupiik.bespoke.js\"></script>\n")
+                            .replace(
+                                    "<link rel=\"stylesheet\" href=\"build/build.css\">",
+                                    "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
+                                            "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css\" " +
+                                            "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n"));
+                } catch (final IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        };
+
+        protected void postProcess(final Path path) {
+            // no-op
+        }
+
+        protected abstract AttributesBuilder append(AttributesBuilder builder);
     }
 }

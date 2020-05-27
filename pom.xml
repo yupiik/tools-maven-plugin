@@ -46,6 +46,7 @@
     <mvn.version>3.6.3</mvn.version>
     <jruby.version>9.2.11.1</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
+    <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
   </properties>
 
   <dependencies>
@@ -80,6 +81,27 @@
       <groupId>rubygems</groupId>
       <artifactId>asciidoctor-revealjs</artifactId>
       <version>${asciidoctor-revealjs.version}</version>
+      <type>gem</type>
+      <scope>provided</scope> <!-- we embed it -->
+      <exclusions>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>asciidoctor</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>thread_safe</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>concurrent-ruby</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-bespoke</artifactId>
+      <version>${asciidoctor-bespoke.version}</version>
       <type>gem</type>
       <scope>provided</scope> <!-- we embed it -->
       <exclusions>
@@ -178,9 +200,9 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>1.6.0</version>
-        <executions>
-          <execution> <!-- gem plugin is better but it supports jruby 1.7 (not 9.x) for java 11 -->
-            <id>install-gems</id>
+        <executions> <!-- gem plugin is better but it supports jruby 1.7 (not 9.x) for java 11 -->
+          <execution>
+            <id>install-revealjs-gem</id>
             <phase>process-resources</phase>
             <goals>
               <goal>exec</goal>
@@ -200,6 +222,38 @@
                 <argument>--no-user-install</argument>
                 <argument>--no-verbose</argument>
                 <argument>${settings.localRepository}/rubygems/asciidoctor-revealjs/${asciidoctor-revealjs.version}/asciidoctor-revealjs-${asciidoctor-revealjs.version}.gem</argument>
+                <argument>--bindir</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</argument>
+              </arguments>
+              <environmentVariables>
+                <JARS_SKIP>true</JARS_SKIP>
+                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_HOME>
+              </environmentVariables>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-bespoke-gem</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
+                <argument>org.jruby.Main</argument>
+                <argument>-e</argument>
+                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
+                <argument>--</argument>
+                <argument>install</argument>
+                <argument>--ignore-dependencies</argument>
+                <argument>--no-document</argument>
+                <argument>--no-user-install</argument>
+                <argument>--no-verbose</argument>
+                <argument>${settings.localRepository}/rubygems/asciidoctor-bespoke/${asciidoctor-bespoke.version}/asciidoctor-bespoke-${asciidoctor-bespoke.version}.gem</argument>
                 <argument>--bindir</argument>
                 <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</argument>
               </arguments>

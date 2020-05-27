@@ -1,0 +1,11 @@
+= My Awesome Presentation
+Yupiik <http://yupiik.com>
+:organization: Yupiik
+:position: Company
+:twitter: @yupiik
+//:avatar: author-avatar.png
+:!sectids:
+
+Additional content for the title slide.
+
+== First Topic

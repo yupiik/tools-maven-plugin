@@ -64,8 +64,9 @@ You can also pass in HTTP mode with:
 |====
 |Name|Type|Default|Property|Description
 |attributes|Map|-|-|Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
-|<sourceDirectory|File|${project.basedir}/src/main/pdf|yupiik.pdf.source|Source directory or file to render, if a directory all files with extension .adoc will be selected.
+|sourceDirectory|File|${project.basedir}/src/main/pdf|yupiik.pdf.source|Source directory or file to render, if a directory all files with extension .adoc will be selected.
 |targetDirectory|File|${project.build.directory}/yupiik/pdf|yupiik.pdf.target|Where to render the asciidoc files to.
 |themeDir|File|-|yupiik.pdf.themeDir|Theme directory (name of the theme is yupiik), let it null to inherit from the default theme.
 |workDir|File|${project.build.directory}/yupiik-workdir|yupiik.workDir|Where to extract files needed for the rendering.
+|slider|Slider|BESPOKE|yupiik.slides.slidere|Which renderer to use for slides, reveal.js or bespoke.js.
 |====

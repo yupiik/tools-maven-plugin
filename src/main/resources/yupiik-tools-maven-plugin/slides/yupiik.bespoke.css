@@ -1,0 +1,662 @@
+/*
+ * Copyright (c) 2020 - Yupiik SAS - https://www.yupiik.com - All right reserved
+ *
+ * This software and related documentation are provided under a license agreement containing restrictions on use and
+ * disclosure and are protected by intellectual property laws. Except as expressly permitted in your license agreement
+ * or allowed by law, you may not use, copy, reproduce, translate, broadcast, modify, license, transmit, distribute,
+ * exhibit, perform, publish, or display any part, in any form, or by any means. Reverse engineering, disassembly, or
+ * decompilation of this software, unless required by law for interoperability, is prohibited.
+ *
+ * The information contained herein is subject to change without notice and is not warranted to be error-free. If you
+ * find any errors, please report them to us in writing.
+ *
+ * This software is developed for general use in a variety of information management applications. It is not developed
+ * or intended for use in any inherently dangerous applications, including applications that may create a risk of personal
+ * injury. If you use this software or hardware in dangerous applications, then you shall be responsible to take all
+ * appropriate fail-safe, backup, redundancy, and other measures to ensure its safe use. Yupiik SAS and its affiliates
+ * disclaim any liability for any damages caused by use of this software or hardware in dangerous applications.
+ *
+ * Yupiik and Galaxy are registered trademarks of Yupiik SAS and/or its affiliates. Other names may be trademarks
+ * of their respective owners.
+ *
+ * This software and documentation may provide access to or information about content, products, and services from third
+ * parties. Yupiik SAS and its affiliates are not responsible for and expressly disclaim all warranties of any kind with
+ * respect to third-party content, products, and services unless otherwise set forth in an applicable agreement between
+ * you and Yupiik SAS. Yupiik SAS and its affiliates will not be responsible for any loss, costs, or damages incurred
+ * due to your access to or use of third-party content, products, or services, except as set forth in an applicable
+ * agreement between you and Yupiik SAS.
+ */
+@import url(http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700,700italic|PT+Sans+Narrow:700|PT+Mono:400);
+
+/*! normalize.css v3.0.0 | MIT License | git.io/normalize */
+html {
+	font-family: sans-serif;
+	-ms-text-size-adjust: 100%;
+	-webkit-text-size-adjust: 100%;
+	box-sizing: border-box
+}
+
+.bespoke-slide figure,
+body {
+	margin: 0
+}
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+main,
+nav,
+section,
+summary {
+	display: block
+}
+
+audio,
+canvas,
+progress,
+video {
+	display: inline-block;
+	vertical-align: baseline
+}
+
+audio:not([controls]) {
+	display: none;
+	height: 0
+}
+
+[hidden],
+template {
+	display: none
+}
+
+a {
+	background: 0 0
+}
+
+a:active,
+a:hover {
+	outline: 0
+}
+
+abbr[title] {
+	border-bottom: 1px dotted
+}
+
+b,
+strong {
+	font-weight: 700
+}
+
+dfn {
+	font-style: italic
+}
+
+h1 {
+	font-size: 2em;
+	margin: .67em 0
+}
+
+mark {
+	background: #ff0;
+	color: #000
+}
+
+small {
+	font-size: 80%
+}
+
+sub,
+sup {
+	font-size: 75%;
+	line-height: 0;
+	position: relative;
+	vertical-align: baseline
+}
+
+sup {
+	top: -.5em
+}
+
+sub {
+	bottom: -.25em
+}
+
+img {
+	border: 0
+}
+
+svg:not(:root) {
+	overflow: hidden
+}
+
+figure {
+	margin: 1em 40px
+}
+
+hr {
+	box-sizing: content-box;
+	height: 0
+}
+
+pre {
+	overflow: auto
+}
+
+code,
+kbd,
+pre,
+samp {
+	font-family: monospace, monospace;
+	font-size: 1em
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+	color: inherit;
+	font: inherit;
+	margin: 0
+}
+
+button {
+	overflow: visible
+}
+
+button,
+select {
+	text-transform: none
+}
+
+button,
+html input[type=button],
+input[type=reset],
+input[type=submit] {
+	-webkit-appearance: button;
+	cursor: pointer
+}
+
+button[disabled],
+html input[disabled] {
+	cursor: default
+}
+
+button::-moz-focus-inner,
+input::-moz-focus-inner {
+	border: 0;
+	padding: 0
+}
+
+input {
+	line-height: normal
+}
+
+input[type=checkbox],
+input[type=radio] {
+	box-sizing: border-box;
+	padding: 0
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+	height: auto
+}
+
+input[type=search] {
+	-webkit-appearance: textfield;
+	box-sizing: content-box
+}
+
+input[type=search]::-webkit-search-cancel-button,
+input[type=search]::-webkit-search-decoration {
+	-webkit-appearance: none
+}
+
+fieldset {
+	border: 1px solid silver;
+	margin: 0 2px;
+	padding: .35em .625em .75em
+}
+
+legend {
+	border: 0
+}
+
+textarea {
+	overflow: auto
+}
+
+optgroup {
+	font-weight: 700
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0
+}
+
+legend,
+td,
+th {
+	padding: 0
+}
+
+*,
+::after,
+::before {
+	box-sizing: inherit
+}
+
+.deck {
+	counter-reset: slide;
+	font-family: "PT Sans", sans-serif;
+	font-size: 25px;
+	line-height: 2;
+	color: #000;
+	background-color: #000
+}
+
+.deck section:not(.bespoke-slide),
+.deck:not(.bespoke-parent) {
+	display: none
+}
+
+.bespoke-parent,
+.bespoke-scale-parent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0
+}
+
+.bespoke-parent {
+	overflow: hidden
+}
+
+.bespoke-scale-parent {
+	pointer-events: none;
+	width: 100vw
+}
+
+.bespoke-slide {
+	opacity: 0;
+	pointer-events: none;
+	background-color: #fff;
+	position: absolute;
+	width: 1024px;
+	margin-left: -512px;
+	left: 50%;
+	height: 640px;
+	margin-top: -320px;
+	top: 50%;
+	padding: 105px 120px
+}
+
+.bespoke-active {
+	pointer-events: auto;
+	opacity: 1
+}
+
+.bespoke-bullet {
+	opacity: 0;
+	pointer-events: none
+}
+
+.bespoke-bullet-active {
+	opacity: 1;
+	pointer-events: auto
+}
+
+.bespoke-slide h1,
+.bespoke-slide h2 {
+	font-family: "PT Sans Narrow", sans-serif;
+	font-size: 2em;
+	line-height: 1em;
+	color: #666;
+	margin: 0 0 37px
+}
+
+.bespoke-slide ol,
+.bespoke-slide p,
+.bespoke-slide ul {
+	margin: 0 0 2em
+}
+
+.bespoke-slide figcaption,
+.bespoke-slide li,
+.bespoke-slide p {
+	line-height: 2em
+}
+
+.bespoke-slide p.note {
+	color: #bbb
+}
+
+.bespoke-slide blockquote {
+	margin: 0;
+	font-style: italic
+}
+
+.bespoke-slide blockquote::before {
+	position: absolute;
+	margin: -16px 0 0 -80px;
+	color: #ccc;
+	font-size: 8em;
+	line-height: 1;
+	content: "\201c";
+	font-style: normal
+}
+
+.bespoke-slide figcaption {
+	margin: -2em 0 2em;
+	font-weight: 700;
+	font-style: italic
+}
+
+.bespoke-slide ol,
+.bespoke-slide ul {
+	padding: 0;
+	list-style: none
+}
+
+.bespoke-slide ol li,
+.bespoke-slide ul li {
+	text-indent: -2em
+}
+
+.bespoke-slide ol li::before,
+.bespoke-slide ul li::before {
+	display: inline-block;
+	width: 2em;
+	color: #bbb;
+	text-align: right
+}
+
+.bespoke-slide ol {
+	counter-reset: list
+}
+
+.bespoke-slide ol>li::before {
+	counter-increment: list;
+	content: counter(list) ".\00a0"
+}
+
+.bespoke-slide ul>li::before {
+	content: "\2022\00a0\00a0"
+}
+
+.bespoke-slide ol ol,
+.bespoke-slide ol ul,
+.bespoke-slide ul ol,
+.bespoke-slide ul ul {
+	margin: 0 0 0 2em
+}
+
+.bespoke-slide a {
+	color: #4b86c2;
+	text-decoration: none;
+	background: linear-gradient(to top, currentColor, currentColor .09em, rgba(255, 255, 255, 0) .09em, rgba(255, 255, 255, 0)) repeat-x
+}
+
+.bespoke-slide h2 a {
+	background: linear-gradient(to top, currentColor, currentColor .11em, rgba(255, 255, 255, 0) .11em, rgba(255, 255, 255, 0)) repeat-x
+}
+
+.bespoke-slide code,
+.bespoke-slide pre {
+	font-family: "PT Mono", monospace
+}
+
+.bespoke-slide :not(pre)>code,
+.bespoke-slide mark {
+	border-radius: 8px;
+	padding: 3px 8px
+}
+
+.bespoke-slide :not(pre)>code {
+	background-color: rgba(0, 0, 0, .07)
+}
+
+.bespoke-slide mark {
+	background-color: #fafaa2
+}
+
+.bespoke-slide pre {
+	margin: 0 0 2em;
+	counter-reset: code;
+	white-space: normal;
+	line-height: 2em
+}
+
+.bespoke-slide pre.screen {
+	white-space: pre
+}
+
+.bespoke-slide pre code {
+	display: block;
+	white-space: pre;
+	line-height: 1em
+}
+
+.bespoke-slide pre code::before {
+	position: absolute;
+	margin-left: -1em;
+	color: #bbb;
+	counter-increment: code;
+	content: counter(code, decimal-leading-zero) "."
+}
+
+.bespoke-slide pre mark.comment,
+.bespoke-slide pre span.comment {
+	color: #999;
+	background-color: transparent;
+	padding: 0
+}
+
+.bespoke-slide pre mark.important,
+.bespoke-slide pre span.important {
+	background-color: #c00;
+	color: #fff
+}
+
+.bespoke-slide pre span.important {
+	border-radius: 8px;
+	padding: 3px 8px
+}
+
+.bespoke-slide table {
+	margin: 0 0 2em;
+	width: 100%
+}
+
+.bespoke-slide table th {
+	text-align: left
+}
+
+.bespoke-slide table td,
+.bespoke-slide table th {
+	background: linear-gradient(to top, #bbb, #bbb .055em, rgba(255, 255, 255, 0) .055em, rgba(255, 255, 255, 0)) repeat-x;
+	line-height: 2em
+}
+
+.bespoke-slide table p.tableblock {
+	line-height: inherit;
+	margin: 0
+}
+
+.bespoke-slide::after {
+	position: absolute;
+	top: 0;
+	right: 119px;
+	padding: 1em 0 0;
+	width: 2.5em;
+	height: 4em;
+	color: #fff;
+	counter-increment: slide;
+	content: counter(slide);
+	text-align: center;
+	font-size: .8em;
+	background: url(../images/ribbon.svg) no-repeat;
+	box-sizing: content-box
+}
+
+.bespoke-slide.image::after,
+.bespoke-slide.shout::after {
+	visibility: hidden
+}
+
+.bespoke-slide.image a,
+.bespoke-slide.image h1,
+.bespoke-slide.image h2,
+.bespoke-slide.image p {
+	color: #fff
+}
+
+.bespoke-slide.title a,
+.bespoke-slide.title h1,
+.bespoke-slide.title p {
+	text-align: center
+}
+
+.bespoke-slide.title h1 {
+	margin: 30px 0 0;
+	font-size: 2.8em
+}
+
+.bespoke-slide.title p {
+	font-size: .8em;
+	line-height: 2em;
+	font-style: italic;
+	margin: .5em 0 0
+}
+
+.bespoke-slide.shout {
+	display: -ms-flexbox;
+	display: flex;
+	-ms-flex-direction: column;
+	flex-direction: column;
+	-ms-flex-pack: center;
+	justify-content: center;
+	-ms-flex-align: center;
+	align-items: center;
+	padding: 0
+}
+
+.bespoke-slide.shout h2 {
+	font-size: 6em;
+	text-align: center;
+	margin-left: 120px;
+	margin-right: 120px
+}
+
+.bespoke-slide.shout h2.fit {
+	margin: 0;
+	font-size: 4em
+}
+
+.bespoke-overview {
+	-ms-overflow-style: none;
+	background: #585a5e url(../images/linen-2x.png) 0% 0%/256px auto
+}
+
+.bespoke-overview::-webkit-scrollbar {
+	width: 0
+}
+
+.bespoke-overview .bespoke-slide {
+	box-shadow: 0 0 120px rgba(0, 0, 0, .005), 0 80px 200px rgba(42, 43, 45, .6)
+}
+
+.bespoke-overview .bespoke-slide:hover {
+	box-shadow: 0 0 0 40px rgba(42, 43, 45, .3), 0 80px 200px rgba(42, 43, 45, .6);
+	border-radius: 4px
+}
+
+.bespoke-overview .bespoke-active {
+	box-shadow: 0 0 0 4px #376da3, 0 0 0 40px #4b86c2, 0 80px 200px rgba(42, 43, 45, .6)!important;
+	outline: none;
+	border-radius: 4px
+}
+
+.bespoke-overview-counter .bespoke-slide::after {
+	top: 100%;
+	left: 10%;
+	width: auto;
+	height: auto;
+	color: #3c3d40;
+	font-weight: 700;
+	text-shadow: 0 2px 2px #8d8e90;
+	font-size: 1.6em;
+	transform: scale(2);
+	transform-origin: top left;
+	background: 0 0;
+	cursor: default;
+	visibility: visible;
+	text-align: left;
+	counter-increment: slide;
+	content: counter(slide)
+}
+
+.bespoke-overview-counter .bespoke-active::after {
+	color: #4b86c2;
+	text-shadow: 0 2px 2px rgba(42, 43, 45, .6)
+}
+
+.bespoke-overview .bespoke-title {
+	padding: 275px 300px 0;
+	pointer-events: auto
+}
+
+.bespoke-overview .bespoke-title h1 {
+	font-family: "PT Sans Narrow", sans-serif;
+	font-size: 6.5em;
+	line-height: 1em;
+	color: #3c3d40;
+	text-shadow: 0 .02em .02em #8d8e90;
+	text-align: left
+}
+
+.export .bespoke-bullet {
+	opacity: 1!important
+}
+
+@page {
+	size: 1024px 640px;
+	margin: 0
+}
+
+@media print {
+	.bespoke-parent,
+	.bespoke-scale-parent,
+	.bespoke-slide {
+		margin: unset;
+		position: relative;
+		top: unset;
+		right: unset;
+		bottom: unset;
+		left: unset
+	}
+	.bespoke-parent {
+		overflow: visible
+	}
+	.bespoke-scale-parent {
+		transform: unset!important
+	}
+	.bespoke-slide {
+		opacity: unset;
+		zoom: unset!important
+	}
+	.bespoke-bullet-inactive {
+		opacity: unset
+	}
+	.bespoke-title {
+		display: none
+	}
+}
