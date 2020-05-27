@@ -1,0 +1,244 @@
+#
+# Copyright (c) 2020 - Yupiik SAS - https://www.yupiik.com - All right reserved
+#
+# This software and related documentation are provided under a license agreement containing restrictions on use and
+# disclosure and are protected by intellectual property laws. Except as expressly permitted in your license agreement
+# or allowed by law, you may not use, copy, reproduce, translate, broadcast, modify, license, transmit, distribute,
+# exhibit, perform, publish, or display any part, in any form, or by any means. Reverse engineering, disassembly, or
+# decompilation of this software, unless required by law for interoperability, is prohibited.
+#
+# The information contained herein is subject to change without notice and is not warranted to be error-free. If you
+# find any errors, please report them to us in writing.
+#
+# This software is developed for general use in a variety of information management applications. It is not developed
+# or intended for use in any inherently dangerous applications, including applications that may create a risk of personal
+# injury. If you use this software or hardware in dangerous applications, then you shall be responsible to take all
+# appropriate fail-safe, backup, redundancy, and other measures to ensure its safe use. Yupiik SAS and its affiliates
+# disclaim any liability for any damages caused by use of this software or hardware in dangerous applications.
+#
+# Yupiik and Galaxy are registered trademarks of Yupiik SAS and/or its affiliates. Other names may be trademarks
+# of their respective owners.
+#
+# This software and documentation may provide access to or information about content, products, and services from third
+# parties. Yupiik SAS and its affiliates are not responsible for and expressly disclaim all warranties of any kind with
+# respect to third-party content, products, and services unless otherwise set forth in an applicable agreement between
+# you and Yupiik SAS. Yupiik SAS and its affiliates will not be responsible for any loss, costs, or damages incurred
+# due to your access to or use of third-party content, products, or services, except as set forth in an applicable
+# agreement between you and Yupiik SAS.
+#
+
+font:
+  catalog:
+    OpenSans:
+      normal: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/Regular/OpenSans-Regular.ttf
+      italic: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/Italic/OpenSans-Italic.ttf
+      bold: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/Bold/OpenSans-Bold.ttf
+      bold_italic: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/BoldItalic/OpenSans-BoldItalic.ttf
+    NotoSerif:
+      normal: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/notoserif-regular-subset.ttf
+      bold: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/notoserif-bold-subset.ttf
+      italic: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/notoserif-italic-subset.ttf
+      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/notoserif-bold_italic-subset.ttf
+    M+ 1mn:
+      normal: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/mplus1mn-regular-subset.ttf
+      bold: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/mplus1mn-bold-subset.ttf
+      italic: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/mplus1mn-italic-subset.ttf
+      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.5.0/data/fonts/mplus1mn-bold_italic-subset.ttf
+
+page:
+  background_color: #ffffff
+  layout: portrait
+  margin: [0.5in, 0.67in, 0.67in, 0.67in]
+  margin_inner: 0.75in
+  margin_outer: 0.59in
+  size: A4
+base:
+  align: justify
+  font_color: #424949
+  font_family: NotoSerif
+  font_size: 10
+  line_height_length: 15
+  line_height: $base_line_height_length / $base_font_size
+  font_size_large: round($base_font_size * 1.25)
+  font_size_small: round($base_font_size * 0.85)
+  font_size_min: $base_font_size * 0.75
+  font_style: normal
+  border_color: #cccccc
+  border_radius: 0
+  border_width: 0.5
+vertical_rhythm: $base_line_height_length
+horizontal_rhythm: $base_line_height_length
+vertical_spacing: $vertical_rhythm
+link:
+  font_color: #585ac2
+literal:
+  font_color: #585ac2
+  font_family: NotoSerif
+menu_caret_content: " <font size=\"1.15em\"><color rgb=\"b12146\">\u203a</color></font> "
+heading:
+  align: left
+  font_color: #0b4672
+  font_family: OpenSans
+  font_style: bold
+  text_transform: uppercase
+  h1_font_size: floor($base_font_size * 2.6)
+  h2_font_size: floor($base_font_size * 2.15)
+  h3_font_size: round($base_font_size * 1.7)
+  h4_font_size: $base_font_size_large
+  h5_font_size: $base_font_size
+  h6_font_size: $base_font_size_small
+  line_height: 1
+  margin_top: $vertical_rhythm * 0.4
+  margin_bottom: $vertical_rhythm * 0.9
+title_page:
+  background-color: #054470
+  font-color: #fff
+  align: right
+  logo:
+    top: 10%
+    align: right
+    image: image:logo.png[pdfwidth=35%,align=right]
+  title:
+    top: 55%
+    font_size: $heading_h1_font_size
+    font_family: $heading_font_family
+    font_style: bold
+    text_transform: uppercase
+    font_color: #fff
+    line_height: 0.9
+  subtitle:
+    font_size: $heading_h3_font_size
+    font_family: $heading_font_family
+    font_style: bold_italic
+    font_color: #fff
+    line_height: 1
+  authors:
+    margin_top: $base_font_size * 1.25
+    font_size: $base_font_size_large
+    font_color: #fff
+    font_family: $heading_font_family
+  revision:
+    margin_top: $base_font_size * 1.25
+block:
+  margin_top: 0
+  margin_bottom: $vertical_rhythm
+caption:
+  align: left
+  font_size: $base_font_size * 0.95
+  font_style: italic
+  margin_inside: $vertical_rhythm / 3
+  margin_outside: 0
+lead:
+  font_size: $base_font_size_large
+  line_height: 1.4
+abstract:
+  font_color: #5c6266
+  font_size: $lead_font_size
+  line_height: $lead_line_height
+  font_style: italic
+  first_line_font_style: bold
+  title:
+    align: center
+    font_color: $heading_font_color
+    font_family: $heading_font_family
+    font_size: $heading_h4_font_size
+    font_style: $heading_font_style
+admonition:
+  column_rule_color: $base_border_color
+  column_rule_width: $base_border_width
+  padding: [0, $horizontal_rhythm, 0, $horizontal_rhythm]
+  label:
+    text_transform: uppercase
+    font_style: bold
+blockquote:
+  font_color: $base_font_color
+  font_size: $base_font_size_large
+  border_color: $base_border_color
+  border_width: 5
+  padding: [0, $horizontal_rhythm, $block_margin_bottom * -0.75, $horizontal_rhythm + $blockquote_border_width / 2]
+  cite_font_size: $base_font_size_small
+  cite_font_color: #999999
+code:
+  font_color: #5c4cdb
+  font_family: $literal_font_family
+  font_size: ceil($base_font_size)
+  padding: $code_font_size
+  line_height: 1.25
+  line_gap: 3.8
+  background_color: #f5f5f5
+  border_color: #f5f5f5
+  border_radius: $base_border_radius
+  border_width: 0.75
+conum:
+  font_family: OpenSans
+  font_color: $literal_font_color
+  font_size: $base_font_size
+  line_height: 4 / 3
+example:
+  border_color: #f5f5f5
+  border_radius: $base_border_radius
+  border_width: 0.75
+  background_color: #f5f5f5
+  padding: [$vertical_rhythm, $horizontal_rhythm, 0, $horizontal_rhythm]
+image:
+  align: left
+prose:
+  margin_top: $block_margin_top
+  margin_bottom: $block_margin_bottom
+sidebar:
+  background_color: #eeeeee
+  border_color: #e1e1e1
+  border_radius: $base_border_radius
+  border_width: $base_border_width
+  padding: [$vertical_rhythm, $vertical_rhythm * 1.25, 0, $vertical_rhythm * 1.25]
+  title:
+    align: center
+    font_color: $heading_font_color
+    font_family: $heading_font_family
+    font_size: $heading_h4_font_size
+    font_style: $heading_font_style
+thematic_break:
+  border_color: $base_border_color
+  border_style: solid
+  border_width: $base_border_width
+  margin_top: $vertical_rhythm * 0.5
+  margin_bottom: $vertical_rhythm * 1.5
+description_list:
+  term_font_style: bold
+  term_spacing: $vertical_rhythm / 4
+  description_indent: $horizontal_rhythm * 1.25
+outline_list:
+  indent: $horizontal_rhythm * 1.5
+  item_spacing: $vertical_rhythm / 2
+table:
+  background_color: #ffffff
+  font_color: $base_font_color
+  head_font_color: $base_font_color
+  head_font_style: bold
+  body_stripe_background_color: #f9f9f9
+  foot_background_color: #f5f5f5
+  border_color: #dddddd
+  border_width: $base_border_width
+  cell_padding: 3
+toc:
+  indent: $horizontal_rhythm
+  line_height: 1.4
+  font_color: #007bff
+  dot_leader:
+    content: ". "
+    font_color: #153182
+footer:
+  font_size: $base_font_size_small
+  border_color: #dddddd
+  border_width: 0.25
+  height: $base_line_height_length * 2.5
+  line_height: 1
+  padding: [$base_line_height_length / 2, 1, 0, 1]
+  vertical_align: top
+  recto:
+    right:
+      content: '{document-title} - {section-or-chapter-title} - page {page-number}'
+  verso:
+    left:
+      content: $footer_recto_right_content
+

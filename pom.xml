@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2020 - Yupiik SAS - https://www.yupiik.com - All right reserved
+  ~
+  ~ This software and related documentation are provided under a license agreement containing restrictions on use and
+  ~ disclosure and are protected by intellectual property laws. Except as expressly permitted in your license agreement
+  ~ or allowed by law, you may not use, copy, reproduce, translate, broadcast, modify, license, transmit, distribute,
+  ~ exhibit, perform, publish, or display any part, in any form, or by any means. Reverse engineering, disassembly, or
+  ~ decompilation of this software, unless required by law for interoperability, is prohibited.
+  ~
+  ~ The information contained herein is subject to change without notice and is not warranted to be error-free. If you
+  ~ find any errors, please report them to us in writing.
+  ~
+  ~ This software is developed for general use in a variety of information management applications. It is not developed
+  ~ or intended for use in any inherently dangerous applications, including applications that may create a risk of personal
+  ~ injury. If you use this software or hardware in dangerous applications, then you shall be responsible to take all
+  ~ appropriate fail-safe, backup, redundancy, and other measures to ensure its safe use. Yupiik SAS and its affiliates
+  ~ disclaim any liability for any damages caused by use of this software or hardware in dangerous applications.
+  ~
+  ~ Yupiik and Galaxy are registered trademarks of Yupiik SAS and/or its affiliates. Other names may be trademarks
+  ~ of their respective owners.
+  ~
+  ~ This software and documentation may provide access to or information about content, products, and services from third
+  ~ parties. Yupiik SAS and its affiliates are not responsible for and expressly disclaim all warranties of any kind with
+  ~ respect to third-party content, products, and services unless otherwise set forth in an applicable agreement between
+  ~ you and Yupiik SAS. Yupiik SAS and its affiliates will not be responsible for any loss, costs, or damages incurred
+  ~ due to your access to or use of third-party content, products, or services, except as set forth in an applicable
+  ~ agreement between you and Yupiik SAS.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>maven-plugin</packaging>
+  <name>Yupiik Maven Plugin</name>
+  <description>Yupiik Maven Plugin</description>
+  <url>https://www.yupiik.com/</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <mvn.version>3.6.3</mvn.version>
+    <jruby.version>9.2.11.1</jruby.version>
+    <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.12</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.maven.plugin-tools</groupId>
+      <artifactId>maven-plugin-annotations</artifactId>
+      <version>3.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-plugin-api</artifactId>
+      <version>${mvn.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-core</artifactId>
+      <version>${mvn.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-revealjs</artifactId>
+      <version>${asciidoctor-revealjs.version}</version>
+      <type>gem</type>
+      <scope>provided</scope> <!-- we embed it -->
+      <exclusions>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>asciidoctor</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>thread_safe</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>rubygems</groupId>
+          <artifactId>concurrent-ruby</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj</artifactId>
+      <version>2.2.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jruby</groupId>
+          <artifactId>jruby</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj-diagram</artifactId>
+      <version>2.0.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jruby</groupId>
+      <artifactId>jruby</artifactId>
+      <version>${jruby.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj-pdf</artifactId>
+      <version>1.5.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.webjars.npm</groupId>
+      <artifactId>npm-font-open-sans</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.7.0-M1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <scm>
+    <connection>scm:git:https://github.com/yupiik/yupiik-tools-maven-plugin.git</connection>
+    <developerConnection>scm:git:https://github.com/yupiik/yupiik-tools-maven-plugin.git</developerConnection>
+    <url>https://github.com/yupiik/yupiik-tools-maven-plugin.git</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://github.com/yupiik/yupiik-tools-maven-plugin/blob/master/LICENSE</url>
+      <distribution>may be downloaded from the Maven repository</distribution>
+    </license>
+  </licenses>
+
+  <build>
+    <extensions>
+      <extension>
+        <groupId>org.torquebox.mojo</groupId>
+        <artifactId>mavengem-wagon</artifactId>
+        <version>1.0.3</version>
+      </extension>
+    </extensions>
+
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+          <execution> <!-- gem plugin is better but it supports jruby 1.7 (not 9.x) for java 11 -->
+            <id>install-gems</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
+                <argument>org.jruby.Main</argument>
+                <argument>-e</argument>
+                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
+                <argument>--</argument>
+                <argument>install</argument>
+                <argument>--ignore-dependencies</argument>
+                <argument>--no-document</argument>
+                <argument>--no-user-install</argument>
+                <argument>--no-verbose</argument>
+                <argument>${settings.localRepository}/rubygems/asciidoctor-revealjs/${asciidoctor-revealjs.version}/asciidoctor-revealjs-${asciidoctor-revealjs.version}.gem</argument>
+                <argument>--bindir</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</argument>
+              </arguments>
+              <environmentVariables>
+                <JARS_SKIP>true</JARS_SKIP>
+                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_HOME>
+              </environmentVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>mojo-descriptor</id>
+            <goals>
+              <goal>descriptor</goal>
+              <goal>helpmojo</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <goalPrefix>yupiik-tools</goalPrefix>
+          <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <source>11</source>
+          <target>11</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>3.0.0-M1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <skipIfEmpty>false</skipIfEmpty>
+          <excludes>
+            <exclude>**/.mkdir</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.6</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.6.8</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>ossrh</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M4</version>
+        <configuration>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.8.2</version>
+      </plugin>
+    </plugins>
+  </build>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>3.6.0</version>
+      </plugin>
+    </plugins>
+  </reporting>
+
+  <repositories>
+    <repository>
+      <id>mavengems</id>
+      <url>mavengem:http://rubygems.org</url>
+    </repository>
+  </repositories>
+</project>

@@ -1,0 +1,71 @@
+= Yupiik Tools Maven Plugin
+
+A set of goals at Yupiik colors.
+
+Plugin definition:
+
+[source,xml]
+----
+<plugin>
+  <groupId>com.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>${yupiik-tools.version}</version>
+</plugin>
+----
+
+== Goals
+
+=== PDF
+
+Render an asciidoctor file in PDF.
+
+Simplest setup is to define the plugin and create a file `src/main/pdf/index.adoc`, then simply render it with:
+
+[source,sh]
+----
+ mvn yupiik-tools:pdf
+----
+
+==== Configuration
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Default|Property|Description
+|attributes|Map|-|-|Custom attributes.
+|customCss|File|-|yupiik.slides.customCss|Custom css if needed, overrides default one.
+|mode|Mode|DEFAULT|yupiik.slides.mode|Which execution mode to use, WATCH and SERVE are for dev purposes.
+|port|int|4200|yupiik.slides.serve.port|For SERVE mode, which port to bind.
+|source|File|${project.basedir}/src/main/slides/index.adoc|yupiik.slides.source|Slide deck source file.
+|targetDirectory|File|${project.build.directory}/yupiik/slides|yupiik.slides.target|Where to render the slide deck.
+|workDir|File|${project.build.directory}/yupiik-workdir|yupiik.workDir|Where to extract files needed for the rendering.
+|====
+
+=== Slides
+
+Render an asciidoctor reveal.js slide deck in HTML.
+
+Simplest setup is to define the plugin and create a file `src/main/slides/index.adoc`, then simply render it with:
+
+[source,sh]
+----
+ mvn yupiik-tools:slides
+----
+
+You can also pass in HTTP mode with:
+
+[source,sh]
+----
+ mvn yupiik-tools:serve-slides
+----
+
+==== Configuration
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Default|Property|Description
+|attributes|Map|-|-|Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
+|<sourceDirectory|File|${project.basedir}/src/main/pdf|yupiik.pdf.source|Source directory or file to render, if a directory all files with extension .adoc will be selected.
+|targetDirectory|File|${project.build.directory}/yupiik/pdf|yupiik.pdf.target|Where to render the asciidoc files to.
+|themeDir|File|-|yupiik.pdf.themeDir|Theme directory (name of the theme is yupiik), let it null to inherit from the default theme.
+|workDir|File|${project.build.directory}/yupiik-workdir|yupiik.workDir|Where to extract files needed for the rendering.
+|====
