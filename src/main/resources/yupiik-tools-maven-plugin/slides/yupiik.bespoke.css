@@ -660,3 +660,23 @@ th {
 		display: none
 	}
 }
+
+
+footer > p.author > span  {
+    display: block;
+}
+footer > p.author > img  {
+    height: 150px;
+}
+footer > p.author > span.contact > span {
+    display: block;
+}
+
+.bespoke-slide p {
+    line-height: 2em;
+    margin: 0;
+}
+
+.center {
+    text-align: center;
+}

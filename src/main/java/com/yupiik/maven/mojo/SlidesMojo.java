@@ -52,6 +52,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -253,7 +254,7 @@ public class SlidesMojo extends BaseMojo {
             final var target = targetDirectory.toPath().resolve(relative);
             try {
                 mkdirs(target.getParent());
-                Files.copy(jsSrc, target);
+                Files.copy(jsSrc, target, StandardCopyOption.REPLACE_EXISTING);
             } catch (final MojoExecutionException | IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -276,6 +277,8 @@ public class SlidesMojo extends BaseMojo {
                         .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3")
                         .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css")
                         .attribute("customcss", findCss())
+                        .attribute("partialsdir", source.toPath().getParent().resolve("_partials").toAbsolutePath().normalize().toString())
+                        .attribute("imagesdir", source.toPath().getParent().resolve("images").toAbsolutePath().normalize().toString())
                         .attributes(attributes == null ? emptyMap() : attributes)))
                 .get();
     }
@@ -292,7 +295,7 @@ public class SlidesMojo extends BaseMojo {
         final var target = targetDirectory.toPath().resolve(relative);
         try {
             mkdirs(target.getParent());
-            Files.copy(cssSource, target);
+            Files.copy(cssSource, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (final MojoExecutionException | IOException e) {
             throw new IllegalStateException(e);
         }

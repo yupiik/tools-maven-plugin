@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 import java.util.jar.JarFile;
 
@@ -93,7 +94,7 @@ public abstract class BaseMojo extends AbstractMojo {
                             throw new IllegalStateException(mojoExecutionException);
                         }
                         try (final InputStream in = file.getInputStream(e)) {
-                            Files.copy(in, target);
+                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
                         } catch (final IOException ex) {
                             throw new IllegalStateException(ex.getMessage(), ex);
                         }
