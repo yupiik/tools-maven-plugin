@@ -816,3 +816,13 @@ figure {
 figure > blockquote > p {
     padding-top: 0.2em;
 }
+
+.small {
+    font-size: small;
+}
+.large {
+    font-size: large;
+}
+.medium {
+    font-size: medium;
+}
