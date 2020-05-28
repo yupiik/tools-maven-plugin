@@ -32,7 +32,7 @@
   bespoke.plugins.nav(),
   bespoke.plugins.fullscreen(),
   bespoke.plugins.scale('transform'),
-  bespoke.plugins.overview({ margin: 300, autostart: true, title: true, numbers: true }),
+  bespoke.plugins.overview({ margin: 300, autostart: false, title: true, numbers: true }),
   bespoke.plugins.bullets('.build,.build-items>*:not(.build-items)'),
   bespoke.plugins.title(),
   bespoke.plugins.hash(),
