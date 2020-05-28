@@ -483,6 +483,13 @@ span.icon {
 
 /* color */
 
+.primary {
+    .color: #00366f;
+}
+.secondary {
+    color: #0075ba;
+}
+
 .amber,
 .hover-amber:hover {
 	color: #000!important;
