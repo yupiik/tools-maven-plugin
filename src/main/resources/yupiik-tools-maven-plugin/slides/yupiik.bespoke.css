@@ -220,14 +220,6 @@
 	line-height: 1em
 }
 
-.bespoke-slide pre code::before {
-	position: absolute;
-	margin-left: -1em;
-	color: #bbb;
-	counter-increment: code;
-	content: counter(code, decimal-leading-zero) "."
-}
-
 .bespoke-slide pre mark.comment,
 .bespoke-slide pre span.comment {
 	color: #999;
