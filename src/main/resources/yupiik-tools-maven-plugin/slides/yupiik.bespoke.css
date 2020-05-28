@@ -844,3 +844,6 @@ figure > blockquote > p {
 .w100 > img {
     width: 100%;
 }
+.reset-margin-inline-start {
+    margin-inline-start: 0;
+}
