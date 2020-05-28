@@ -840,3 +840,7 @@ figure > blockquote > p {
 .w100 {
     width: 100%;
 }
+
+.w100 > img {
+    width: 100%;
+}
