@@ -812,6 +812,7 @@ span.icon {
 
 figure {
     margin-block-start: 0;
+    margin-block-end: 0;
 }
 figure > blockquote > p {
     padding-top: 0.2em;
@@ -822,6 +823,12 @@ figure > blockquote > p {
 }
 .large {
     font-size: large;
+}
+.larger {
+    font-size: larger;
+}
+.x-large {
+    font-size: x-large;
 }
 .medium {
     font-size: medium;
