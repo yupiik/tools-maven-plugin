@@ -809,3 +809,7 @@ span.icon {
 .hover-text-dark-gray:hover {
 	color: #3a3a3a!important
 }
+
+figure {
+    margin: 0;
+}
