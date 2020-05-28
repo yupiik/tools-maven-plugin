@@ -833,3 +833,6 @@ figure > blockquote > p {
 .medium {
     font-size: medium;
 }
+.padding-top {
+    padding-top: 1em !important;
+}
