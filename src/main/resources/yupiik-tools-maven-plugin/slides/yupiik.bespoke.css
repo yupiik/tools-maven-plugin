@@ -150,7 +150,7 @@
 .bespoke-slide ul li::before {
 	display: inline-block;
 	width: 2em;
-	color: #bbb;
+	color: #0075ba;
 	text-align: right
 }
 
@@ -460,7 +460,7 @@ footer>p.author>span.contact>span {
 
 .bespoke-slide {
 	color: #444;
-	padding: 75px 100px;
+	padding: 75px 68px;
 	background-size: cover;
 	background-image: url('../img/background.bespoke.svg');
 }
@@ -472,7 +472,7 @@ footer>p.author>span.contact>span {
 }
 
 .bespoke-slide>h2:first-child {
-	margin-left: 10px;
+	margin-left: 38px;
 	margin-top: -58px;
 	margin-bottom: 24px;
 }
