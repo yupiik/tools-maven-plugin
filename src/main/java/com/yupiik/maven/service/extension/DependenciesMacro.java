@@ -66,7 +66,6 @@ public class DependenciesMacro extends BlockProcessor {
         if (project == null) {
             throw new IllegalArgumentException("Can't use " + getClass().getAnnotation(Name.class).value() + " since there is no project attached");
         }
-        // todo: enrich the expression there
         project.setArtifactFilter(createFilter(
                 ofNullable(attributes.get("scope")).map(String::valueOf).orElse("compile"),
                 ofNullable(attributes.get("groupId")).map(String::valueOf).orElse(null)));

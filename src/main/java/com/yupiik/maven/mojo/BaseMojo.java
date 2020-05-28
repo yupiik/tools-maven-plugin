@@ -65,7 +65,7 @@ public abstract class BaseMojo extends AbstractMojo {
 
     @Getter
     @Parameter(readonly = true, defaultValue = "${project}")
-    private MavenProject project;
+    protected MavenProject project;
 
     @Override
     public final void execute() throws MojoExecutionException {

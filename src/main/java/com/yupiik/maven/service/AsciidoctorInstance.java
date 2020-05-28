@@ -30,6 +30,7 @@ package com.yupiik.maven.service;
 
 import com.yupiik.maven.mojo.BaseMojo;
 import com.yupiik.maven.service.extension.DependenciesMacro;
+import com.yupiik.maven.service.extension.XsltMacro;
 import org.apache.maven.plugin.logging.Log;
 import org.asciidoctor.Asciidoctor;
 import org.asciidoctor.extension.JavaExtensionRegistry;
@@ -106,6 +107,7 @@ public class AsciidoctorInstance {
 
     private void registerExtensions(final JavaExtensionRegistry registry) {
         registry.block(new DependenciesMacro(mojo::get));
+        registry.block(new XsltMacro(mojo::get));
     }
 
     @PreDestroy
