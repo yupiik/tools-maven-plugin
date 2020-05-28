@@ -122,7 +122,7 @@
 .bespoke-slide blockquote::before {
 	position: absolute;
 	margin: -16px 0 0 -80px;
-	color: #ccc;
+	color: #0075ba;
 	font-size: 8em;
 	line-height: 1;
 	content: "\201c";
@@ -812,4 +812,7 @@ span.icon {
 
 figure {
     margin-block-start: 0;
+}
+figure > blockquote > p {
+    padding-top: 0.2em;
 }
