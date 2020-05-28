@@ -101,7 +101,7 @@
 .bespoke-slide ol,
 .bespoke-slide p,
 .bespoke-slide ul {
-	margin: 0 0 2em
+	margin: 0 0 0;
 }
 
 .bespoke-slide figcaption,
