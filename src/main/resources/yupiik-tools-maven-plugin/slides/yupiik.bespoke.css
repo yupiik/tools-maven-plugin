@@ -462,13 +462,13 @@ footer>p.author>span.contact>span {
 	color: #444;
 	padding: 75px 100px;
 	background-size: cover;
-	background-image: url('../img/background.bespoke.png');
+	background-image: url('../img/background.bespoke.svg');
 }
 
 .bespoke-slide.title {
 	padding: 75px 100px;
 	background-size: cover;
-	background-image: url('../img/title.bespoke.png');
+	background-image: url('../img/title.bespoke.svg');
 }
 
 .bespoke-slide>h2:first-child {

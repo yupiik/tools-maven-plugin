@@ -168,6 +168,15 @@ public class SlidesMojo extends BaseMojo {
                 if (name.endsWith(".js")) {
                     return "application/javascript";
                 }
+                if (name.endsWith(".svg")) {
+                    return "image/svg+xml";
+                }
+                if (name.endsWith(".png")) {
+                    return "image/png";
+                }
+                if (name.endsWith(".jpg")) {
+                    return "image/jpg";
+                }
                 return "application/octect-stream";
             }
 
@@ -264,7 +273,7 @@ public class SlidesMojo extends BaseMojo {
         // ensure images are copied
         Stream.of("background", "title").forEach(it -> {
             final var imgSrc = workDir.toPath().resolve(
-                    "slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".png").normalize();
+                    "slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".svg").normalize();
             if (Files.exists(imgSrc)) {
                 final var relative = "img/" + imgSrc.getFileName();
                 final var target = targetDirectory.toPath().resolve(relative);
