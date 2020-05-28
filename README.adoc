@@ -71,6 +71,63 @@ You can also pass in HTTP mode with:
 |slider|Slider|BESPOKE|yupiik.slides.slidere|Which renderer to use for slides, reveal.js or bespoke.js.
 |====
 
+=== Audit
+
+Audit mojo uses the fact the plugins are "Maven aware" to generate an audit report inheriting from PDF mojo.
+It uses the same configuration but works on a reactor.
+
+TIP: it is recommended to set `source` relative to multiple module dir and not project basedir since this one can be random.
+
+Here is a sample execution from the CLI:
+
+[source,sh]
+----
+$ mvn com.yupiik.maven:yupiik-tools-maven-plugin:${plugin.version}:audit \
+    -Dyupiik.pdf.source=$PWD/report.adoc \
+    -Dyupiik.pdf.target=/tmp/report
+[...]
+mvn com.yupiik.maven:yupiik-tools-maven-plugin:1.0.0-SNAPSHOT:audit -Dyupiik.pdf.source=report.adoc -Dyupiik.pdf.target=/tmp/report.pdf
+[INFO] --- yupiik-tools-maven-plugin:1.0.0-SNAPSHOT:audit (default-cli) @ my-module ---
+[INFO] Generating audit report
+[INFO] Rendered 'report.adoc'
+----
+
+A more complete example to skip a module, skip some plugins and ensure dependencies are available can be:
+
+[source,sh]
+----
+ mvn \
+    compile -Dcompiler.skip=true  \ <1>
+    com.yupiik.maven:yupiik-tools-maven-plugin:${plugin.version}:audit \ <2>
+    -Dyupiik.pdf.source=$PWD/report.adoc -Dyupiik.pdf.target=/tmp/report \
+    -Dlicense.skip=true -Dfront.build.skip=true \ <3>
+    -pl -documentation <4>
+----
+
+<1> go through compile phase (skipping it) to ensure compile dependencies are resolved,
+<2> our audit plugin *after* the resolution plugins,
+<3> skip license and front plugins (depends your plugins),
+<4> skip documentation module.
+
+Report will be in `/tmp/report/report.pdf`.
+
+NOTE: report does not have to be in the project ;).
+
+Here is a sample report:
+
+[listing]
+....
+= Report
+
+== Dependencies
+
+[maven_dependencies,scope=compile_only,aggregated=true] <1>
+--
+--
+....
+
+<1> the `aggregated=true` enables to generate a single report for all the reactor at once.
+
 == Maven Asciidoctor Macro
 
 The project adds asciidoc macros to get back some maven build information.
@@ -85,8 +142,8 @@ Enables to list the project dependencies.
 [listing]
 ....
 [maven_dependencies,scope=compile]
-----
-----
+--
+--
 ....
 
 Scope can be:

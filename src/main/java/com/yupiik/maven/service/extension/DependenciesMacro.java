@@ -33,9 +33,9 @@ import lombok.RequiredArgsConstructor;
 import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
+import org.apache.maven.project.MavenProject;
 import org.asciidoctor.ast.ContentModel;
 import org.asciidoctor.ast.StructuralNode;
-import org.asciidoctor.extension.BlockProcessor;
 import org.asciidoctor.extension.Contexts;
 import org.asciidoctor.extension.Name;
 import org.asciidoctor.extension.Reader;
@@ -48,33 +48,65 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @RequiredArgsConstructor
 @Name("maven_dependencies")
 @Contexts(Contexts.OPEN)
-@ContentModel(ContentModel.COMPOUND)
-public class DependenciesMacro extends BlockProcessor {
+@ContentModel(ContentModel.ATTRIBUTES)
+public class DependenciesMacro extends BaseBlockProcessor {
     private final Supplier<BaseMojo> mojoSupplier;
 
     @Override
     public Object process(final StructuralNode parent, final Reader reader, final Map<String, Object> attributes) {
-        final var project = mojoSupplier.get().getProject();
+        final var mojo = mojoSupplier.get();
+        final var project = mojo.getProject();
         if (project == null) {
             throw new IllegalArgumentException("Can't use " + getClass().getAnnotation(Name.class).value() + " since there is no project attached");
         }
-        project.setArtifactFilter(createFilter(
+
+        final var filter = createFilter(
                 ofNullable(attributes.get("scope")).map(String::valueOf).orElse("compile"),
-                ofNullable(attributes.get("groupId")).map(String::valueOf).orElse(null)));
-        return createBlock(
-                parent, "open",
-                project.getArtifacts().stream()
-                        .map(a -> "- " + a.getGroupId() + ":" + a.getArtifactId() + ":" + a.getBaseVersion())
-                        .sorted()
-                        .collect(joining("\n")));
+                ofNullable(attributes.get("groupId")).map(String::valueOf).orElse(null));
+
+        if (isAggregated(attributes, mojo)) {
+            final var reactorProjects = getReactor(mojo);
+            if (reactorProjects != null) {
+                final boolean keepPoms = Boolean.parseBoolean(String.valueOf(attributes.get("aggregationKeepPoms")));
+                final boolean sectNums = parent.getDocument().hasAttribute("sectnums");
+                final var rootSectionLevel = parent.getLevel() + 1;
+                final var rootSection = createSection(parent, rootSectionLevel, sectNums, emptyMap());
+                rootSection.setTitle("Dependencies");
+                reactorProjects.stream()
+                        .filter(it -> !"pom".endsWith(it.getPackaging()) || keepPoms)
+                        .forEach(p -> {
+                            final var section = createSection(parent, rootSectionLevel + 1, sectNums, emptyMap());
+                            section.setTitle("Dependencies for " + p.getId());
+                            appendArtifactsBlock(section, p, filter);
+                            rootSection.append(section);
+                        });
+                parent.append(rootSection);
+                return null; // we can't return a section so we use append instead
+            }
+        }
+
+        appendArtifactsBlock(parent, project, filter);
+        return null;
+    }
+
+    private void appendArtifactsBlock(final StructuralNode parent, final MavenProject project, final ArtifactFilter filter) {
+        parseContent(parent, listArtifacts(project, filter));
+    }
+
+    private List<String> listArtifacts(final MavenProject project, final ArtifactFilter filter) {
+        project.setArtifactFilter(filter);
+        return project.getArtifacts().stream()
+                .map(a -> "- " + a.getGroupId() + ":" + a.getArtifactId() + ":" + a.getBaseVersion())
+                .sorted()
+                .collect(toList());
     }
 
     private ArtifactFilter createFilter(final String scope, final String groupId) {
@@ -91,7 +123,7 @@ public class DependenciesMacro extends BlockProcessor {
                 .collect(toList());
     }
 
-    private ArtifactFilter createScopeFilter(String scope) {
+    private ArtifactFilter createScopeFilter(final String scope) {
         switch (scope) {
             case "compile":
             case "runtime":
@@ -101,6 +133,8 @@ public class DependenciesMacro extends BlockProcessor {
                 return new ScopeArtifactFilter(scope);
             case "test_only":
                 return artifact -> "test".equals(artifact.getScope());
+            case "compile_only":
+                return artifact -> "compile".equals(artifact.getScope());
             case "runtime_only":
                 return artifact -> "runtime".equals(artifact.getScope());
             case "system_only":
