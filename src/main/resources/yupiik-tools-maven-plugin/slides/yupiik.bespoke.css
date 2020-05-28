@@ -470,3 +470,6 @@ footer > p.author > span.contact > span {
     margin-top: -58px;
     margin-bottom: 24px;
 }
+span.icon {
+    text-indent: 0;
+}
