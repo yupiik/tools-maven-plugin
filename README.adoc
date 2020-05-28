@@ -70,3 +70,36 @@ You can also pass in HTTP mode with:
 |workDir|File|${project.build.directory}/yupiik-workdir|yupiik.workDir|Where to extract files needed for the rendering.
 |slider|Slider|BESPOKE|yupiik.slides.slidere|Which renderer to use for slides, reveal.js or bespoke.js.
 |====
+
+== Maven Asciidoctor Macro
+
+The project adds asciidoc macros to get back some maven build information.
+Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
+
+=== maven_dependencies
+
+Enables to list the project dependencies.
+
+==== Usage
+
+[listing]
+....
+[maven_dependencies,scope=compile]
+----
+----
+....
+
+Scope can be:
+
+- compile
+- runtime
+- compile+runtime
+- runtime+system
+- test
+- provided_only
+- compile_only
+- test_only
+- system_only
+- runtime_only
+
+The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.

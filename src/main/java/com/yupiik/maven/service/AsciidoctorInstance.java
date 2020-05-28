@@ -29,8 +29,10 @@
 package com.yupiik.maven.service;
 
 import com.yupiik.maven.mojo.BaseMojo;
+import com.yupiik.maven.service.extension.DependenciesMacro;
 import org.apache.maven.plugin.logging.Log;
 import org.asciidoctor.Asciidoctor;
+import org.asciidoctor.extension.JavaExtensionRegistry;
 import org.asciidoctor.jruby.internal.JRubyAsciidoctor;
 
 import javax.annotation.PreDestroy;
@@ -49,15 +51,18 @@ import java.util.logging.Logger;
 public class AsciidoctorInstance {
     // for concurrent builds
     private final Queue<Asciidoctor> instances = new ConcurrentLinkedQueue<>();
+    private final ThreadLocal<BaseMojo> mojo = new ThreadLocal<>();
 
     public <T> T withAsciidoc(final BaseMojo base, final Function<Asciidoctor, T> task) {
         var poll = instances.poll();
         if (poll == null) {
             poll = newInstance(base.getLog(), base.getWorkDir().toPath().resolve("slides/gem"));
         }
+        mojo.set(base);
         try {
             return task.apply(poll);
         } finally {
+            mojo.remove();
             instances.add(poll);
         }
     }
@@ -65,6 +70,7 @@ public class AsciidoctorInstance {
     private Asciidoctor newInstance(final Log log, final Path path) {
         final var asciidoctor = JRubyAsciidoctor.create(path.toString());
         Logger.getLogger("asciidoctor").setUseParentHandlers(false);
+        registerExtensions(asciidoctor.javaExtensionRegistry());
         asciidoctor.registerLogHandler(logRecord -> {
             switch (logRecord.getSeverity()) {
                 case UNKNOWN:
@@ -96,6 +102,10 @@ public class AsciidoctorInstance {
             throw new IllegalStateException(e);
         }
         return asciidoctor;
+    }
+
+    private void registerExtensions(final JavaExtensionRegistry registry) {
+        registry.block(new DependenciesMacro(mojo::get));
     }
 
     @PreDestroy

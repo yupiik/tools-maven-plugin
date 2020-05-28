@@ -28,231 +28,6 @@
  */
 @import url(http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700,700italic|PT+Sans+Narrow:700|PT+Mono:400);
 
-/*! normalize.css v3.0.0 | MIT License | git.io/normalize */
-html {
-	font-family: sans-serif;
-	-ms-text-size-adjust: 100%;
-	-webkit-text-size-adjust: 100%;
-	box-sizing: border-box
-}
-
-.bespoke-slide figure,
-body {
-	margin: 0
-}
-
-article,
-aside,
-details,
-figcaption,
-figure,
-footer,
-header,
-hgroup,
-main,
-nav,
-section,
-summary {
-	display: block
-}
-
-audio,
-canvas,
-progress,
-video {
-	display: inline-block;
-	vertical-align: baseline
-}
-
-audio:not([controls]) {
-	display: none;
-	height: 0
-}
-
-[hidden],
-template {
-	display: none
-}
-
-a {
-	background: 0 0
-}
-
-a:active,
-a:hover {
-	outline: 0
-}
-
-abbr[title] {
-	border-bottom: 1px dotted
-}
-
-b,
-strong {
-	font-weight: 700
-}
-
-dfn {
-	font-style: italic
-}
-
-h1 {
-	font-size: 2em;
-	margin: .67em 0
-}
-
-mark {
-	background: #ff0;
-	color: #000
-}
-
-small {
-	font-size: 80%
-}
-
-sub,
-sup {
-	font-size: 75%;
-	line-height: 0;
-	position: relative;
-	vertical-align: baseline
-}
-
-sup {
-	top: -.5em
-}
-
-sub {
-	bottom: -.25em
-}
-
-img {
-	border: 0
-}
-
-svg:not(:root) {
-	overflow: hidden
-}
-
-figure {
-	margin: 1em 40px
-}
-
-hr {
-	box-sizing: content-box;
-	height: 0
-}
-
-pre {
-	overflow: auto
-}
-
-code,
-kbd,
-pre,
-samp {
-	font-family: monospace, monospace;
-	font-size: 1em
-}
-
-button,
-input,
-optgroup,
-select,
-textarea {
-	color: inherit;
-	font: inherit;
-	margin: 0
-}
-
-button {
-	overflow: visible
-}
-
-button,
-select {
-	text-transform: none
-}
-
-button,
-html input[type=button],
-input[type=reset],
-input[type=submit] {
-	-webkit-appearance: button;
-	cursor: pointer
-}
-
-button[disabled],
-html input[disabled] {
-	cursor: default
-}
-
-button::-moz-focus-inner,
-input::-moz-focus-inner {
-	border: 0;
-	padding: 0
-}
-
-input {
-	line-height: normal
-}
-
-input[type=checkbox],
-input[type=radio] {
-	box-sizing: border-box;
-	padding: 0
-}
-
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-	height: auto
-}
-
-input[type=search] {
-	-webkit-appearance: textfield;
-	box-sizing: content-box
-}
-
-input[type=search]::-webkit-search-cancel-button,
-input[type=search]::-webkit-search-decoration {
-	-webkit-appearance: none
-}
-
-fieldset {
-	border: 1px solid silver;
-	margin: 0 2px;
-	padding: .35em .625em .75em
-}
-
-legend {
-	border: 0
-}
-
-textarea {
-	overflow: auto
-}
-
-optgroup {
-	font-weight: 700
-}
-
-table {
-	border-collapse: collapse;
-	border-spacing: 0
-}
-
-legend,
-td,
-th {
-	padding: 0
-}
-
-*,
-::after,
-::before {
-	box-sizing: inherit
-}
-
 .deck {
 	counter-reset: slide;
 	font-family: "PT Sans", sans-serif;
@@ -491,22 +266,6 @@ th {
 	margin: 0
 }
 
-.bespoke-slide::after {
-	position: absolute;
-	top: 0;
-	right: 119px;
-	padding: 1em 0 0;
-	width: 2.5em;
-	height: 4em;
-	color: #fff;
-	counter-increment: slide;
-	content: counter(slide);
-	text-align: center;
-	font-size: .8em;
-	background: url(../images/ribbon.svg) no-repeat;
-	box-sizing: content-box
-}
-
 .bespoke-slide.image::after,
 .bespoke-slide.shout::after {
 	visibility: hidden
@@ -559,11 +318,6 @@ th {
 .bespoke-slide.shout h2.fit {
 	margin: 0;
 	font-size: 4em
-}
-
-.bespoke-overview {
-	-ms-overflow-style: none;
-	background: #585a5e url(../images/linen-2x.png) 0% 0%/256px auto
 }
 
 .bespoke-overview::-webkit-scrollbar {
@@ -661,6 +415,18 @@ th {
 	}
 }
 
+html {
+	font-family: sans-serif;
+	-ms-text-size-adjust: 100%;
+	-webkit-text-size-adjust: 100%;
+	box-sizing: border-box
+}
+
+*,
+::after,
+::before {
+	box-sizing: inherit
+}
 
 footer > p.author > span  {
     display: block;
@@ -679,4 +445,28 @@ footer > p.author > span.contact > span {
 
 .center {
     text-align: center;
+}
+
+.bespoke-slide h1 {
+    color: #00366f;
+}
+.bespoke-slide h2 {
+    color: #0075ba;
+    text-align: initial;
+}
+.bespoke-slide {
+    color: #444;
+    padding: 75px 100px;
+    background-size: cover;
+    background-image: url('../img/background.bespoke.png');
+}
+.bespoke-slide.title {
+    padding: 75px 100px;
+    background-size: cover;
+    background-image: url('../img/title.bespoke.png');
+}
+.bespoke-slide > h2:first-child {
+    margin-left: 10px;
+    margin-top: -58px;
+    margin-bottom: 24px;
 }

@@ -37,6 +37,7 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.RepositorySystem;
 
 import java.io.File;
@@ -61,6 +62,10 @@ public abstract class BaseMojo extends AbstractMojo {
     @Setter
     @Parameter(property = "yupiik.workDir", defaultValue = "${project.build.directory}/yupiik-workdir")
     protected File workDir;
+
+    @Getter
+    @Parameter(readonly = true, defaultValue = "${project}")
+    private MavenProject project;
 
     @Override
     public final void execute() throws MojoExecutionException {

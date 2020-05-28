@@ -55,6 +55,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static java.lang.Thread.sleep;
 import static java.util.Collections.emptyMap;
@@ -260,6 +261,23 @@ public class SlidesMojo extends BaseMojo {
             }
         }
 
+        // ensure images are copied
+        Stream.of("background", "title").forEach(it -> {
+            final var imgSrc = workDir.toPath().resolve(
+                    "slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".png").normalize();
+            if (Files.exists(imgSrc)) {
+                final var relative = "img/" + imgSrc.getFileName();
+                final var target = targetDirectory.toPath().resolve(relative);
+                try {
+                    mkdirs(target.getParent());
+                    Files.copy(imgSrc, target, StandardCopyOption.REPLACE_EXISTING);
+                } catch (final MojoExecutionException | IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        });
+
+        // finally create the options now the target folder is ready
         return OptionsBuilder.options()
                 .safe(SafeMode.UNSAFE)
                 .backend(slider.name().toLowerCase(ROOT))
@@ -344,7 +362,9 @@ public class SlidesMojo extends BaseMojo {
                                             "<script src=\"js/yupiik.bespoke.js\"></script>\n")
                             .replace(
                                     "<link rel=\"stylesheet\" href=\"build/build.css\">",
-                                    "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
+                                    "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" " +
+                                            "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
+                                            "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
                                             "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css\" " +
                                             "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n"));
                 } catch (final IOException e) {
