@@ -467,6 +467,13 @@ footer>p.author>span.contact>span {
 	margin-top: -58px;
 	margin-bottom: 24px;
 }
+/*fake h1 if slide has class title*/
+.bespoke-slide.title>h2:first-child {
+    color: #00366f;
+    margin: 0 0 37px;
+	font-size: 2.8em;
+	text-align: center;
+}
 
 span.icon {
 	text-indent: 0;
