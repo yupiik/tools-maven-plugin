@@ -846,3 +846,14 @@ figure > blockquote > p {
 .reset-margin-inline-start {
     margin-inline-start: 0;
 }
+
+.margin-05 {
+    margin-top: -0.5em;
+}
+.margin-1 {
+    margin-top: -1em;
+}
+
+.margin-035 {
+    margin-top: -0.35em;
+}
