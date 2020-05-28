@@ -483,10 +483,10 @@ span.icon {
 
 /* color */
 
-.primary {
+.primary, .fa-primary {
     .color: #00366f;
 }
-.secondary {
+.secondary, .fa-secondary {
     color: #0075ba;
 }
 
