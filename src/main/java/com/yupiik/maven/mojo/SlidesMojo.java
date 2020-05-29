@@ -60,12 +60,17 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ROOT;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Setter
 @Mojo(name = "slides")
@@ -217,29 +222,53 @@ public class SlidesMojo extends BaseMojo {
 
     private void watch(final Options options, final Asciidoctor adoc) {
         final AtomicBoolean toggle = new AtomicBoolean(true);
-        final Thread thread = new Thread(() -> {
-            long lastModified = source.lastModified();
-            while (toggle.get()) {
-                final long newLastModified = source.lastModified();
-                if (lastModified != newLastModified) {
-                    lastModified = newLastModified;
-                    render(options, adoc);
-                }
-                try {
-                    sleep(350);
-                } catch (final InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+        final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(final Runnable worker) {
+                return new Thread(worker, getClass().getName() + "-watch");
             }
-        }, getClass().getName() + "-watch");
-        thread.start();
+        });
+        final AtomicLong lastModified = new AtomicLong(source.lastModified());
+        service.scheduleWithFixedDelay(() -> {
+            final long newLastModified = source.lastModified();
+            if (lastModified.get() != findLastModified()) {
+                lastModified.set(newLastModified);
+                render(options, adoc);
+            }
+        }, 350, 350, TimeUnit.MILLISECONDS);
         launchCli(options, adoc);
         toggle.set(false);
         try {
-            thread.join();
+            service.shutdownNow();
+            service.awaitTermination(2, SECONDS);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private long findLastModified() {
+        long value = source.lastModified();
+        return findLastUpdated(
+                findLastUpdated
+                        (value, source.toPath().getParent().resolve("_partials")),
+                source.toPath().getParent().resolve("images"));
+    }
+
+    private long findLastUpdated(final long value, final Path partials) {
+        if (Files.exists(partials)) {
+            try {
+                return Files.walk(partials).reduce(value, (current, path) -> {
+                    try {
+                        return Math.max(current, Files.getLastModifiedTime(path).toMillis());
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }, Math::max);
+            } catch (final IOException e) {
+                // no-op, default to value for this iteration
+            }
+        }
+        return value;
     }
 
     private void launchCli(final Options options, final Asciidoctor adoc) {
