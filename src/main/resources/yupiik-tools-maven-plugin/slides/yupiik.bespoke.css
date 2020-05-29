@@ -870,7 +870,7 @@ figure > blockquote > p {
     margin-top: -0.35em;
 }
 
-section.bespoke-slide > ul > li > div > pre > code.hljs {
+section.bespoke-slide > ul > li > div > pre > code.hljs, section.bespoke-slide > ul > li> pre {
 	text-indent: 0;
 }
 section.bespoke-slide > ul > li > div > pre {
