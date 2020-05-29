@@ -484,7 +484,7 @@ span.icon {
 /* color */
 
 .primary, .fa-primary {
-    .color: #00366f;
+    color: #00366f;
 }
 .secondary, .fa-secondary {
     color: #0075ba;
