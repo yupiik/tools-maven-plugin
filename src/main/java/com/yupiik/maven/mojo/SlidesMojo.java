@@ -129,8 +129,15 @@ public class SlidesMojo extends BaseMojo {
     @Parameter
     private List<Synchronization> synchronizationFolders;
 
+    /**
+     * How long to wait to check if render must be re-done in watch mode (in ms).
+     */
+    @Parameter(property = "yupiik.slides.watchDelay", defaultValue = "350")
+    private int watchDelay;
+
     @Inject
     private AsciidoctorInstance asciidoctor;
+
 
     @Override
     public void doExecute() {
@@ -225,17 +232,19 @@ public class SlidesMojo extends BaseMojo {
         final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(final Runnable worker) {
-                return new Thread(worker, getClass().getName() + "-watch");
+                final Thread thread = new Thread(worker, getClass().getName() + "-watch");
+                thread.setPriority(Thread.NORM_PRIORITY);
+                return thread;
             }
         });
         final AtomicLong lastModified = new AtomicLong(source.lastModified());
         service.scheduleWithFixedDelay(() -> {
-            final long newLastModified = source.lastModified();
-            if (lastModified.get() != findLastModified()) {
-                lastModified.set(newLastModified);
+            final long currentLM = findLastModified();
+            if (lastModified.get() < currentLM) {
+                lastModified.set(currentLM);
                 render(options, adoc);
             }
-        }, 350, 350, TimeUnit.MILLISECONDS);
+        }, watchDelay, watchDelay, TimeUnit.MILLISECONDS);
         launchCli(options, adoc);
         toggle.set(false);
         try {
@@ -301,7 +310,7 @@ public class SlidesMojo extends BaseMojo {
         // no-op
     }
 
-    private void render(final Options options, final Asciidoctor adoc) {
+    private synchronized void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
         slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath());
         if (synchronizationFolders != null) {
