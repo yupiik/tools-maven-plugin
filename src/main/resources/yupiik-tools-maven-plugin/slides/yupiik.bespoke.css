@@ -864,3 +864,11 @@ figure > blockquote > p {
 .margin-035 {
     margin-top: -0.35em;
 }
+
+section.bespoke-slide > ul > li > div > pre > code.hljs {
+	text-indent: 0;
+}
+section.bespoke-slide > ul > li > div > pre {
+	margin: 0;
+}
+
