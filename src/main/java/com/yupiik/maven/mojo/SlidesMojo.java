@@ -338,34 +338,14 @@ public class SlidesMojo extends BaseMojo {
 
     private Options createOptions() {
         // ensure js is copied
-        final Path jsSrc = workDir.toPath().resolve(
-                "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".js").normalize();
-        if (Files.exists(jsSrc)) {
-            final String relative = "js/" + jsSrc.getFileName();
-            final Path target = targetDirectory.toPath().resolve(relative);
-            try {
-                mkdirs(target.getParent());
-                Files.copy(jsSrc, target, StandardCopyOption.REPLACE_EXISTING);
-            } catch (final MojoExecutionException | IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
+        stage(workDir.toPath().resolve("slides/yupiik." + slider.name().toLowerCase(ROOT) + ".js").normalize(), "js/");
 
         // ensure images are copied
-        Stream.of("background", "title").forEach(it -> {
-            final Path imgSrc = workDir.toPath().resolve(
-                    "slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".svg").normalize();
-            if (Files.exists(imgSrc)) {
-                final String relative = "img/" + imgSrc.getFileName();
-                final Path target = targetDirectory.toPath().resolve(relative);
-                try {
-                    mkdirs(target.getParent());
-                    Files.copy(imgSrc, target, StandardCopyOption.REPLACE_EXISTING);
-                } catch (final MojoExecutionException | IOException e) {
-                    throw new IllegalStateException(e);
-                }
-            }
-        });
+        Stream.of("background", "title").forEach(it ->
+                stage(workDir.toPath().resolve("slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".svg").normalize(), "img/"));
+
+        // copy favicon
+        stage(workDir.toPath().resolve("slides/favicon.ico").normalize(), "img/");
 
         // finally create the options now the target folder is ready
         final OptionsBuilder base = OptionsBuilder.options()
@@ -381,6 +361,7 @@ public class SlidesMojo extends BaseMojo {
                         .linkCss(false)
                         .dataUri(true)
                         .attribute("stem")
+                        .attribute("favicon", "img/favicon.ico")
                         .attribute("source-highlighter", "highlightjs")
                         .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3")
                         .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css")
@@ -396,6 +377,19 @@ public class SlidesMojo extends BaseMojo {
             base.templateDirs(Stream.of(builtInTemplateDir, templateDirs.toPath()).filter(Files::exists).map(Path::toFile).toArray(File[]::new));
         }
         return base.get();
+    }
+
+    private void stage(final Path src, final String outputFolder) {
+        if (Files.exists(src)) {
+            final String relative = outputFolder + src.getFileName();
+            final Path target = targetDirectory.toPath().resolve(relative);
+            try {
+                mkdirs(target.getParent());
+                Files.copy(src, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (final MojoExecutionException | IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
     }
 
     private Path toOutputPath() {
