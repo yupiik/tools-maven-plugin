@@ -120,7 +120,7 @@ public abstract class BaseMojo extends AbstractMojo {
         throw new IllegalStateException("Can't resolve the plugin locally");
     }
 
-    protected void mkdirs(final Path output) throws MojoExecutionException {
+    protected static void mkdirs(final Path output) throws MojoExecutionException {
         if (!Files.exists(output)) {
             try {
                 Files.createDirectories(output);

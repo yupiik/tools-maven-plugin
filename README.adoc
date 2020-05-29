@@ -32,7 +32,7 @@ Simplest setup is to define the plugin and create a file `src/main/pdf/index.ado
 |====
 |Name|Type|Default|Property|Description
 |attributes|Map|-|-|Custom attributes.
-|customCss|File|-|yupiik.slides.customCss|Custom css if needed, overrides default one.
+|customCss|File|-|yupiik.slides.customCss|Custom css if needed, overrides default one for revealjs (as intended by the backend) and append it to yupiik one for bespoke.
 |mode|Mode|DEFAULT|yupiik.slides.mode|Which execution mode to use, WATCH and SERVE are for dev purposes.
 |port|int|4200|yupiik.slides.serve.port|For SERVE mode, which port to bind.
 |source|File|${project.basedir}/src/main/slides/index.adoc|yupiik.slides.source|Slide deck source file.

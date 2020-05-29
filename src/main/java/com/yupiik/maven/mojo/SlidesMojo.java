@@ -257,7 +257,7 @@ public class SlidesMojo extends BaseMojo {
 
     private void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
-        slider.postProcess(toOutputPath());
+        slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath());
         getLog().info("Rendered '" + source.getName() + "'");
     }
 
@@ -358,7 +358,17 @@ public class SlidesMojo extends BaseMojo {
             }
 
             @Override
-            protected void postProcess(final Path path) {
+            protected void postProcess(final Path path, final Path customCss, final Path target) {
+                if (customCss != null) {
+                    final String relative = "css/" + customCss.getFileName();
+                    final Path targetPath = target.resolve(relative);
+                    try {
+                        mkdirs(target.getParent());
+                        Files.copy(customCss, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (final MojoExecutionException | IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
                 try {
                     Files.write(path, String.join("\n", Files.readAllLines(path))
                             .replace(
@@ -381,7 +391,8 @@ public class SlidesMojo extends BaseMojo {
                                             "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
                                             "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
                                             "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css\" " +
-                                            "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n")
+                                            "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n" +
+                                            (customCss != null ? "<link rel=\"stylesheet\" href=\"css/" + customCss.getFileName() + "\">\n" : ""))
                             .getBytes(StandardCharsets.UTF_8));
                 } catch (final IOException e) {
                     throw new IllegalStateException(e);
@@ -389,7 +400,7 @@ public class SlidesMojo extends BaseMojo {
             }
         };
 
-        protected void postProcess(final Path path) {
+        protected void postProcess(final Path path, final Path customCss, final Path target) {
             // no-op
         }
 
