@@ -860,7 +860,12 @@ figure > blockquote > p {
 .margin-1 {
     margin-top: -1em;
 }
-
+.margin-top-1 {
+    margin-top: 1em;
+}
+.margin-bottom-1 {
+    margin-bottom: 1em;
+}
 .margin-035 {
     margin-top: -0.35em;
 }
