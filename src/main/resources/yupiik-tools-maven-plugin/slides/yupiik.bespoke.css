@@ -895,3 +895,19 @@ section.bespoke-slide > ul > li > div > pre {
 .admonitionblock td.icon .icon-warning::before{content:"\f071";color:#bf6900}
 .admonitionblock td.icon .icon-caution::before{content:"\f06d";color:#bf3400}
 .admonitionblock td.icon .icon-important::before{content:"\f06a";color:#bf0000}
+
+.bespoke-slide::after {
+    position: absolute;
+    top: 0;
+    right: 20px;
+    padding: 0.2em 0 0;
+    width: 2.5em;
+    height: 3em;
+    color: #fff;
+    counter-increment: slide;
+    content: counter(slide);
+    text-align: center;
+    font-size: .5em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon fill='%23003667' points='0,0 31,0 31,40 15,31 0,40'/%3E%3C/svg%3E");
+    box-sizing: content-box;
+}
