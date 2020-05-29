@@ -33,6 +33,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.yupiik.maven.service.AsciidoctorInstance;
+import lombok.Data;
 import lombok.Setter;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -51,9 +52,13 @@ import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -106,6 +111,12 @@ public class SlidesMojo extends BaseMojo {
      */
     @Parameter
     private Map<String, Object> attributes;
+
+    /**
+     * Synchronize folders.
+     */
+    @Parameter
+    private List<Synchronization> synchronizationFolders;
 
     @Inject
     private AsciidoctorInstance asciidoctor;
@@ -258,6 +269,26 @@ public class SlidesMojo extends BaseMojo {
     private void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
         slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath());
+        if (synchronizationFolders != null) {
+            synchronizationFolders.forEach(s -> {
+                final Path root = s.source.toPath();
+                if (Files.exists(root)) {
+                    try {
+                        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+                            @Override
+                            public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                                final String relative = root.relativize(file).toString();
+                                final Path target = targetDirectory.toPath().resolve(s.target).resolve(relative);
+                                Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+                                return super.visitFile(file, attrs);
+                            }
+                        });
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
+            });
+        }
         getLog().info("Rendered '" + source.getName() + "'");
     }
 
@@ -405,5 +436,11 @@ public class SlidesMojo extends BaseMojo {
         }
 
         protected abstract AttributesBuilder append(AttributesBuilder builder);
+    }
+
+    @Data
+    public static class Synchronization {
+        private File source;
+        private String target;
     }
 }
