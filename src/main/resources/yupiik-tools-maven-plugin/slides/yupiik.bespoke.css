@@ -846,12 +846,22 @@ figure > blockquote > p {
 .w100 {
     width: 100%;
 }
-
 .w100 > img {
     width: 100%;
 }
+
+.colums2 {
+    width: 49%;
+    display: inline-block;
+}
+
 .reset-margin-inline-start {
     margin-inline-start: 0;
+}
+
+.margin-0,
+.margin-0 > pre {
+    margin: 0em;
 }
 
 .margin-05 {
@@ -870,10 +880,10 @@ figure > blockquote > p {
     margin-top: -0.35em;
 }
 
-section.bespoke-slide > ul > li > div > pre > code.hljs, section.bespoke-slide > ul > li> pre {
+section.bespoke-slide > ul > li > div > pre > code.hljs,
+section.bespoke-slide > ul > li> pre {
 	text-indent: 0;
 }
 section.bespoke-slide > ul > li > div > pre {
 	margin: 0;
 }
-
