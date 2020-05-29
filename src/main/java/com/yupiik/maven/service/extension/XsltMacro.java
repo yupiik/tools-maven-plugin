@@ -47,6 +47,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,7 +78,7 @@ public class XsltMacro extends BlockProcessor {
     }
 
     private String apply(final String xslt, final String from) {
-        final var project = mojoSupplier.get().getProject();
+        final MavenProject project = mojoSupplier.get().getProject();
         if (project == null) {
             throw new IllegalArgumentException("Can't use " + getClass().getAnnotation(Name.class).value() + " since there is no project attached");
         }
@@ -90,7 +91,7 @@ public class XsltMacro extends BlockProcessor {
                         return builtIn(xslt, transformerFactory.newTransformer(new StreamSource(stream)), project);
                     }
                 default:
-                    final var transformer = transformerFactory.newTransformer(new StreamSource(
+                    final Transformer transformer = transformerFactory.newTransformer(new StreamSource(
                             new ByteArrayInputStream(String.join("\n", Files.readAllLines(Paths.get(xslt))).getBytes(StandardCharsets.UTF_8))));
                     return doTransform(Files.newInputStream(Paths.get(requireNonNull(from, "No from attribute, missing for custom xslt"))), transformer);
             }
@@ -124,8 +125,8 @@ public class XsltMacro extends BlockProcessor {
     }
 
     private String doTransform(final InputStream from, Transformer transformer) {
-        final var outputStream = new ByteArrayOutputStream();
-        try (outputStream; from) {
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (final OutputStream s = outputStream; final InputStream i = from) {
             transformer.transform(new StreamSource(from), new StreamResult(outputStream));
         } catch (final IOException | TransformerException e) {
             throw new IllegalStateException(e);

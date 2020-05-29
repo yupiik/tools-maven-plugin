@@ -39,6 +39,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,27 +53,27 @@ class XsltMacroTest {
 
     @Test
     void surefire(@TempDir final Path path) throws IOException {
-        final var fakeProject = new MavenProject();
+        final MavenProject fakeProject = new MavenProject();
         fakeProject.setBuild(new Build());
         fakeProject.getBuild().setDirectory(path.toString());
-        final var reports = path.resolve("surefire-reports");
+        final Path reports = path.resolve("surefire-reports");
         Files.createDirectories(reports);
-        Files.writeString(reports.resolve("TEST-com.foo.MyTest1.xml"), "" +
+        Files.write(reports.resolve("TEST-com.foo.MyTest1.xml"), ("" +
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
                 "   xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" " +
                 "   version=\"3.0\" name=\"com.yupiik.maven.mojo.PDFMojoTest\"\n" +
                 "  time=\"9.058\" tests=\"1\" errors=\"0\" skipped=\"0\" failures=\"0\">\n" +
                 "  <testcase name=\"render(Path)\" classname=\"com.foo.MyTest1\" time=\"9.034\"/>\n" +
-                "</testsuite>");
-        Files.writeString(reports.resolve("TEST-com.foo.MyTest2.xml"), "" +
+                "</testsuite>").getBytes(StandardCharsets.UTF_8));
+        Files.write(reports.resolve("TEST-com.foo.MyTest2.xml"), ("" +
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
                 "   xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" " +
                 "   version=\"3.0\" name=\"com.yupiik.maven.mojo.PDFMojoTest\"\n" +
                 "  time=\"2.022\" tests=\"1\" errors=\"0\" skipped=\"0\" failures=\"0\">\n" +
                 "  <testcase name=\"render(Path)\" classname=\"com.foo.MyTest2\" time=\"2.012\"/>\n" +
-                "</testsuite>");
+                "</testsuite>").getBytes(StandardCharsets.UTF_8));
         assertEquals(
                 "<div class=\"openblock\">\n" +
                         "<div class=\"content\">\n" +

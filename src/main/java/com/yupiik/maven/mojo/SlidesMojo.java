@@ -28,6 +28,7 @@
  */
 package com.yupiik.maven.mojo;
 
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -98,7 +99,7 @@ public class SlidesMojo extends BaseMojo {
      * For SERVE mode, which port to bind.
      */
     @Parameter(property = "yupiik.slides.serve.port", defaultValue = "4200")
-    private int port;
+    protected int port;
 
     /**
      * Custom attributes.
@@ -111,8 +112,8 @@ public class SlidesMojo extends BaseMojo {
 
     @Override
     public void doExecute() {
-        final var options = createOptions();
-        final var mode = getMode();
+        final Options options = createOptions();
+        final Mode mode = getMode();
         asciidoctor.withAsciidoc(this, adoc -> {
             switch (mode) {
                 case DEFAULT:
@@ -142,16 +143,16 @@ public class SlidesMojo extends BaseMojo {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
-        final var ctx = server.createContext("/");
+        final HttpContext ctx = server.createContext("/");
         ctx.setHandler(new HttpHandler() {
             @Override
             public void handle(final HttpExchange exchange) throws IOException {
-                final var file = resolveFile(exchange.getRequestURI());
+                final Path file = resolveFile(exchange.getRequestURI());
                 if (!Files.exists(file)) {
                     exchange.sendResponseHeaders(404, 0);
                     exchange.close();
                 }
-                final var bytes = Files.readAllBytes(file);
+                final byte[] bytes = Files.readAllBytes(file);
                 exchange.getResponseHeaders().add("Content-Type", findType(file.getFileName().toString()));
                 exchange.sendResponseHeaders(200, bytes.length);
                 exchange.getResponseBody().write(bytes);
@@ -181,7 +182,7 @@ public class SlidesMojo extends BaseMojo {
             }
 
             private Path resolveFile(final URI requestURI) {
-                final var path = requestURI.getPath().substring(1);
+                final String path = requestURI.getPath().substring(1);
                 if (path.isEmpty() || "/".equals(path)) {
                     return targetDirectory.toPath().resolve(source.getName().replaceFirst(".adoc$", ".html"));
                 }
@@ -199,10 +200,10 @@ public class SlidesMojo extends BaseMojo {
 
     private void watch(final Options options, final Asciidoctor adoc) {
         final AtomicBoolean toggle = new AtomicBoolean(true);
-        final var thread = new Thread(() -> {
+        final Thread thread = new Thread(() -> {
             long lastModified = source.lastModified();
             while (toggle.get()) {
-                final var newLastModified = source.lastModified();
+                final long newLastModified = source.lastModified();
                 if (lastModified != newLastModified) {
                     lastModified = newLastModified;
                     render(options, adoc);
@@ -226,6 +227,7 @@ public class SlidesMojo extends BaseMojo {
 
     private void launchCli(final Options options, final Asciidoctor adoc) {
         render(options, adoc);
+        onFirstRender();
 
         try (final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line;
@@ -249,6 +251,10 @@ public class SlidesMojo extends BaseMojo {
         }
     }
 
+    protected void onFirstRender() {
+        // no-op
+    }
+
     private void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
         slider.postProcess(toOutputPath());
@@ -257,11 +263,11 @@ public class SlidesMojo extends BaseMojo {
 
     private Options createOptions() {
         // ensure js is copied
-        final var jsSrc = workDir.toPath().resolve(
+        final Path jsSrc = workDir.toPath().resolve(
                 "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".js").normalize();
         if (Files.exists(jsSrc)) {
-            final var relative = "js/" + jsSrc.getFileName();
-            final var target = targetDirectory.toPath().resolve(relative);
+            final String relative = "js/" + jsSrc.getFileName();
+            final Path target = targetDirectory.toPath().resolve(relative);
             try {
                 mkdirs(target.getParent());
                 Files.copy(jsSrc, target, StandardCopyOption.REPLACE_EXISTING);
@@ -272,11 +278,11 @@ public class SlidesMojo extends BaseMojo {
 
         // ensure images are copied
         Stream.of("background", "title").forEach(it -> {
-            final var imgSrc = workDir.toPath().resolve(
+            final Path imgSrc = workDir.toPath().resolve(
                     "slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".svg").normalize();
             if (Files.exists(imgSrc)) {
-                final var relative = "img/" + imgSrc.getFileName();
-                final var target = targetDirectory.toPath().resolve(relative);
+                final String relative = "img/" + imgSrc.getFileName();
+                final Path target = targetDirectory.toPath().resolve(relative);
                 try {
                     mkdirs(target.getParent());
                     Files.copy(imgSrc, target, StandardCopyOption.REPLACE_EXISTING);
@@ -316,10 +322,10 @@ public class SlidesMojo extends BaseMojo {
     }
 
     private String findCss() {
-        final var cssSource = (customCss != null ? customCss.toPath() : workDir.toPath().resolve(
+        final Path cssSource = (customCss != null ? customCss.toPath() : workDir.toPath().resolve(
                 "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".css")).normalize();
-        final var relative = "css/" + cssSource.getFileName();
-        final var target = targetDirectory.toPath().resolve(relative);
+        final String relative = "css/" + cssSource.getFileName();
+        final Path target = targetDirectory.toPath().resolve(relative);
         try {
             mkdirs(target.getParent());
             Files.copy(cssSource, target, StandardCopyOption.REPLACE_EXISTING);
@@ -354,7 +360,7 @@ public class SlidesMojo extends BaseMojo {
             @Override
             protected void postProcess(final Path path) {
                 try {
-                    Files.writeString(path, Files.readString(path)
+                    Files.write(path, String.join("\n", Files.readAllLines(path))
                             .replace(
                                     "<script src=\"build/build.js\"></script>",
                                     "\n" +
@@ -375,7 +381,8 @@ public class SlidesMojo extends BaseMojo {
                                             "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
                                             "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
                                             "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/idea.min.css\" " +
-                                            "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n"));
+                                            "integrity=\"sha256-bDLg5OmXdF4C13X7NYxHuRKHj/QdYULoyHkK9A5J+qc=\" crossorigin=\"anonymous\" />\n")
+                            .getBytes(StandardCharsets.UTF_8));
                 } catch (final IOException e) {
                     throw new IllegalStateException(e);
                 }

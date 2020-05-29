@@ -35,6 +35,7 @@ import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.project.MavenProject;
 import org.asciidoctor.ast.ContentModel;
+import org.asciidoctor.ast.Section;
 import org.asciidoctor.ast.StructuralNode;
 import org.asciidoctor.extension.Contexts;
 import org.asciidoctor.extension.Name;
@@ -62,28 +63,28 @@ public class DependenciesMacro extends BaseBlockProcessor {
 
     @Override
     public Object process(final StructuralNode parent, final Reader reader, final Map<String, Object> attributes) {
-        final var mojo = mojoSupplier.get();
-        final var project = mojo.getProject();
+        final BaseMojo mojo = mojoSupplier.get();
+        final MavenProject project = mojo.getProject();
         if (project == null) {
             throw new IllegalArgumentException("Can't use " + getClass().getAnnotation(Name.class).value() + " since there is no project attached");
         }
 
-        final var filter = createFilter(
+        final ArtifactFilter filter = createFilter(
                 ofNullable(attributes.get("scope")).map(String::valueOf).orElse("compile"),
                 ofNullable(attributes.get("groupId")).map(String::valueOf).orElse(null));
 
         if (isAggregated(attributes, mojo)) {
-            final var reactorProjects = getReactor(mojo);
+            final List<MavenProject> reactorProjects = getReactor(mojo);
             if (reactorProjects != null) {
                 final boolean keepPoms = Boolean.parseBoolean(String.valueOf(attributes.get("aggregationKeepPoms")));
                 final boolean sectNums = parent.getDocument().hasAttribute("sectnums");
-                final var rootSectionLevel = parent.getLevel() + 1;
-                final var rootSection = createSection(parent, rootSectionLevel, sectNums, emptyMap());
+                final int rootSectionLevel = parent.getLevel() + 1;
+                final Section rootSection = createSection(parent, rootSectionLevel, sectNums, emptyMap());
                 rootSection.setTitle("Dependencies");
                 reactorProjects.stream()
                         .filter(it -> !"pom".endsWith(it.getPackaging()) || keepPoms)
                         .forEach(p -> {
-                            final var section = createSection(parent, rootSectionLevel + 1, sectNums, emptyMap());
+                            final Section section = createSection(parent, rootSectionLevel + 1, sectNums, emptyMap());
                             section.setTitle("Dependencies for " + p.getId());
                             appendArtifactsBlock(section, p, filter);
                             rootSection.append(section);

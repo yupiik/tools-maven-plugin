@@ -90,12 +90,12 @@ public class PDFMojo extends BaseMojo {
             theme = themeDir.toPath();
         }
         mkdirs(targetDirectory.toPath());
-        final var src = sourceDirectory.toPath();
-        final var options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent()).map();
+        final Path src = sourceDirectory.toPath();
+        final Map<String, Object> options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent()).map();
         asciidoctor.withAsciidoc(this, adoc -> {
             if (Files.isDirectory(src)) {
                 try {
-                    Files.walkFileTree(src, new SimpleFileVisitor<>() {
+                    Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
                         @Override
                         public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                             if (file.getFileName().toString().endsWith(".adoc")) {
@@ -117,7 +117,7 @@ public class PDFMojo extends BaseMojo {
     private void doRender(final Path src, final Map<String, Object> options, final Asciidoctor adoc) {
         try {
             options.put(Options.TO_FILE, targetDirectory.toPath().resolve(src.getFileName().toString().replaceFirst(".adoc$", ".pdf")).toString());
-            adoc.convert(Files.readString(src), options);
+            adoc.convert(String.join("\n", Files.readAllLines(src)), options);
             getLog().info("Rendered '" + src.getFileName() + "'");
         } catch (final IOException e) {
             throw new IllegalStateException(e);

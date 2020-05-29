@@ -44,7 +44,6 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -64,7 +63,7 @@ class SlidesMojoTest {
 
     @Test
     void renderReveal(@TempDir final Path temp) throws MojoExecutionException, IOException {
-        final var output = temp.resolve("output");
+        final Path output = temp.resolve("output");
         final String html = execute(output, "revealjs");
         Stream.of(
                 "<link rel=\"stylesheet\" href=\"css/yupiik.revealjs.css\">",
@@ -74,7 +73,7 @@ class SlidesMojoTest {
 
     @Test
     void renderBespoke(@TempDir final Path temp) throws MojoExecutionException, IOException {
-        final var output = temp.resolve("output");
+        final Path output = temp.resolve("output");
         final String html = execute(output, "bespoke");
         Stream.of(
                 "<article class=\"deck\">",
@@ -84,17 +83,17 @@ class SlidesMojoTest {
     }
 
     private String execute(final Path output, final String slider) throws MojoExecutionException, IOException {
-        final var outputHtml = output.resolve(slider + ".html");
+        final Path outputHtml = output.resolve(slider + ".html");
         if (Files.exists(output)) { // rerunning a test without clean
             Files.delete(output);
         }
         newMojo(asciidoctor, output, slider).execute();
         assertTrue(Files.exists(outputHtml));
-        return Files.readString(outputHtml);
+        return String.join("_n", Files.readAllLines(outputHtml));
     }
 
     private SlidesMojo newMojo(final AsciidoctorInstance asciidoctor, final Path output, final String slider) {
-        final var mojo = new SlidesMojo();
+        final SlidesMojo mojo = new SlidesMojo();
         mojo.setSource(new File("src/test/resources/src/main/slides/" + slider + ".adoc"));
         mojo.setTargetDirectory(output.toFile());
         mojo.setWorkDir(new File("target/classes/yupiik-tools-maven-plugin"));

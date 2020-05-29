@@ -44,9 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PDFMojoTest {
     @Test
     void render(@TempDir final Path temp) throws MojoExecutionException {
-        final var output = temp.resolve("output");
-        final var mojo = new PDFMojo();
-        final var asciidoctor = new AsciidoctorInstance();
+        final Path output = temp.resolve("output");
+        final PDFMojo mojo = new PDFMojo();
+        final AsciidoctorInstance asciidoctor = new AsciidoctorInstance();
         mojo.setSourceDirectory(new File("src/test/resources/src/main/pdf"));
         mojo.setTargetDirectory(output.toFile());
         mojo.setWorkDir(new File("target/classes/yupiik-tools-maven-plugin"));

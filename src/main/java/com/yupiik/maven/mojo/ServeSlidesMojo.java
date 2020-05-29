@@ -30,12 +30,36 @@ package com.yupiik.maven.mojo;
 
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+
+import java.io.IOException;
+import java.net.URI;
 
 @Setter
 @Mojo(name = "serve-slides")
 public class ServeSlidesMojo extends SlidesMojo {
+    @Parameter(property = "yupiik.slides.openBrowser", defaultValue = "true")
+    private boolean openBrowser;
+
     @Override
     protected Mode getMode() {
         return Mode.SERVE;
+    }
+
+    @Override
+    protected void onFirstRender() {
+        if (!openBrowser) {
+            return;
+        }
+        final URI uri = URI.create("http://localhost:" + port);
+        if (!java.awt.Desktop.isDesktopSupported()) {
+            getLog().info("Desktop is not supported on this JVM, go to " + uri + " in your browser");
+            return;
+        }
+        try {
+            java.awt.Desktop.getDesktop().browse(uri);
+        } catch (final IOException e) {
+            getLog().error("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")");
+        }
     }
 }

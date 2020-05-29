@@ -55,7 +55,7 @@ public class AsciidoctorInstance {
     private final ThreadLocal<BaseMojo> mojo = new ThreadLocal<>();
 
     public <T> T withAsciidoc(final BaseMojo base, final Function<Asciidoctor, T> task) {
-        var poll = instances.poll();
+        Asciidoctor poll = instances.poll();
         if (poll == null) {
             poll = newInstance(base.getLog(), base.getWorkDir().toPath().resolve("slides/gem"));
         }
@@ -69,7 +69,7 @@ public class AsciidoctorInstance {
     }
 
     private Asciidoctor newInstance(final Log log, final Path path) {
-        final var asciidoctor = JRubyAsciidoctor.create(path.toString());
+        final Asciidoctor asciidoctor = JRubyAsciidoctor.create(path.toString());
         Logger.getLogger("asciidoctor").setUseParentHandlers(false);
         registerExtensions(asciidoctor.javaExtensionRegistry());
         asciidoctor.registerLogHandler(logRecord -> {

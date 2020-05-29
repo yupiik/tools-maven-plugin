@@ -92,7 +92,7 @@ public abstract class BaseMojo extends AbstractMojo {
             list(file.entries()).stream()
                     .filter(it -> it.getName().startsWith(prefix) && !it.isDirectory())
                     .forEach(e -> {
-                        final var target = output.resolve(e.getName().substring(prefix.length()));
+                        final Path target = output.resolve(e.getName().substring(prefix.length()));
                         try {
                             mkdirs(target.getParent());
                         } catch (final MojoExecutionException mojoExecutionException) {
