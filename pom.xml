@@ -76,50 +76,6 @@
       <scope>provided</scope>
     </dependency>
 
-
-    <dependency>
-      <groupId>rubygems</groupId>
-      <artifactId>asciidoctor-revealjs</artifactId>
-      <version>${asciidoctor-revealjs.version}</version>
-      <type>gem</type>
-      <scope>provided</scope> <!-- we embed it -->
-      <exclusions>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>asciidoctor</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>thread_safe</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>concurrent-ruby</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>rubygems</groupId>
-      <artifactId>asciidoctor-bespoke</artifactId>
-      <version>${asciidoctor-bespoke.version}</version>
-      <type>gem</type>
-      <scope>provided</scope> <!-- we embed it -->
-      <exclusions>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>asciidoctor</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>thread_safe</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>rubygems</groupId>
-          <artifactId>concurrent-ruby</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <dependency>
       <groupId>org.asciidoctor</groupId>
       <artifactId>asciidoctorj</artifactId>
