@@ -911,3 +911,6 @@ section.bespoke-slide > ul > li > div > pre {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon fill='%23003667' points='0,0 31,0 31,40 15,31 0,40'/%3E%3C/svg%3E");
     box-sizing: content-box;
 }
+.bespoke-slide.title::after, .bespoke-slide.hide-counter::after {
+    visibility: hidden;
+}
