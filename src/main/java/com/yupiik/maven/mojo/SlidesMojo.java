@@ -353,8 +353,9 @@ public class SlidesMojo extends BaseMojo {
     }
 
     private String findCss() {
-        final Path cssSource = (customCss != null ? customCss.toPath() : workDir.toPath().resolve(
-                "slides/yupiik." + slider.name().toLowerCase(ROOT) + ".css")).normalize();
+        final Path cssSource = (slider == Slider.REVEALJS && customCss != null ?
+                customCss.toPath() :
+                workDir.toPath().resolve("slides/yupiik." + slider.name().toLowerCase(ROOT) + ".css")).normalize();
         final String relative = "css/" + cssSource.getFileName();
         final Path target = targetDirectory.toPath().resolve(relative);
         try {
