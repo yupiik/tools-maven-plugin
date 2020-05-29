@@ -1,0 +1,22 @@
+/ forked from asciidoctor-bespoke to: 1. not split title (partition), 2. add hash support
+- _title = title
+- _id = (_id = id) && _title == '!' && !(local_attr? :id) ? nil : _id
+- _roles = roles
+- _build_roles = (option? :build) ? ['build', 'build-items', *%w(fade vanish replace).map {|_r| _roles.delete _r }] : []
+- _style = nil
+- if (_bg_img = pluck_first context: :image, role: 'canvas')
+  - _style = %[background-image: url(#{image_uri _bg_img.attr(:target)}); background-size: #{(_bg_img.roles & %w[cover contain])[0] || 'cover'}; background-repeat: no-repeat]
+section id=_id class=[*_roles, ('image' if _bg_img)] style=_style data-title=(local_attr 'reftext') data-bespoke-backdrop=(local_attr 'backdrop-role') data-bespoke-hash=(local_attr 'hash')
+  - content_for :content
+    - unless (_title.start_with? '!') || (option? :conceal)
+      h2 class=[('fit' if option? :fit), *_build_roles] =slice_text _title
+    - unless (_content = content).empty?
+      =_content
+  - if (option? :enclose) || (document.attr? 'enclose-option')
+    - _notes = pluck_first context: :sidebar, role: 'cue'
+    .content
+      - yield_content :content
+    - if _notes
+      =_notes.convert
+  - else
+    - yield_content :content

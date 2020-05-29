@@ -89,6 +89,12 @@ public class SlidesMojo extends BaseMojo {
     private File customCss;
 
     /**
+     * Template directory if set.
+     */
+    @Parameter(property = "yupiik.slides.templateDirs")
+    private File templateDirs;
+
+    /**
      * Which execution mode to use, WATCH and SERVE are for dev purposes.
      */
     @Parameter(property = "yupiik.slides.mode", defaultValue = "DEFAULT")
@@ -324,7 +330,7 @@ public class SlidesMojo extends BaseMojo {
         });
 
         // finally create the options now the target folder is ready
-        return OptionsBuilder.options()
+        final OptionsBuilder base = OptionsBuilder.options()
                 .safe(SafeMode.UNSAFE)
                 .backend(slider.name().toLowerCase(ROOT))
                 .inPlace(false)
@@ -343,8 +349,15 @@ public class SlidesMojo extends BaseMojo {
                         .attribute("customcss", findCss())
                         .attribute("partialsdir", source.toPath().getParent().resolve("_partials").toAbsolutePath().normalize().toString())
                         .attribute("imagesdir", source.toPath().getParent().resolve("images").toAbsolutePath().normalize().toString())
-                        .attributes(attributes == null ? emptyMap() : attributes)))
-                .get();
+                        .attributes(this.attributes == null ? emptyMap() : this.attributes)));
+
+        final Path builtInTemplateDir = workDir.toPath().resolve("slides/template." + slider.name().toLowerCase(ROOT));
+        if (templateDirs == null) {
+            base.templateDirs(builtInTemplateDir.toFile());
+        } else {
+            base.templateDirs(Stream.of(builtInTemplateDir, templateDirs.toPath()).filter(Files::exists).map(Path::toFile).toArray(File[]::new));
+        }
+        return base.get();
     }
 
     private Path toOutputPath() {
