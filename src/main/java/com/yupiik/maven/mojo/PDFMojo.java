@@ -94,8 +94,17 @@ public class PDFMojo extends BaseMojo {
         final Map<String, Object> options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent()).map();
         asciidoctor.withAsciidoc(this, adoc -> {
             if (Files.isDirectory(src)) {
+                final Path ignored = src.resolve("_partials");
                 try {
                     Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
+                            if (ignored.equals(dir)) {
+                                return FileVisitResult.SKIP_SUBTREE;
+                            }
+                            return super.preVisitDirectory(dir, attrs);
+                        }
+
                         @Override
                         public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                             if (file.getFileName().toString().endsWith(".adoc")) {
