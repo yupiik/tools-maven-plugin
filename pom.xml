@@ -114,6 +114,33 @@
       <version>5.7.0-M1</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-revealjs</artifactId>
+      <version>${asciidoctor-revealjs.version}</version>
+      <scope>provided</scope>
+      <type>gem</type>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-bespoke</artifactId>
+      <version>${asciidoctor-bespoke.version}</version>
+      <scope>provided</scope>
+      <type>gem</type>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
 
   <scm>
@@ -179,13 +206,13 @@
                 <argument>--no-verbose</argument>
                 <argument>${settings.localRepository}/rubygems/asciidoctor-revealjs/${asciidoctor-revealjs.version}/asciidoctor-revealjs-${asciidoctor-revealjs.version}.gem</argument>
                 <argument>--bindir</argument>
-                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
               </arguments>
               <environmentVariables>
                 <JARS_SKIP>true</JARS_SKIP>
                 <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
-                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_PATH>
-                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_HOME>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
               </environmentVariables>
             </configuration>
           </execution>
@@ -211,13 +238,13 @@
                 <argument>--no-verbose</argument>
                 <argument>${settings.localRepository}/rubygems/asciidoctor-bespoke/${asciidoctor-bespoke.version}/asciidoctor-bespoke-${asciidoctor-bespoke.version}.gem</argument>
                 <argument>--bindir</argument>
-                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
               </arguments>
               <environmentVariables>
                 <JARS_SKIP>true</JARS_SKIP>
                 <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
-                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_PATH>
-                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/slides/gem</GEM_HOME>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
               </environmentVariables>
             </configuration>
           </execution>

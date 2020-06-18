@@ -42,10 +42,13 @@ import javax.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.logging.Logger;
+
+import static java.util.Optional.ofNullable;
 
 @Named
 @Singleton
@@ -57,7 +60,7 @@ public class AsciidoctorInstance {
     public <T> T withAsciidoc(final BaseMojo base, final Function<Asciidoctor, T> task) {
         Asciidoctor poll = instances.poll();
         if (poll == null) {
-            poll = newInstance(base.getLog(), base.getWorkDir().toPath().resolve("slides/gem"));
+            poll = newInstance(base.getLog(), base.getWorkDir().toPath().resolve("gem"), base.getCustomGems(), base.getRequires());
         }
         mojo.set(base);
         try {
@@ -68,8 +71,8 @@ public class AsciidoctorInstance {
         }
     }
 
-    private Asciidoctor newInstance(final Log log, final Path path) {
-        final Asciidoctor asciidoctor = JRubyAsciidoctor.create(path.toString());
+    private Asciidoctor newInstance(final Log log, final Path path, final String customGems, final List<String> requires) {
+        final Asciidoctor asciidoctor = JRubyAsciidoctor.create(ofNullable(customGems).orElseGet(path::toString));
         Logger.getLogger("asciidoctor").setUseParentHandlers(false);
         registerExtensions(asciidoctor.javaExtensionRegistry());
         asciidoctor.registerLogHandler(logRecord -> {
@@ -90,17 +93,21 @@ public class AsciidoctorInstance {
                     log.debug(logRecord.getMessage());
             }
         });
-        asciidoctor.requireLibrary("asciidoctor-diagram");
-        asciidoctor.requireLibrary("asciidoctor-revealjs");
-        try {
-            asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
-                    .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
-                    .findFirst()
-                    .map(it -> it.resolve("lib/asciidoctor-bespoke.rb"))
-                    .orElseThrow(() -> new IllegalStateException("bespoke was not bundled at build time"))
-                    .toAbsolutePath().normalize().toString());
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
+        if (requires != null) {
+            asciidoctor.requireLibraries(requires);
+        } else {
+            asciidoctor.requireLibrary("asciidoctor-diagram");
+            asciidoctor.requireLibrary("asciidoctor-revealjs");
+            try {
+                asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
+                        .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
+                        .findFirst()
+                        .map(it -> it.resolve("lib/asciidoctor-bespoke.rb"))
+                        .orElseThrow(() -> new IllegalStateException("bespoke was not bundled at build time"))
+                        .toAbsolutePath().normalize().toString());
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
         }
         return asciidoctor;
     }

@@ -46,6 +46,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Properties;
 import java.util.jar.JarFile;
 
@@ -66,6 +67,22 @@ public abstract class BaseMojo extends AbstractMojo {
     @Getter
     @Parameter(readonly = true, defaultValue = "${project}")
     protected MavenProject project;
+
+    /**
+     * Warning: this must be a shared settings by all executions.
+     * Overrides default gem path (for custom native requires).
+     */
+    @Getter
+    @Parameter(readonly = true, defaultValue = "${yupiik-tools.custom-gems}")
+    protected String customGems;
+
+    /**
+     * Warning: this must be a shared settings by all executions.
+     * Override defaults require - completely.
+     */
+    @Getter
+    @Parameter
+    protected List<String> requires;
 
     @Override
     public final void execute() throws MojoExecutionException {
