@@ -38,7 +38,6 @@ import org.asciidoctor.extension.InlineMacroProcessor;
 import org.asciidoctor.extension.Name;
 import org.asciidoctor.extension.Reader;
 import org.scilab.forge.jlatexmath.DefaultTeXFont;
-import org.scilab.forge.jlatexmath.TeXConstants;
 import org.scilab.forge.jlatexmath.TeXFormula;
 import org.scilab.forge.jlatexmath.TeXIcon;
 import org.scilab.forge.jlatexmath.cyrillic.CyrillicRegistration;
@@ -48,6 +47,7 @@ import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -60,22 +60,25 @@ import static lombok.AccessLevel.PRIVATE;
 
 @NoArgsConstructor(access = PRIVATE)
 class Render {
-    static String render(final String latex) {
+    static String render(final String latex, final int size, final int style) {
         DefaultTeXFont.registerAlphabet(new CyrillicRegistration());
         DefaultTeXFont.registerAlphabet(new GreekRegistration());
 
-        final TeXFormula formula = new TeXFormula(latex);
-        final TeXIcon icon = formula.createTeXIcon(TeXConstants.STYLE_DISPLAY, 20);
-        icon.setInsets(new Insets(5, 5, 5, 5));
+        final TeXIcon icon = new TeXFormula(latex).createTeXIcon(style, size);
+        icon.setInsets(new Insets(0, 0, 0, 0));
 
-        final int w = icon.getIconWidth(), h = icon.getIconHeight();
+        final int weight = icon.getIconWidth();
+        final int height = icon.getIconHeight();
 
-        final BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D g2 = image.createGraphics();
+        final BufferedImage image = new BufferedImage(weight, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 
         final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         icon.setForeground(Color.BLACK);
-        icon.paintIcon(null, g2, 0, 0);
+        icon.paintIcon(null, graphics, 0, 0);
         try {
             ImageIO.write(image, "png", buffer);
             buffer.flush();
@@ -84,7 +87,7 @@ class Render {
             throw new IllegalStateException(ex);
         }
 
-        g2.dispose();
+        graphics.dispose();
         return "data:image/png;base64," + Base64.getEncoder().encodeToString(buffer.toByteArray());
     }
 }
@@ -98,7 +101,9 @@ public interface JLatexMath {
         public Object process(final StructuralNode parent, final Reader reader, final Map<String, Object> attributes) {
             return createBlock(parent, "open", "" +
                     "image::" +
-                    Render.render(String.join("\n", reader.lines()).trim()) +
+                    Render.render(String.join("\n", reader.lines()).trim(),
+                            Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
+                            Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "0")))) +
                     "[" + attributes.getOrDefault("opts", "") + "]");
         }
     }
@@ -107,7 +112,9 @@ public interface JLatexMath {
     class Inline extends InlineMacroProcessor {
         @Override
         public Object process(final ContentNode parent, final String target, final Map<String, Object> attributes) {
-            final String image = Render.render(String.valueOf(attributes.values().iterator().next()));
+            final String image = Render.render(String.valueOf(attributes.values().iterator().next()),
+                    Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
+                    Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "2"))));
             return createPhraseNode(parent, "image", "", singletonMap("alt", ""), new HashMap<>(singletonMap("target", image)));
         }
     }
