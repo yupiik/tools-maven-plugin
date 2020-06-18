@@ -51,6 +51,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -117,14 +118,40 @@ public interface JLatexMath {
     class Inline extends InlineMacroProcessor {
         @Override
         public Object process(final ContentNode parent, final String target, final Map<String, Object> attributes) {
-            final String image = Render.render(String.valueOf(attributes.values().iterator().next()),
+            final String image = Render.render(extractString(attributes),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "2"))));
-            return createPhraseNode(parent, "image", "",
-                    attributes.entrySet().stream()
-                            .filter(e -> !"1".equals(e.getKey()) && !"size".equals(e.getKey()) && !"style".equals(e.getValue()))
-                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))
-                    , new HashMap<>(singletonMap("target", image)));
+            final Map<String, Object> newAttributes = attributes.entrySet().stream()
+                    .filter(e -> {
+                        if ("size".equals(e.getKey()) || "style".equals(e.getValue())) {
+                            return false;
+                        }
+                        try {
+                            Integer.parseInt(e.getKey());
+                            return false;
+                        } catch (final NumberFormatException nfe) {
+                            return true;
+                        }
+                    })
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+            newAttributes.putIfAbsent("alt", "");
+            return createPhraseNode(parent, "image", "", newAttributes, new HashMap<>(singletonMap("target", image)));
+        }
+
+        private String extractString(final Map<String, Object> attributes) {
+            return attributes.entrySet().stream()
+                    .filter(it -> {
+                        try {
+                            Integer.parseInt(it.getKey());
+                            return true;
+                        } catch (final NumberFormatException nfe) {
+                            return false;
+                        }
+                    })
+                    .map(it -> new AbstractMap.SimpleImmutableEntry<>(Integer.parseInt(it.getKey()), String.valueOf(it.getValue())))
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue)
+                    .collect(joining(","));
         }
     }
 }
