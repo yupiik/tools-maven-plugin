@@ -26,34 +26,56 @@
  * due to your access to or use of third-party content, products, or services, except as set forth in an applicable
  * agreement between you and Yupiik SAS.
  */
-package com.yupiik.maven.service.extension;
+package com.yupiik.maven.test;
 
 import com.yupiik.maven.mojo.BaseMojo;
 import com.yupiik.maven.service.AsciidoctorInstance;
-import com.yupiik.maven.test.MavenTest;
-import org.asciidoctor.OptionsBuilder;
+import org.apache.maven.plugin.logging.SystemStreamLog;
+import org.apache.maven.project.MavenProject;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.ParameterContext;
+import org.junit.jupiter.api.extension.ParameterResolutionException;
+import org.junit.jupiter.api.extension.ParameterResolver;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import java.nio.file.Paths;
 
-class JLatexMathTest {
-    @MavenTest
-    void block(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"openblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<div class=\"imageblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<img src=\"data:image/png;base64,"));
-    }
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-    @MavenTest
-    void inline(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"paragraph\">\n" +
-                        "<p>Some image: <span class=\"image\"><img src=\"data:image/png;base64"));
+@Target(METHOD)
+@Retention(RUNTIME)
+@Test
+@ExtendWith(MavenTest.Extension.class)
+public @interface MavenTest {
+    class Extension implements ParameterResolver {
+        @Override
+        public boolean supportsParameter(final ParameterContext parameterContext, final ExtensionContext extensionContext) throws ParameterResolutionException {
+            final Class<?> type = parameterContext.getParameter().getType();
+            return type == BaseMojo.class || type == AsciidoctorInstance.class;
+        }
+
+        @Override
+        public Object resolveParameter(final ParameterContext parameterContext, final ExtensionContext extensionContext) throws ParameterResolutionException {
+            final Class<?> type = parameterContext.getParameter().getType();
+            if (type == AsciidoctorInstance.class) {
+                return new AsciidoctorInstance();
+            }
+            return new BaseMojo() {
+                {
+                    project = new MavenProject();
+                    setWorkDir(Paths.get("target/classes/yupiik-tools-maven-plugin").toFile());
+                    setLog(new SystemStreamLog());
+                }
+
+                @Override
+                protected void doExecute() {
+                    // no-op
+                }
+            };
+        }
     }
 }

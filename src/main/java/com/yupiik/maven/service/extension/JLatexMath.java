@@ -56,6 +56,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.Collections.singletonMap;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 import static lombok.AccessLevel.PRIVATE;
 
 @NoArgsConstructor(access = PRIVATE)
@@ -95,7 +97,7 @@ class Render {
 public interface JLatexMath {
     @Name("jlatexmath")
     @Contexts(Contexts.OPEN)
-    @ContentModel(ContentModel.COMPOUND)
+    @ContentModel(ContentModel.ATTRIBUTES)
     class Block extends BlockProcessor {
         @Override
         public Object process(final StructuralNode parent, final Reader reader, final Map<String, Object> attributes) {
@@ -104,7 +106,10 @@ public interface JLatexMath {
                     Render.render(String.join("\n", reader.lines()).trim(),
                             Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
                             Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "0")))) +
-                    "[" + attributes.getOrDefault("opts", "") + "]");
+                    "[" + attributes.entrySet().stream()
+                    .filter(e -> !"1".equals(e.getKey()) && !"cloaked-context".equals(e.getKey()))
+                    .map(e -> e.getKey() + "=\"" + String.valueOf(e.getValue()).replace("\"", "\\\"") + "\"")
+                    .collect(joining(",")) + "]");
         }
     }
 
@@ -115,7 +120,11 @@ public interface JLatexMath {
             final String image = Render.render(String.valueOf(attributes.values().iterator().next()),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "2"))));
-            return createPhraseNode(parent, "image", "", singletonMap("alt", ""), new HashMap<>(singletonMap("target", image)));
+            return createPhraseNode(parent, "image", "",
+                    attributes.entrySet().stream()
+                            .filter(e -> !"1".equals(e.getKey()) && !"size".equals(e.getKey()) && !"style".equals(e.getValue()))
+                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))
+                    , new HashMap<>(singletonMap("target", image)));
         }
     }
 }

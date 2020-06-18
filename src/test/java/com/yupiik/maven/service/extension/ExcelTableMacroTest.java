@@ -33,27 +33,41 @@ import com.yupiik.maven.service.AsciidoctorInstance;
 import com.yupiik.maven.test.MavenTest;
 import org.asciidoctor.OptionsBuilder;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class JLatexMathTest {
+class ExcelTableMacroTest {
     @MavenTest
-    void block(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"openblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<div class=\"imageblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<img src=\"data:image/png;base64,"));
-    }
-
-    @MavenTest
-    void inline(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"paragraph\">\n" +
-                        "<p>Some image: <span class=\"image\"><img src=\"data:image/png;base64"));
+    void table(final BaseMojo mojo, final AsciidoctorInstance instance) {
+        assertEquals("<table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "<colgroup>\n" +
+                        "<col style=\"width: 25%;\">\n" +
+                        "<col style=\"width: 25%;\">\n" +
+                        "<col style=\"width: 25%;\">\n" +
+                        "<col style=\"width: 25%;\">\n" +
+                        "</colgroup>\n" +
+                        "<thead>\n" +
+                        "<tr>\n" +
+                        "<th class=\"tableblock halign-left valign-top\">C1</th>\n" +
+                        "<th class=\"tableblock halign-left valign-top\">C2</th>\n" +
+                        "<th class=\"tableblock halign-left valign-top\">C3</th>\n" +
+                        "<th class=\"tableblock halign-left valign-top\">Computed</th>\n" +
+                        "</tr>\n" +
+                        "</thead>\n" +
+                        "<tbody>\n" +
+                        "<tr>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">1</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">2</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">3</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">6</p></td>\n" +
+                        "</tr>\n" +
+                        "<tr>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">1</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">2</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">3</p></td>\n" +
+                        "<td class=\"tableblock halign-left valign-top\"><p class=\"tableblock\">6</p></td>\n" +
+                        "</tr>\n" +
+                        "</tbody>\n" +
+                        "</table>",
+                instance.withAsciidoc(mojo, a -> a.convert("= Result\n\n[excel]\n--\nsrc/test/resources/sample.xlsx\n--", OptionsBuilder.options())));
     }
 }

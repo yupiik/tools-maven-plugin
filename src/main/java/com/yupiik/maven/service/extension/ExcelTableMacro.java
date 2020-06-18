@@ -28,32 +28,51 @@
  */
 package com.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.AsciidoctorInstance;
-import com.yupiik.maven.test.MavenTest;
-import org.asciidoctor.OptionsBuilder;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.asciidoctor.ast.ContentModel;
+import org.asciidoctor.ast.StructuralNode;
+import org.asciidoctor.extension.BlockProcessor;
+import org.asciidoctor.extension.Contexts;
+import org.asciidoctor.extension.Name;
+import org.asciidoctor.extension.Reader;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.io.File;
+import java.io.IOException;
+import java.util.Map;
+import java.util.stream.StreamSupport;
 
-class JLatexMathTest {
-    @MavenTest
-    void block(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"openblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<div class=\"imageblock\">\n" +
-                        "<div class=\"content\">\n" +
-                        "<img src=\"data:image/png;base64,"));
-    }
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.joining;
 
-    @MavenTest
-    void inline(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
-                instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", OptionsBuilder.options())).startsWith("" +
-                        "<div class=\"paragraph\">\n" +
-                        "<p>Some image: <span class=\"image\"><img src=\"data:image/png;base64"));
+@Name("excel")
+@Contexts(Contexts.OPEN)
+@ContentModel(ContentModel.COMPOUND)
+public class ExcelTableMacro extends BlockProcessor {
+    @Override
+    public Object process(final StructuralNode parent, final Reader target, final Map<String, Object> attributes) {
+        try (final XSSFWorkbook wb = new XSSFWorkbook(new File(target.readLine().replace("{partialsdir}", String.valueOf(parent.getDocument().getAttribute("partialsdir"))))) ){
+            final DataFormatter formatter = new DataFormatter();
+            final FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+            final String sheetName = String.class.cast(attributes.get("sheet"));
+            final Sheet sheet = sheetName == null ? wb.iterator().next() : wb.getSheet(sheetName);
+            final String tableContent = StreamSupport.stream(sheet.spliterator(), false)
+                    .map(row -> StreamSupport.stream(row.spliterator(), false)
+                            .map(cell -> formatter.formatCellValue(cell, evaluator))
+                            .collect(joining(";")))
+                    .collect(joining("\n"));
+            parseContent(parent, asList(("" +
+                    "[opts=header,format=dsv,separator=;]\n" +
+                    "|===\n" +
+                    tableContent + '\n' +
+                    "|===\n" +
+                    "\n").split("\n")));
+            return null;
+        } catch (final IOException | InvalidFormatException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

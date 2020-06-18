@@ -30,6 +30,7 @@ package com.yupiik.maven.service;
 
 import com.yupiik.maven.mojo.BaseMojo;
 import com.yupiik.maven.service.extension.DependenciesMacro;
+import com.yupiik.maven.service.extension.ExcelTableMacro;
 import com.yupiik.maven.service.extension.JLatexMath;
 import com.yupiik.maven.service.extension.XsltMacro;
 import org.apache.maven.plugin.logging.Log;
@@ -116,6 +117,7 @@ public class AsciidoctorInstance {
     private void registerExtensions(final JavaExtensionRegistry registry) {
         registry.block(new DependenciesMacro(mojo::get));
         registry.block(new XsltMacro(mojo::get));
+        registry.block(new ExcelTableMacro());
         try {
             Thread.currentThread().getContextClassLoader().loadClass("org.scilab.forge.jlatexmath.TeXFormula");
             registry.inlineMacro(new JLatexMath.Inline());
