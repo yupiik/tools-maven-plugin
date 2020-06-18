@@ -30,6 +30,7 @@ package com.yupiik.maven.service;
 
 import com.yupiik.maven.mojo.BaseMojo;
 import com.yupiik.maven.service.extension.DependenciesMacro;
+import com.yupiik.maven.service.extension.JLatexMath;
 import com.yupiik.maven.service.extension.XsltMacro;
 import org.apache.maven.plugin.logging.Log;
 import org.asciidoctor.Asciidoctor;
@@ -115,6 +116,13 @@ public class AsciidoctorInstance {
     private void registerExtensions(final JavaExtensionRegistry registry) {
         registry.block(new DependenciesMacro(mojo::get));
         registry.block(new XsltMacro(mojo::get));
+        try {
+            Thread.currentThread().getContextClassLoader().loadClass("org.scilab.forge.jlatexmath.TeXFormula");
+            registry.inlineMacro(new JLatexMath.Inline());
+            registry.block(new JLatexMath.Block());
+        } catch (final ClassNotFoundException cnfe) {
+            // no-op
+        }
     }
 
     @PreDestroy

@@ -40,6 +40,45 @@ Simplest setup is to define the plugin and create a file `src/main/pdf/index.ado
 |workDir|File|${project.build.directory}/yupiik-workdir|yupiik.workDir|Where to extract files needed for the rendering.
 |====
 
+==== PDF and formula
+
+Stem/Math formulas Asciidoctor integration is done through _mathematical_ gem which uses native bindings not supported by JRuby.
+Therefore you can't use it with PDF.
+To workaround this issue, PDF plugin provides `jlatexmath` (open block macro, i.e. delimited with `--`) and `jmath` (inline macro) allowing you to use inline LaTeX formulas.
+
+To activate it you must add jlatexmath dependency:
+
+[source,xml]
+----
+<plugin>
+  <groupId>com.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <configuration>
+    <!-- ... -->
+  </configuration>
+  <dependencies>
+    <dependency>
+      <groupId>org.scilab.forge</groupId>
+      <artifactId>jlatexmath</artifactId>
+      <version>1.0.7</version>
+    </dependency>
+  </dependencies>
+</plugin>
+----
+
+Example:
+
+[source,asciidoc]
+----
+
+[jlatexmath]
+--
+x = a + b
+--
+
+This formula (jmath:_[a + b]) is cool.
+----
+
 === Slides
 
 Render an asciidoctor reveal.js slide deck in HTML.
