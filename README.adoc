@@ -87,15 +87,17 @@ Simplest setup is to define the plugin and create a file `src/main/slides/index.
 
 [source,sh]
 ----
- mvn yupiik-tools:slides
+mvn yupiik-tools:slides
 ----
 
 You can also pass in HTTP mode with:
 
 [source,sh]
 ----
- mvn yupiik-tools:serve-slides
+mvn yupiik-tools:serve-slides
 ----
+
+TIP: to convert slides to PDF, you can use decktape. Launch the slides HTTP server and then run `docker run --rm -t --net=host -v $PWD:/slides astefanutti/decktape http://localhost:4200 slides.pdf`.
 
 ==== Configuration
 
