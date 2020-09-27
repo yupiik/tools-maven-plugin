@@ -16,6 +16,8 @@
 
 = Yupiik Tools Maven Plugin
 
+image::https://github.com/yupiik/tools-maven-plugin/workflows/Java%20CI%20with%20Maven/badge.svg[Java CI with Maven]
+
 A set of goals at Yupiik colors.
 
 Plugin definition:
