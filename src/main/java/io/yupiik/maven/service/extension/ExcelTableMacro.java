@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.DataFormatter;

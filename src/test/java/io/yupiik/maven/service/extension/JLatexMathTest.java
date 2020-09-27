@@ -13,19 +13,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.AsciidoctorInstance;
-import com.yupiik.maven.test.MavenTest;
+import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.test.MavenTest;
 import org.asciidoctor.OptionsBuilder;
+import org.junit.jupiter.api.Assertions;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JLatexMathTest {
     @MavenTest
     void block(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
+        Assertions.assertTrue(
                 instance.withAsciidoc(mojo, a ->
                         a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", OptionsBuilder.options())).startsWith("" +
                         "<div class=\"openblock\">\n" +
@@ -37,7 +38,7 @@ class JLatexMathTest {
 
     @MavenTest
     void inline(final BaseMojo mojo, final AsciidoctorInstance instance) {
-        assertTrue(
+        Assertions.assertTrue(
                 instance.withAsciidoc(mojo, a ->
                         a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", OptionsBuilder.options())).startsWith("" +
                         "<div class=\"paragraph\">\n" +

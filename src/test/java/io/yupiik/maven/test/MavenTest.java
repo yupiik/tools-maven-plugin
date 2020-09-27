@@ -13,10 +13,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.test;
+package io.yupiik.maven.test;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.AsciidoctorInstance;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.project.MavenProject;
 import org.junit.jupiter.api.Test;

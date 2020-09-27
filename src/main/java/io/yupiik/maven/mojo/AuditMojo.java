@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.mojo;
+package io.yupiik.maven.mojo;
 
 import lombok.Getter;
 import lombok.Setter;

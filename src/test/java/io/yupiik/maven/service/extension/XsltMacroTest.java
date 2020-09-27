@@ -13,10 +13,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.AsciidoctorInstance;
 import org.apache.maven.model.Build;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.project.MavenProject;
@@ -49,7 +49,7 @@ class XsltMacroTest {
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
                 "   xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" " +
-                "   version=\"3.0\" name=\"com.yupiik.maven.mojo.PDFMojoTest\"\n" +
+                "   version=\"3.0\" name=\"io.yupiik.maven.mojo.PDFMojoTest\"\n" +
                 "  time=\"9.058\" tests=\"1\" errors=\"0\" skipped=\"0\" failures=\"0\">\n" +
                 "  <testcase name=\"render(Path)\" classname=\"com.foo.MyTest1\" time=\"9.034\"/>\n" +
                 "</testsuite>").getBytes(StandardCharsets.UTF_8));
@@ -57,7 +57,7 @@ class XsltMacroTest {
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
                 "   xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" " +
-                "   version=\"3.0\" name=\"com.yupiik.maven.mojo.PDFMojoTest\"\n" +
+                "   version=\"3.0\" name=\"io.yupiik.maven.mojo.PDFMojoTest\"\n" +
                 "  time=\"2.022\" tests=\"1\" errors=\"0\" skipped=\"0\" failures=\"0\">\n" +
                 "  <testcase name=\"render(Path)\" classname=\"com.foo.MyTest2\" time=\"2.012\"/>\n" +
                 "</testsuite>").getBytes(StandardCharsets.UTF_8));

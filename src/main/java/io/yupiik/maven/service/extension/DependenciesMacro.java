@@ -13,9 +13,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.mojo.BaseMojo;
 import lombok.RequiredArgsConstructor;
 import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;

@@ -13,13 +13,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service;
+package io.yupiik.maven.service;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.extension.DependenciesMacro;
-import com.yupiik.maven.service.extension.ExcelTableMacro;
-import com.yupiik.maven.service.extension.JLatexMath;
-import com.yupiik.maven.service.extension.XsltMacro;
+import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.extension.DependenciesMacro;
+import io.yupiik.maven.service.extension.ExcelTableMacro;
+import io.yupiik.maven.service.extension.JLatexMath;
+import io.yupiik.maven.service.extension.XsltMacro;
 import org.apache.maven.plugin.logging.Log;
 import org.asciidoctor.Asciidoctor;
 import org.asciidoctor.extension.JavaExtensionRegistry;

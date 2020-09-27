@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.mojo;
+package io.yupiik.maven.mojo;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -85,7 +85,7 @@ public abstract class BaseMojo extends AbstractMojo {
         }
         mkdirs(output);
         final Properties properties = new Properties();
-        try (final InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("META-INF/maven/com.yupiik.maven/yupiik-tools-maven-plugin/pom.properties")) {
+        try (final InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("META-INF/maven/io.yupiik.maven/yupiik-tools-maven-plugin/pom.properties")) {
             properties.load(stream);
         } catch (IOException e) {
             throw new IllegalStateException(e);

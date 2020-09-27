@@ -13,9 +13,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.mojo;
+package io.yupiik.maven.mojo;
 
-import com.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.AsciidoctorInstance;
 import lombok.Setter;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;

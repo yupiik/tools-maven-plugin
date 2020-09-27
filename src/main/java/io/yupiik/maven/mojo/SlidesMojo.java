@@ -13,13 +13,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.mojo;
+package io.yupiik.maven.mojo;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import com.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.AsciidoctorInstance;
 import lombok.Data;
 import lombok.Setter;
 import org.apache.maven.plugin.MojoExecutionException;

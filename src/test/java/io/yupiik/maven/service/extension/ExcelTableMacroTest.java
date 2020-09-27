@@ -13,11 +13,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.BaseMojo;
-import com.yupiik.maven.service.AsciidoctorInstance;
-import com.yupiik.maven.test.MavenTest;
+import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.test.MavenTest;
 import org.asciidoctor.OptionsBuilder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

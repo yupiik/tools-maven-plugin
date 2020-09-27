@@ -13,10 +13,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.yupiik.maven.service.extension;
+package io.yupiik.maven.service.extension;
 
-import com.yupiik.maven.mojo.AuditMojo;
-import com.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.mojo.AuditMojo;
+import io.yupiik.maven.mojo.BaseMojo;
 import org.apache.maven.project.MavenProject;
 import org.asciidoctor.extension.BlockProcessor;
 
