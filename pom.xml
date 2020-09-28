@@ -31,7 +31,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <mvn.version>3.6.3</mvn.version>
-    <jruby.version>9.2.11.1</jruby.version>
+    <jruby.version>9.2.13.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
     <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
   </properties>
@@ -428,7 +428,7 @@
   <repositories>
     <repository>
       <id>mavengems</id>
-      <url>https://rubygems.org/</url>
+      <url>http://rubygems-proxy.torquebox.org/releases/</url>
     </repository>
   </repositories>
 </project>
