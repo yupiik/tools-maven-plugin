@@ -23,8 +23,8 @@
   <artifactId>yupiik-tools-maven-plugin</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
-  <name>Yupiik Maven Plugin</name>
-  <description>Yupiik Maven Plugin</description>
+  <name>Yupiik Tools Maven Plugin</name>
+  <description>Yupiik Tools Maven Plugin</description>
   <url>https://www.yupiik.com/</url>
 
   <properties>
@@ -144,9 +144,9 @@
   </dependencies>
 
   <scm>
-    <connection>scm:git:https://github.com/yupiik/yupiik-tools-maven-plugin.git</connection>
-    <developerConnection>scm:git:https://github.com/yupiik/yupiik-tools-maven-plugin.git</developerConnection>
-    <url>https://github.com/yupiik/yupiik-tools-maven-plugin.git</url>
+    <connection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</connection>
+    <developerConnection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</developerConnection>
+    <url>https://github.com/yupiik/tools-maven-plugin.git</url>
     <tag>HEAD</tag>
   </scm>
 
@@ -164,7 +164,7 @@
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
-      <url>https://github.com/yupiik/yupiik-tools-maven-plugin/blob/master/LICENSE</url>
+      <url>https://github.com/yupiik/tools-maven-plugin/blob/master/LICENSE</url>
       <distribution>may be downloaded from the Maven repository</distribution>
     </license>
   </licenses>
