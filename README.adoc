@@ -243,6 +243,7 @@ It comes with its companion serve goal to have a live preview.
 |title|String|Yupiik|yupiik.minisite.title|Default title if page has no title.
 |description|String|Yupiik Minisite|yupiik.minisite.description|Default description if page has no title.
 |siteBase|String|`http://localhost:4200`|yupiik.minisite.siteBase|Base of the site.
+|searchIndexName|String|search.json|yupiik.minisite.generateSearchIndex|Should search.json be generated and if not `none` its name.
 |generateIndex|boolean|true|yupiik.minisite.generateIndex|Should index be generated from the pages.
 |generateSiteMap|boolean|true|yupiik.minisite.generateSiteMap|Should sitemap be generated.
 |templatePrefixes|List<String>|default|-|List of html templates to prepend to the content.

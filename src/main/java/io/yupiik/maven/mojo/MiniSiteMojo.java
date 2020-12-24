@@ -18,6 +18,7 @@ package io.yupiik.maven.mojo;
 import io.yupiik.maven.service.AsciidoctorInstance;
 import io.yupiik.maven.service.ftp.configuration.Ftp;
 import io.yupiik.maven.service.ftp.configuration.FtpService;
+import io.yupiik.maven.service.search.IndexService;
 import lombok.RequiredArgsConstructor;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Component;
@@ -141,6 +142,12 @@ public class MiniSiteMojo extends BaseMojo {
     private boolean useDefaultAssets;
 
     /**
+     * Generate search json.
+     */
+    @Parameter(property = "yupiik.minisite.searchIndexName", defaultValue = "search.json")
+    private String searchIndexName;
+
+    /**
      * Generate index page.
      */
     @Parameter(property = "yupiik.minisite.generateIndex", defaultValue = "true")
@@ -185,6 +192,9 @@ public class MiniSiteMojo extends BaseMojo {
 
     @Inject
     private FtpService ftpService;
+
+    @Inject
+    private IndexService indexService;
 
     @Component
     private SettingsDecrypter settingsDecrypter;
@@ -429,13 +439,13 @@ public class MiniSiteMojo extends BaseMojo {
         if (useDefaultAssets) {
             Stream.of(
                     "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
-                    "yupiik-tools-maven-plugin/minisite/assets/js/generated-nav-menu.js")
+                    "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js")
                     .forEach(resource -> {
                         final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
-                        try (final InputStream stream = Thread.currentThread().getContextClassLoader()
-                                .getResourceAsStream(resource)) {
+                        try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(Thread.currentThread().getContextClassLoader()
+                                .getResourceAsStream(resource), StandardCharsets.UTF_8))) {
                             Files.createDirectories(out.getParent());
-                            Files.copy(stream, out, StandardCopyOption.REPLACE_EXISTING);
+                            Files.write(out, buffer.lines().collect(joining("\n")).replace("{{base}}", siteBase).getBytes(StandardCharsets.UTF_8));
                         } catch (final IOException e) {
                             throw new IllegalStateException(e);
                         }
@@ -461,16 +471,63 @@ public class MiniSiteMojo extends BaseMojo {
                 throw new IllegalStateException(e);
             }
         }
+
+        if (hasSearch()) {
+            indexService.write(indexService.index(output, siteBase), output.resolve(searchIndexName));
+        }
+
         getLog().info("Rendered minisite '" + source.getName() + "'");
+    }
+
+    private boolean hasSearch() {
+        return !"none".equals(searchIndexName) && searchIndexName != null;
     }
 
     protected Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor) {
         final Path layout = source.toPath().resolve("templates");
         String prefix = readTemplates(layout, templatePrefixes)
+                .replace("{{search}}", hasSearch() ? "" +
+                        "<li class=\"list-inline-item\">" +
+                        "<a id=\"search-button\" href=\"#\" data-toggle=\"modal\" data-target=\"#searchModal\">" +
+                        "<i data-toggle=\"tooltip\" data-placement=\"top\" title=\"Search\" class=\"fas fa-search\"></i>" +
+                        "</a>" +
+                        "</li>\n" +
+                        "" : "")
                 .replace("{{customHead}}", ofNullable(customHead).orElse(""))
                 .replace("{{base}}", siteBase);
         final String suffix = readTemplates(layout, templateSuffixes)
-                .replace("{{customScripts}}", ofNullable(customScripts).orElse(""))
+                .replace("{{searchModal}}", hasSearch() ? "" +
+                        "<div class=\"modal fade\" id=\"searchModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"searchModalLabel\" aria-hidden=\"true\">\n" +
+                        "  <div class=\"modal-dialog modal-dialog-centered\" role=\"document\">\n" +
+                        "    <div class=\"modal-content\">\n" +
+                        "      <div class=\"modal-header\">\n" +
+                        "        <h5 class=\"modal-title\" id=\"searchModalLabel\">Search</h5>\n" +
+                        "        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" +
+                        "          <span aria-hidden=\"true\">&times;</span>\n" +
+                        "        </button>\n" +
+                        "      </div>\n" +
+                        "      <div class=\"modal-body\">\n" +
+                        "        <form onsubmit=\"return false;\" class=\"form-inline\">\n" +
+                        "          <div class=\"form-group\">\n" +
+                        "            <label for=\"searchInput\"><b>Search: </b></label>\n" +
+                        "            <input class=\"form-control\" id=\"searchInput\" placeholder=\"Enter search text and hit enter...\">\n" +
+                        "          </div>\n" +
+                        "        </form>\n" +
+                        "        <div class=\"search-hits\"></div>\n" +
+                        "      </div>\n" +
+                        "      <div class=\"modal-footer\">\n" +
+                        "        <button type=\"button\" class=\"btn btn-primary\" data-dismiss=\"modal\">Close</button>\n" +
+                        "      </div>\n" +
+                        "    </div>\n" +
+                        "  </div>\n" +
+                        "</div>" :
+                        "")
+                .replace("{{customScripts}}",
+                        ofNullable(customScripts).orElse("").trim() + (hasSearch() ?
+                                "\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
+                                        "integrity=\"sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==\" " +
+                                        "crossorigin=\"anonymous\"></script>\n" :
+                                "\n"))
                 .replace("{{base}}", siteBase);
         if (templateAddLeftMenu) {
             prefix += "\n<minisite-menu-placeholder/>\n";

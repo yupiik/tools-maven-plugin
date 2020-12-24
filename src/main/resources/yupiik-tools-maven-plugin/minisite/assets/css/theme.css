@@ -286,3 +286,33 @@ div.colist.arabic > ol > li {
 div.colist.arabic > ol > li > p {
     display: inline;
 }
+
+#searchModal .modal-dialog {
+    margin: auto;
+    min-width: 80%;
+    max-height: 80%;
+}
+#searchModal .modal-body form {
+    padding-bottom: 0.5rem;
+}
+#searchModal .modal-body div.form-group {
+    width: 100%;
+    display: flex;
+}
+#searchModal .modal-body div.form-group > input {
+    flex: 1;
+}
+#searchModal .search-hits {
+    overflow: auto;
+    max-height: 50vh;
+}
+#searchModal .search-result-container > p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 16px;
+    font-size: 14px;
+    max-height: 64px;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+}

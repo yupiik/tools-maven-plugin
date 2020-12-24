@@ -1,4 +1,4 @@
-// forked from generated-nav-menu to adjust top padding - license MIT
+// forked from anchorifix to adjust top padding - license MIT
 if (typeof Object.create !== 'function') {
   Object.create = function (obj) {
     function F() {}
@@ -226,3 +226,98 @@ if (typeof Object.create !== 'function') {
     });
   };
 })(jQuery, window, document);
+
+
+// custom features - search
+$(document).ready(function () {
+  function highlighter(resultItem) {
+    return resultItem.matches.map(function (matchItem) {
+      var text = resultItem.item[matchItem.key];
+      var result = []
+      var matches = [].concat(matchItem.indices);
+      var pair = matches.shift()
+
+      for (var i = 0; i < text.length; i++) {
+        var char = text.charAt(i)
+        if (pair && i == pair[0]) {
+          result.push('<b>')
+        }
+        result.push(char)
+        if (pair && i == pair[1]) {
+          result.push('</b>')
+          pair = matches.shift()
+        }
+      }
+      return result.join('');
+    }).join('\n');
+  }
+
+  function loadSearchIndex() {
+      return new Promise(function(ok, ko) {
+          $.getJSON('{{base}}/search.json', function(index) {
+              ok(window.minisiteFuseFactory ? window.minisiteFuseFactory(index) : new Fuse(index, {
+                  shouldSort: true,
+                  includeMatches: true,
+                  threshold: 0.6,
+                  location: 0,
+                  distance: 100,
+                  maxPatternLength: 32,
+                  minMatchCharLength: 2,
+                  keys: [{
+                      name: 'title',
+                      weight: 0.1
+                  }, {
+                      name: 'lvl0',
+                      weight: 1
+                  }, {
+                      name: 'keywords',
+                      weight: 1
+                  }, {
+                      name: 'description',
+                      weight: 1
+                  }, {
+                      name: 'lvl1',
+                      weight: 0.3
+                  }, {
+                      name: 'lvl2',
+                      weight: 0.2
+                  }, {
+                      name: 'lvl3',
+                      weight: 0.1
+                  }, {
+                      name: 'text',
+                      weight: 0.1
+                  }],
+              }));
+          });
+      });
+  }
+
+  var index = loadSearchIndex();
+  var hits = $('#searchModal div.search-hits');
+  function executeSearch(search) {
+    index.then(function (fuse) {
+      var result = fuse.search(search);
+      hits.empty();
+      if (!result.length) {
+        var div = $('<div class="text-center">No results matching <strong>' + search + '</strong> found.</div>');
+        hits.append(div);
+      } else {
+        var segments = search.trim().length ? search.split(/ +/) : [];
+        result.forEach(function (item) {
+          var text = highlighter(item);
+          var div = $('<div class="search-result-container"><a href="' + item.item.url + '">' + item.item.title + '</a><p>' + text + '</p></div>');
+          hits.append(div);
+        });
+      }
+    });
+  }
+  $('#searchInput').change(function () {
+    executeSearch($(this).val());
+  });
+  $('#search-button').click(function () {
+    setTimeout(function () {
+        hits.empty();
+    });
+  });
+});
