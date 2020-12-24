@@ -220,3 +220,44 @@ Scope can be:
 - runtime_only
 
 The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
+
+=== Minisite
+
+Minisite enables to render a static website with a generic Yupiik template.
+It comes with its companion serve goal to have a live preview.
+
+[source,sh]
+----
+ mvn yupiik-tools:minisite
+ mvn yupiik-tools:serve-minisite
+----
+
+==== Configuration
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Default|Property|Description
+|attributes|Map|-|-|Custom attributes.
+|source|File|${project.basedir}/src/main/minisite|yupiik.minisite.source|Source directory or file to render.
+|target|File|${project.build.directory}/${project.build.finalName}|yupiik.minisite.target|Where to render the minisite.
+|title|String|Yupiik|yupiik.minisite.title|Default title if page has no title.
+|description|String|Yupiik Minisite|yupiik.minisite.description|Default description if page has no title.
+|siteBase|String|`http://localhost:4200`|yupiik.minisite.siteBase|Base of the site.
+|generateIndex|boolean|true|yupiik.minisite.generateIndex|Should index be generated from the pages.
+|generateSiteMap|boolean|true|yupiik.minisite.generateSiteMap|Should sitemap be generated.
+|templatePrefixes|List<String>|default|-|List of html templates to prepend to the content.
+|templateAddLeftMenu|boolean|true|yupiik.minisite.addLeftMenu|Should a left menu inheriting from index logic be generated.
+|templateSuffixes|List<String>|default|-|List of html templates to append to the content.
+|useDefaultAssets|boolean|true|yupiik.minisite.useDefaultAssets|Should default css/js be extracted and added to the website.
+|====
+
+===== Index generation
+
+To include a page in the index it must contain `minisite-index` attribute.
+Its value is the order of the entry in the index tiles.
+
+TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily insert an item later.
+
+* `minisite-index-title` attribute enables to override link text.
+* `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
+* `minisite-index-description` attribute enables to override the text in the index tile for the page entry.

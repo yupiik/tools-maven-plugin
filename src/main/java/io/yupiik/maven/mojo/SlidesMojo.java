@@ -107,7 +107,7 @@ public class SlidesMojo extends BaseMojo {
     /**
      * How long to wait to check if render must be re-done in watch mode (in ms).
      */
-    @Parameter(property = "yupiik.slides.watchDelay", defaultValue = "350")
+    @Parameter(property = "yupiik.slides.watchDelay", defaultValue = "150")
     private int watchDelay;
 
     @Inject

@@ -24,6 +24,8 @@ import org.asciidoctor.Options;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static java.util.Collections.emptyList;
+
 /**
  * Minisite goa with HTTP server.
  */
@@ -41,18 +43,27 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
     /**
      * How long to wait to check if render must be re-done in watch mode (in ms).
      */
-    @Parameter(property = "yupiik.slides.watchDelay", defaultValue = "350")
+    @Parameter(property = "yupiik.slides.watchDelay", defaultValue = "150")
     private int watchDelay;
 
     @Override
     public void doExecute() {
+        // adjust config
+        siteBase = "http://localhost:" + port;
+        if (requires == null) { // ensure we dont load revealjs by default since we disabled extraction of gems
+            requires = emptyList();
+        }
+
+        final Options options = createOptions();
         asciidoctor.withAsciidoc(this, adoc -> {
-            final Options options = createOptions();
             final Function<Page, String> template = createTemplate(options, adoc);
             final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
             final Watch watch = new Watch(
                     getLog(), source.toPath(), options, adoc, watchDelay,
-                    (opts, a) -> super.doRender(a, opts, template), () -> server.get().open(openBrowser));
+                    (opts, a) -> {
+                        super.doRender(a, opts, template);
+                        getLog().info("Minisite re-rendered");
+                    }, () -> server.get().open(openBrowser));
             final StaticHttpServer staticHttpServer = new StaticHttpServer(
                     getLog(), port, target.toPath(), "index.html", watch);
             server.set(staticHttpServer);

@@ -62,11 +62,25 @@ public class Watch implements Runnable {
             }
         });
         final AtomicLong lastModified = new AtomicLong(findLastUpdated(-1, source));
+        final AtomicLong checksCount = new AtomicLong(0);
         service.scheduleWithFixedDelay(() -> {
             final long currentLM = findLastUpdated(-1, source);
-            if (lastModified.get() < currentLM) {
+            final long lastModifiedValue = lastModified.get();
+            if (lastModifiedValue < currentLM) {
                 lastModified.set(currentLM);
+                if (checksCount.getAndIncrement() > 0) {
+                    log.debug("Change detected, re-rendering");
+                    renderer.accept(options, adoc);
+                    checksCount.set(0);
+                } else {
+                    log.debug("Change detected, waiting another iteration to ensure it is fully refreshed");
+                }
+            } else if (checksCount.get() > 0) {
+                log.debug("Change detected, re-rendering");
                 renderer.accept(options, adoc);
+                checksCount.set(0);
+            } else {
+                log.debug("No change");
             }
         }, watchDelay, watchDelay, TimeUnit.MILLISECONDS);
         launchCli(options, adoc);

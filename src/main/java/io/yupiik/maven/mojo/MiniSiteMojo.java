@@ -33,11 +33,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -47,6 +50,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.Comparator.comparing;
@@ -63,13 +67,15 @@ import static java.util.stream.Collectors.toList;
  *     <li>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</li>
  *     <li>src/main/doc/templates: contains the templates for the layout and pages of the website</li>
  * </ul>
+ * <p>
+ * TODO: add a way to execute a main before the rendering.
  */
 @Mojo(name = "minisite")
 public class MiniSiteMojo extends BaseMojo {
     /**
      * Where to read content (layout root) from.
      */
-    @Parameter(property = "yupiik.minisite.source", defaultValue = "${project.basedir}/src/main/doc")
+    @Parameter(property = "yupiik.minisite.source", defaultValue = "${project.basedir}/src/main/minisite")
     protected File source;
 
     /**
@@ -106,18 +112,24 @@ public class MiniSiteMojo extends BaseMojo {
      * Default HTML page description.
      */
     @Parameter(property = "yupiik.minisite.siteBase", defaultValue = "http://localhost:4200")
-    private String siteBase;
+    protected String siteBase;
+
+    /**
+     * Use default assets.
+     */
+    @Parameter(property = "yupiik.minisite.useDefaultAssets", defaultValue = "true")
+    private boolean useDefaultAssets;
 
     /**
      * Generate index page.
      */
-    @Parameter
+    @Parameter(property = "yupiik.minisite.generateIndex", defaultValue = "true")
     private boolean generateIndex;
 
     /**
      * Generate sitemap page (xml).
      */
-    @Parameter
+    @Parameter(property = "yupiik.minisite.generateSiteMap", defaultValue = "true")
     private boolean generateSiteMap;
 
     /**
@@ -146,11 +158,19 @@ public class MiniSiteMojo extends BaseMojo {
 
     @Override
     public void doExecute() {
+        if (requires == null) { // ensure we dont load revealjs by default since we disabled extraction of gems
+            requires = emptyList();
+        }
+        final Options options = createOptions();
         asciidoctor.withAsciidoc(this, a -> {
-            final Options options = createOptions();
             doRender(a, options, createTemplate(options, a));
             return null;
         });
+    }
+
+    @Override // not needed in this mojo
+    protected Path extract(final Path output) {
+        return null;
     }
 
     private void render(final Page page, final Path html,
@@ -167,7 +187,7 @@ public class MiniSiteMojo extends BaseMojo {
                             "            </div>\n")
                             .orElse("") +
                     "            <div class=\"page-content-body\">\n" +
-                    asciidoctor.convert(page.content, options).trim() + '\n' +
+                    renderAdoc(page, asciidoctor, options).trim() + '\n' +
                     "            </div>\n" +
                     "        </div>\n"
             )).getBytes(StandardCharsets.UTF_8));
@@ -211,7 +231,7 @@ public class MiniSiteMojo extends BaseMojo {
      */
     private String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template) {
         final Path output = target.toPath();
-        final String content = findIndexPages(htmls)
+        String content = findIndexPages(htmls)
                 .map(p -> "" +
                         "                    <div class=\"col-12 col-lg-4 py-3\">\n" +
                         "                        <div class=\"card shadow-sm\">\n" +
@@ -226,7 +246,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "                                </h5>\n" +
                         "                                <div class=\"card-text\">\n                                  " +
                         ofNullable(p.getKey().attributes.get("minisite-index-description")).map(String::valueOf).orElse(p.getKey().title) +
-                        "                                </div>\n" +
+                        "\n                                </div>\n" +
                         "                                <a class=\"card-link-mask\" href=\"" + siteBase + '/' + output.relativize(p.getValue()) + "\"></a>\n" +
                         "                            </div>\n" +
                         "                        </div>\n" +
@@ -239,20 +259,28 @@ public class MiniSiteMojo extends BaseMojo {
                                 "            <div class=\"page-intro mx-auto\">The Galaxy low code solution for your microservices.</div>\n" +
                                 "            <div class=\"docs-overview py-5\">\n" +
                                 "                <div class=\"row justify-content-center\">\n",
-                        "                </div><!--//row-->\n" +
+                        "                </div>\n" +
                                 "            </div>\n" +
                                 "        </div>\n" +
                                 "    </div>\n"));
-        return template.apply(new Page(
-                ofNullable(title).orElse("Index"),
-                singletonMap("minisite-passthrough", true),
-                content));
+
+        content = template
+                .apply(new Page(ofNullable(title).orElse("Index"), singletonMap("minisite-passthrough", true), content))
+                .replace("<minisite-menu-placeholder/>\n", "");
+
+        // now we must drop the navigation-left/right since we reused the global template - easier than rebuilding a dedicated layout
+        final int navRight = content.indexOf("<div class=\"page-navigation-right\">");
+        if (navRight > 0) {
+            content = content.substring(0, navRight) + content.substring(content.indexOf("</div>", navRight) + "</div>".length());
+        }
+
+        return content;
     }
 
     private Stream<Map.Entry<Page, Path>> findIndexPages(final Map<Page, Path> htmls) {
         return htmls.entrySet().stream()
                 .filter(p -> p.getKey().attributes.containsKey("minisite-index"))
-                .sorted(comparing(p -> Integer.parseInt(String.valueOf(p.getKey().attributes.containsKey("minisite-index")).trim())));
+                .sorted(comparing(p -> Integer.parseInt(String.valueOf(p.getKey().attributes.get("minisite-index")).trim())));
     }
 
     private String generateSiteMap(final Map<Page, Path> pages) {
@@ -282,7 +310,12 @@ public class MiniSiteMojo extends BaseMojo {
                 Files.walkFileTree(content, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        final Path out = output.resolve(content.relativize(file));
+                        final String filename = file.getFileName().toString();
+                        if (!filename.endsWith(".adoc")) {
+                            return FileVisitResult.CONTINUE;
+                        }
+                        final Path out = output.resolve(content.relativize(file)).getParent().resolve(
+                                filename.substring(0, filename.length() - ".adoc".length()) + ".html");
                         if (out.getParent() != null) {
                             Files.createDirectories(out.getParent());
                         }
@@ -304,7 +337,7 @@ public class MiniSiteMojo extends BaseMojo {
         }
         if (generateIndex) {
             try {
-                Files.write(output.resolve("index.hml"), generateIndex(files, template).getBytes(StandardCharsets.UTF_8));
+                Files.write(output.resolve("index.html"), generateIndex(files, template).getBytes(StandardCharsets.UTF_8));
                 getLog().debug("Generated index.html");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
@@ -328,6 +361,7 @@ public class MiniSiteMojo extends BaseMojo {
                             final List<String> lines = Files.readAllLines(file);
                             final int toReplace = lines.indexOf("<minisite-menu-placeholder/>");
                             if (toReplace >= 0) {
+                                getLog().debug("Replacing left menu in " + file);
                                 lines.set(toReplace, leftMenu);
                                 Files.write(file, lines);
                             }
@@ -338,6 +372,21 @@ public class MiniSiteMojo extends BaseMojo {
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
+        }
+        if (useDefaultAssets) {
+            Stream.of(
+                    "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
+                    "yupiik-tools-maven-plugin/minisite/assets/js/generated-nav-menu.js")
+                    .forEach(resource -> {
+                        final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
+                        try (final InputStream stream = Thread.currentThread().getContextClassLoader()
+                                .getResourceAsStream(resource)) {
+                            Files.createDirectories(out.getParent());
+                            Files.copy(stream, out, StandardCopyOption.REPLACE_EXISTING);
+                        } catch (final IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    });
         }
 
         final Path assets = source.toPath().resolve("assets");
@@ -350,7 +399,7 @@ public class MiniSiteMojo extends BaseMojo {
                         if (out.getParent() != null) {
                             Files.createDirectories(out.getParent());
                         }
-                        Files.copy(file, out);
+                        Files.copy(file, out, StandardCopyOption.REPLACE_EXISTING);
                         getLog().debug("Copying " + file + " to " + out);
                         return super.visitFile(file, attrs);
                     }
@@ -364,8 +413,8 @@ public class MiniSiteMojo extends BaseMojo {
 
     protected Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor) {
         final Path layout = source.toPath().resolve("templates");
-        String prefix = readTemplates(layout, templatePrefixes);
-        final String suffix = readTemplates(layout, templateSuffixes);
+        String prefix = readTemplates(layout, templatePrefixes).replace("{{base}}", siteBase);
+        final String suffix = readTemplates(layout, templateSuffixes).replace("{{base}}", siteBase);
         if (templateAddLeftMenu) {
             prefix += "\n<minisite-menu-placeholder/>\n";
         }
@@ -378,8 +427,18 @@ public class MiniSiteMojo extends BaseMojo {
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
                                 .orElse(description)),
-                page.attributes.containsKey("minisite-passthrough") ? page.content : asciidoctor.convert(page.content, options),
+                page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
                 suffix);
+    }
+
+    private String renderAdoc(final Page page, final Asciidoctor asciidoctor, final Options options) {
+        final StringWriter writer = new StringWriter();
+        try (final StringReader reader = new StringReader(page.content)) {
+            asciidoctor.convert(reader, writer, options);
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return writer.toString();
     }
 
     private String readTemplates(final Path layout, final List<String> templatePrefixes) {
@@ -416,7 +475,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .attribute("source-highlighter", "highlightjs")
                 .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3")
                 .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/styles/vs2015.min.css")
-                .attribute("imagesdir", source.toPath().resolve("images").toAbsolutePath().normalize().toString())
+                .attribute("imagesdir", "images")
                 .attributes(this.attributes == null ? emptyMap() : this.attributes);
         if (project != null && (this.attributes == null || !this.attributes.containsKey("projectVersion"))) {
             attributes.attribute("projectVersion", project.getVersion());
@@ -426,10 +485,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .backend("html5")
                 .inPlace(false)
                 .headerFooter(false)
-                .toDir(target)
-                .destinationDir(target)
-                .mkDirs(true)
-                .baseDir(source.toPath().getParent().toAbsolutePath().normalize().toFile())
+                .baseDir(source.toPath().resolve("content").getParent().toAbsolutePath().normalize().toFile())
                 .attributes(attributes);
         if (templateDirs != null && !templateDirs.isEmpty()) {
             options.templateDirs(templateDirs.toArray(new File[0]));
