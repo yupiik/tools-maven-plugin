@@ -26,9 +26,6 @@ public class Ftp {
     @Parameter(property = "yupiik.minisite.ftp.url")
     private String url;
 
-    @Parameter(property = "yupiik.minisite.ftp.dir")
-    private String dir;
-
     @Parameter(property = "yupiik.minisite.ftp.serverId")
     private String serverId;
 

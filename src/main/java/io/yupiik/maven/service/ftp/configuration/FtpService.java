@@ -52,23 +52,23 @@ public class FtpService {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     final String relative = path.relativize(file).toString();
-                    final boolean hasParent = ftp.getDir() != null && !ftp.getDir().isEmpty();
-                    final String target = !hasParent ? relative : String.join("/", ftp.getDir(), relative);
+                    final boolean hasParent = uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath());
+                    final String target = !hasParent ? relative : String.join("/", uri.getPath().substring(1), relative);
 
                     final String[] segments = relative.split("/");
-                    final StringBuilder current = new StringBuilder(hasParent ? ftp.getDir() : "");
+                    final StringBuilder current = new StringBuilder(hasParent ? uri.getPath().substring(1) : "");
                     for (int i = 0; i < segments.length - 1 /* last is the file */; i++) {
                         if (current.length() > 0) {
                             current.append('/');
                         }
                         current.append(segments[i]);
                         final String test = current.toString();
-                        boolean created = existingFolders.add(test);
-                        if (created && (created = !ftpClient.changeWorkingDirectory(test)) && !ftpClient.makeDirectory(test)) {
+                        final boolean shouldCreate = existingFolders.add(test) && !existDir(ftpClient, test);
+                        if (shouldCreate && !ftpClient.makeDirectory(test)) {
                             throw new IllegalArgumentException("Can't create folder '" + test + "'");
-                        }
-                        if (created) {
-                            info.accept("Created directory '" + test + "'");
+                        }git
+                        if (shouldCreate) {
+                            info.accept("Created directory '" + relative + "' on " + uri);
                         }
                     }
 
@@ -77,7 +77,7 @@ public class FtpService {
                             throw new IllegalStateException("Can't upload " + file);
                         }
                     }
-                    info.accept("Uploaded file '" + target + "'");
+                    info.accept("Uploaded file '" + relative + "' on " + uri);
 
                     return super.visitFile(file, attrs);
                 }
@@ -94,5 +94,14 @@ public class FtpService {
                 // no-op
             }
         }
+    }
+
+    private boolean existDir(final FTPClient ftpClient, final String dir) throws IOException {
+        final String current = ftpClient.printWorkingDirectory();
+        final boolean result = ftpClient.changeWorkingDirectory(dir);
+        if (result) {
+            ftpClient.changeWorkingDirectory(current);
+        }
+        return result;
     }
 }

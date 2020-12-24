@@ -208,15 +208,12 @@ public class MiniSiteMojo extends BaseMojo {
             return null;
         });
         if (ftp != null && !ftp.isIgnore()) {
-            final String serverId = ftp.getServerId();
-            if (serverId != null) {
-                final Server server = session.getSettings().getServer(serverId);
-                final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
-                final Server clearServer = decrypted.getServer();
-                if (clearServer != null && clearServer.getPassword() != null) {
-                    ftp.setUsername(clearServer.getUsername());
-                    ftp.setPassword(clearServer.getPassword());
-                }
+            final Server server = session.getSettings().getServer(ofNullable(ftp.getServerId()).orElse(siteBase));
+            final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+            final Server clearServer = decrypted.getServer();
+            if (clearServer != null && clearServer.getPassword() != null) {
+                ftp.setUsername(clearServer.getUsername());
+                ftp.setPassword(clearServer.getPassword());
             }
             ftpService.upload(ftp, target.toPath(), getLog()::info);
         }
@@ -494,6 +491,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "</li>\n" +
                         "" : "")
                 .replace("{{customHead}}", ofNullable(customHead).orElse(""))
+                .replace("{{projectVersion}}", project.getVersion()) // enables to invalidate browser cache
                 .replace("{{base}}", siteBase);
         final String suffix = readTemplates(layout, templateSuffixes)
                 .replace("{{searchModal}}", hasSearch() ? "" +
@@ -528,6 +526,7 @@ public class MiniSiteMojo extends BaseMojo {
                                         "integrity=\"sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==\" " +
                                         "crossorigin=\"anonymous\"></script>\n" :
                                 "\n"))
+                .replace("{{projectVersion}}", project.getVersion()) // enables to invalidate browser cache
                 .replace("{{base}}", siteBase);
         if (templateAddLeftMenu) {
             prefix += "\n<minisite-menu-placeholder/>\n";

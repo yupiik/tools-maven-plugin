@@ -262,8 +262,7 @@ The configuration also supports a `ftp` entry if you want to upload to a FTP ser
 |username|String|Username if serverId is not set.
 |password|String|Password if serverId is not set.
 |serverId|String|ServerID to use to get username/password from settings.xml.
-|url|String|FTP url.
-|dir|String|FTP subdir (htdocs/public_html etc generally).
+|url|String|FTP url (`ftp://host:port/dir`).
 |====
 
 ===== Example
@@ -283,9 +282,8 @@ The configuration also supports a `ftp` entry if you want to upload to a FTP ser
       <configuration>
         <siteBase>http://mini.yupiik.net</siteBase>
         <ftp>
-          <serverId>http://mini.yupiik.net</serverId>
-          <url>ftp://ftpupload.net</url>
-          <dir>/htdocs</dir>
+          <serverId>http://mini.yupiik.net</serverId> <!-- default is siteBase -->
+          <url>ftp://ftpupload.net/htdocs</url>
         </ftp>
       </configuration>
     </execution>
