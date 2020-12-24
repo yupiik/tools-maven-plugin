@@ -109,6 +109,18 @@ public class MiniSiteMojo extends BaseMojo {
     private String description;
 
     /**
+     * Custom head links (to add custom css easily).
+     */
+    @Parameter(property = "yupiik.minisite.customHead")
+    protected String customHead;
+
+    /**
+     * Custom scripts links (to add custom js easily).
+     */
+    @Parameter(property = "yupiik.minisite.customScripts")
+    protected String customScripts;
+
+    /**
      * Default HTML page description.
      */
     @Parameter(property = "yupiik.minisite.siteBase", defaultValue = "http://localhost:4200")
@@ -314,17 +326,20 @@ public class MiniSiteMojo extends BaseMojo {
                         if (!filename.endsWith(".adoc")) {
                             return FileVisitResult.CONTINUE;
                         }
+                        final String contentString = String.join("\n", Files.readAllLines(file));
+                        final DocumentHeader header = asciidoctor.readDocumentHeader(contentString);
+                        final Page page = new Page(
+                                header.getPageTitle(),
+                                header.getAttributes(),
+                                contentString);
+                        if (page.attributes.containsKey("minisite-skip")) {
+                            return FileVisitResult.CONTINUE;
+                        }
                         final Path out = output.resolve(content.relativize(file)).getParent().resolve(
                                 filename.substring(0, filename.length() - ".adoc".length()) + ".html");
                         if (out.getParent() != null) {
                             Files.createDirectories(out.getParent());
                         }
-                        final String content = String.join("\n", Files.readAllLines(file));
-                        final DocumentHeader header = asciidoctor.readDocumentHeader(content);
-                        final Page page = new Page(
-                                header.getPageTitle(),
-                                header.getAttributes(),
-                                content);
                         render(page, out, asciidoctor, options, template);
                         files.put(page, out);
                         getLog().debug("Rendering " + file + " to " + out);
@@ -413,8 +428,12 @@ public class MiniSiteMojo extends BaseMojo {
 
     protected Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor) {
         final Path layout = source.toPath().resolve("templates");
-        String prefix = readTemplates(layout, templatePrefixes).replace("{{base}}", siteBase);
-        final String suffix = readTemplates(layout, templateSuffixes).replace("{{base}}", siteBase);
+        String prefix = readTemplates(layout, templatePrefixes)
+                .replace("{{customHead}}", ofNullable(customHead).orElse(""))
+                .replace("{{base}}", siteBase);
+        final String suffix = readTemplates(layout, templateSuffixes)
+                .replace("{{customScripts}}", ofNullable(customScripts).orElse(""))
+                .replace("{{base}}", siteBase);
         if (templateAddLeftMenu) {
             prefix += "\n<minisite-menu-placeholder/>\n";
         }

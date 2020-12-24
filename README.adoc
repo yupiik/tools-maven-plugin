@@ -249,6 +249,8 @@ It comes with its companion serve goal to have a live preview.
 |templateAddLeftMenu|boolean|true|yupiik.minisite.addLeftMenu|Should a left menu inheriting from index logic be generated.
 |templateSuffixes|List<String>|default|-|List of html templates to append to the content.
 |useDefaultAssets|boolean|true|yupiik.minisite.useDefaultAssets|Should default css/js be extracted and added to the website.
+|customHead|String|-|yupiik.minisite.customHead|String injected at the end of head tag of html pages.
+|customScripts|String|-|yupiik.minisite.customScripts|String injected at the end of script tags of html pages.
 |====
 
 ===== Index generation
