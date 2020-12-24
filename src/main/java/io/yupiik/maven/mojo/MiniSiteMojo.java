@@ -16,10 +16,18 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.ftp.configuration.Ftp;
+import io.yupiik.maven.service.ftp.configuration.FtpService;
 import lombok.RequiredArgsConstructor;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Server;
+import org.apache.maven.settings.crypto.DefaultSettingsDecryptionRequest;
+import org.apache.maven.settings.crypto.SettingsDecrypter;
+import org.apache.maven.settings.crypto.SettingsDecryptionResult;
 import org.asciidoctor.Asciidoctor;
 import org.asciidoctor.AttributesBuilder;
 import org.asciidoctor.Options;
@@ -165,19 +173,49 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
+
+    @Parameter(defaultValue = "${session}", readonly = true)
+    private MavenSession session;
+
+    @Parameter
+    private Ftp ftp;
+
     @Inject
     protected AsciidoctorInstance asciidoctor;
 
+    @Inject
+    private FtpService ftpService;
+
+    @Component
+    private SettingsDecrypter settingsDecrypter;
+
     @Override
     public void doExecute() {
-        if (requires == null) { // ensure we dont load revealjs by default since we disabled extraction of gems
-            requires = emptyList();
-        }
+        fixConfig();
         final Options options = createOptions();
         asciidoctor.withAsciidoc(this, a -> {
             doRender(a, options, createTemplate(options, a));
             return null;
         });
+        if (ftp != null && !ftp.isIgnore()) {
+            final String serverId = ftp.getServerId();
+            if (serverId != null) {
+                final Server server = session.getSettings().getServer(serverId);
+                final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+                final Server clearServer = decrypted.getServer();
+                if (clearServer != null && clearServer.getPassword() != null) {
+                    ftp.setUsername(clearServer.getUsername());
+                    ftp.setPassword(clearServer.getPassword());
+                }
+            }
+            ftpService.upload(ftp, target.toPath(), getLog()::info);
+        }
+    }
+
+    protected void fixConfig() {
+        if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
+            requires = emptyList();
+        }
     }
 
     @Override // not needed in this mojo

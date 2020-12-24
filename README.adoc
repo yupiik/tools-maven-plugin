@@ -253,6 +253,45 @@ It comes with its companion serve goal to have a live preview.
 |customScripts|String|-|yupiik.minisite.customScripts|String injected at the end of script tags of html pages.
 |====
 
+The configuration also supports a `ftp` entry if you want to upload to a FTP server the generated website:
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Description
+|username|String|Username if serverId is not set.
+|password|String|Password if serverId is not set.
+|serverId|String|ServerID to use to get username/password from settings.xml.
+|url|String|FTP url.
+|dir|String|FTP subdir (htdocs/public_html etc generally).
+|====
+
+===== Example
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>build-and-deploy-doc</id>
+      <phase>package</phase>
+      <goals>
+        <goal>minisite</goal>
+      </goals>
+      <configuration>
+        <siteBase>http://mini.yupiik.net</siteBase>
+        <ftp>
+          <serverId>http://mini.yupiik.net</serverId>
+          <url>ftp://ftpupload.net</url>
+          <dir>/htdocs</dir>
+        </ftp>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
 ===== Index generation
 
 To include a page in the index it must contain `minisite-index` attribute.

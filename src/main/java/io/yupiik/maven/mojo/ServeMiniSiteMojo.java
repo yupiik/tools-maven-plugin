@@ -50,9 +50,7 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
     public void doExecute() {
         // adjust config
         siteBase = "http://localhost:" + port;
-        if (requires == null) { // ensure we dont load revealjs by default since we disabled extraction of gems
-            requires = emptyList();
-        }
+        fixConfig();
 
         final Options options = createOptions();
         asciidoctor.withAsciidoc(this, adoc -> {
