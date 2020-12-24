@@ -15,6 +15,7 @@
 //
 
 = Yupiik Tools Maven Plugin
+:toc:
 
 image::https://github.com/yupiik/tools-maven-plugin/workflows/Java%20CI%20with%20Maven/badge.svg[Java CI with Maven]
 
@@ -188,38 +189,6 @@ Here is a sample report:
 
 <1> the `aggregated=true` enables to generate a single report for all the reactor at once.
 
-== Maven Asciidoctor Macro
-
-The project adds asciidoc macros to get back some maven build information.
-Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
-
-=== maven_dependencies
-
-Enables to list the project dependencies.
-
-==== Usage
-
-[listing]
-....
-[maven_dependencies,scope=compile]
---
---
-....
-
-Scope can be:
-
-- compile
-- runtime
-- compile+runtime
-- runtime+system
-- test
-- provided_only
-- compile_only
-- test_only
-- system_only
-- runtime_only
-
-The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
 
 === Minisite
 
@@ -301,3 +270,36 @@ TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily
 * `minisite-index-title` attribute enables to override link text.
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
 * `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
+
+== Maven Asciidoctor Macro
+
+The project adds asciidoc macros to get back some maven build information.
+Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
+
+=== maven_dependencies
+
+Enables to list the project dependencies.
+
+==== Usage
+
+[listing]
+....
+[maven_dependencies,scope=compile]
+--
+--
+....
+
+Scope can be:
+
+- compile
+- runtime
+- compile+runtime
+- runtime+system
+- test
+- provided_only
+- compile_only
+- test_only
+- system_only
+- runtime_only
+
+The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
