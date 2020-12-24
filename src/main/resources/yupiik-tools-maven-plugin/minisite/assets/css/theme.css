@@ -1,9 +1,9 @@
 body {
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	color: #5d6778;
-	font-family: "Open Sans", sans-serif;
-	padding-top: 69px
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #5d6778;
+    font-family: "Open Sans", sans-serif;
+    padding-top: 69px
 }
 
 h1,
@@ -12,9 +12,9 @@ h3,
 h4,
 h5,
 h6 {
-	color: #252930;
-	font-weight: 600;
-	font-family: "Montserrat", sans-serif;
+    color: #252930;
+    font-weight: 600;
+    font-family: "Montserrat", sans-serif;
 }
 
 .logo-icon {
@@ -40,162 +40,162 @@ caption {
     margin: -70px 0 0;
 }
 code {
-	background: #ECF5FF;
-	color: #007bff;
-	padding: 0.25rem 0.375rem;
-	border-radius: .25rem;
-	font-size: 15px !important
+    background: #ECF5FF;
+    color: #007bff;
+    padding: 0.25rem 0.375rem;
+    border-radius: .25rem;
+    font-size: 15px !important
 }
 
 .table th,
 .table td {
-	border-color: #e7e9ed
+    border-color: #e7e9ed
 }
 
 .table thead th {
-	border-color: #e7e9ed
+    border-color: #e7e9ed
 }
 
 .theme-icon-holder {
-	display: inline-block;
-	background: #ECF5FF;
-	color: #007bff;
-	width: 32px;
-	height: 32px;
-	padding-top: 4px;
-	font-size: 1rem;
-	text-align: center;
-	border-radius: 50%
+    display: inline-block;
+    background: #ECF5FF;
+    color: #007bff;
+    width: 32px;
+    height: 32px;
+    padding-top: 4px;
+    font-size: 1rem;
+    text-align: center;
+    border-radius: 50%
 }
 
 .theme-icon-holder .svg-inline---fa {
-	color: #007bff
+    color: #007bff
 }
 
 .border-radius-0 {
-	border-radius: 0
+    border-radius: 0
 }
 
 .font-style-normal {
-	font-style: normal !important
+    font-style: normal !important
 }
 
 .site-logo .logo-text {
-	color: #252930;
-	font-size: 1.5rem;
-	font-weight: bold
+    color: #252930;
+    font-size: 1.5rem;
+    font-weight: bold
 }
 
 .site-logo .text-alt {
-	font-weight: 300
+    font-weight: 300
 }
 
 .site-logo .navbar-brand {
-	font-size: 2rem;
-	font-weight: 600;
-	padding-top: 0
+    font-size: 2rem;
+    font-weight: 600;
+    padding-top: 0
 }
 
 .page-header.theme-bg-dark .page-heading {
-	color: #fff
+    color: #fff
 }
 
 .page-header.theme-bg-dark .page-intro {
-	color: #fff;
-	-webkit-opacity: .8;
-	-moz-opacity: .8;
-	opacity: .8
+    color: #fff;
+    -webkit-opacity: .8;
+    -moz-opacity: .8;
+    opacity: .8
 }
 
 .social-list li {
-	font-size: 1.125rem;
-	background: #ECF5FF;
-	width: 32px;
-	height: 32px;
-	text-align: center;
-	border-radius: 50%;
-	padding-top: 2px
+    font-size: 1.125rem;
+    background: #ECF5FF;
+    width: 32px;
+    height: 32px;
+    text-align: center;
+    border-radius: 50%;
+    padding-top: 2px
 }
 
 .social-list li a {
-	color: #1845AA
+    color: #1845AA
 }
 
 .social-list li a:hover {
-	color: #007bff
+    color: #007bff
 }
 
 .social-list li:not(:last-child) {
-	margin-right: 0.875rem
+    margin-right: 0.875rem
 }
 
 .header {
-	box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.1);
-	background: #fff
+    box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.1);
+    background: #fff
 }
 
 .footer .copyright {
-	font-size: 0.875rem
+    font-size: 0.875rem
 }
 
 .card {
-	border-color: #e7e9ed;
-	position: relative;
-	height: 100%
+    border-color: #e7e9ed;
+    position: relative;
+    height: 100%
 }
 
 .card:hover {
-	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-	background: #ECF5FF
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    background: #ECF5FF
 }
 
 .card:hover .card-icon-holder {
-	background: #fff
+    background: #fff
 }
 
 .card-icon-holder {
-	width: 60px;
-	height: 60px;
-	font-size: 1.4rem;
-	padding-top: 0.7rem;
+    width: 60px;
+    height: 60px;
+    font-size: 1.4rem;
+    padding-top: 0.7rem;
     padding-left: 0.2rem;
-	display: inline-block
+    display: inline-block
 }
 
 .card-title-text {
-	display: inline-block;
-	position: relative;
-	top: -0.3rem
+    display: inline-block;
+    position: relative;
+    top: -0.3rem
 }
 
 .card-link-mask {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	top: 0;
-	left: 0
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0
 }
 
 .docs-branding {
-	min-height: 69px
+    min-height: 69px
 }
 
 .docs-branding .top-search-box {
-	width: 300px
+    width: 300px
 }
 
 .docs-logo-wrapper {
-	position: absolute;
-	left: 15px;
-	top: 0.5rem
+    position: absolute;
+    left: 15px;
+    top: 0;
 }
 
 .docs-logo-wrapper .site-logo {
-	display: inline-block
+    display: inline-block
 }
 
 .docs-top-utilities {
-	padding-top: 4px
+    padding-top: 10px
 }
 
 .hljs-meta, .hljs-meta-keyword {
@@ -254,34 +254,34 @@ code {
 }
 
 div.colist.arabic > ol {
-	list-style: none;
-	margin-left: 0rem;
-	counter-reset: circle-counter;
+    list-style: none;
+    margin-left: 0rem;
+    counter-reset: circle-counter;
 }
 div.colist.arabic > ol > li {
-	counter-increment: circle-counter;
-	margin-bottom: 0.25rem;
+    counter-increment: circle-counter;
+    margin-bottom: 0.25rem;
 }
 div.colist.arabic > ol > li:before {
-	content: counter(circle-counter);
-	background-color: #74B5FC;
-	width: 1.5rem;
-	height: 1.5rem;
-	border-radius: 50%;
-	display: inline-block;
-	font-size: 0.75rem;
-	line-height: 1.5rem;
-	color: white;
-	text-align: center;
-	margin-right: 0.5rem;
-	position: relative;
-	top: -2px;
+    content: counter(circle-counter);
+    background-color: #74B5FC;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    display: inline-block;
+    font-size: 0.75rem;
+    line-height: 1.5rem;
+    color: white;
+    text-align: center;
+    margin-right: 0.5rem;
+    position: relative;
+    top: -2px;
 }
 div.colist.arabic > ol > li:last-child {
-	margin-bottom: 0;
+    margin-bottom: 0;
 }
 div.colist.arabic > ol > li {
-	margin-left: 0.25rem;
+    margin-left: 0.25rem;
 }
 div.colist.arabic > ol > li > p {
     display: inline;
