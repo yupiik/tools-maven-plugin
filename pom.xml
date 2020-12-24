@@ -399,6 +399,9 @@
             <exclude>**/src/license/**</exclude>
             <exclude>**/generated/**</exclude>
             <exclude>**/*.gitkeep</exclude>
+            <exclude>**/*.html</exclude>
+            <exclude>**/*.slim</exclude>
+            <exclude>**/*.xslt</exclude>
           </excludes>
         </configuration>
       </plugin>

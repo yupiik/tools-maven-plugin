@@ -15,6 +15,7 @@
  */
 package io.yupiik.maven.mojo;
 
+import io.yupiik.maven.service.http.StaticHttpServer;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -34,19 +35,7 @@ public class ServeSlidesMojo extends SlidesMojo {
     }
 
     @Override
-    protected void onFirstRender() {
-        if (!openBrowser) {
-            return;
-        }
-        final URI uri = URI.create("http://localhost:" + port);
-        if (!java.awt.Desktop.isDesktopSupported()) {
-            getLog().info("Desktop is not supported on this JVM, go to " + uri + " in your browser");
-            return;
-        }
-        try {
-            java.awt.Desktop.getDesktop().browse(uri);
-        } catch (final IOException e) {
-            getLog().error("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")");
-        }
+    protected void onFirstRender(final StaticHttpServer server) {
+        server.open(openBrowser);
     }
 }

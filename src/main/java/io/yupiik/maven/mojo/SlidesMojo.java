@@ -15,11 +15,9 @@
  */
 package io.yupiik.maven.mojo;
 
-import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.http.StaticHttpServer;
+import io.yupiik.maven.service.watch.Watch;
 import lombok.Data;
 import lombok.Setter;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -32,12 +30,8 @@ import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -47,17 +41,11 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ROOT;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Setter
 @Mojo(name = "slides")
@@ -125,7 +113,6 @@ public class SlidesMojo extends BaseMojo {
     @Inject
     private AsciidoctorInstance asciidoctor;
 
-
     @Override
     public void doExecute() {
         final Options options = createOptions();
@@ -136,10 +123,22 @@ public class SlidesMojo extends BaseMojo {
                     render(options, adoc);
                     break;
                 case SERVE:
-                    serve(options, adoc);
+                    final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
+                    final Watch watch = new Watch(
+                            getLog(), source.toPath(), options, adoc, watchDelay,
+                            this::render, () -> onFirstRender(server.get()));
+                    final StaticHttpServer staticHttpServer = new StaticHttpServer(
+                            getLog(), port, targetDirectory.toPath(),
+                            source.getName().replaceFirst(".adoc$", ".html"),
+                            watch);
+                    server.set(staticHttpServer);
+                    server.get().run();
                     break;
                 case WATCH:
-                    watch(options, adoc);
+                    new Watch(
+                            getLog(), source.toPath(), options, adoc, watchDelay,
+                            this::render, () -> onFirstRender(null))
+                            .run();
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported mode '" + mode + "'");
@@ -152,148 +151,7 @@ public class SlidesMojo extends BaseMojo {
         return mode;
     }
 
-    private void serve(final Options options, final Asciidoctor adoc) {
-        final HttpServer server;
-        try {
-            server = HttpServer.create(new InetSocketAddress("localhost", port), 0);
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
-        }
-        final HttpContext ctx = server.createContext("/");
-        ctx.setHandler(new HttpHandler() {
-            @Override
-            public void handle(final HttpExchange exchange) throws IOException {
-                final Path file = resolveFile(exchange.getRequestURI());
-                if (!Files.exists(file)) {
-                    exchange.sendResponseHeaders(404, 0);
-                    exchange.close();
-                }
-                final byte[] bytes = Files.readAllBytes(file);
-                exchange.getResponseHeaders().add("Content-Type", findType(file.getFileName().toString()));
-                exchange.sendResponseHeaders(200, bytes.length);
-                exchange.getResponseBody().write(bytes);
-                exchange.close();
-            }
-
-            private String findType(final String name) {
-                if (name.endsWith(".html")) {
-                    return "text/html";
-                }
-                if (name.endsWith(".css")) {
-                    return "text/css";
-                }
-                if (name.endsWith(".js")) {
-                    return "application/javascript";
-                }
-                if (name.endsWith(".svg")) {
-                    return "image/svg+xml";
-                }
-                if (name.endsWith(".png")) {
-                    return "image/png";
-                }
-                if (name.endsWith(".jpg")) {
-                    return "image/jpg";
-                }
-                return "application/octect-stream";
-            }
-
-            private Path resolveFile(final URI requestURI) {
-                final String path = requestURI.getPath().substring(1);
-                if (path.isEmpty() || "/".equals(path)) {
-                    return targetDirectory.toPath().resolve(source.getName().replaceFirst(".adoc$", ".html"));
-                }
-                return targetDirectory.toPath().resolve(path);
-            }
-        });
-        server.start();
-        getLog().info("Started server at 'http://localhost:" + port + "'");
-        try {
-            watch(options, adoc);
-        } finally {
-            server.stop(0);
-        }
-    }
-
-    private void watch(final Options options, final Asciidoctor adoc) {
-        final AtomicBoolean toggle = new AtomicBoolean(true);
-        final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-            @Override
-            public Thread newThread(final Runnable worker) {
-                final Thread thread = new Thread(worker, getClass().getName() + "-watch");
-                thread.setPriority(Thread.NORM_PRIORITY);
-                return thread;
-            }
-        });
-        final AtomicLong lastModified = new AtomicLong(source.lastModified());
-        service.scheduleWithFixedDelay(() -> {
-            final long currentLM = findLastModified();
-            if (lastModified.get() < currentLM) {
-                lastModified.set(currentLM);
-                render(options, adoc);
-            }
-        }, watchDelay, watchDelay, TimeUnit.MILLISECONDS);
-        launchCli(options, adoc);
-        toggle.set(false);
-        try {
-            service.shutdownNow();
-            service.awaitTermination(2, SECONDS);
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private long findLastModified() {
-        long value = source.lastModified();
-        return findLastUpdated(
-                findLastUpdated
-                        (value, source.toPath().getParent().resolve("_partials")),
-                source.toPath().getParent().resolve("images"));
-    }
-
-    private long findLastUpdated(final long value, final Path partials) {
-        if (Files.exists(partials)) {
-            try {
-                return Files.walk(partials).reduce(value, (current, path) -> {
-                    try {
-                        return Math.max(current, Files.getLastModifiedTime(path).toMillis());
-                    } catch (final IOException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }, Math::max);
-            } catch (final IOException e) {
-                // no-op, default to value for this iteration
-            }
-        }
-        return value;
-    }
-
-    private void launchCli(final Options options, final Asciidoctor adoc) {
-        render(options, adoc);
-        onFirstRender();
-
-        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
-            String line;
-            getLog().info("Type '[refresh|exit]' to either force a rendering or exit");
-            while ((line = reader.readLine()) != null)
-                switch (line) {
-                    case "":
-                    case "r":
-                    case "refresh":
-                        render(options, adoc);
-                        break;
-                    case "exit":
-                    case "quit":
-                    case "q":
-                        return;
-                    default:
-                        getLog().error("Unknown command: '" + line + "', type: '[refresh|exit]'");
-                }
-        } catch (final IOException e) {
-            getLog().debug("Exiting waiting loop", e);
-        }
-    }
-
-    protected void onFirstRender() {
+    protected void onFirstRender(final StaticHttpServer server) {
         // no-op
     }
 
