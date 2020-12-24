@@ -66,7 +66,7 @@ public class FtpService {
                         final boolean shouldCreate = existingFolders.add(test) && !existDir(ftpClient, test);
                         if (shouldCreate && !ftpClient.makeDirectory(test)) {
                             throw new IllegalArgumentException("Can't create folder '" + test + "'");
-                        }git
+                        }
                         if (shouldCreate) {
                             info.accept("Created directory '" + relative + "' on " + uri);
                         }
