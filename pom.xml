@@ -19,7 +19,7 @@
 
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.2</version>
   <packaging>maven-plugin</packaging>
   <name>Yupiik Tools Maven Plugin</name>
   <description>Yupiik Tools Maven Plugin</description>
@@ -179,7 +179,7 @@
     <connection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</connection>
     <developerConnection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</developerConnection>
     <url>https://github.com/yupiik/tools-maven-plugin.git</url>
-    <tag>HEAD</tag>
+    <tag>yupiik-tools-maven-plugin-1.0.2</tag>
   </scm>
 
   <distributionManagement>
