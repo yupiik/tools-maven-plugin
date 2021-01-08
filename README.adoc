@@ -221,7 +221,13 @@ It comes with its companion serve goal to have a live preview.
 |useDefaultAssets|boolean|true|yupiik.minisite.useDefaultAssets|Should default css/js be extracted and added to the website.
 |customHead|String|-|yupiik.minisite.customHead|String injected at the end of head tag of html pages.
 |customScripts|String|-|yupiik.minisite.customScripts|String injected at the end of script tags of html pages.
+|logoText|String|-|yupiik.minisite.logoText|Logo text for default theme (text next to the logo).
+|indexText|String|-|yupiik.minisite.indexText|Index homepage (when generated) content title.
+|indexSubTitle|String|-|yupiik.minisite.indexSubTitle|Index home page (when generated) subtitle.
+|copyright|String|Yupiik &copy;|yupiik.minisite.copyright|Footer copyright for the default theme.
 |====
+
+TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.
 
 The configuration also supports a `ftp` entry if you want to upload to a FTP server the generated website:
 
@@ -249,7 +255,9 @@ The configuration also supports a `ftp` entry if you want to upload to a FTP ser
         <goal>minisite</goal>
       </goals>
       <configuration>
-        <siteBase>http://mini.yupiik.net</siteBase>
+        <siteBase>https://yupiik.github.io/${project.artifactId}</siteBase>
+        <logoText>My Product</logoText>
+        <indexSubTitle>The top product.</indexSubTitle>
         <ftp>
           <serverId>http://mini.yupiik.net</serverId> <!-- default is siteBase -->
           <url>ftp://ftpupload.net/htdocs</url>

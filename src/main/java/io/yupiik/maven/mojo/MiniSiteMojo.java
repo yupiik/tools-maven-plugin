@@ -63,6 +63,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.Comparator.comparing;
+import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -108,14 +109,38 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Default HTML page title.
      */
-    @Parameter(property = "yupiik.minisite.title", defaultValue = "Yupiik")
+    @Parameter(property = "yupiik.minisite.title")
     private String title;
 
     /**
      * Default HTML page description.
      */
-    @Parameter(property = "yupiik.minisite.description", defaultValue = "Yupiik Minisite")
+    @Parameter(property = "yupiik.minisite.description")
     private String description;
+
+    /**
+     * Default logo text for default template.
+     */
+    @Parameter(property = "yupiik.minisite.logoText")
+    private String logoText;
+
+    /**
+     * When index is generated the content page title.
+     */
+    @Parameter(property = "yupiik.minisite.indexText")
+    private String indexText;
+
+    /**
+     * When index is generated the content page title.
+     */
+    @Parameter(property = "yupiik.minisite.indexSubTitle")
+    private String indexSubTitle;
+
+    /**
+     * copyright value in the footer when using default theme.
+     */
+    @Parameter(property = "yupiik.minisite.copyright")
+    private String copyright;
 
     /**
      * Custom head links (to add custom css easily).
@@ -235,7 +260,7 @@ public class MiniSiteMojo extends BaseMojo {
                         final Function<Page, String> template) {
         try {
             Files.write(html, template.apply(new Page(
-                    ofNullable(page.title).orElse(title),
+                    ofNullable(page.title).orElseGet(this::getTitle),
                     singletonMap("minisite-passthrough", true), "" +
                     "        <div class=\"container page-content\">\n" +
                     ofNullable(page.title).map(t -> "" +
@@ -295,8 +320,8 @@ public class MiniSiteMojo extends BaseMojo {
                         "                            <div class=\"card-body\">\n" +
                         "                                <h5 class=\"card-title mb-3\">\n" +
                         "                                    <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
-                        "                                        <i class=\"fas fa-" +
-                        getIcon(p.getKey()) + "\"></i>\n" +
+                        "                                        <i class=\"" +
+                        of(getIcon(p.getKey())).map(it -> it.startsWith("fa") && it.contains(" ") ? it : ("fas fa-" + it)).orElse("") + "\"></i>\n" +
                         "                                    </span>\n" +
                         "                                    <span class=\"card-title-text\">                         " +
                         getTitle(p.getKey()) + "</span>\n" +
@@ -312,8 +337,8 @@ public class MiniSiteMojo extends BaseMojo {
                 .collect(joining("",
                         "    <div class=\"page-content\">\n" +
                                 "        <div class=\"container\">\n" +
-                                "            <h1 class=\"page-heading mx-auto\">Galaxy Orchestrator Documentation</h1>\n" +
-                                "            <div class=\"page-intro mx-auto\">The Galaxy low code solution for your microservices.</div>\n" +
+                                "            <h1 class=\"page-heading mx-auto\">" + getIndexText() + " Documentation</h1>\n" +
+                                "            <div class=\"page-intro mx-auto\">" + getIndexSubTitle() + "</div>\n" +
                                 "            <div class=\"docs-overview py-5\">\n" +
                                 "                <div class=\"row justify-content-center\">\n",
                         "                </div>\n" +
@@ -499,6 +524,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "" : "")
                 .replace("{{customHead}}", ofNullable(customHead).orElse(""))
                 .replace("{{projectVersion}}", project.getVersion()) // enables to invalidate browser cache
+                .replace("{{logoText}}", getLogoText())
                 .replace("{{base}}", siteBase);
         final String suffix = readTemplates(layout, templateSuffixes)
                 .replace("{{searchModal}}", hasSearch() ? "" +
@@ -527,6 +553,8 @@ public class MiniSiteMojo extends BaseMojo {
                         "  </div>\n" +
                         "</div>" :
                         "")
+                .replace("{{copyright}}", ofNullable(copyright)
+                        .orElse("Yupiik &copy;"))
                 .replace("{{customScripts}}",
                         ofNullable(customScripts).orElse("").trim() + (hasSearch() ?
                                 "\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
@@ -546,9 +574,35 @@ public class MiniSiteMojo extends BaseMojo {
                         .replace("{{description}}", ofNullable(page.attributes)
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
-                                .orElse(description)),
+                                .orElseGet(() -> ofNullable(description).orElseGet(this::getIndexSubTitle))),
                 page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
                 suffix);
+    }
+
+    private String getLogoText() {
+        return ofNullable(logoText)
+                .orElseGet(() -> ofNullable(project.getName())
+                        .map(it -> it.replace("Yupiik ", ""))
+                        .orElse(project.getArtifactId()));
+    }
+
+    private String getIndexText() {
+        return ofNullable(indexText)
+                .orElseGet(() -> ofNullable(project.getName())
+                        .map(it -> it.replace("Yupiik ", ""))
+                        .orElseGet(() -> getLogoText() + " Documentation"));
+    }
+
+    private String getIndexSubTitle() {
+        return ofNullable(indexSubTitle)
+                .orElseGet(() -> ofNullable(project.getName())
+                        .map(it -> it.replace("Yupiik ", ""))
+                        .orElse(project.getArtifactId()));
+    }
+
+    private String getTitle() {
+        return ofNullable(title)
+                .orElseGet(() -> "Yupiik " + getLogoText());
     }
 
     private String renderAdoc(final Page page, final Asciidoctor asciidoctor, final Options options) {
