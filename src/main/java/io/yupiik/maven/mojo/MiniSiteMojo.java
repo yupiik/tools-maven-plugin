@@ -63,7 +63,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.Comparator.comparing;
-import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -280,7 +279,10 @@ public class MiniSiteMojo extends BaseMojo {
     }
 
     private String getIcon(final Page it) {
-        return ofNullable(it.attributes.get("minisite-index-icon")).map(String::valueOf).orElse("download-alt");
+        return ofNullable(it.attributes.get("minisite-index-icon"))
+                .map(String::valueOf)
+                .map(i -> i.startsWith("fa") && i.contains(" ") ? i : ("fas fa-" + i))
+                .orElse("fas fa-download-alt");
     }
 
     private String getTitle(final Page it) {
@@ -295,7 +297,7 @@ public class MiniSiteMojo extends BaseMojo {
                 "            <ul>\n" +
                 findIndexPages(files).map(it -> "                " +
                         "<li><a href=\"" + siteBase + '/' + output.relativize(it.getValue()) + "\">" +
-                        "<i class=\"fas fa-" + getIcon(it.getKey()) + "\"></i> " +
+                        "<i class=\"" + getIcon(it.getKey()) + "\"></i> " +
                         getTitle(it.getKey()) + "</a></li>\n")
                         .collect(joining()) +
                 "            </ul>\n" +
@@ -321,7 +323,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "                                <h5 class=\"card-title mb-3\">\n" +
                         "                                    <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
                         "                                        <i class=\"" +
-                        of(getIcon(p.getKey())).map(it -> it.startsWith("fa") && it.contains(" ") ? it : ("fas fa-" + it)).orElse("") + "\"></i>\n" +
+                        getIcon(p.getKey()) + "\"></i>\n" +
                         "                                    </span>\n" +
                         "                                    <span class=\"card-title-text\">                         " +
                         getTitle(p.getKey()) + "</span>\n" +
