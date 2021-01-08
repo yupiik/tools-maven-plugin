@@ -238,6 +238,20 @@ The configuration also supports a `ftp` entry if you want to upload to a FTP ser
 |password|String|Password if serverId is not set.
 |serverId|String|ServerID to use to get username/password from settings.xml.
 |url|String|FTP url (`ftp://host:port/dir`).
+|ignore|boolean|Enables to set a maven variable to ignore it conditionally.
+|====
+
+The configuration also supports a `git` entry if you want to upload to a Git branch the generated website (like `gh-pages`):
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Description
+|branch|String|Git branch to update (default to `refs/heads/gh-pages`).
+|username|String|Username if serverId is not set.
+|password|String|Password if serverId is not set.
+|serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host.
+|url|String|Git url.
+|ignore|boolean|Should the execution be skipped - enables to set a maven variable.
 |====
 
 ===== Example

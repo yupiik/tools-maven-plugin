@@ -13,25 +13,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.service.ftp.configuration;
+package io.yupiik.maven.service.git;
 
 import lombok.Data;
 import org.apache.maven.plugins.annotations.Parameter;
 
 @Data // @parameters are here for doc but maven does not takes it into account yet for nested objects
-public class Ftp {
-    @Parameter(property = "yupiik.minisite.ftp.ignore")
+public class Git {
+    @Parameter(defaultValue = "false", property = "yupiik.minisite.git.ignore")
     private boolean ignore;
 
-    @Parameter(property = "yupiik.minisite.ftp.url")
+    @Parameter(property = "yupiik.minisite.git.url")
     private String url;
 
-    @Parameter(property = "yupiik.minisite.ftp.serverId")
+    @Parameter(property = "yupiik.minisite.git.serverId")
     private String serverId;
 
-    @Parameter(property = "yupiik.minisite.ftp.username")
+    @Parameter(property = "yupiik.minisite.git.username")
     private String username;
 
-    @Parameter(property = "yupiik.minisite.ftp.password")
+    @Parameter(property = "yupiik.minisite.git.password")
     private String password;
+
+    @Parameter(property = "yupiik.minisite.git.branch", defaultValue = "gh-pages")
+    private String branch;
 }

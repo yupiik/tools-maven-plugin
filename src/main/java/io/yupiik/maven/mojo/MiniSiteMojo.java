@@ -18,6 +18,8 @@ package io.yupiik.maven.mojo;
 import io.yupiik.maven.service.AsciidoctorInstance;
 import io.yupiik.maven.service.ftp.configuration.Ftp;
 import io.yupiik.maven.service.ftp.configuration.FtpService;
+import io.yupiik.maven.service.git.Git;
+import io.yupiik.maven.service.git.GitService;
 import io.yupiik.maven.service.search.IndexService;
 import lombok.RequiredArgsConstructor;
 import org.apache.maven.execution.MavenSession;
@@ -44,10 +46,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -211,11 +216,17 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private Ftp ftp;
 
+    @Parameter
+    private Git git;
+
     @Inject
     protected AsciidoctorInstance asciidoctor;
 
     @Inject
     private FtpService ftpService;
+
+    @Inject
+    private GitService gitService;
 
     @Inject
     private IndexService indexService;
@@ -232,15 +243,56 @@ public class MiniSiteMojo extends BaseMojo {
             return null;
         });
         if (ftp != null && !ftp.isIgnore()) {
-            final Server server = session.getSettings().getServer(ofNullable(ftp.getServerId()).orElse(siteBase));
-            final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
-            final Server clearServer = decrypted.getServer();
-            if (clearServer != null && clearServer.getPassword() != null) {
-                ftp.setUsername(clearServer.getUsername());
-                ftp.setPassword(clearServer.getPassword());
-            }
-            ftpService.upload(ftp, target.toPath(), getLog()::info);
+            doFtpUpload();
         }
+        if (git != null && !git.isIgnore()) {
+            doGitUpdate();
+        }
+    }
+
+    private void doGitUpdate() {
+        Server server = session.getSettings().getServer(ofNullable(git.getServerId())
+                .orElseGet(() -> project.getScm().getUrl()));
+        if (server == null) { // try host only
+            try {
+                final String host = new URL(project.getScm().getUrl()).getHost();
+                server = session.getSettings().getServer(host);
+            } catch (final MalformedURLException ignored) {
+                // no-op
+            }
+        }
+        getLog().info("Using serverId=" + server.getId() + " for git synchronization");
+        final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+        final Server clearServer = decrypted.getServer();
+        if (clearServer != null && clearServer.getPassword() != null) {
+            git.setUsername(clearServer.getUsername());
+            git.setPassword(clearServer.getPassword());
+        }
+        if (git.getUrl() == null) {
+            git.setUrl(project.getScm().getUrl());
+        }
+        if (git.getBranch() == null) {
+            git.setBranch("refs/heads/gh-pages");
+        }
+        try {
+            gitService.update(
+                    git, target.toPath(), getLog()::info,
+                    Paths.get(project.getBuild().getDirectory()).resolve("minisite_git_work"),
+                    project.getVersion());
+        } catch (final Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void doFtpUpload() {
+        final Server server = session.getSettings().getServer(ofNullable(ftp.getServerId()).orElse(siteBase));
+        final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+        final Server clearServer = decrypted.getServer();
+        if (clearServer != null && clearServer.getPassword() != null) {
+            ftp.setUsername(clearServer.getUsername());
+            ftp.setPassword(clearServer.getPassword());
+        }
+        ftpService.upload(ftp, target.toPath(), getLog()::info);
     }
 
     protected void fixConfig() {
