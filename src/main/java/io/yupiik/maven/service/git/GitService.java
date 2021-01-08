@@ -26,6 +26,7 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.OffsetDateTime;
 import java.util.function.Consumer;
@@ -53,7 +54,7 @@ public class GitService {
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     final Path target = workDir.resolve(path.relativize(file));
                     Files.createDirectories(target.getParent());
-                    Files.copy(file, target);
+                    Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
                     return super.visitFile(file, attrs);
                 }
             });
