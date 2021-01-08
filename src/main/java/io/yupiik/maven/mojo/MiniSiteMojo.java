@@ -362,6 +362,13 @@ public class MiniSiteMojo extends BaseMojo {
         final Path content = source.toPath().resolve("content");
         final Map<Page, Path> files = new HashMap<>();
         final Path output = target.toPath();
+        if (!Files.exists(output)) {
+            try {
+                Files.createDirectories(output);
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
         if (Files.exists(content)) {
             try {
                 Files.walkFileTree(content, new SimpleFileVisitor<Path>() {
