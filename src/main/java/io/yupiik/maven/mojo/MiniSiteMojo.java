@@ -232,6 +232,18 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private List<PreAction> preActions;
 
+    /**
+     * Skip mojo execution.
+     */
+    @Parameter(property = "yupiik.minisite.skip", defaultValue = "false")
+    private boolean skip;
+
+    /**
+     * Skip site rendering.
+     */
+    @Parameter(property = "yupiik.minisite.skipRendering", defaultValue = "false")
+    private boolean skipRendering;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -274,8 +286,16 @@ public class MiniSiteMojo extends BaseMojo {
 
     @Override
     public void doExecute() {
+        if (skip) {
+            getLog().info("Mojo skipped");
+            return;
+        }
         fixConfig();
         executePreActions();
+        if (skipRendering) {
+            getLog().info("Rendering (and upload) skipped");
+            return;
+        }
         final Options options = createOptions();
         asciidoctor.withAsciidoc(this, a -> {
             doRender(a, options, createTemplate(options, a));
