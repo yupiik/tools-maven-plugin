@@ -225,6 +225,8 @@ It comes with its companion serve goal to have a live preview.
 |indexText|String|-|yupiik.minisite.indexText|Index homepage (when generated) content title.
 |indexSubTitle|String|-|yupiik.minisite.indexSubTitle|Index home page (when generated) subtitle.
 |copyright|String|Yupiik &copy;|yupiik.minisite.copyright|Footer copyright for the default theme.
+|linkedInCompany|String|yupiik|yupiik.minisite.linkedInCompany|Name of the company as on linkedin link.
+|logo|String|yupiik logo|yupiik.minisite.logo|Logo url.
 |preActions|String|-|-|List of pre actions to execute before the rendering (`{type:xxx,configuration:{}}`).
 |====
 

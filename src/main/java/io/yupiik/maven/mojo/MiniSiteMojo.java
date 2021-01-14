@@ -140,6 +140,12 @@ public class MiniSiteMojo extends BaseMojo {
     private String logoText;
 
     /**
+     * Logo url.
+     */
+    @Parameter(property = "yupiik.minisite.logo", defaultValue = "//www.yupiik.com/img/favicon.png")
+    private String logo;
+
+    /**
      * When index is generated the content page title.
      */
     @Parameter(property = "yupiik.minisite.indexText")
@@ -156,6 +162,12 @@ public class MiniSiteMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.minisite.copyright")
     private String copyright;
+
+    /**
+     * linkedInCompany name (in linkedin url).
+     */
+    @Parameter(property = "yupiik.minisite.linkedInCompany", defaultValue = "yupiik")
+    private String linkedInCompany;
 
     /**
      * Custom head links (to add custom css easily).
@@ -663,7 +675,10 @@ public class MiniSiteMojo extends BaseMojo {
                 .replace("{{customHead}}", ofNullable(customHead).orElse(""))
                 .replace("{{projectVersion}}", project.getVersion()) // enables to invalidate browser cache
                 .replace("{{logoText}}", getLogoText())
-                .replace("{{base}}", siteBase);
+                .replace("{{base}}", siteBase)
+                .replace("{{logo}}", ofNullable(logo).orElse("//www.yupiik.com/img/favicon.png"))
+                .replace("{{linkedInCompany}}", ofNullable(linkedInCompany)
+                        .orElse("yupiik"));
         final String suffix = readTemplates(layout, templateSuffixes)
                 .replace("{{searchModal}}", hasSearch() ? "" +
                         "<div class=\"modal fade\" id=\"searchModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"searchModalLabel\" aria-hidden=\"true\">\n" +
@@ -693,6 +708,8 @@ public class MiniSiteMojo extends BaseMojo {
                         "")
                 .replace("{{copyright}}", ofNullable(copyright)
                         .orElse("Yupiik &copy;"))
+                .replace("{{linkedInCompany}}", ofNullable(linkedInCompany)
+                        .orElse("yupiik"))
                 .replace("{{customScripts}}",
                         ofNullable(customScripts).orElse("").trim() + (hasSearch() ?
                                 "\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
