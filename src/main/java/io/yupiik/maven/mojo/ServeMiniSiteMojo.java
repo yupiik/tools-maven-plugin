@@ -51,7 +51,7 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
         // adjust config
         siteBase = "http://localhost:" + port;
         fixConfig();
-
+        executePreActions();
         final Options options = createOptions();
         asciidoctor.withAsciidoc(this, adoc -> {
             final Function<Page, String> template = createTemplate(options, adoc);

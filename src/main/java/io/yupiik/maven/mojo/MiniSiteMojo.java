@@ -15,13 +15,16 @@
  */
 package io.yupiik.maven.mojo;
 
+import io.yupiik.maven.configuration.PreAction;
 import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.action.ActionExecutor;
 import io.yupiik.maven.service.ftp.configuration.Ftp;
 import io.yupiik.maven.service.ftp.configuration.FtpService;
 import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.maven.service.search.IndexService;
 import lombok.RequiredArgsConstructor;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -37,6 +40,13 @@ import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
 import org.asciidoctor.ast.DocumentHeader;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
 
 import javax.inject.Inject;
 import java.io.BufferedReader;
@@ -48,6 +58,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -64,6 +75,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static java.lang.ClassLoader.getSystemClassLoader;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
@@ -71,6 +83,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 /**
  * Minisite goal. Enables to generate a small website.
@@ -84,7 +97,7 @@ import static java.util.stream.Collectors.toList;
  * <p>
  * TODO: add a way to execute a main before the rendering.
  */
-@Mojo(name = "minisite")
+@Mojo(name = "minisite", requiresDependencyCollection = COMPILE_PLUS_RUNTIME)
 public class MiniSiteMojo extends BaseMojo {
     /**
      * Where to read content (layout root) from.
@@ -97,6 +110,12 @@ public class MiniSiteMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.minisite.target", defaultValue = "${project.build.directory}/${project.build.finalName}")
     protected File target;
+
+    /**
+     * target/classes for pre-actions if needed.
+     */
+    @Parameter(property = "yupiik.minisite.classes", defaultValue = "${project.build.outputDirectory}")
+    protected File classes;
 
     /**
      * Template directory if set.
@@ -206,6 +225,13 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(defaultValue = "footer.html")
     private List<String> templateSuffixes;
 
+    /**
+     * Actions to execute before any rendering.
+     * Typically used to generate some content.
+     */
+    @Parameter
+    private List<PreAction> preActions;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -219,6 +245,15 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private Git git;
 
+    @Parameter(defaultValue = "${repositorySystemSession}")
+    private RepositorySystemSession repositorySystemSession;
+
+    @Parameter(defaultValue = "${project.remoteProjectRepositories}")
+    private List<RemoteRepository> remoteRepositories;
+
+    @Component
+    private RepositorySystem repositorySystem;
+
     @Inject
     protected AsciidoctorInstance asciidoctor;
 
@@ -231,12 +266,16 @@ public class MiniSiteMojo extends BaseMojo {
     @Inject
     private IndexService indexService;
 
+    @Inject
+    private ActionExecutor actionExecutor;
+
     @Component
     private SettingsDecrypter settingsDecrypter;
 
     @Override
     public void doExecute() {
         fixConfig();
+        executePreActions();
         final Options options = createOptions();
         asciidoctor.withAsciidoc(this, a -> {
             doRender(a, options, createTemplate(options, a));
@@ -248,6 +287,65 @@ public class MiniSiteMojo extends BaseMojo {
         if (git != null && !git.isIgnore()) {
             doGitUpdate();
         }
+    }
+
+    protected void executePreActions() {
+        if (preActions == null || preActions.isEmpty()) {
+            return;
+        }
+        final Thread thread = Thread.currentThread();
+        final ClassLoader parentLoader = thread.getContextClassLoader();
+        try (final URLClassLoader loader = createProjectLoader(getSystemClassLoader())) {
+            thread.setContextClassLoader(loader);
+            preActions.forEach(it -> actionExecutor.execute(it, source.toPath(), target.toPath()));
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        } finally {
+            thread.setContextClassLoader(parentLoader);
+        }
+    }
+
+    private void tryResolve(final Artifact art) {
+        if (art.getFile() != null) {
+            return;
+        }
+        final ArtifactRequest artifactRequest = new ArtifactRequest()
+                        .setArtifact(new DefaultArtifact(
+                                art.getGroupId(), art.getArtifactId(), art.getClassifier(),
+                                art.getType(), art.getVersion()))
+                .setRepositories(remoteRepositories);
+        try {
+            final ArtifactResult result = repositorySystem.resolveArtifact(repositorySystemSession, artifactRequest);
+            if (result.isResolved()) {
+                art.setFile(result.getArtifact().getFile());
+            } // else let's it get filtered in createProjectLoader()
+        } catch (final ArtifactResolutionException e) {
+            throw new IllegalStateException(e.getMessage(), e);
+        }
+    }
+
+    private URLClassLoader createProjectLoader(final ClassLoader parent) {
+        final List<URL> urls = project.getArtifacts().stream()
+                .peek(this::tryResolve)
+                .filter(artifact -> artifact.getFile() != null)
+                .filter(artifact -> !"test".equals(artifact.getScope()))
+                .filter(artifact -> "jar".equals(artifact.getType()) || "zip".equals(artifact.getType()))
+                .map(artifact -> {
+                    try {
+                        return artifact.getFile().toURI().toURL();
+                    } catch (final MalformedURLException e) {
+                        throw new IllegalStateException(e);
+                    }
+                })
+                .collect(toList());
+        if (classes != null && classes.exists()) {
+            try {
+                urls.add(classes.toURI().toURL());
+            } catch (final MalformedURLException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return new URLClassLoader(urls.toArray(new URL[0]), parent);
     }
 
     private void doGitUpdate() {
@@ -455,6 +553,9 @@ public class MiniSiteMojo extends BaseMojo {
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                         final String filename = file.getFileName().toString();
                         if (!filename.endsWith(".adoc")) {
+                            return FileVisitResult.CONTINUE;
+                        }
+                        if (content.relativize(file).toString().startsWith("_partials")) {
                             return FileVisitResult.CONTINUE;
                         }
                         final String contentString = String.join("\n", Files.readAllLines(file));

@@ -225,6 +225,7 @@ It comes with its companion serve goal to have a live preview.
 |indexText|String|-|yupiik.minisite.indexText|Index homepage (when generated) content title.
 |indexSubTitle|String|-|yupiik.minisite.indexSubTitle|Index home page (when generated) subtitle.
 |copyright|String|Yupiik &copy;|yupiik.minisite.copyright|Footer copyright for the default theme.
+|preActions|String|-|-|List of pre actions to execute before the rendering (`{type:xxx,configuration:{}}`).
 |====
 
 TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.
@@ -253,6 +254,17 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 |url|String|Git url.
 |ignore|boolean|Should the execution be skipped - enables to set a maven variable.
 |====
+
+===== Pre-Action
+
+Pre actions enables to generate some content from the project.
+It is typically used to generate configuration from code or things like that.
+It uses the documentation module classpath.
+Actions must implement `Runnable` and can have some (public) constructor parameters (we use parameter names to match so ensure to enable `-parameters` in maven compiler plugin):
+
+* `configuration` (`Map<String, String>`): the action configuration, it enables to reuse it if needed or write generic actions
+* `sourceBase` (`Path`): the base directory you can generate `.adoc` into (generally where you sources are, tip: use `generated` folder to be able to exclude it in `.gitignore` if desired)
+* `outputBase` (`Path`): the base directory you can generate direct html assets
 
 ===== Example
 
