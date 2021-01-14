@@ -24,12 +24,12 @@ import org.asciidoctor.Options;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import static java.util.Collections.emptyList;
+import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 /**
  * Minisite goa with HTTP server.
  */
-@Mojo(name = "serve-minisite")
+@Mojo(name = "serve-minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class ServeMiniSiteMojo extends MiniSiteMojo {
     @Parameter(property = "yupiik.minisite.openBrowser", defaultValue = "true")
     private boolean openBrowser;

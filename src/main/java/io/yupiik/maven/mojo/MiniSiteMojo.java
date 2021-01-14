@@ -24,7 +24,6 @@ import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.maven.service.search.IndexService;
 import lombok.RequiredArgsConstructor;
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -40,13 +39,6 @@ import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
 import org.asciidoctor.ast.DocumentHeader;
-import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.RepositorySystemSession;
-import org.eclipse.aether.artifact.DefaultArtifact;
-import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.resolution.ArtifactRequest;
-import org.eclipse.aether.resolution.ArtifactResolutionException;
-import org.eclipse.aether.resolution.ArtifactResult;
 
 import javax.inject.Inject;
 import java.io.BufferedReader;
@@ -97,7 +89,7 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
  * <p>
  * TODO: add a way to execute a main before the rendering.
  */
-@Mojo(name = "minisite", requiresDependencyCollection = COMPILE_PLUS_RUNTIME)
+@Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
 public class MiniSiteMojo extends BaseMojo {
     /**
      * Where to read content (layout root) from.
@@ -257,15 +249,6 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private Git git;
 
-    @Parameter(defaultValue = "${repositorySystemSession}")
-    private RepositorySystemSession repositorySystemSession;
-
-    @Parameter(defaultValue = "${project.remoteProjectRepositories}")
-    private List<RemoteRepository> remoteRepositories;
-
-    @Component
-    private RepositorySystem repositorySystem;
-
     @Inject
     protected AsciidoctorInstance asciidoctor;
 
@@ -325,28 +308,8 @@ public class MiniSiteMojo extends BaseMojo {
         }
     }
 
-    private void tryResolve(final Artifact art) {
-        if (art.getFile() != null) {
-            return;
-        }
-        final ArtifactRequest artifactRequest = new ArtifactRequest()
-                        .setArtifact(new DefaultArtifact(
-                                art.getGroupId(), art.getArtifactId(), art.getClassifier(),
-                                art.getType(), art.getVersion()))
-                .setRepositories(remoteRepositories);
-        try {
-            final ArtifactResult result = repositorySystem.resolveArtifact(repositorySystemSession, artifactRequest);
-            if (result.isResolved()) {
-                art.setFile(result.getArtifact().getFile());
-            } // else let's it get filtered in createProjectLoader()
-        } catch (final ArtifactResolutionException e) {
-            throw new IllegalStateException(e.getMessage(), e);
-        }
-    }
-
     private URLClassLoader createProjectLoader(final ClassLoader parent) {
         final List<URL> urls = project.getArtifacts().stream()
-                .peek(this::tryResolve)
                 .filter(artifact -> artifact.getFile() != null)
                 .filter(artifact -> !"test".equals(artifact.getScope()))
                 .filter(artifact -> "jar".equals(artifact.getType()) || "zip".equals(artifact.getType()))
