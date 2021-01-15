@@ -296,6 +296,12 @@ Actions must implement `Runnable` and can have some (public) constructor paramet
 </plugin>
 ----
 
+===== Page attributes
+
+Some specific attributes enables to customize the generation. Here is their list:
+
+* `minisite-path` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
+
 ===== Index generation
 
 To include a page in the index it must contain `minisite-index` attribute.

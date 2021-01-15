@@ -562,8 +562,11 @@ public class MiniSiteMojo extends BaseMojo {
                         if (page.attributes.containsKey("minisite-skip")) {
                             return FileVisitResult.CONTINUE;
                         }
-                        final Path out = output.resolve(content.relativize(file)).getParent().resolve(
-                                filename.substring(0, filename.length() - ".adoc".length()) + ".html");
+                        final Object outputName = header.getAttributes().get("minisite-path");
+                        final Path out = outputName == null ?
+                                output.resolve(outputName.toString()) :
+                                output.resolve(content.relativize(file)).getParent().resolve(
+                                        filename.substring(0, filename.length() - ".adoc".length()) + ".html");
                         if (out.getParent() != null) {
                             Files.createDirectories(out.getParent());
                         }
