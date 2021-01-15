@@ -408,9 +408,11 @@ public class MiniSiteMojo extends BaseMojo {
                         final Asciidoctor asciidoctor, final Options options,
                         final Function<Page, String> template) {
         try {
+            final Map<String, Object> attrs = new HashMap<>(singletonMap("minisite-passthrough", true));
+            attrs.putAll(page.attributes);
             Files.write(html, template.apply(new Page(
                     ofNullable(page.title).orElseGet(this::getTitle),
-                    singletonMap("minisite-passthrough", true), "" +
+                    attrs, "" +
                     "        <div class=\"container page-content\">\n" +
                     ofNullable(page.title).map(t -> "" +
                             "            <div class=\"page-header\">\n" +
@@ -719,7 +721,7 @@ public class MiniSiteMojo extends BaseMojo {
                         .orElse("yupiik"))
                 .replace("{{customScripts}}",
                         ofNullable(customScripts).orElse("").trim() + (hasSearch() ?
-                                "\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
+                                "\n    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
                                         "integrity=\"sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==\" " +
                                         "crossorigin=\"anonymous\"></script>\n" :
                                 "\n"))
@@ -737,8 +739,14 @@ public class MiniSiteMojo extends BaseMojo {
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
                                 .orElseGet(() -> ofNullable(description).orElseGet(this::getIndexSubTitle))),
-                page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
-                suffix);
+                page.attributes != null && page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
+                suffix.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
+                        "<script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/highlight.min.js\" integrity=\"sha512-DrpaExP2d7RJqNhXB41Q/zzzQrtb6J0zfnXD5XeVEWE8d9Hj54irCLj6dRS3eNepPja7DvKcV+9PnHC7A/g83A==\" crossorigin=\"anonymous\"></script>\n" +
+                        "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/java.min.js\" integrity=\"sha512-ku64EPM6PjpseXTZbyRs0ZfXSbVsmLe+XcXxO3tZf1zW2GxZ+aKH9LZWgl/CRI9AFkU3IL7Pc1mzcZiUuvk7FQ==\" crossorigin=\"anonymous\"></script>\n" +
+                        "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/bash.min.js\" integrity=\"sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==\" crossorigin=\"anonymous\"></script>\n" +
+                        "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/json.min.js\" integrity=\"sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==\" crossorigin=\"anonymous\"></script>\n" +
+                        "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/dockerfile.min.js\" integrity=\"sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==\" crossorigin=\"anonymous\"></script>\n" +
+                        "    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.initHighlightingOnLoad(); }</script>")));
     }
 
     private String getLogoText() {

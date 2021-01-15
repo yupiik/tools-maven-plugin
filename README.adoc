@@ -305,6 +305,7 @@ Some specific attributes enables to customize the generation. Here is their list
 
 * `minisite-skip=[true|false]` enables to skip a `.adoc` rendering even if not in `_partials` directory.
 * `minisite-path=<string>` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
+* `minisite-highlightjs-skip` enables to not setup highlight.js for the page (useful with swagger-ui for example).
 
 ===== Index generation
 
