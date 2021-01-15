@@ -35,6 +35,12 @@ public class Git {
     @Parameter(property = "yupiik.minisite.git.password")
     private String password;
 
-    @Parameter(property = "yupiik.minisite.git.branch", defaultValue = "gh-pages")
+    @Parameter(property = "yupiik.minisite.git.branch", defaultValue = "refs/heads/gh-pages")
     private String branch;
+
+    @Parameter(property = "yupiik.minisite.git.prefix")
+    private String prefix;
+
+    @Parameter(property = "yupiik.minisite.git.noJekyll")
+    private boolean noJekyll = true;
 }

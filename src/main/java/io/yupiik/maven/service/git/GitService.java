@@ -32,6 +32,7 @@ import java.time.OffsetDateTime;
 import java.util.function.Consumer;
 
 import static java.util.Collections.singleton;
+import static java.util.Optional.ofNullable;
 
 @Named
 @Singleton
@@ -49,18 +50,25 @@ public class GitService {
                 .setBranchesToClone(singleton(git.getBranch()))
                 .setBranch(git.getBranch())
                 .call()) {
+            final String prefix = ofNullable(git.getPrefix())
+                    .filter(it -> !it.isEmpty())
+                    .orElse("");
+            final Path workTarget = prefix.isEmpty() ? workDir : workDir.resolve(prefix);
             Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                    final Path target = workDir.resolve(path.relativize(file));
+                    final Path target = workTarget.resolve(path.relativize(file));
                     Files.createDirectories(target.getParent());
                     Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
                     return super.visitFile(file, attrs);
                 }
             });
-            final Path noJekyll = workDir.resolve(".nojekyll");
-            if (!Files.exists(noJekyll)) {
-                Files.write(noJekyll, new byte[0]);
+
+            if (git.isNoJekyll()) {
+                final Path noJekyll = workDir.resolve(".nojekyll");
+                if (!Files.exists(noJekyll)) {
+                    Files.write(noJekyll, new byte[0]);
+                }
             }
 
             final OffsetDateTime now = OffsetDateTime.now();

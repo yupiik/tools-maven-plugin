@@ -255,6 +255,8 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 |serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host.
 |url|String|Git url.
 |ignore|boolean|Should the execution be skipped - enables to set a maven variable.
+|prefix|String|Prefix prepended to file in the git repo (ex: `public/`).
+|noJekyll|boolean|Will force a `.nojekyll` file presence if `true`.
 |====
 
 ===== Pre-Action
@@ -300,7 +302,8 @@ Actions must implement `Runnable` and can have some (public) constructor paramet
 
 Some specific attributes enables to customize the generation. Here is their list:
 
-* `minisite-path` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
+* `minisite-skip=[true|false]` enables to skip a `.adoc` rendering even if not in `_partials` directory.
+* `minisite-path=<string>` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
 
 ===== Index generation
 
