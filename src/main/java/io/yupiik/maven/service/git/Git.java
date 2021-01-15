@@ -43,4 +43,7 @@ public class Git {
 
     @Parameter(property = "yupiik.minisite.git.noJekyll")
     private boolean noJekyll = true;
+
+    @Parameter(property = "yupiik.minisite.git.envBase64SshKey")
+    private String envBase64SshKey = "YUPIIK_MINISITE_DEPLOY_KEY";
 }

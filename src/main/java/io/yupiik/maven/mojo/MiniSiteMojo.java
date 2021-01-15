@@ -371,21 +371,26 @@ public class MiniSiteMojo extends BaseMojo {
             gitService.update(
                     git, target.toPath(), getLog()::info,
                     Paths.get(project.getBuild().getDirectory()).resolve("minisite_git_work"),
-                    project.getVersion());
+                    project.getVersion(),
+                    this::decryptServer);
         } catch (final Exception e) {
             throw new IllegalStateException(e);
         }
     }
 
     private void doFtpUpload() {
-        final Server server = session.getSettings().getServer(ofNullable(ftp.getServerId()).orElse(siteBase));
-        final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
-        final Server clearServer = decrypted.getServer();
+        final Server clearServer = decryptServer(ftp.getServerId());
         if (clearServer != null && clearServer.getPassword() != null) {
             ftp.setUsername(clearServer.getUsername());
             ftp.setPassword(clearServer.getPassword());
         }
         ftpService.upload(ftp, target.toPath(), getLog()::info);
+    }
+
+    private Server decryptServer(final String serverId) {
+        final Server server = session.getSettings().getServer(ofNullable(serverId).orElse(siteBase));
+        final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
+        return decrypted.getServer() == null ? server : decrypted.getServer();
     }
 
     protected void fixConfig() {

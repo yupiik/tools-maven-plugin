@@ -252,11 +252,12 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 |branch|String|Git branch to update (default to `refs/heads/gh-pages`).
 |username|String|Username if serverId is not set.
 |password|String|Password if serverId is not set.
-|serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host.
+|serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.
 |url|String|Git url.
 |ignore|boolean|Should the execution be skipped - enables to set a maven variable.
 |prefix|String|Prefix prepended to file in the git repo (ex: `public/`).
 |noJekyll|boolean|Will force a `.nojekyll` file presence if `true`.
+|envBase64SshKey|String|Environment variable the private key will be read as base64 encoded from - useful on CI. note that `<value>_PH` environment variable must contain the associated passphrase.
 |====
 
 ===== Pre-Action
