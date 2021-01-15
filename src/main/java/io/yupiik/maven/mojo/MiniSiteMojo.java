@@ -735,6 +735,9 @@ public class MiniSiteMojo extends BaseMojo {
                 "\n",
                 prefixRef
                         .replace("{{title}}", ofNullable(page.title).orElse(title))
+                        .replace("{{highlightJsCss}}", page.attributes == null || !page.attributes.containsKey("minisite-highlightjs-skip") ?
+                                "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/styles/vs2015.min.css\" integrity=\"sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==\" crossorigin=\"anonymous\" />" :
+                                "")
                         .replace("{{description}}", ofNullable(page.attributes)
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
