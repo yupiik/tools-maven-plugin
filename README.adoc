@@ -271,6 +271,27 @@ Actions must implement `Runnable` and can have some (public) constructor paramet
 * `sourceBase` (`Path`): the base directory you can generate `.adoc` into (generally where you sources are, tip: use `generated` folder to be able to exclude it in `.gitignore` if desired)
 * `outputBase` (`Path`): the base directory you can generate direct html assets
 
+====== Maven Plugin
+
+Using `type=maven-plugin` (recommended) or `type=io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration` you can get a `plugin.xml` file parsed to generate:
+
+. One file per goal with some usage, the goal description and parameters (named `<goal>.adoc`)
+. One file listing all goals (named `<goal-prefix>-maven-plugin.adoc`)
+
+The configuration of this action is:
+
+. `pluginXml`: file path or resource to find the `plugin.xml` file.
+. `toBase`: where to generate the `adoc`.
+. `description`: a global plugin description for the "listing" page (default is empty and page will just list goals).
+
+====== Copy
+
+Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.CopyFile` will copy a file from a source to a destination.:
+It is typically useful for assets (`openapi.json` for example).
+
+. `from`: source file.
+. `to`: destination.
+
 ===== Example
 
 [source,xml]

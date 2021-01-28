@@ -16,6 +16,7 @@
 package io.yupiik.maven.service.action;
 
 import io.yupiik.maven.configuration.PreAction;
+import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -33,15 +34,27 @@ public class ActionExecutor {
     public void execute(final PreAction action, final Path src, final Path output) {
         requireNonNull(action.getType(), "Missing type for action: " + action);
         try {
-            final Class<?> clazz = Thread.currentThread().getContextClassLoader()
-                    .loadClass(action.getType().trim())
-                    .asSubclass(Runnable.class);
+            final String name = action.getType().trim();
+            final Class<?> clazz = findActionClass(name);
             final Constructor<?> constructor = Stream.of(clazz.getConstructors())
                     .max(Comparator.comparing(Constructor::getParameterCount)) // todo: refine this maybe but without introducing a dedicated api
                     .orElseThrow(() -> new IllegalArgumentException("No public constructor for " + clazz.getName()));
             Runnable.class.cast(constructor.newInstance(createArgs(constructor, action, src, output))).run();
         } catch (final Exception e) {
             throw new IllegalArgumentException(e);
+        }
+    }
+
+    private Class<? extends Runnable> findActionClass(final String name) throws ClassNotFoundException {
+        switch (name) {
+            case "maven-plugin":
+                return MojoDocumentationGeneration.class;
+            case "copy":
+                return CopyFile.class;
+            default:
+                return Thread.currentThread().getContextClassLoader()
+                        .loadClass(name)
+                        .asSubclass(Runnable.class);
         }
     }
 
