@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.service.action;
+package io.yupiik.maven.service.action.builtin;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.java.Log;

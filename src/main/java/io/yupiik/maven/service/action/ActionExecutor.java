@@ -16,6 +16,7 @@
 package io.yupiik.maven.service.action;
 
 import io.yupiik.maven.configuration.PreAction;
+import io.yupiik.maven.service.action.builtin.CopyFile;
 import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
 
 import javax.inject.Named;

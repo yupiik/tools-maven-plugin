@@ -55,7 +55,6 @@ public class MojoDocumentationGeneration implements Runnable {
 
     @Override
     public void run() {
-        final Path pluginXmlLocation = Paths.get(configuration.get("pluginXml"));
         final Path outputBase = Paths.get(configuration.get("toBase"));
         if (!Files.exists(outputBase)) {
             try {
@@ -66,7 +65,7 @@ public class MojoDocumentationGeneration implements Runnable {
         }
 
         try {
-            final Document document = loadXml(pluginXmlLocation);
+            final Document document = loadXml(configuration.get("pluginXml"));
             final Element plugin = Element.class.cast(document.getElementsByTagName("plugin").item(0));
             final NodeList pluginChildren = plugin.getChildNodes();
             final String groupId = findChild(pluginChildren, "groupId").getTextContent().trim();
@@ -244,8 +243,12 @@ public class MojoDocumentationGeneration implements Runnable {
                 .mapToObj(element::item);
     }
 
-    private Document loadXml(final Path pluginXmlLocation) throws ParserConfigurationException {
-        try (final InputStream stream = Files.newInputStream(pluginXmlLocation)) {
+    private Document loadXml(final String pluginXmlLocation) throws ParserConfigurationException {
+        final Path path = Paths.get(pluginXmlLocation);
+        try (final InputStream stream = Files.exists(path) ?
+                Files.newInputStream(path) :
+                requireNonNull(Thread.currentThread().getContextClassLoader()
+                        .getResourceAsStream(pluginXmlLocation), "Didn't find plugin.xml, check your configuration.")) {
             return DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(stream);
         } catch (final IOException | SAXException e) {
             throw new IllegalStateException(e);

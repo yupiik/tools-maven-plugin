@@ -286,7 +286,7 @@ The configuration of this action is:
 
 ====== Copy
 
-Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.CopyFile` will copy a file from a source to a destination.:
+Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination.:
 It is typically useful for assets (`openapi.json` for example).
 
 . `from`: source file.
