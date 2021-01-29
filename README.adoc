@@ -286,11 +286,24 @@ The configuration of this action is:
 
 ====== Copy
 
-Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination.:
+Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination:
 It is typically useful for assets (`openapi.json` for example).
 
 . `from`: source file.
 . `to`: destination.
+
+====== JSON-Schema
+
+Using `type=jsonschema` (recommended) or `type=io.yupiik.maven.service.action.builtin.JsonSchemaGenerator` will generate a JSON-Schema from a class:
+
+. `class`: the class to generate the schema from.
+. `to`: destination of the schema.
+. `type`: `JSON` for a raw JSON-Schema (default) or `ADOC` for a textual, asciidoctor output.
+. `setClassAsTitle`: `true` to force object title to be the class name.
+. `useReflectionForDefaults`: `true` to force reflection to try to extract defaults of attributes.
+. `pretty` when type=JSON, should the JSON be prettified or not (default=true).
+. `levelPrefix` when type=ADOC, a title prefix (`==` for example), `=` by default.
+. `title` and `description` enable to set class title/description for its json schema. It is required for type=ADOC.
 
 ===== Example
 
