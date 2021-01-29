@@ -75,6 +75,7 @@ public class JsonSchemaGenerator implements Runnable {
             } catch (final ClassNotFoundException e) {
                 throw new IllegalArgumentException(e);
             }
+            final boolean annotationOnlyProvidesTheDescription = Boolean.parseBoolean(configuration.get("annotationOnlyProvidesTheDescription"));
             final Path output = Paths.get(requireNonNull(configuration.get("to"), "No to attribute set on " + getClass().getSimpleName()));
             final String type = ofNullable(configuration.get("type")).map(it -> it.trim().toUpperCase(ROOT)).orElse("JSON");
 
@@ -86,32 +87,44 @@ public class JsonSchemaGenerator implements Runnable {
                                        final ReflectionValueExtractor reflectionValueExtractor,
                                        final Instance instance) {
                     super.fillSchema(rawModel, schema, cache, reflectionValueExtractor, instance);
-                    if (Class.class.isInstance(rawModel)) {
-                        final Class clazz = Class.class.cast(rawModel);
-                        if (schema.getDescription() == null) {
-                            try {
-                                schema.setDescription(docExtractor.findDoc(clazz::getAnnotations).orElse(null));
-                            } catch (final RuntimeException re) {
-                                // no-op
-                            }
+                    if (!Class.class.isInstance(rawModel)) {
+                        return;
+                    }
+                    final Class clazz = Class.class.cast(rawModel);
+                    if (clazz.getName().startsWith("java") || clazz.isPrimitive()) {
+                        return;
+                    }
+                    if (schema.getDescription() == null) {
+                        try {
+                            schema.setDescription(docExtractor.findDoc(clazz::getAnnotations).orElse(null));
+                        } catch (final RuntimeException re) {
+                            // no-op
                         }
-                        if (schema.getTitle() == null) {
-                            try {
-                                schema.setDescription(docExtractor.findTitle(clazz::getAnnotations).orElse(null));
-                            } catch (final RuntimeException re) {
-                                // no-op
-                            }
+                    }
+                    if (annotationOnlyProvidesTheDescription || schema.getTitle() == null) {
+                        try {
+                            schema.setTitle(docExtractor.findTitle(clazz::getAnnotations).orElse(null));
+                        } catch (final RuntimeException re) {
+                            // no-op
                         }
                     }
                 }
 
                 @Override
                 protected void fillMeta(final Field f, final Schema schema) {
-                    super.fillMeta(f, schema);
-                    if (schema.getTitle() == null) {
+                    if (!annotationOnlyProvidesTheDescription) {
+                        try {
+                            schema.setTitle(docExtractor.findTitle(f::getAnnotations).orElse(null));
+                        } catch (final RuntimeException re) {
+                            // no-op
+                        }
+                    }
+                    if (annotationOnlyProvidesTheDescription || schema.getTitle() == null) {
                         schema.setTitle(f.getDeclaringClass().getSimpleName().replace('$', '.') + "." + f.getName());
                     }
-                    if (schema.getDescription() == null) {
+                    try {
+                        schema.setDescription(docExtractor.findDoc(f::getAnnotations).orElse(schema.getTitle()));
+                    } catch (final RuntimeException re) {
                         schema.setDescription(schema.getTitle());
                     }
                 }

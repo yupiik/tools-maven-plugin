@@ -56,7 +56,7 @@ class JsonSchemaGeneratorTest {
                         "      \"$id\":\"io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2\",\n" +
                         "      \"type\":\"object\",\n" +
                         "      \"title\":\"nested\",\n" +
-                        "      \"description\":\"The foo2\",\n" +
+                        "      \"description\":\"nested\",\n" +
                         "      \"properties\":{\n" +
                         "        \"number\":{\n" +
                         "          \"type\":\"integer\",\n" +
@@ -72,7 +72,7 @@ class JsonSchemaGeneratorTest {
                         "    },\n" +
                         "    \"name\":{\n" +
                         "      \"type\":\"string\",\n" +
-                        "      \"title\":\"the name\",\n" +
+                        "      \"title\":\"Foo.name\",\n" +
                         "      \"description\":\"the name\"\n" +
                         "    }\n" +
                         "  }\n" +
@@ -102,13 +102,13 @@ class JsonSchemaGeneratorTest {
                         "|Name|JSON Name|Type|Description\n" +
                         "|age|age|integer|the age\n" +
                         "|name|name|string|the name\n" +
-                        "|<<io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2>>|foo2|object|The foo2\n" +
+                        "|<<io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2>>|foo2|object|nested\n" +
                         "|===\n" +
                         "\n" +
                         "[#io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2]\n" +
                         "== nested\n" +
                         "\n" +
-                        "The foo2\n" +
+                        "nested\n" +
                         "\n" +
                         "[cols=\"2,2m,1,5\", options=\"header\"]\n" +
                         ".nested\n" +

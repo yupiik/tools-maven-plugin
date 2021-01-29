@@ -74,7 +74,7 @@ public class JsonDocExtractor {
     private String extractTitleValue(final Annotation annot) {
         try {
             return String.class.cast(descriptionExtractor.computeIfAbsent(annot.annotationType(), clazz -> Stream.of(clazz.getMethods())
-                    .filter(it -> it.getName().equals("title") || it.getName().equals("name") || it.getName().equals("value"))
+                    .filter(it -> it.getName().equals("title") || it.getName().equals("name"))
                     .filter(it -> it.getParameterCount() == 0 && it.getReturnType() == String.class)
                     .min(comparing(Method::getName))
                     .map(m -> {
