@@ -305,6 +305,9 @@ Using `type=jsonschema` (recommended) or `type=io.yupiik.maven.service.action.bu
 . `levelPrefix` when type=ADOC, a title prefix (`==` for example), `=` by default.
 . `title` and `description` enable to set class title/description for its json schema. It is required for type=ADOC.
 
+NOTE: the model classes can use a custom `@Description(title,description)` annotation (note that `@Doc` is also supported and `value` method can be used instead of `description`).
+See `JsonDocExtractor` for more details.
+
 ===== Example
 
 [source,xml]

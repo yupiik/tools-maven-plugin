@@ -19,20 +19,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.java.Log;
 import org.apache.johnzon.jsonschema.generator.Schema;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
@@ -45,7 +37,7 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
     private final String levelPrefix;
     private final Schema schema;
     private final Predicate<Schema> shouldIgnore;
-    private final Map<Class<?>, Method> descriptionExtractor = new HashMap<>();
+    private final JsonDocExtractor docExtractor = new JsonDocExtractor();
 
     public void prepare(final Schema in) {
         final Schema schema = ofNullable(in).orElse(this.schema);
@@ -228,41 +220,12 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
 
     private String findCommentForEnumValue(final Class<? extends Enum<?>> enumClass, final String value) {
         try {
-            return findDoc(enumClass.getField(value))
+            return docExtractor.findDoc(enumClass.getField(value)::getAnnotations)
                     .map(d -> " (" + d + ")")
                     .orElse("");
         } catch (final Exception e) {
             log.warning("No @Doc on " + enumClass.getName() + '.' + value);
             return "";
-        }
-    }
-
-    // @Doc(""), @Documentation(""), @Desc(""), @Description("")
-    // or same with description="" instead of value.
-    private Optional<String> findDoc(final Field field) {
-        return Stream.of(field.getAnnotations())
-                .filter(it -> it.annotationType().getSimpleName().startsWith("Doc") || it.annotationType().getSimpleName().contains("Desc"))
-                .min(comparing(it -> it.annotationType().getSimpleName()))
-                .map(this::extractDocValue)
-                .filter(it -> !it.isEmpty());
-    }
-
-    private String extractDocValue(final Annotation annot) {
-        try {
-            return String.class.cast(descriptionExtractor.computeIfAbsent(annot.annotationType(), clazz -> Stream.of(clazz.getMethods())
-                    .filter(it -> it.getName().startsWith("doc") || it.getName().startsWith("desc") || it.getName().equals("value"))
-                    .filter(it -> it.getParameterCount() == 0 && it.getReturnType() == String.class)
-                    .min(comparing(Method::getName))
-                    .map(m -> {
-                        if (!m.isAccessible()) {
-                            m.setAccessible(true);
-                        }
-                        return m;
-                    })
-                    .orElseThrow(() -> new IllegalArgumentException("No value or doc/desc methods in " + clazz.getName())))
-                    .invoke(annot));
-        } catch (final IllegalAccessException | InvocationTargetException e) {
-            throw new IllegalArgumentException(e);
         }
     }
 

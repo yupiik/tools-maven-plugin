@@ -56,7 +56,7 @@ class JsonSchemaGeneratorTest {
                         "      \"$id\":\"io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2\",\n" +
                         "      \"type\":\"object\",\n" +
                         "      \"title\":\"nested\",\n" +
-                        "      \"description\":\"nested\",\n" +
+                        "      \"description\":\"The foo2\",\n" +
                         "      \"properties\":{\n" +
                         "        \"number\":{\n" +
                         "          \"type\":\"integer\",\n" +
@@ -102,13 +102,13 @@ class JsonSchemaGeneratorTest {
                         "|Name|JSON Name|Type|Description\n" +
                         "|age|age|integer|the age\n" +
                         "|name|name|string|the name\n" +
-                        "|<<io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2>>|foo2|object|nested\n" +
+                        "|<<io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2>>|foo2|object|The foo2\n" +
                         "|===\n" +
                         "\n" +
                         "[#io_yupiik_maven_service_action_builtin_JsonSchemaGeneratorTest_Foo2]\n" +
                         "== nested\n" +
                         "\n" +
-                        "nested\n" +
+                        "The foo2\n" +
                         "\n" +
                         "[cols=\"2,2m,1,5\", options=\"header\"]\n" +
                         ".nested\n" +
@@ -141,7 +141,7 @@ class JsonSchemaGeneratorTest {
     }
 
     @Data
-    @Desc("The foo")
+    @Desc("The foo2")
     public static class Foo2 {
         @Desc("the street")
         private String street;

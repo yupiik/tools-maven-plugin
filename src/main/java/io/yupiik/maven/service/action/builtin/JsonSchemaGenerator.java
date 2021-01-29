@@ -15,6 +15,7 @@
  */
 package io.yupiik.maven.service.action.builtin;
 
+import io.yupiik.maven.service.json.JsonDocExtractor;
 import io.yupiik.maven.service.json.JsonSchema2Adoc;
 import lombok.RequiredArgsConstructor;
 import org.apache.johnzon.jsonschema.generator.Schema;
@@ -26,6 +27,7 @@ import javax.json.bind.JsonbConfig;
 import javax.json.bind.config.PropertyOrderStrategy;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,55 +45,105 @@ public class JsonSchemaGenerator implements Runnable {
 
     @Override
     public void run() {
-        final Class<?> clazz;
-        try {
-            clazz = Thread.currentThread().getContextClassLoader()
-                    .loadClass(requireNonNull(configuration.get("class"), "No class attribute set on " + getClass().getSimpleName()));
-        } catch (final ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
-        }
-        final Path output = Paths.get(requireNonNull(configuration.get("to"), "No to attribute set on " + getClass().getSimpleName()));
-        final String type = ofNullable(configuration.get("type")).map(it -> it.trim().toUpperCase(ROOT)).orElse("JSON");
-
-        final SchemaProcessor processor = new SchemaProcessor(
-                ofNullable(configuration.get("setClassAsTitle")).map(Boolean::parseBoolean).orElse(false),
-                ofNullable(configuration.get("useReflectionForDefaults")).map(Boolean::parseBoolean).orElse(false)) {
+        final Thread thread = Thread.currentThread();
+        final ClassLoader oldLoader = thread.getContextClassLoader();
+        final ClassLoader actionLoader = getClass().getClassLoader();
+        final ClassLoader unifyingLoader = new ClassLoader() {
             @Override
-            protected void fillMeta(final Field f, final Schema schema) {
-                super.fillMeta(f, schema);
-                if (schema.getTitle() == null) {
-                    schema.setTitle(f.getDeclaringClass() + "." + f.getName());
+            protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+                final Class<?> aClass = doFind(name);
+                if (resolve) {
+                    resolveClass(aClass);
                 }
-                if (schema.getDescription() == null) {
-                    schema.setDescription(schema.getTitle());
+                return aClass;
+            }
+
+            private Class<?> doFind(final String name) throws ClassNotFoundException {
+                if (name.startsWith("javax.json") || name.startsWith("org.apache.johnzon.")) {
+                    return actionLoader.loadClass(name);
                 }
+                return oldLoader.loadClass(name);
             }
         };
-        final SchemaProcessor.InMemoryCache cache = new SchemaProcessor.InMemoryCache();
-        final Schema schema = processor.mapSchemaFromClass(clazz, cache);
-        schema.setTitle(configuration.get("title"));
-        schema.setDescription(configuration.get("description"));
-        schema.setDefinitions(cache.getDefinitions());
-
-        String content;
-        switch (type) {
-            case "ADOC":
-                content = toAdoc(schema, ofNullable(configuration.get("levelPrefix")).orElse("="));
-                break;
-            case "JSON":
-                content = toJson(schema, ofNullable(configuration.get("pretty")).map(Boolean::parseBoolean).orElse(true));
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown argument: '" + type + "' as type.");
-        }
-
+        thread.setContextClassLoader(unifyingLoader);
+        final JsonDocExtractor docExtractor = new JsonDocExtractor();
         try {
-            if (output.getParent() != null) {
-                Files.createDirectories(output.getParent());
+            final Class<?> clazz;
+            try {
+                clazz = Thread.currentThread().getContextClassLoader()
+                        .loadClass(requireNonNull(configuration.get("class"), "No class attribute set on " + getClass().getSimpleName()));
+            } catch (final ClassNotFoundException e) {
+                throw new IllegalArgumentException(e);
             }
-            Files.write(output, content.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (final IOException iore) {
-            throw new IllegalStateException(iore);
+            final Path output = Paths.get(requireNonNull(configuration.get("to"), "No to attribute set on " + getClass().getSimpleName()));
+            final String type = ofNullable(configuration.get("type")).map(it -> it.trim().toUpperCase(ROOT)).orElse("JSON");
+
+            final SchemaProcessor processor = new SchemaProcessor(
+                    ofNullable(configuration.get("setClassAsTitle")).map(Boolean::parseBoolean).orElse(false),
+                    ofNullable(configuration.get("useReflectionForDefaults")).map(Boolean::parseBoolean).orElse(false)) {
+                @Override
+                public void fillSchema(final Type rawModel, final Schema schema, final Cache cache,
+                                       final ReflectionValueExtractor reflectionValueExtractor,
+                                       final Instance instance) {
+                    super.fillSchema(rawModel, schema, cache, reflectionValueExtractor, instance);
+                    if (Class.class.isInstance(rawModel)) {
+                        final Class clazz = Class.class.cast(rawModel);
+                        if (schema.getDescription() == null) {
+                            try {
+                                schema.setDescription(docExtractor.findDoc(clazz::getAnnotations).orElse(null));
+                            } catch (final RuntimeException re) {
+                                // no-op
+                            }
+                        }
+                        if (schema.getTitle() == null) {
+                            try {
+                                schema.setDescription(docExtractor.findTitle(clazz::getAnnotations).orElse(null));
+                            } catch (final RuntimeException re) {
+                                // no-op
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                protected void fillMeta(final Field f, final Schema schema) {
+                    super.fillMeta(f, schema);
+                    if (schema.getTitle() == null) {
+                        schema.setTitle(f.getDeclaringClass().getSimpleName().replace('$', '.') + "." + f.getName());
+                    }
+                    if (schema.getDescription() == null) {
+                        schema.setDescription(schema.getTitle());
+                    }
+                }
+            };
+            final SchemaProcessor.InMemoryCache cache = new SchemaProcessor.InMemoryCache();
+            final Schema schema = processor.mapSchemaFromClass(clazz, cache);
+            schema.setTitle(configuration.get("title"));
+            schema.setDescription(configuration.get("description"));
+            schema.setDefinitions(cache.getDefinitions());
+
+            String content;
+            switch (type) {
+                case "ADOC":
+                    content = toAdoc(schema, ofNullable(configuration.get("levelPrefix")).orElse("="));
+                    break;
+                case "JSON":
+                    content = toJson(schema, ofNullable(configuration.get("pretty")).map(Boolean::parseBoolean).orElse(true));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown argument: '" + type + "' as type.");
+            }
+
+            try {
+                if (output.getParent() != null) {
+                    Files.createDirectories(output.getParent());
+                }
+                Files.write(output, content.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            } catch (final IOException iore) {
+                throw new IllegalStateException(iore);
+            }
+        } finally {
+            thread.setContextClassLoader(oldLoader);
         }
     }
 
