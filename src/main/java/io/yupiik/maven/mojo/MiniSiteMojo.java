@@ -182,6 +182,12 @@ public class MiniSiteMojo extends BaseMojo {
     protected String customScripts;
 
     /**
+     * Custom html template for menus.
+     */
+    @Parameter(property = "yupiik.minisite.customMenu")
+    protected String customMenu;
+
+    /**
      * Default HTML page description.
      */
     @Parameter(property = "yupiik.minisite.siteBase", defaultValue = "http://localhost:4200")
@@ -682,6 +688,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "</li>\n" +
                         "" : "")
                 .replace("{{customHead}}", ofNullable(customHead).orElse(""))
+                .replace("{{customMenu}}", ofNullable(customMenu).orElse(""))
                 .replace("{{projectVersion}}", project.getVersion()) // enables to invalidate browser cache
                 .replace("{{logoText}}", getLogoText())
                 .replace("{{base}}", siteBase)

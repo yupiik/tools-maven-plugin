@@ -221,6 +221,7 @@ It comes with its companion serve goal to have a live preview.
 |useDefaultAssets|boolean|true|yupiik.minisite.useDefaultAssets|Should default css/js be extracted and added to the website.
 |customHead|String|-|yupiik.minisite.customHead|String injected at the end of head tag of html pages.
 |customScripts|String|-|yupiik.minisite.customScripts|String injected at the end of script tags of html pages.
+|customMenu|String|-|yupiik.minisite.customMenu|String injected on the top left of the menu (just before the search).
 |logoText|String|-|yupiik.minisite.logoText|Logo text for default theme (text next to the logo).
 |indexText|String|-|yupiik.minisite.indexText|Index homepage (when generated) content title.
 |indexSubTitle|String|-|yupiik.minisite.indexSubTitle|Index home page (when generated) subtitle.
