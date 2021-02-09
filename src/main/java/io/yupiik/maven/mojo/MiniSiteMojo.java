@@ -226,7 +226,7 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Template file name added after the content.
      */
-    @Parameter(defaultValue = "footer.html")
+    @Parameter(defaultValue = "footer-top.html,footer-end.html")
     private List<String> templateSuffixes;
 
     /**
