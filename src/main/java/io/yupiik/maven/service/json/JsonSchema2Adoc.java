@@ -135,7 +135,10 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
                                 final boolean object = e.getValue().getItems().getType() != Schema.SchemaType.object;
                                 final boolean ignoreObjectBlock = e.getValue().getItems().getRef() != null;
                                 final String anchor = toAnchor(object ? e.getValue().getItems() : e.getValue());
-                                main.append("|").append(anchor == null ? "" : "<<").append(anchor).append(anchor == null ? "" : ">>").append("|")
+                                main.append("|")
+                                        .append(anchor == null ? "" : "<<")
+                                        .append(anchor == null ? e.getKey() : anchor)
+                                        .append(anchor == null ? "" : ">>").append("|")
                                         .append(e.getKey()).append('|')
                                         .append("array of ").append(e.getValue().getItems().getType()).append('|')
                                         .append(e.getValue().getDescription() == null ? toDescription(e.getValue().getItems()) : toDescription(e.getValue())).append('\n');
