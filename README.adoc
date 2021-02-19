@@ -377,6 +377,7 @@ TIP: if you use maven central you need to await for the synchronization to run t
 |githubBaseApi|String|Base API url for github REST API (default on public one).
 |artifacts|ArtifactSpec[]|List of artifacts to synchronize (`{groupId,artifactId,artifacts}` with artifacts a list of artifact `{type=jar,classifier=""}`).
 |attachIfExists|boolean|If release already exists the default behavior is to skip it, this flag enables to still try to attach artifacts to this release anyway.
+|tagPattern|String|Tag name to link to the release, default uses `${artifactId}-${version}` pattern.
 |====
 
 ==== Example

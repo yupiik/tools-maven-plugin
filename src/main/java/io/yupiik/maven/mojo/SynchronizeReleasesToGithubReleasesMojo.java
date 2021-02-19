@@ -106,6 +106,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     @Parameter(property = "yupiik.synchronize-github-releases.workdir", defaultValue = "${project.build.directory}/synchronize-github-releases-workdir")
     private String workdir;
 
+    @Parameter(property = "yupiik.synchronize-github-releases.tagPattern")
+    private String tagPattern;
+
     @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession session;
 
@@ -187,7 +190,12 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             release.setName(version);
             release.setDraft(false);
             release.setPrerelease(false);
-            release.setTagName(spec.getArtifactId() + '-' + version); // convention for now
+            release.setTagName(tagPattern == null || tagPattern.isBlank() ?
+                    spec.getArtifactId() + '-' + version :
+                    tagPattern
+                            .replace("${groupId}", spec.getGroupId())
+                            .replace("${artifactId}", spec.getArtifactId())
+                            .replace("${version}", version));
             release.setTargetCommitish("master");
 
             final var url = URI.create(githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/releases");
@@ -226,6 +234,10 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     private CompletableFuture<?> attachArtifactToRelease(final HttpClient httpClient, final GithubRelease release,
                                                          final ReleaseSpec spec, final Artifact artifact, final Path workDir) {
         return download(httpClient, spec, artifact, release.getName(), workDir).thenCompose(file -> {
+            if (file == null) {
+                getLog().info(spec + ":" + artifact + " does not exist in version " + release.getName() + ", skipping");
+                return completedFuture(null);
+            }
             final var url = URI.create(release.getUploadUrl().replaceAll("\\{[^}]+}", "") + "?" +
                     "name=" + URLEncoder.encode(file.getFileName().toString(), StandardCharsets.UTF_8) + "&" +
                     "label=" + URLEncoder.encode(file.getFileName().toString(), StandardCharsets.UTF_8));
@@ -290,6 +302,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         final var output = workDir.resolve(filename);
         return httpClient.sendAsync(reqBuilder.GET().uri(url).build(), HttpResponse.BodyHandlers.ofFile(output))
                 .thenApply(r -> {
+                    if (r.statusCode() == 404) {
+                        return null;
+                    }
                     ensure200(url, r);
                     return output;
                 });
