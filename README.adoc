@@ -466,3 +466,59 @@ Scope can be:
 - runtime_only
 
 The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
+
+== Yupiik OSS extension
+
+This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.
+
+It is configured in the root project through maven properties:
+
+[source,xml]
+----
+<properties>
+  <!-- REQUIRED: enable the extension -->
+  <yupiik.oss.enabled>true</yupiik.oss.enabled>
+  <!-- OPTIONAL: defaults -->
+  <yupiik.oss.java.version>11</yupiik.oss.enabled>
+  <yupiik.oss.encoding>UTF-8</yupiik.oss.enabled>
+  <yupiik.oss.javadoc.doclint>none</yupiik.oss.enabled>
+  <yupiik.oss..sign.skip>none</yupiik.oss.enabled>
+</properties>
+----
+
+Just enabling this extension will upgrade a few plugin, enforce the encoding and java version, enforce license check and much more.
+
+See `io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead` for details.
+
+=== Example
+
+[source,xml]
+----
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- ... -->
+
+  <properties>
+    <yupiik.oss.enabled>true</yupiik.oss.enabled>
+  </properties>
+
+  <build>
+    <extensions>
+      <extension>
+        <groupId>io.yupiik.maven</groupId>
+        <artifactId>yupiik-tools-maven-plugin</artifactId>
+        <version>${yupiik-tools.version}</version>
+      </extension>
+    </extensions>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+    </profile>
+  </profiles>
+</project>
+----
