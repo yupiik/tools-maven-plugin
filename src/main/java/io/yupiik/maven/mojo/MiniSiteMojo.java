@@ -257,7 +257,6 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-
     @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession session;
 

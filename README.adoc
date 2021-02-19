@@ -247,7 +247,7 @@ The configuration also supports a `ftp` entry if you want to upload to a FTP ser
 
 The configuration also supports a `git` entry if you want to upload to a Git branch the generated website (like `gh-pages`):
 
-[options="header",cols="1,m,m,m,1"]
+[options="header",cols="1,m,2"]
 |====
 |Name|Type|Description
 |branch|String|Git branch to update (default to `refs/heads/gh-pages`).
@@ -356,6 +356,82 @@ TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily
 * `minisite-index-title` attribute enables to override link text.
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
 * `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
+
+=== Synchronize Releases
+
+Fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.
+
+Name: `synchronize-github-releases`.
+
+TIP: if you use maven central you need to await for the synchronization to run this goal, using directly OSS sonatype release repository avoids it.
+
+==== Configuration
+
+[options="header",cols="1,m,2"]
+|====
+|Name|Type|Description
+|githubServerId|String|Github serverId to use (from your settings.xml) to get the token to use to call github API.
+|nexusServerId|String|Nexus serverId to use (from your settings.xml) to get the token to use to call nexus, not needed if mavenRepositoryBaseUrl is central (default).
+|mavenRepositoryBaseUrl|String|Maven repository base url - where `maven-metadata.xml` will be read.
+|githubRepository|String|Which github repository to synchronize (`org/repo` syntax).
+|githubBaseApi|String|Base API url for github REST API (default on public one).
+|artifacts|ArtifactSpec[]|List of artifacts to synchronize (`{groupId,artifactId,artifacts}` with artifacts a list of artifact `{type=jar,classifier=""}`).
+|attachIfExists|boolean|If release already exists the default behavior is to skip it, this flag enables to still try to attach artifacts to this release anyway.
+|====
+
+==== Example
+
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>default-cli</id>
+      <phase>none</phase>
+      <goals>
+        <goal>synchronize-github-releases</goal>
+      </goals>
+      <configuration>
+        <!-- defaults so optional -->
+        <githubServerId>github.com</githubServerId>
+        <nexusServerId />
+        <mavenRepositoryBaseUrl>https://repo.maven.apache.org/maven2/</mavenRepositoryBaseUrl>
+        <!-- required configuration -->
+        <githubRepository>yupiik/tools-maven-plugin</githubRepository>
+        <artifacts>
+          <artifact>
+            <groupId>io.yupiik.maven</groupId>
+            <artifactId>yupiik-tools-maven-plugin</artifactId>
+            <artifacts>
+              <artifact>
+                <type>jar</type>
+                <classifier />
+              </artifact>
+              <artifact>
+                <type>pom</type>
+                <classifier />
+              </artifact>
+              <artifact>
+                <type>jar</type>
+                <classifier>sources</classifier>
+              </artifact>
+              <artifact>
+                <type>jar</type>
+                <classifier>javadoc</classifier>
+              </artifact>
+            </artifacts>
+          </artifact>
+        </artifacts>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+Then run `mvn yupiik-tools:synchronize-github-releases`.
 
 == Maven Asciidoctor Macro
 
