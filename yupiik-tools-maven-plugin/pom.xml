@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2020 - Yupiik SAS - https://www.yupiik.com
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <parent>
+    <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
+    <groupId>io.yupiik.maven</groupId>
+    <version>1.0.7-SNAPSHOT</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <name>Yupiik Tools :: Maven Plugin</name>
+  <packaging>maven-plugin</packaging>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.maven.plugin-tools</groupId>
+      <artifactId>maven-plugin-annotations</artifactId>
+      <version>3.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-plugin-api</artifactId>
+      <version>${mvn.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-core</artifactId>
+      <version>${mvn.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-utils</artifactId>
+      <version>3.3.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>minisite-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>yupiik-tools-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jruby</groupId>
+          <artifactId>jruby</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj-diagram</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jruby</groupId>
+      <artifactId>jruby-complete</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.asciidoctor</groupId>
+      <artifactId>asciidoctorj-pdf</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.webjars.npm</groupId>
+      <artifactId>npm-font-open-sans</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scilab.forge</groupId>
+      <artifactId>jlatexmath</artifactId>
+      <version>1.0.7</version>
+      <scope>provided</scope> <!-- gpl -->
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>4.1.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-net</groupId>
+      <artifactId>commons-net</artifactId>
+      <version>3.7.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.geronimo.specs</groupId>
+      <artifactId>geronimo-jsonb_1.0_spec</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.geronimo.specs</groupId>
+      <artifactId>geronimo-json_1.1_spec</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.johnzon</groupId>
+      <artifactId>johnzon-jsonb</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit</artifactId>
+      <version>${jgit.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit.ssh.jsch</artifactId>
+      <version>${jgit.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-revealjs</artifactId>
+      <version>${asciidoctor-revealjs.version}</version>
+      <scope>provided</scope>
+      <type>gem</type>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>rubygems</groupId>
+      <artifactId>asciidoctor-bespoke</artifactId>
+      <version>${asciidoctor-bespoke.version}</version>
+      <scope>provided</scope>
+      <type>gem</type>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions> <!-- gem plugin is better but it supports jruby 1.7 (not 9.x) for java 11 -->
+          <execution>
+            <id>install-revealjs-gem</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
+                <argument>org.jruby.Main</argument>
+                <argument>-e</argument>
+                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
+                <argument>--</argument>
+                <argument>install</argument>
+                <argument>--ignore-dependencies</argument>
+                <argument>--no-document</argument>
+                <argument>--no-user-install</argument>
+                <argument>--no-verbose</argument>
+                <argument>${settings.localRepository}/rubygems/asciidoctor-revealjs/${asciidoctor-revealjs.version}/asciidoctor-revealjs-${asciidoctor-revealjs.version}.gem</argument>
+                <argument>--bindir</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
+              </arguments>
+              <environmentVariables>
+                <JARS_SKIP>true</JARS_SKIP>
+                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
+              </environmentVariables>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-bespoke-gem</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
+                <argument>org.jruby.Main</argument>
+                <argument>-e</argument>
+                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
+                <argument>--</argument>
+                <argument>install</argument>
+                <argument>--ignore-dependencies</argument>
+                <argument>--no-document</argument>
+                <argument>--no-user-install</argument>
+                <argument>--no-verbose</argument>
+                <argument>${settings.localRepository}/rubygems/asciidoctor-bespoke/${asciidoctor-bespoke.version}/asciidoctor-bespoke-${asciidoctor-bespoke.version}.gem</argument>
+                <argument>--bindir</argument>
+                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
+              </arguments>
+              <environmentVariables>
+                <JARS_SKIP>true</JARS_SKIP>
+                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
+                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
+                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
+              </environmentVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.plexus</groupId>
+        <artifactId>plexus-component-metadata</artifactId>
+        <version>2.1.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate-metadata</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>mojo-descriptor</id>
+            <goals>
+              <goal>descriptor</goal>
+              <goal>helpmojo</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <goalPrefix>yupiik-tools</goalPrefix>
+          <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>3.6.0</version>
+      </plugin>
+    </plugins>
+  </reporting>
+</project>
