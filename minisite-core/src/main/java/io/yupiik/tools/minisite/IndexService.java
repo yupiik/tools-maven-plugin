@@ -38,18 +38,19 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
 public class IndexService {
-    public Index index(final Path base, final String siteBase) {
+    public Index index(final Path base, final String siteBase, final Predicate<Path> filter) {
         final Index result = new Index(new ArrayList<>());
         try {
-            Files.walkFileTree(base, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(base, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().endsWith(".html")) {
+                    if (file.getFileName().toString().endsWith(".html") && filter.test(file)) {
                         doIndex(file, siteBase + '/' + base.relativize(file)).ifPresent(result.getEntries()::add);
                     }
                     return super.visitFile(file, attrs);

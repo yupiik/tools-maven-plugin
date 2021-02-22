@@ -261,6 +261,29 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 |envBase64SshKey|String|Environment variable the private key will be read as base64 encoded from - useful on CI. note that `<value>_PH` environment variable must contain the associated passphrase.
 |====
 
+===== Blog
+
+Blog is supported if pages contain at least one block metadata.
+Here is the list of available attributes you can use:
+
+* `:minisite-blog-published-date: yyyy-MM-dd`: when the page will be rendered (if not set it is always rendered).
+* `:minisite-blog-categories: c1,c2`: comma separated list of categories of this post
+* `:minisite-blog-authors: My, Myself`: comma separated list of author names
+* `:minisite-blog-summary: Some short description.`: the summary of this post used on post list pages.
+
+Blog page example:
+
+[source,asciidoc]
+----
+= My Post
+:minisite-blog-published-date: 2021-02-16T16:00
+:minisite-blog-categories: others,simple
+:minisite-blog-authors: Romain Manni-Bucau
+:minisite-blog-summary: Second post.
+
+Bla bla
+----
+
 ===== Pre-Action
 
 Pre actions enables to generate some content from the project.

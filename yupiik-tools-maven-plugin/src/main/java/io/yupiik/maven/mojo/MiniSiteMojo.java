@@ -180,6 +180,18 @@ public class MiniSiteMojo extends BaseMojo {
     private String searchIndexName;
 
     /**
+     * Generate blog pages if it has some blog entries - skipped otherwise.
+     */
+    @Parameter(property = "yupiik.minisite.generateBlog", defaultValue = "true")
+    private boolean generateBlog;
+
+    /**
+     * For blog generated pages, the number of items to keep per page.
+     */
+    @Parameter(property = "yupiik.minisite.blogPageSize", defaultValue = "10")
+    private int blogPageSize;
+
+    /**
      * Generate index page.
      */
     @Parameter(property = "yupiik.minisite.generateIndex", defaultValue = "true")
@@ -279,7 +291,6 @@ public class MiniSiteMojo extends BaseMojo {
                 .actionClassLoader(() -> createProjectLoader(getSystemClassLoader()))
                 .source(source.toPath())
                 .target(target.toPath())
-                .classes(classes.toPath())
                 .templateDirs(templateDirs)
                 .attributes(attributes)
                 .title(title)
@@ -289,6 +300,8 @@ public class MiniSiteMojo extends BaseMojo {
                 .indexText(indexText)
                 .indexSubTitle(indexSubTitle)
                 .copyright(copyright)
+                .blogPageSize(blogPageSize)
+                .generateBlog(generateBlog)
                 .linkedInCompany(linkedInCompany)
                 .customHead(customHead)
                 .customScripts(customScripts)

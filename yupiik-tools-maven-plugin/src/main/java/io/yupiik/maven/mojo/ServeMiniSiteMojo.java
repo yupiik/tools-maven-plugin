@@ -23,7 +23,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.asciidoctor.Options;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
@@ -56,12 +55,11 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
         miniSite.executePreActions();
         final Options options = miniSite.createOptions();
         asciidoctor.withAsciidoc(this, adoc -> {
-            final Function<MiniSite.Page, String> template = miniSite.createTemplate(options, adoc);
             final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
             final Watch watch = new Watch(
                     getLog(), source.toPath(), options, adoc, watchDelay,
                     (opts, a) -> {
-                        miniSite.doRender(a, opts, template);
+                        miniSite.doRender(a, opts);
                         getLog().info("Minisite re-rendered");
                     }, () -> server.get().open(openBrowser));
             final StaticHttpServer staticHttpServer = new StaticHttpServer(

@@ -37,18 +37,31 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.Comparator.comparing;
 import static java.util.Optional.ofNullable;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 
 @RequiredArgsConstructor
@@ -65,7 +78,7 @@ public class MiniSite implements Runnable {
         }
         final Options options = createOptions();
         configuration.getAsciidoctorPool().apply(configuration.getAsciidoctorConfiguration(), a -> {
-            doRender(a, options, createTemplate(options, a));
+            doRender(a, options);
             return null;
         });
     }
@@ -96,11 +109,14 @@ public class MiniSite implements Runnable {
 
     private void render(final Page page, final Path html,
                         final Asciidoctor asciidoctor, final Options options,
-                        final Function<Page, String> template) {
+                        final Function<Page, String> template,
+                        final boolean withLeftMenuIfConfigured,
+                        final Function<String, String> postProcessor) {
         try {
             final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
             attrs.putAll(page.attributes);
-            Files.write(html, template.apply(new Page(
+            final var content = template.apply(new Page(
+                    '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
                     ofNullable(page.title).orElseGet(this::getTitle),
                     attrs, "" +
                     "        <div class=\"container page-content\">\n" +
@@ -113,7 +129,8 @@ public class MiniSite implements Runnable {
                     renderAdoc(page, asciidoctor, options).trim() + '\n' +
                     "            </div>\n" +
                     "        </div>\n"
-            )).getBytes(StandardCharsets.UTF_8));
+            ));
+            Files.writeString(html, postProcessor.apply(withLeftMenuIfConfigured || !configuration.isTemplateAddLeftMenu() ? content : dropLeftMenu(content)));
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
@@ -154,9 +171,24 @@ public class MiniSite implements Runnable {
      * @param template
      * @return the index.html content.
      */
-    private String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template) {
+    private String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
+                                 final boolean hasBlog) {
         final Path output = configuration.getTarget();
-        String content = findIndexPages(htmls)
+        String content = (hasBlog ?
+                Stream.concat(
+                        findIndexPages(htmls),
+                        // add blog last for now
+                        Stream.of(new AbstractMap.SimpleImmutableEntry<>(
+                                new Page(
+                                        "/blog/index.html",
+                                        "Blog",
+                                        Map.of(
+                                                "minisite-index-icon", "fa fa-blog",
+                                                "minisite-index-title", "Blog",
+                                                "minisite-index-description", "Blogging area."),
+                                        null),
+                                output.resolve("blog/index.html")))) :
+                findIndexPages(htmls))
                 .map(p -> "" +
                         "                    <div class=\"col-12 col-lg-4 py-3\">\n" +
                         "                        <div class=\"card shadow-sm\">\n" +
@@ -189,17 +221,25 @@ public class MiniSite implements Runnable {
                                 "        </div>\n" +
                                 "    </div>\n"));
 
-        content = template
-                .apply(new Page(ofNullable(configuration.getTitle()).orElse("Index"), Map.of("minisite-passthrough", true), content))
-                .replace("<minisite-menu-placeholder/>\n", "");
+        content = dropLeftMenu(
+                template.apply(new Page(
+                        "/index.html",
+                        ofNullable(configuration.getTitle()).orElse("Index"), Map.of("minisite-passthrough", true), content)));
 
         // now we must drop the navigation-left/right since we reused the global template - easier than rebuilding a dedicated layout
+        return dropRightColumn(content);
+    }
+
+    private String dropRightColumn(final String content) {
         final int navRight = content.indexOf("<div class=\"page-navigation-right\">");
         if (navRight > 0) {
-            content = content.substring(0, navRight) + content.substring(content.indexOf("</div>", navRight) + "</div>".length());
+            return content.substring(0, navRight) + content.substring(content.indexOf("</div>", navRight) + "</div>".length());
         }
-
         return content;
+    }
+
+    private String dropLeftMenu(final String content) {
+        return content.replace("<minisite-menu-placeholder/>\n", "");
     }
 
     private Stream<Map.Entry<Page, Path>> findIndexPages(final Map<Page, Path> htmls) {
@@ -226,10 +266,11 @@ public class MiniSite implements Runnable {
                         "</urlset>\n"));
     }
 
-    public void doRender(final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template) {
-        final Path content = configuration.getSource().resolve("content");
+    public void doRender(final Asciidoctor asciidoctor, final Options options) {
+        final var content = configuration.getSource().resolve("content");
         final Map<Page, Path> files = new HashMap<>();
         final Path output = configuration.getTarget();
+        final var now = OffsetDateTime.now();
         if (!Files.exists(output)) {
             try {
                 Files.createDirectories(output);
@@ -237,53 +278,26 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
+        final var pages = findPages(asciidoctor);
+        final var template = createTemplate(options, asciidoctor, pages);
+        boolean hasBlog = false;
         if (Files.exists(content)) {
-            try {
-                Files.walkFileTree(content, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        final String filename = file.getFileName().toString();
-                        if (!filename.endsWith(".adoc")) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        if (content.relativize(file).toString().startsWith("_partials")) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        final String contentString = String.join("\n", Files.readAllLines(file));
-                        final DocumentHeader header = asciidoctor.readDocumentHeader(contentString);
-                        final Page page = new Page(
-                                header.getPageTitle(),
-                                header.getAttributes(),
-                                contentString);
-                        if (page.attributes.containsKey("minisite-skip")) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        final Path out = ofNullable(header.getAttributes().get("minisite-path"))
-                                .map(it -> output.resolve(it.toString()))
-                                .orElseGet(() -> output.resolve(content.relativize(file)).getParent().resolve(
-                                        filename.substring(0, filename.length() - ".adoc".length()) + ".html"));
-                        if (out.getParent() != null) {
-                            Files.createDirectories(out.getParent());
-                        }
-                        render(page, out, asciidoctor, options, template);
-                        files.put(page, out);
-                        configuration.getAsciidoctorConfiguration().debug().accept("Rendering " + file + " to " + out);
-                        return super.visitFile(file, attrs);
-                    }
-                });
-            } catch (final IOException e) {
-                throw new IllegalStateException(e);
+            final List<BlogPage> blog = new ArrayList<>();
+            pages.forEach(page -> onVisitedFile(page, asciidoctor, options, template, files, now, blog));
+            hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
+            if (hasBlog) {
+                generateBlog(blog, asciidoctor, options, template);
             }
         }
         if (configuration.isGenerateIndex()) {
             try {
-                Files.write(output.resolve("index.html"), generateIndex(files, template).getBytes(StandardCharsets.UTF_8));
+                Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated index.html");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
         }
-        if (configuration.isGenerateSiteMap()) {
+        if (configuration.isGenerateSiteMap()) { // ignore blog virtual pages since we want to index the content
             try {
                 Files.write(output.resolve("sitemap.xml"), generateSiteMap(files).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated sitemap.xml");
@@ -352,19 +366,300 @@ public class MiniSite implements Runnable {
 
         if (hasSearch()) {
             final var indexer = new IndexService();
-            indexer.write(indexer.index(output, configuration.getSiteBase()), output.resolve(configuration.getSearchIndexName()));
+            indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
+                final var location = configuration.getTarget().relativize(path).toString().replace(File.pathSeparatorChar, '/');
+                final var name = path.getFileName().toString();
+                if (location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) {
+                    return false;
+                }
+                return true;
+            }), output.resolve(configuration.getSearchIndexName()));
         }
 
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
+    }
+
+    private void onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
+                               final Function<Page, String> template, Map<Page, Path> files,
+                               final OffsetDateTime now, final List<BlogPage> blog) {
+        if (page.attributes.containsKey("minisite-skip")) {
+            return;
+        }
+        final var out = configuration.getTarget().resolve(page.relativePath.substring(1));
+        if (out.getParent() != null && !Files.exists(out.getParent())) {
+            try {
+                Files.createDirectories(out.getParent());
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        final var isBlog = isBlogPage(page);
+        files.put(page, out);
+        if (isBlog) {
+            final var publishedDate = readPublishedDate(page);
+            if (now.isAfter(publishedDate)) {
+                blog.add(new BlogPage(page, publishedDate));
+            }
+        } else {
+            render(page, out, asciidoctor, options, template, true, identity());
+            configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
+        }
+    }
+
+    private boolean isBlogPage(final Page page) {
+        return page.attributes.keySet().stream().anyMatch(k -> k.startsWith("minisite-blog"));
+    }
+
+    private OffsetDateTime readPublishedDate(final Page page) {
+        return ofNullable(page.attributes.get("minisite-blog-published-date"))
+                .map(String::valueOf)
+                .map(String::trim)
+                .map(value -> {
+                    switch (value.length()) {
+                        case 10: // yyyy-MM-dd HH:mm
+                            return LocalDate.parse(value).atTime(LocalTime.MIN).atOffset(ZoneOffset.UTC);
+                        default:
+                            if (value.length() > 19) { // with offset
+                                return OffsetDateTime.parse(value.replace(' ', 'T'));
+                            }
+                            // yyyy-MM-dd HH:mm[:ss]
+                            return LocalDateTime.parse(value.replace(' ', 'T')).atOffset(ZoneOffset.UTC);
+                    }
+                })
+                .orElseGet(OffsetDateTime::now);
+    }
+
+    protected void generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor, final Options options,
+                                final Function<Page, String> template) {
+        blog.sort(comparing(p -> p.publishedDate));
+        final var baseBlog = configuration.getTarget().resolve("blog");
+        try {
+            Files.createDirectories(baseBlog);
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
+        }
+
+        paginateBlogPages((number, total) -> "Blog Page " + number + "/" + total, "", blog, asciidoctor, options, template, baseBlog);
+        paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog);
+        paginatePer("author", "authors", blog, asciidoctor, options, template, baseBlog);
+
+        // render all blog pages
+        blog.forEach(bp -> {
+            final var out = configuration.getTarget().resolve(bp.page.relativePath.substring(1));
+            final var idx = blog.indexOf(bp);
+            render(new Page( // add links to other posts
+                    bp.page.relativePath,
+                    bp.page.title,
+                    bp.page.attributes,
+                    bp.page.content + "\n" +
+                            "\n" +
+                            ofNullable(bp.page.attributes.get("minisite-blog-authors"))
+                                    .map(String::valueOf)
+                                    .map(authors -> Stream.of(authors.split(","))
+                                            .map(String::trim)
+                                            .filter(c -> !c.isBlank())
+                                            .map(author -> "* link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(author) + "/page-1.html" + "[" + author + "]")
+                                            .collect(joining("\n",
+                                                    "[role=blog-categories]\n" +
+                                                            "From the same author" + (authors.contains(",") ? "s" : "") + ":\n" +
+                                                            "\n" +
+                                                            "[role=\"blog-links blog-categories\"]\n", "\n\n")))
+                                    .orElse("") +
+                            ofNullable(bp.page.attributes.get("minisite-blog-categories"))
+                                    .map(String::valueOf)
+                                    .map(categories -> Stream.of(categories.split(","))
+                                            .map(String::trim)
+                                            .filter(c -> !c.isBlank())
+                                            .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
+                                            .collect(joining("\n",
+                                                    "[role=blog-categories]\n" +
+                                                            "In the same categor" + (categories.contains(",") ? "ies" : "y") + ":\n" +
+                                                            "\n" +
+                                                            "[role=\"blog-links blog-categories\"]\n", "\n\n")))
+                                    .orElse("") +
+                            "[role=blog-links]\n" +
+                            (idx > 0 ? "* link:" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "[Previous,role=\"blog-link-previous\"]\n" : "") +
+                            "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
+                            (idx < (blog.size() - 1) ? "* link:" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "[Next,role=\"blog-link-next\"]\n" : "")
+            ), out, asciidoctor, options, template, false, this::markPageAsBlog);
+            configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
+        });
+    }
+
+    protected boolean paginatePer(final String singular, final String plural, final List<BlogPage> blog,
+                                  final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
+                                  final Path baseBlog) {
+        // per category pagination /category/<name>/page-<x>.html
+        final var perCriteria = blog.stream()
+                .filter(it -> it.page.attributes.containsKey("minisite-blog-" + plural))
+                .flatMap(it -> Stream.of(String.valueOf(it.page.attributes.get("minisite-blog-" + plural)).split(","))
+                        .map(String::trim)
+                        .filter(c -> !c.isBlank())
+                        .map(c -> new AbstractMap.SimpleImmutableEntry<>(c, it)))
+                .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+        perCriteria.forEach((key, posts) -> {
+            final var humanName = toHumanName(key);
+            final var urlName = toUrlName(key);
+            paginateBlogPages(
+                    (current, total) -> "Blog " + humanName + " (page " + current + "/" + total + ")",
+                    singular + "/" + urlName + '/',
+                    posts, asciidoctor, options, template, baseBlog);
+        });
+        if (perCriteria.values().stream().mapToLong(Collection::size).sum() == 0) {
+            return false;
+        }
+        // /category/index.html
+        render(
+                new Page(
+                        '/' + configuration.getTarget().relativize(baseBlog).toString().replace(File.separatorChar, '/') +
+                                "/" + singular + "/index.html",
+                        "Blog " + plural,
+                        Map.of(),
+                        "= Blog " + plural + "\n" +
+                                "\n" +
+                                perCriteria.keySet().stream()
+                                        .map(it -> "* link:" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + ']')
+                                        .collect(joining("\n"))),
+                baseBlog.resolve(singular + "/index.html"), asciidoctor, options, template,
+                false,
+                this::markPageAsBlog);
+        return true;
+    }
+
+    private String toHumanName(final String string) {
+        final var out = new StringBuilder()
+                .append(Character.toUpperCase(string.charAt(0)));
+        for (int i = 1; i < string.length(); i++) {
+            final var c = string.charAt(i);
+            if (Character.isUpperCase(c)) {
+                out.append(' ').append(c);
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    private String toUrlName(final String string) {
+        final var out = new StringBuilder()
+                .append(Character.toLowerCase(string.charAt(0)));
+        for (int i = 1; i < string.length(); i++) {
+            final var c = string.charAt(i);
+            if (Character.isUpperCase(c)) {
+                out.append('-').append(Character.toLowerCase(c));
+            } else if (c == ' ') {
+                out.append('-');
+            } else if (!Character.isJavaIdentifierPart(c)) { // little shortcut for url friendly test
+                out.append('-');
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString().replace("--", "-");
+    }
+
+    private void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
+                                   final List<BlogPage> blogPages,
+                                   final Asciidoctor asciidoctor,
+                                   final Options options,
+                                   final Function<Page, String> template,
+                                   final Path baseBlog) {
+        if (blogPages.isEmpty()) {
+            return;
+        }
+        if (!pageRelativeFolder.isBlank()) {
+            try {
+                Files.createDirectories(baseBlog.resolve(pageRelativeFolder));
+            } catch (final IOException e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+        final int pageSize = configuration.getBlogPageSize() <= 0 ? 10 : configuration.getBlogPageSize();
+        final var pages = splitByPage(blogPages, pageSize);
+        IntStream.rangeClosed(1, pages.size()).forEach(page -> {
+            final var output = baseBlog.resolve(pageRelativeFolder + "page-" + page + ".html");
+            render(
+                    new Page(
+                            '/' + configuration.getTarget().relativize(output).toString().replace(File.separatorChar, '/'),
+                            prefix.apply(page, pages.size()),
+                            Map.of(),
+                            "= " + prefix.apply(page, pages.size()) + "\n" +
+                                    pages.get(page - 1).stream()
+                                            .map(it -> "" +
+                                                    "++++\n" +
+                                                    "<div class=\"card shadow-sm\">\n" +
+                                                    "  <div class=\"card-body\">\n" +
+                                                    "      <h5 class=\"card-title mb-3\">\n" +
+                                                    "          <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                                                    "              <i class=\"fa fa-blog\"></i>\n" +
+                                                    "          </span>\n" +
+                                                    "          <span class=\"card-title-text\">" + it.page.title + "</span>\n" +
+                                                    "          <span class=\"card-subtitle-text\">" +
+                                                    ofNullable(it.page.attributes.get("minisite-blog-authors"))
+                                                            .map(String::valueOf)
+                                                            .map(a -> "by " + String.join(" and ", a.split(",")) + ", ")
+                                                            .orElse("") +
+                                                    readPublishedDate(it.page).toLocalDate() + "</span>\n" +
+                                                    "      </h5>\n" +
+                                                    "      <div class=\"card-text\">\n" +
+                                                    "++++\n" +
+                                                    "\n" +
+                                                    ofNullable(it.page.attributes.get("minisite-blog-summary"))
+                                                            .map(String::valueOf)
+                                                            .orElse("") +
+                                                    "\n" +
+                                                    "++++\n" +
+                                                    "      </div>\n" +
+                                                    "      <a class=\"card-link-mask\" href=\"" + it.page.relativePath + "\"></a>\n" +
+                                                    "  </div>\n" +
+                                                    "</div>\n" +
+                                                    "++++")
+                                            .collect(joining("\n", "\n", "\n")) +
+                                    "\n" +
+                                    "[role=\"blog-links blog-links-page\"]\n" +
+                                    (page > 1 ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page - 1) + ".html[Previous,role=\"blog-link-previous\"]\n" : "") +
+                                    "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
+                                    (page < pages.size() ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page + 1) + ".html[Next,role=\"blog-link-next\"]\n" : "")),
+                    output, asciidoctor, options, template, false,
+                    this::markPageAsBlog);
+        });
+
+        final var indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
+        if (!Files.exists(indexRedirect)) {
+            try {
+                Files.writeString(
+                        indexRedirect,
+                        "<html><head><meta http-equiv=\"refresh\" content=\"0; URL=page-1.html\" /></head><body></body></html>",
+                        StandardOpenOption.CREATE);
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+
+    private String markPageAsBlog(final String html) {
+        return html.replace("<body>", "<body class=\"blog\">");
+    }
+
+    private List<List<BlogPage>> splitByPage(final List<BlogPage> sortedPages, final int pageSize) {
+        final int totalPages = (int) Math.ceil(sortedPages.size() * 1. / pageSize);
+        return IntStream.rangeClosed(1, totalPages)
+                .mapToObj(page -> sortedPages.subList(configuration.getBlogPageSize() * (page - 1), Math.min(configuration.getBlogPageSize() * page, sortedPages.size())))
+                .collect(toList());
     }
 
     private boolean hasSearch() {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
     }
 
-    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor) {
-        final Path layout = configuration.getSource().resolve("templates");
+    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor,
+                                                 final Collection<Page> pages) {
+        final var layout = configuration.getSource().resolve("templates");
+        final var hasBlog = pages.stream().anyMatch(this::isBlogPage);
         String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
+                .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
+                        "<a href=\"" + configuration.getSiteBase() + "/blog/\">" +
+                        "<i class=\"fa fa-blog fa-fw\"></i></a></li>")
                 .replace("{{search}}", hasSearch() ? "" +
                         "<li class=\"list-inline-item\">" +
                         "<a id=\"search-button\" href=\"#\" data-toggle=\"modal\" data-target=\"#searchModal\">" +
@@ -442,6 +737,41 @@ public class MiniSite implements Runnable {
                         "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/json.min.js\" integrity=\"sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==\" crossorigin=\"anonymous\"></script>\n" +
                         "    <script src=\"//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.1/languages/dockerfile.min.js\" integrity=\"sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==\" crossorigin=\"anonymous\"></script>\n" +
                         "    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.initHighlightingOnLoad(); }</script>")));
+    }
+
+    private Collection<Page> findPages(final Asciidoctor asciidoctor) {
+        try {
+            final var content = configuration.getSource().resolve("content");
+            final Collection<Page> pages = new ArrayList<>();
+            Files.walkFileTree(content, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                    final String filename = file.getFileName().toString();
+                    if (!filename.endsWith(".adoc")) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (content.relativize(file).toString().startsWith("_partials")) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    final String contentString = Files.readString(file);
+                    final DocumentHeader header = asciidoctor.readDocumentHeader(contentString);
+                    final Path out = ofNullable(header.getAttributes().get("minisite-path"))
+                            .map(it -> configuration.getTarget().resolve(it.toString()))
+                            .orElseGet(() -> configuration.getTarget().resolve(content.relativize(file)).getParent().resolve(
+                                    filename.substring(0, filename.length() - ".adoc".length()) + ".html"));
+                    final Page page = new Page(
+                            '/' + configuration.getTarget().relativize(out).toString().replace(File.separatorChar, '/'),
+                            header.getPageTitle(),
+                            header.getAttributes(),
+                            contentString);
+                    pages.add(page);
+                    return super.visitFile(file, attrs);
+                }
+            });
+            return pages;
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private String getLogoText() {
@@ -533,9 +863,20 @@ public class MiniSite implements Runnable {
     }
 
     @RequiredArgsConstructor
+    public static class BlogPage {
+        private final Page page;
+        private final OffsetDateTime publishedDate;
+    }
+
+    @RequiredArgsConstructor
     public static class Page {
+        private final String relativePath;
         private final String title;
         private final Map<String, Object> attributes;
         private final String content;
+    }
+
+    public interface TemplateRenderer extends Function<Page, String> {
+        void visitedUserPages();
     }
 }

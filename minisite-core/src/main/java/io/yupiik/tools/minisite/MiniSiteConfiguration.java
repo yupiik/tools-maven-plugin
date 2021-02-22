@@ -16,28 +16,31 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.Collections.emptyList;
+import static lombok.AccessLevel.PRIVATE;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor(access = PRIVATE)
 public class MiniSiteConfiguration {
     private Supplier<ClassLoader> actionClassLoader;
     private Path source;
     private Path target;
-    private Path classes;
     private List<File> templateDirs;
     private Map<String, Object> attributes;
     private String title;
@@ -54,6 +57,8 @@ public class MiniSiteConfiguration {
     private String siteBase;
     private boolean useDefaultAssets;
     private String searchIndexName;
+    private boolean generateBlog;
+    private int blogPageSize;
     private boolean generateIndex;
     private boolean generateSiteMap;
     private List<String> templatePrefixes;

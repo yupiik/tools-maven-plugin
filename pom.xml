@@ -290,6 +290,7 @@ under the License.
             <exclude>**/*.txt</exclude>
             <exclude>**/*.xlsx</exclude>
             <exclude>**/*.idea</exclude>
+            <exclude>**/*.adoc</exclude>
             <exclude>LICENSE</exclude>
             <exclude>**/target/**</exclude>
             <exclude>**/src/license/**</exclude>
