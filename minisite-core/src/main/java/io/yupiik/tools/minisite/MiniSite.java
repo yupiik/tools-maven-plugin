@@ -107,7 +107,7 @@ public class MiniSite implements Runnable {
         }
     }
 
-    private void render(final Page page, final Path html,
+    protected void render(final Page page, final Path html,
                         final Asciidoctor asciidoctor, final Options options,
                         final Function<Page, String> template,
                         final boolean withLeftMenuIfConfigured,
@@ -136,18 +136,18 @@ public class MiniSite implements Runnable {
         }
     }
 
-    private String getIcon(final Page it) {
+    protected String getIcon(final Page it) {
         return ofNullable(it.attributes.get("minisite-index-icon"))
                 .map(String::valueOf)
                 .map(i -> i.startsWith("fa") && i.contains(" ") ? i : ("fas fa-" + i))
                 .orElse("fas fa-download-alt");
     }
 
-    private String getTitle(final Page it) {
+    protected String getTitle(final Page it) {
         return ofNullable(it.attributes.get("minisite-index-title")).map(String::valueOf).orElse(it.title);
     }
 
-    private String leftMenu(final Map<Page, Path> files) {
+    protected String leftMenu(final Map<Page, Path> files) {
         final Path output = configuration.getTarget();
         return "" +
                 "        <div class=\"page-navigation-left\">\n" +
@@ -171,7 +171,7 @@ public class MiniSite implements Runnable {
      * @param template
      * @return the index.html content.
      */
-    private String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
+    protected String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
                                  final boolean hasBlog) {
         final Path output = configuration.getTarget();
         String content = (hasBlog ?
@@ -230,7 +230,7 @@ public class MiniSite implements Runnable {
         return dropRightColumn(content);
     }
 
-    private String dropRightColumn(final String content) {
+    protected String dropRightColumn(final String content) {
         final int navRight = content.indexOf("<div class=\"page-navigation-right\">");
         if (navRight > 0) {
             return content.substring(0, navRight) + content.substring(content.indexOf("</div>", navRight) + "</div>".length());
@@ -238,17 +238,17 @@ public class MiniSite implements Runnable {
         return content;
     }
 
-    private String dropLeftMenu(final String content) {
+    protected String dropLeftMenu(final String content) {
         return content.replace("<minisite-menu-placeholder/>\n", "");
     }
 
-    private Stream<Map.Entry<Page, Path>> findIndexPages(final Map<Page, Path> htmls) {
+    protected Stream<Map.Entry<Page, Path>> findIndexPages(final Map<Page, Path> htmls) {
         return htmls.entrySet().stream()
                 .filter(p -> p.getKey().attributes.containsKey("minisite-index"))
                 .sorted(comparing(p -> Integer.parseInt(String.valueOf(p.getKey().attributes.get("minisite-index")).trim())));
     }
 
-    private String generateSiteMap(final Map<Page, Path> pages) {
+    protected String generateSiteMap(final Map<Page, Path> pages) {
         final String now = LocalDate.now().toString();
         final Path output = configuration.getTarget();
         return pages.entrySet().stream()
@@ -379,7 +379,7 @@ public class MiniSite implements Runnable {
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }
 
-    private void onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
+    protected void onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
                                final Function<Page, String> template, Map<Page, Path> files,
                                final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
@@ -406,11 +406,11 @@ public class MiniSite implements Runnable {
         }
     }
 
-    private boolean isBlogPage(final Page page) {
+    protected boolean isBlogPage(final Page page) {
         return page.attributes.keySet().stream().anyMatch(k -> k.startsWith("minisite-blog"));
     }
 
-    private OffsetDateTime readPublishedDate(final Page page) {
+    protected OffsetDateTime readPublishedDate(final Page page) {
         return ofNullable(page.attributes.get("minisite-blog-published-date"))
                 .map(String::valueOf)
                 .map(String::trim)
@@ -526,7 +526,7 @@ public class MiniSite implements Runnable {
         return true;
     }
 
-    private String toHumanName(final String string) {
+    protected String toHumanName(final String string) {
         final var out = new StringBuilder()
                 .append(Character.toUpperCase(string.charAt(0)));
         for (int i = 1; i < string.length(); i++) {
@@ -540,7 +540,7 @@ public class MiniSite implements Runnable {
         return out.toString();
     }
 
-    private String toUrlName(final String string) {
+    protected String toUrlName(final String string) {
         final var out = new StringBuilder()
                 .append(Character.toLowerCase(string.charAt(0)));
         for (int i = 1; i < string.length(); i++) {
@@ -558,7 +558,7 @@ public class MiniSite implements Runnable {
         return out.toString().replace("--", "-");
     }
 
-    private void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
+    protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
                                    final List<BlogPage> blogPages,
                                    final Asciidoctor asciidoctor,
                                    final Options options,
@@ -637,18 +637,18 @@ public class MiniSite implements Runnable {
         }
     }
 
-    private String markPageAsBlog(final String html) {
+    protected String markPageAsBlog(final String html) {
         return html.replace("<body>", "<body class=\"blog\">");
     }
 
-    private List<List<BlogPage>> splitByPage(final List<BlogPage> sortedPages, final int pageSize) {
+    protected List<List<BlogPage>> splitByPage(final List<BlogPage> sortedPages, final int pageSize) {
         final int totalPages = (int) Math.ceil(sortedPages.size() * 1. / pageSize);
         return IntStream.rangeClosed(1, totalPages)
                 .mapToObj(page -> sortedPages.subList(configuration.getBlogPageSize() * (page - 1), Math.min(configuration.getBlogPageSize() * page, sortedPages.size())))
                 .collect(toList());
     }
 
-    private boolean hasSearch() {
+    protected boolean hasSearch() {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
     }
 
@@ -739,7 +739,7 @@ public class MiniSite implements Runnable {
                         "    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.initHighlightingOnLoad(); }</script>")));
     }
 
-    private Collection<Page> findPages(final Asciidoctor asciidoctor) {
+    protected Collection<Page> findPages(final Asciidoctor asciidoctor) {
         try {
             final var content = configuration.getSource().resolve("content");
             final Collection<Page> pages = new ArrayList<>();
@@ -774,33 +774,33 @@ public class MiniSite implements Runnable {
         }
     }
 
-    private String getLogoText() {
+    protected String getLogoText() {
         return ofNullable(configuration.getLogoText())
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElse(configuration.getProjectArtifactId()));
     }
 
-    private String getIndexText() {
+    protected String getIndexText() {
         return ofNullable(configuration.getIndexText())
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElseGet(() -> getLogoText() + " Documentation"));
     }
 
-    private String getIndexSubTitle() {
+    protected String getIndexSubTitle() {
         return ofNullable(configuration.getIndexSubTitle())
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElse(configuration.getProjectArtifactId()));
     }
 
-    private String getTitle() {
+    protected String getTitle() {
         return ofNullable(configuration.getTitle())
                 .orElseGet(() -> "Yupiik " + getLogoText());
     }
 
-    private String renderAdoc(final Page page, final Asciidoctor asciidoctor, final Options options) {
+    protected String renderAdoc(final Page page, final Asciidoctor asciidoctor, final Options options) {
         final StringWriter writer = new StringWriter();
         try (final StringReader reader = new StringReader(page.content)) {
             asciidoctor.convert(reader, writer, options);
@@ -810,7 +810,7 @@ public class MiniSite implements Runnable {
         return writer.toString();
     }
 
-    private String readTemplates(final Path layout, final List<String> templatePrefixes) {
+    protected String readTemplates(final Path layout, final List<String> templatePrefixes) {
         return templatePrefixes.stream()
                 .map(it -> {
                     final Path resolved = layout.resolve(it);
