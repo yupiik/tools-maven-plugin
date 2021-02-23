@@ -875,8 +875,4 @@ public class MiniSite implements Runnable {
         private final Map<String, Object> attributes;
         private final String content;
     }
-
-    public interface TemplateRenderer extends Function<Page, String> {
-        void visitedUserPages();
-    }
 }
