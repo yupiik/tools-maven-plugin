@@ -47,21 +47,26 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static java.util.Comparator.comparing;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
@@ -69,6 +74,8 @@ import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
@@ -78,6 +85,9 @@ import static java.util.stream.Collectors.toSet;
 @Mojo(name = "synchronize-github-releases")
 public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     private static final String CENTRAL = "https://repo.maven.apache.org/maven2/";
+
+    @Parameter(property = "yupiik.synchronize-github-releases.force", defaultValue = "false")
+    private boolean force;
 
     @Parameter(property = "yupiik.synchronize-github-releases.attachIfExists", defaultValue = "false")
     private boolean attachIfExists;
@@ -108,6 +118,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
 
     @Parameter(property = "yupiik.synchronize-github-releases.tagPattern")
     private String tagPattern;
+
+    @Parameter(property = "yupiik.synchronize-github-releases.dryRun")
+    private boolean dryRun;
 
     @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession session;
@@ -145,14 +158,16 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                 .build();
         try (final Jsonb jsonb = JsonbBuilder.create(new JsonbConfig().setProperty("johnzon.skip-cdi", true))) {
             final var workDir = Files.createDirectories(Paths.get(workdir));
-            allOf(artifacts.stream()
-                    .map(spec -> safe(() -> updateArtifact(httpClient, threadPool, jsonb, spec, workDir)))
-                    .toArray(CompletableFuture<?>[]::new))
-                    .whenComplete((r, e) -> {
-                        if (e != null) {
-                            getLog().error(e);
-                        }
-                    })
+            findTags(httpClient, jsonb, "")
+                    .thenCompose(tags -> findExistingReleases(httpClient, jsonb, "")
+                            .thenCompose(releases -> allOf(artifacts.stream()
+                                    .map(spec -> safe(() -> updateArtifact(httpClient, threadPool, jsonb, spec, workDir, tags, releases)))
+                                    .toArray(CompletableFuture<?>[]::new))
+                                    .whenComplete((r, e) -> {
+                                        if (e != null) {
+                                            getLog().error(e);
+                                        }
+                                    })))
                     .toCompletableFuture().get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -173,51 +188,104 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
 
     private CompletableFuture<?> synchronizeReleases(final HttpClient httpClient, final Jsonb jsonb,
                                                      final ReleaseSpec spec, final String version,
-                                                     final Map<String, GithubRelease> githubExistingReleases, final Path workDir) {
-        // todo: flag to update anyway (force=true?), for now the release(s) can be deleted to this mojo rerun
-        final var existing = githubExistingReleases.get(version);
-        if (existing != null && !attachIfExists) {
+                                                     final Map<String, GithubRelease> githubExistingReleases,
+                                                     final Map<String, GithubTag> tags, final Path workDir) {
+        final var existing = dryRun ? null : githubExistingReleases.get(version);
+        if (!force && existing != null && !attachIfExists) {
             getLog().info(version + " already exists on github, skipping");
             return completedFuture(true);
         }
 
         final CompletableFuture<GithubRelease> ghRelease;
-        if (existing == null) {
+        if (existing == null || force) {
             getLog().info("Creating release " + version);
 
-            final var release = new GithubRelease();
-            release.setBody("Release " + version);
-            release.setName(version);
-            release.setDraft(false);
-            release.setPrerelease(false);
-            release.setTagName(tagPattern == null || tagPattern.isBlank() ?
+            final var tagName = tagPattern == null || tagPattern.isBlank() ?
                     spec.getArtifactId() + '-' + version :
                     tagPattern
                             .replace("${groupId}", spec.getGroupId())
                             .replace("${artifactId}", spec.getArtifactId())
-                            .replace("${version}", version));
+                            .replace("${version}", version);
+
+            final var release = new GithubRelease();
+            if (existing != null) {
+                release.setId(existing.getId());
+            }
+            release.setBody("Release " + version);
+            release.setName(version);
+            release.setDraft(false);
+            release.setPrerelease(false);
+            release.setTagName(tagName);
             release.setTargetCommitish("master");
 
-            final var url = URI.create(githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/releases");
+            final var url = URI.create(
+                    githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/releases" +
+                            (existing != null ? "/" + existing.getId() : ""));
             final var reqBuilder = HttpRequest.newBuilder();
             findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
-            ghRelease = httpClient.sendAsync(reqBuilder
-                            .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
-                            .uri(url)
-                            .header("accept", "application/vnd.github.v3+json")
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString())
-                    .thenApply(response -> {
-                        if (response.statusCode() != 201) {
-                            throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
+
+            ghRelease = ofNullable(tags.get(tagName))
+                    // concatenate to release version the list of commits
+                    .map(tag -> fetchTagCommits(httpClient, jsonb, tags, spec, tag)
+                            .thenApply(commits -> commits.stream()
+                                    // todo: config?
+                                    .filter(c -> !c.getCommit().getMessage().startsWith("[maven-release-plugin]") &&
+                                            !c.getCommit().getMessage().startsWith("skip changelog"))
+                                    .sorted(comparing(it -> OffsetDateTime.parse(it.getCommit().getCommitter().getDate())))
+                                    .map(c -> "" +
+                                            "* [" + c.getCommit().getAuthor().getName() + "](" + c.getAuthor().getHtmlUrl() + "): " +
+                                            c.getCommit().getMessage() + (c.getCommit().getMessage().endsWith(".") ? "" : ".") + " [link](" + c.getHtmlUrl() + ").")
+                                    .collect(joining("\n")))
+                            .thenAccept(msg -> release.setBody(release.getBody() + "\n\n" + msg)))
+                    .orElseGet(() -> completedFuture(null))
+                    .thenCompose(ignored -> {
+                        if (dryRun) {
+                            return completedFuture(release);
                         }
-                        final var created = jsonb.fromJson(response.body(), GithubRelease.class);
-                        getLog().info("Created release " + version + ", will now upload assets");
-                        return created;
+                        if (existing != null) {
+                            return httpClient.sendAsync(reqBuilder
+                                            .method("PATCH", HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
+                                            .uri(url)
+                                            .header("accept", "application/vnd.github.v3+json")
+                                            .build(),
+                                    HttpResponse.BodyHandlers.ofString())
+                                    .thenApply(response -> {
+                                        if (response.statusCode() != 200) {
+                                            throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
+                                        }
+                                        final var created = jsonb.fromJson(response.body(), GithubRelease.class);
+                                        getLog().info("Updated release " + version);
+                                        return created;
+                                    });
+                        }
+                        return httpClient.sendAsync(reqBuilder
+                                        .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
+                                        .uri(url)
+                                        .header("accept", "application/vnd.github.v3+json")
+                                        .build(),
+                                HttpResponse.BodyHandlers.ofString())
+                                .thenApply(response -> {
+                                    if (response.statusCode() != 201) {
+                                        throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
+                                    }
+                                    final var created = jsonb.fromJson(response.body(), GithubRelease.class);
+                                    getLog().info("Created release " + version + ", will now upload assets");
+                                    return created;
+                                });
                     });
         } else {
             getLog().info("Release " + version + " already exists");
             ghRelease = completedFuture(existing);
+        }
+        if (dryRun) {
+            try {
+                getLog().info("[DRYRUN] skipping the actual release creation: " + ghRelease.toCompletableFuture().get());
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (final ExecutionException e) {
+                getLog().info("[DRYRUN] skipping the actual release creation: " + version);
+            }
+            return ghRelease;
         }
 
         return ghRelease.thenCompose(release -> {
@@ -229,6 +297,124 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                     .map(artifact -> attachArtifactToRelease(httpClient, release, spec, artifact, workDir))
                     .toArray(CompletableFuture<?>[]::new));
         });
+    }
+
+    private CompletableFuture<Collection<GithubCommit>> fetchTagCommits(final HttpClient httpClient, final Jsonb jsonb,
+                                                                        final Map<String, GithubTag> tags,
+                                                                        final ReleaseSpec spec, final GithubTag tag) {
+        final Function<String, String> versionExtractor = tagPattern == null || tagPattern.isBlank() ?
+                (s -> s.length() > (spec.getArtifactId().length() + 1) ? s.substring((spec.getArtifactId() + '-').length()) : s) :
+                s -> extractVersionFromTagPattern(spec, s);
+        final List<GithubTag> sorted = tags.values().stream()
+                .sorted((t1, t2) -> compareVersions(versionExtractor.apply(t1.getName()), versionExtractor.apply(t2.getName())))
+                .collect(toList());
+        final int idx = sorted.indexOf(tag);
+        if (idx == 0) {
+            return fetchCommits(httpClient, jsonb, null, tag.getCommit());
+        }
+        return fetchCommits(httpClient, jsonb, sorted.get(idx - 1).getCommit(), tag.getCommit());
+    }
+
+    private CompletableFuture<Collection<GithubCommit>> fetchCommits(final HttpClient httpClient, final Jsonb jsonb,
+                                                                     final GithubTagCommit from, final GithubTagCommit to) {
+        return ofNullable(from)
+                .map(c -> fetchCommit(httpClient, jsonb, c).thenApply(it -> "since=" + it.getCommitter().getDate()))
+                .orElseGet(() -> completedFuture(""))
+                .thenCompose(since -> ofNullable(to)
+                        .map(c -> fetchCommit(httpClient, jsonb, c).thenApply(it -> "until=" + it.getCommitter().getDate()))
+                        .orElseGet(() -> completedFuture(""))
+                        .thenApply(until -> URI.create(githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/commits?" +
+                                String.join("&", Stream.of(since, until).filter(Objects::nonNull).collect(toList())))))
+                .thenCompose(uri -> {
+                    final var reqBuilder = HttpRequest.newBuilder();
+                    findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
+                    return httpClient.sendAsync(reqBuilder
+                                    .GET()
+                                    .uri(uri)
+                                    .header("accept", "application/vnd.github.v3+json")
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                            .thenApply(response -> {
+                                if (response.statusCode() != 200) {
+                                    throw new IllegalArgumentException("Invalid response from " + uri + ": " + response + "\n" + response.body());
+                                }
+                                return jsonb.<List<GithubCommit>>fromJson(response.body(), new JohnzonParameterizedType(List.class, GithubCommit.class));
+                            });
+                });
+    }
+
+    private CompletableFuture<GithubCommitCommit> fetchCommit(final HttpClient httpClient, final Jsonb jsonb,
+                                                              final GithubTagCommit commit) {
+        final var reqBuilder = HttpRequest.newBuilder();
+        findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
+        final var uri = URI.create(githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/git/commits/" + commit.getSha());
+        return httpClient.sendAsync(reqBuilder
+                        .GET()
+                        .uri(uri)
+                        .header("accept", "application/vnd.github.v3+json")
+                        .build(),
+                HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() != 200) {
+                        throw new IllegalArgumentException("Invalid response from " + uri + ": " + response + "\n" + response.body());
+                    }
+                    return jsonb.fromJson(response.body(), GithubCommitCommit.class);
+                });
+    }
+
+    private int compareVersions(final String n1, final String n2) {
+        if (n1.equals(n2)) {
+            return 0;
+        }
+
+        final var v1 = parseVersion(n1);
+        final var v2 = parseVersion(n2);
+        if (v1 == null && v2 != null) {
+            getLog().warn("'" + n1 + "' is not a parseable version");
+            return 1;
+        }
+        if (v2 == null && v1 != null) {
+            getLog().warn("'" + n2 + "' is not a parseable version");
+            return -1;
+        }
+        if (v1 != null) {
+            if (v1.getMajor() == v2.getMajor()) {
+                if (v1.getMinor() == v2.getMinor()) {
+                    return v1.getPatch() - v2.getPatch();
+                }
+                return v1.getMinor() - v2.getMinor();
+            }
+            return v1.getMajor() - v2.getMajor();
+        }
+        return n1.compareTo(n2);
+    }
+
+    private SimpleVersion parseVersion(final String n1) {
+        final var segments = n1.split("\\.");
+        if (segments.length <= 1) {
+            return null;
+        }
+        try {
+            return new SimpleVersion(
+                    Integer.parseInt(segments[0]),
+                    Integer.parseInt(segments[1]),
+                    segments.length >= 3 ? Integer.parseInt(segments[2]) : -1 /* before 0 ;)*/);
+        } catch (final NumberFormatException nfe) {
+            // no-op
+        }
+        return null;
+    }
+
+    private String extractVersionFromTagPattern(final ReleaseSpec spec, final String value) {
+        final var replaced = tagPattern
+                .replace("${groupId}", spec.getGroupId())
+                .replace("${artifactId}", spec.getArtifactId());
+        final var start = replaced.indexOf("${version}");
+        if (start < 0) {
+            throw new IllegalArgumentException("No '${version}' in '" + this.tagPattern + "'");
+        }
+        final var end = start + "${version}".length();
+        return value.substring(start, value.length() - (replaced.length() - end));
     }
 
     private CompletableFuture<?> attachArtifactToRelease(final HttpClient httpClient, final GithubRelease release,
@@ -316,13 +502,13 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     }
 
     private CompletableFuture<?> updateArtifact(final HttpClient httpClient, final ExecutorService executorService, final Jsonb jsonb,
-                                                final ReleaseSpec spec, final Path workDir) {
+                                                final ReleaseSpec spec, final Path workDir,
+                                                final Map<String, GithubTag> tags, final Map<String, GithubRelease> ghReleases) {
         final var availableVersions = findAvailableVersions(httpClient, spec);
-        final var existingReleases = findExistingReleases(httpClient, jsonb, "");
         return availableVersions
-                .thenComposeAsync(versions -> existingReleases.thenCompose(ghReleases -> allOf(versions.stream()
-                                .map(it -> synchronizeReleases(httpClient, jsonb, spec, it, ghReleases, workDir))
-                                .toArray(CompletableFuture<?>[]::new))),
+                .thenComposeAsync(versions -> allOf(versions.stream()
+                                .map(it -> synchronizeReleases(httpClient, jsonb, spec, it, ghReleases, tags, workDir))
+                                .toArray(CompletableFuture<?>[]::new)),
                         executorService);
     }
 
@@ -350,6 +536,33 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                     .thenApply(added -> Stream.concat(releaseNames.entrySet().stream(), added.entrySet().stream())
                                             .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))))
                             .orElseGet(() -> completedFuture(releaseNames));
+                });
+    }
+
+    private CompletableFuture<Map<String, GithubTag>> findTags(final HttpClient httpClient, final Jsonb jsonb, final String nextUrl) {
+        if (nextUrl == null) {
+            return CompletableFuture.completedFuture(Map.of());
+        }
+        final var url = URI.create(nextUrl.isBlank() ?
+                githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/tags?per_page=100" :
+                nextUrl);
+        final var reqBuilder = HttpRequest.newBuilder();
+        findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
+        return httpClient.sendAsync(reqBuilder
+                        .GET()
+                        .uri(url)
+                        .header("accept", "application/vnd.github.v3+json")
+                        .build(),
+                HttpResponse.BodyHandlers.ofString())
+                .thenCompose(r -> {
+                    ensure200(url, r);
+                    final List<GithubTag> releases = jsonb.fromJson(r.body().trim(), new JohnzonParameterizedType(List.class, GithubTag.class));
+                    final var tags = releases.stream().collect(toMap(GithubTag::getName, identity()));
+                    return findNextLink(r.headers().firstValue("Link").orElse(null))
+                            .map(next -> findTags(httpClient, jsonb, next)
+                                    .thenApply(added -> Stream.concat(tags.entrySet().stream(), added.entrySet().stream())
+                                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))))
+                            .orElseGet(() -> completedFuture(tags));
                 });
     }
 
@@ -495,5 +708,56 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
 
         @JsonbProperty("content_type")
         private String contentType;
+    }
+
+    @Data
+    public static class GithubTag {
+        private String name;
+        private GithubTagCommit commit;
+    }
+
+    @Data
+    public static class GithubTagCommit {
+        private String sha;
+        private String url;
+    }
+
+    @Data
+    public static class GithubCommit {
+        private GithubCommitCommit commit;
+        private GithubAuthor author;
+
+        @JsonbProperty("html_url")
+        private String htmlUrl;
+    }
+
+    @Data
+    public static class GithubCommitCommit {
+        private GithubCommitAuthor author;
+        private GithubCommitAuthor committer;
+        private String url;
+        private String message;
+    }
+
+    @Data
+    public static class GithubCommitAuthor {
+        private String name;
+        private String date;
+    }
+
+    @Data
+    public static class GithubAuthor {
+        private long id;
+        private String login;
+
+        @JsonbProperty("html_url")
+        private String htmlUrl;
+    }
+
+    @Data
+    private static class SimpleVersion {
+        private final int major;
+        private final int minor;
+        private final int patch;
     }
 }
