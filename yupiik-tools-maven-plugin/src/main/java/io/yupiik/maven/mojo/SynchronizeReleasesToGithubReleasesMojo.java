@@ -201,7 +201,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         if (existing == null || force) {
             getLog().info("Creating release " + version);
 
-            final var tagName = tagPattern == null || tagPattern.isBlank() ?
+            var tagName = tagPattern == null || tagPattern.isBlank() ?
                     spec.getArtifactId() + '-' + version :
                     tagPattern
                             .replace("${groupId}", spec.getGroupId())
@@ -210,6 +210,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                             .replace("{groupId}", spec.getGroupId())
                             .replace("{artifactId}", spec.getArtifactId())
                             .replace("{version}", version);
+            if (!tags.containsKey(tagName) && tagName.contains("-parent") && tags.containsKey(tagName.replace("-parent", ""))) {
+                tagName = tagName.replace("-parent", "");
+            }
 
             final var release = new GithubRelease();
             if (existing != null) {
