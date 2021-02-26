@@ -154,6 +154,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             }
         });
         final var httpClient = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
                 .executor(threadPool)
                 .build();
         try (final Jsonb jsonb = JsonbBuilder.create(new JsonbConfig().setProperty("johnzon.skip-cdi", true))) {
@@ -205,7 +206,10 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                     tagPattern
                             .replace("${groupId}", spec.getGroupId())
                             .replace("${artifactId}", spec.getArtifactId())
-                            .replace("${version}", version);
+                            .replace("${version}", version)
+                            .replace("{groupId}", spec.getGroupId())
+                            .replace("{artifactId}", spec.getArtifactId())
+                            .replace("{version}", version);
 
             final var release = new GithubRelease();
             if (existing != null) {
@@ -406,15 +410,33 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     }
 
     private String extractVersionFromTagPattern(final ReleaseSpec spec, final String value) {
-        final var replaced = tagPattern
+        var replaced = tagPattern
                 .replace("${groupId}", spec.getGroupId())
-                .replace("${artifactId}", spec.getArtifactId());
-        final var start = replaced.indexOf("${version}");
-        if (start < 0) {
-            throw new IllegalArgumentException("No '${version}' in '" + this.tagPattern + "'");
+                .replace("${artifactId}", spec.getArtifactId())
+                .replace("{groupId}", spec.getGroupId())
+                .replace("{artifactId}", spec.getArtifactId());
+        if (replaced.contains("-parent") && !value.contains("-parent")) { // root and tag name is <artifactid>-parent
+            replaced = replaced.replace("-parent", "");
         }
-        final var end = start + "${version}".length();
-        return value.substring(start, value.length() - (replaced.length() - end));
+        try {
+            var start = replaced.indexOf("${version}");
+            int offset = 0;
+            if (start < 0) {
+                offset = 1;
+                start = replaced.indexOf("{version}");
+            }
+            if (start < 0) {
+                throw new IllegalArgumentException("No '${version}' or '{version}' in '" + this.tagPattern + "'");
+            }
+            final var end = start + "${version}".length() - offset;
+            return value.substring(start, value.length() - (replaced.length() - end));
+        } catch (final RuntimeException re) {
+            getLog().debug(re.getMessage());
+            if (tagPattern.endsWith("-{version}") || tagPattern.endsWith("-${version}")) { // try last segment of the string
+                return value.substring(value.lastIndexOf('-') + 1);
+            }
+            throw re;
+        }
     }
 
     private CompletableFuture<?> attachArtifactToRelease(final HttpClient httpClient, final GithubRelease release,
