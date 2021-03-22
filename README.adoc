@@ -230,6 +230,9 @@ It comes with its companion serve goal to have a live preview.
 |logo|String|yupiik logo|yupiik.minisite.logo|Logo url.
 |preActions|String|-|-|List of pre actions to execute before the rendering (`{type:xxx,configuration:{}}`).
 |reverseBlogOrder|boolean|true|yupiik.minisite.reverseBlogOrder|Sort by reversed published date the posts on index pages.
+|addIndexRegistrationPerCategory|boolean|false|yupiik.minisite.addIndexRegistrationPerCategory|Should categories be added to home page.
+|skipIndexTitleDocumentationText|boolean|false|yupiik.minisite.skipIndexTitleDocumentationText|Should ` Documentation` be appended to index text.
+|logoSideText|String|Docs|yupiik.minisite.logoSideText|Text next logo text, generally the subproject or just `Docs`.
 |====
 
 TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.

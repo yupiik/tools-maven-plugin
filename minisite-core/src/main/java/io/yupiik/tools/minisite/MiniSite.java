@@ -50,6 +50,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -57,6 +58,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
@@ -109,10 +111,10 @@ public class MiniSite implements Runnable {
     }
 
     protected void render(final Page page, final Path html,
-                        final Asciidoctor asciidoctor, final Options options,
-                        final Function<Page, String> template,
-                        final boolean withLeftMenuIfConfigured,
-                        final Function<String, String> postProcessor) {
+                          final Asciidoctor asciidoctor, final Options options,
+                          final Function<Page, String> template,
+                          final boolean withLeftMenuIfConfigured,
+                          final Function<String, String> postProcessor) {
         try {
             final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
             attrs.putAll(page.attributes);
@@ -140,8 +142,12 @@ public class MiniSite implements Runnable {
     protected String getIcon(final Page it) {
         return ofNullable(it.attributes.get("minisite-index-icon"))
                 .map(String::valueOf)
-                .map(i -> i.startsWith("fa") && i.contains(" ") ? i : ("fas fa-" + i))
+                .map(i -> toIcon(i))
                 .orElse("fas fa-download-alt");
+    }
+
+    private String toIcon(final String i) {
+        return i.startsWith("fa") && i.contains(" ") ? i : ("fas fa-" + i);
     }
 
     protected String getTitle(final Page it) {
@@ -168,27 +174,51 @@ public class MiniSite implements Runnable {
      * The value is an integer to sort the pages.
      * Then all these pages (others are ignored) are added on index page.
      *
-     * @param htmls    pages.
+     * @param htmls          pages.
      * @param template
+     * @param blogCategories
      * @return the index.html content.
      */
     protected String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
-                                 final boolean hasBlog) {
+                                   final boolean hasBlog, final List<String> blogCategories) {
         final Path output = configuration.getTarget();
+        final var indexText = getIndexText();
         String content = (hasBlog ?
                 Stream.concat(
                         findIndexPages(htmls),
-                        // add blog last for now
-                        Stream.of(new AbstractMap.SimpleImmutableEntry<>(
-                                new Page(
-                                        "/blog/index.html",
-                                        "Blog",
-                                        Map.of(
-                                                "minisite-index-icon", "fa fa-blog",
-                                                "minisite-index-title", "Blog",
-                                                "minisite-index-description", "Blogging area."),
-                                        null),
-                                output.resolve("blog/index.html")))) :
+                        Stream.concat(
+                                configuration.isAddIndexRegistrationPerCategory() ? blogCategories.stream()
+                                        .sorted(Comparator.<String, Integer>comparing(c -> {
+                                            final var configuration = this.configuration.getBlogCategoriesCustomizations().get(toCategoryCustomizationId(c));
+                                            return configuration == null ? -1 : configuration.getOrder();
+                                        }).thenComparing(identity()))
+                                        .map(category -> {
+                                            final var categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toCategoryCustomizationId(category));
+                                            return Map.entry(
+                                                    new Page(
+                                                            "/blog/index.html",
+                                                            "Blog",
+                                                            Map.of(
+                                                                    "minisite-index-icon", toIcon(ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon).orElse("fa fa-blog")),
+                                                                    "minisite-index-title", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getHomePageName).orElse(category),
+                                                                    "minisite-index-description", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getDescription).orElseGet(() -> category + " category.")),
+                                                            null),
+                                                    output.resolve("blog/category/" + toUrlName(category) + "/page-1.html"));
+                                        }) :
+                                        Stream.empty(),
+                                // add blog last for now
+                                Stream.of(
+                                        Map.entry(
+                                                new Page(
+                                                        "/blog/index.html",
+                                                        "Blog",
+                                                        Map.of(
+                                                                "minisite-index-icon", "fa fa-blog",
+                                                                "minisite-index-title", "Blog",
+                                                                "minisite-index-description", configuration.isAddIndexRegistrationPerCategory() ?
+                                                                        "All posts." : "Blogging area."),
+                                                        null),
+                                                output.resolve("blog/index.html"))))) :
                 findIndexPages(htmls))
                 .map(p -> "" +
                         "                    <div class=\"col-12 col-lg-4 py-3\">\n" +
@@ -213,7 +243,7 @@ public class MiniSite implements Runnable {
                 .collect(joining("",
                         "    <div class=\"page-content\">\n" +
                                 "        <div class=\"container\">\n" +
-                                "            <h1 class=\"page-heading mx-auto\">" + getIndexText() + " Documentation</h1>\n" +
+                                "            <h1 class=\"page-heading mx-auto\">" + indexText + (!indexText.toLowerCase(Locale.ROOT).endsWith("documentation") && !configuration.isSkipIndexTitleDocumentationText() ? " Documentation" : "") + "</h1>\n" +
                                 "            <div class=\"page-intro mx-auto\">" + getIndexSubTitle() + "</div>\n" +
                                 "            <div class=\"docs-overview py-5\">\n" +
                                 "                <div class=\"row justify-content-center\">\n",
@@ -229,6 +259,10 @@ public class MiniSite implements Runnable {
 
         // now we must drop the navigation-left/right since we reused the global template - easier than rebuilding a dedicated layout
         return dropRightColumn(content);
+    }
+
+    private String toCategoryCustomizationId(final String c) {
+        return c.replace(" ", "").replace("/", "");
     }
 
     protected String dropRightColumn(final String content) {
@@ -282,17 +316,18 @@ public class MiniSite implements Runnable {
         final var pages = findPages(asciidoctor);
         final var template = createTemplate(options, asciidoctor, pages);
         boolean hasBlog = false;
+        List<String> categories = emptyList();
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
             pages.forEach(page -> onVisitedFile(page, asciidoctor, options, template, files, now, blog));
             hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
             if (hasBlog) {
-                generateBlog(blog, asciidoctor, options, template);
+                categories = generateBlog(blog, asciidoctor, options, template);
             }
         }
         if (configuration.isGenerateIndex()) {
             try {
-                Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog).getBytes(StandardCharsets.UTF_8));
+                Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog, categories).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated index.html");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
@@ -381,8 +416,8 @@ public class MiniSite implements Runnable {
     }
 
     protected void onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
-                               final Function<Page, String> template, Map<Page, Path> files,
-                               final OffsetDateTime now, final List<BlogPage> blog) {
+                                 final Function<Page, String> template, Map<Page, Path> files,
+                                 final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
             return;
         }
@@ -430,8 +465,8 @@ public class MiniSite implements Runnable {
                 .orElseGet(OffsetDateTime::now);
     }
 
-    protected void generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor, final Options options,
-                                final Function<Page, String> template) {
+    protected List<String> generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor, final Options options,
+                                        final Function<Page, String> template) {
         Comparator<BlogPage> pageComparator = comparing(p -> p.publishedDate);
         if (configuration.isReverseBlogOrder()) {
             pageComparator = pageComparator.reversed();
@@ -445,7 +480,7 @@ public class MiniSite implements Runnable {
         }
 
         paginateBlogPages((number, total) -> "Blog Page " + number + "/" + total, "", blog, asciidoctor, options, template, baseBlog);
-        paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog);
+        final var allCategories = new ArrayList<>(paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog));
         paginatePer("author", "authors", blog, asciidoctor, options, template, baseBlog);
 
         // render all blog pages
@@ -489,11 +524,12 @@ public class MiniSite implements Runnable {
             ), out, asciidoctor, options, template, false, this::markPageAsBlog);
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
+        return allCategories;
     }
 
-    protected boolean paginatePer(final String singular, final String plural, final List<BlogPage> blog,
-                                  final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
-                                  final Path baseBlog) {
+    protected Collection<String> paginatePer(final String singular, final String plural, final List<BlogPage> blog,
+                                             final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
+                                             final Path baseBlog) {
         // per category pagination /category/<name>/page-<x>.html
         final var perCriteria = blog.stream()
                 .filter(it -> it.page.attributes.containsKey("minisite-blog-" + plural))
@@ -511,7 +547,7 @@ public class MiniSite implements Runnable {
                     posts, asciidoctor, options, template, baseBlog);
         });
         if (perCriteria.values().stream().mapToLong(Collection::size).sum() == 0) {
-            return false;
+            return perCriteria.keySet();
         }
         // /category/index.html
         render(
@@ -521,26 +557,27 @@ public class MiniSite implements Runnable {
                         "Blog " + plural,
                         Map.of(),
                         "= Blog " + plural + "\n" +
-                                "\n" +
                                 perCriteria.keySet().stream()
                                         .map(it -> "* link:" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + ']')
                                         .collect(joining("\n"))),
                 baseBlog.resolve(singular + "/index.html"), asciidoctor, options, template,
                 false,
                 this::markPageAsBlog);
-        return true;
+        return perCriteria.keySet();
     }
 
     protected String toHumanName(final String string) {
+        char previousChar = string.charAt(0);
         final var out = new StringBuilder()
-                .append(Character.toUpperCase(string.charAt(0)));
+                .append(Character.toUpperCase(previousChar));
         for (int i = 1; i < string.length(); i++) {
             final var c = string.charAt(i);
-            if (Character.isUpperCase(c)) {
+            if (Character.isUpperCase(c) && Character.isJavaIdentifierPart(previousChar) && !Character.isUpperCase(previousChar)) {
                 out.append(' ').append(c);
             } else {
                 out.append(c);
             }
+            previousChar = c;
         }
         return out.toString();
     }
@@ -564,11 +601,11 @@ public class MiniSite implements Runnable {
     }
 
     protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
-                                   final List<BlogPage> blogPages,
-                                   final Asciidoctor asciidoctor,
-                                   final Options options,
-                                   final Function<Page, String> template,
-                                   final Path baseBlog) {
+                                     final List<BlogPage> blogPages,
+                                     final Asciidoctor asciidoctor,
+                                     final Options options,
+                                     final Function<Page, String> template,
+                                     final Path baseBlog) {
         if (blogPages.isEmpty()) {
             return;
         }
@@ -676,6 +713,7 @@ public class MiniSite implements Runnable {
                 .replace("{{customMenu}}", ofNullable(configuration.getCustomMenu()).orElse(""))
                 .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
                 .replace("{{logoText}}", getLogoText())
+                .replace("{{logoSideText}}", getLogoSideText())
                 .replace("{{base}}", configuration.getSiteBase())
                 .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("//www.yupiik.com/img/favicon.png"))
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
@@ -784,6 +822,11 @@ public class MiniSite implements Runnable {
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElse(configuration.getProjectArtifactId()));
+    }
+
+    protected String getLogoSideText() {
+        return ofNullable(configuration.getLogoSideText())
+                .orElse("Docs");
     }
 
     protected String getIndexText() {

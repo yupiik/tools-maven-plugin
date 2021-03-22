@@ -246,6 +246,30 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(property = "yupiik.minisite.reverseBlogOrder", defaultValue = "true")
     private boolean reverseBlogOrder;
 
+    /**
+     * Should blog categories pages be added to home page.
+     */
+    @Parameter(property = "yupiik.minisite.addIndexRegistrationPerCategory", defaultValue = "true")
+    private boolean addIndexRegistrationPerCategory;
+
+    /**
+     * Should Documentation title suffix be skipped.
+     */
+    @Parameter(property = "yupiik.minisite.skipIndexTitleDocumentationText", defaultValue = "false")
+    private boolean skipIndexTitleDocumentationText;
+
+    /**
+     * Text next to the logo text.
+     */
+    @Parameter(property = "yupiik.minisite.logoSideText", defaultValue = "Docs")
+    private String logoSideText;
+
+    /**
+     * Enables to customize how categories are shown on home page.
+     */
+    @Parameter
+    private Map<String, MiniSiteConfiguration.BlogCategoryConfiguration> blogCategoriesCustomizations;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -330,6 +354,10 @@ public class MiniSiteMojo extends BaseMojo {
                 .asciidoctorConfiguration(this)
                 .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn))
                 .reverseBlogOrder(reverseBlogOrder)
+                .addIndexRegistrationPerCategory(addIndexRegistrationPerCategory)
+                .blogCategoriesCustomizations(blogCategoriesCustomizations)
+                .skipIndexTitleDocumentationText(skipIndexTitleDocumentationText)
+                .logoSideText(logoSideText)
                 .build();
     }
 

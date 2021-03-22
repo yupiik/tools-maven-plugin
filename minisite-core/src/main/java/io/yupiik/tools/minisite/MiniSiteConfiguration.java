@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static lombok.AccessLevel.PRIVATE;
 
 @Data
@@ -74,10 +75,25 @@ public class MiniSiteConfiguration {
     private AsciidoctorConfiguration asciidoctorConfiguration;
     private BiFunction<AsciidoctorConfiguration, Function<Asciidoctor, Object>, Object> asciidoctorPool;
     private boolean reverseBlogOrder;
+    private boolean addIndexRegistrationPerCategory;
+    private boolean skipIndexTitleDocumentationText;
+    private String logoSideText;
+    private Map<String, BlogCategoryConfiguration> blogCategoriesCustomizations;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
             requires = emptyList();
         }
+        if (blogCategoriesCustomizations == null) {
+            blogCategoriesCustomizations = emptyMap();
+        }
+    }
+
+    @Data
+    public static class BlogCategoryConfiguration {
+        private int order = -1;
+        private String homePageName;
+        private String icon;
+        private String description;
     }
 }
