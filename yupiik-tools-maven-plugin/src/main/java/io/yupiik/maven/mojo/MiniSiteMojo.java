@@ -336,7 +336,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .customHead(customHead)
                 .customScripts(customScripts)
                 .customMenu(customMenu)
-                .siteBase(siteBase)
+                .siteBase("/".equals(siteBase) ? "" : siteBase)
                 .useDefaultAssets(useDefaultAssets)
                 .searchIndexName(searchIndexName)
                 .generateIndex(generateIndex)
