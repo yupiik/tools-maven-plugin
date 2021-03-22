@@ -240,6 +240,12 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(property = "yupiik.minisite.skipRendering", defaultValue = "false")
     private boolean skipRendering;
 
+    /**
+     * Should page sorting be reversed (by published date).
+     */
+    @Parameter(property = "yupiik.minisite.reverseBlogOrder", defaultValue = "true")
+    private boolean reverseBlogOrder;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -323,6 +329,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .projectArtifactId(project.getArtifactId())
                 .asciidoctorConfiguration(this)
                 .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn))
+                .reverseBlogOrder(reverseBlogOrder)
                 .build();
     }
 

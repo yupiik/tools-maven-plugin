@@ -47,6 +47,7 @@ import java.time.ZoneOffset;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -431,7 +432,11 @@ public class MiniSite implements Runnable {
 
     protected void generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor, final Options options,
                                 final Function<Page, String> template) {
-        blog.sort(comparing(p -> p.publishedDate));
+        Comparator<BlogPage> pageComparator = comparing(p -> p.publishedDate);
+        if (configuration.isReverseBlogOrder()) {
+            pageComparator = pageComparator.reversed();
+        }
+        blog.sort(pageComparator);
         final var baseBlog = configuration.getTarget().resolve("blog");
         try {
             Files.createDirectories(baseBlog);
