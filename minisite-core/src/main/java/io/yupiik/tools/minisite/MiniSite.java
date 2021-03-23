@@ -175,8 +175,8 @@ public class MiniSite implements Runnable {
      * Then all these pages (others are ignored) are added on index page.
      *
      * @param htmls          pages.
-     * @param template
-     * @param blogCategories
+     * @param template       mapper from a page meta to html.
+     * @param blogCategories available categories for blog part.
      * @return the index.html content.
      */
     protected String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
@@ -871,7 +871,11 @@ public class MiniSite implements Runnable {
                     }
                     final InputStream stream = Thread.currentThread().getContextClassLoader()
                             .getResourceAsStream("yupiik-tools-maven-plugin/minisite/" + it);
-                    return stream == null ? null : new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+                    if (stream == null) {
+                        configuration.getAsciidoctorConfiguration().info().accept("No '" + it + "' template found");
+                        return null;
+                    }
+                    return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
                 })
                 .filter(Objects::nonNull)
                 .flatMap(it -> {
