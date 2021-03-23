@@ -93,7 +93,8 @@ public class MiniSiteConfiguration {
 
         // ensure writable
         templateExtensionPoints = new HashMap<>(templateExtensionPoints == null ? Map.of() : templateExtensionPoints);
-        // ensure there are defaults for built-in custom extension points (empty for not yupiik case)
+        // ensure there are (dynamic defaults) for built-in custom extension points (empty for not yupiik case)
+        // note that for static ones, they can be put in resources
         templateExtensionPoints.putIfAbsent("socialLinks", (injectYupiikTemplateExtensionPoints ? "" +
                 // add github
                 "<li class=\"list-inline-item\"><a href=\"https://www.github.com/{{linkedInCompany}}/\"><i class=\"fab fa-github fa-fw\"></i></a></li>" +
@@ -105,6 +106,7 @@ public class MiniSiteConfiguration {
                 // add terms of service and privacy policy
                 " | <a href=\"https://www.{{linkedInCompany}}.com/terms-of-service/\">Terms of service</a> | " +
                 "<a href=\"https://www.{{linkedInCompany}}.com/privacy-policy/\">Privacy policy</a>" : ""));
+        templateExtensionPoints.putIfAbsent("socialLinksFooter", templateExtensionPoints.get("socialLinks"));
     }
 
     @Data

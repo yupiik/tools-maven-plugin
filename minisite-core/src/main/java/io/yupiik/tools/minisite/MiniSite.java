@@ -863,33 +863,40 @@ public class MiniSite implements Runnable {
     }
 
     protected String readTemplates(final Path layout, final List<String> templatePrefixes) {
-        return new TemplateSubstitutor(configuration.getTemplateExtensionPoints()::get).replace(templatePrefixes.stream()
-                .map(it -> {
-                    final Path resolved = layout.resolve(it);
-                    if (Files.exists(resolved)) {
-                        try {
-                            return Files.newBufferedReader(resolved);
-                        } catch (final IOException e) {
-                            throw new IllegalStateException(e);
-                        }
-                    }
-                    final InputStream stream = Thread.currentThread().getContextClassLoader()
-                            .getResourceAsStream("yupiik-tools-maven-plugin/minisite/" + it);
-                    if (stream == null) {
-                        configuration.getAsciidoctorConfiguration().info().accept("No '" + it + "' template found");
-                        return null;
-                    }
-                    return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
-                })
+        return newTemplateSubstitutor(layout).replace(templatePrefixes.stream()
+                .flatMap(it -> findTemplate(layout, it))
                 .filter(Objects::nonNull)
-                .flatMap(it -> {
-                    try (final BufferedReader r = it) { // materialize it to close the stream there
-                        return r.lines().collect(toList()).stream();
-                    } catch (final IOException e) {
-                        throw new IllegalStateException(e);
-                    }
-                })
                 .collect(joining("\n")));
+    }
+
+    private Stream<String> findTemplate(final Path layout, final String it) {
+        final Path resolved = layout.resolve(it);
+        if (Files.exists(resolved)) {
+            try (final BufferedReader r = Files.newBufferedReader(resolved, StandardCharsets.UTF_8)) {
+                // materialize it to close the stream there
+                return r.lines().collect(toList()).stream();
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        final InputStream stream = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("yupiik-tools-maven-plugin/minisite/" + it);
+        if (stream == null) {
+            configuration.getAsciidoctorConfiguration().info().accept("No '" + it + "' template found");
+            return null;
+        }
+        try (final BufferedReader r = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            // materialize it to close the stream there
+            return r.lines().collect(toList()).stream();
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private TemplateSubstitutor newTemplateSubstitutor(final Path layout) {
+        return new TemplateSubstitutor(key -> ofNullable(configuration.getTemplateExtensionPoints().get(key))
+                .or(() -> ofNullable(findTemplate(layout.resolve("extension-points"), key + ".html")).map(s -> s.collect(joining("\n"))))
+                .orElse(null));
     }
 
     public Options createOptions() {
