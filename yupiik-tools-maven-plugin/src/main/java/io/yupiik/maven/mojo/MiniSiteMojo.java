@@ -174,6 +174,19 @@ public class MiniSiteMojo extends BaseMojo {
     private boolean useDefaultAssets;
 
     /**
+     * Use yupiik theme.
+     */
+    @Parameter(property = "yupiik.minisite.injectYupiikTemplateExtensionPoints", defaultValue = "true")
+    private boolean injectYupiikTemplateExtensionPoints;
+
+    /**
+     * Custom default theme extension points.
+     * An extension point is a placeholder in a template surrounded by 3 braces: {@code {{{point}}} }.
+     */
+    @Parameter(property = "yupiik.minisite.templateExtensionPoints")
+    private Map<String, String> templateExtensionPoints;
+
+    /**
      * Generate search json.
      */
     @Parameter(property = "yupiik.minisite.searchIndexName", defaultValue = "search.json")
@@ -358,6 +371,8 @@ public class MiniSiteMojo extends BaseMojo {
                 .blogCategoriesCustomizations(blogCategoriesCustomizations)
                 .skipIndexTitleDocumentationText(skipIndexTitleDocumentationText)
                 .logoSideText(logoSideText)
+                .injectYupiikTemplateExtensionPoints(injectYupiikTemplateExtensionPoints)
+                .templateExtensionPoints(templateExtensionPoints)
                 .build();
     }
 

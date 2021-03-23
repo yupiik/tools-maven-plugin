@@ -19,6 +19,7 @@ import io.yupiik.tools.minisite.test.MiniSiteConfigurationBuilderProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,11 +27,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
     @Test
-    public void blog(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+    void customTemplates(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .templateExtensionPoints(Map.of("socialLinks", "this is the replacement"))
+                .build())
+                .run();
+        asserts.assertNotContains("page.html", "{{{socialLinks}}}");
+        asserts.assertContains("page.html", "this is the replacement");
+    }
+
+    @Test
+    void blog(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
         asserts.assertThat(files -> {
             assertEquals(
                     List.of(
-                            "blog/author/index.html", "blog/author/romain-manni-bucau/index.html","blog/author/romain-manni-bucau/page-1.html",
+                            "blog/author/index.html", "blog/author/romain-manni-bucau/index.html", "blog/author/romain-manni-bucau/page-1.html",
                             "blog/category/index.html",
                             "blog/category/others/index.html", "blog/category/others/page-1.html",
                             "blog/category/simple/index.html", "blog/category/simple/page-1.html",

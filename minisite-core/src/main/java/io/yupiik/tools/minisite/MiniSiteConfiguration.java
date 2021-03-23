@@ -24,6 +24,7 @@ import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -79,14 +80,31 @@ public class MiniSiteConfiguration {
     private boolean skipIndexTitleDocumentationText;
     private String logoSideText;
     private Map<String, BlogCategoryConfiguration> blogCategoriesCustomizations;
+    private Map<String, String> templateExtensionPoints;
+    private boolean injectYupiikTemplateExtensionPoints;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
-            requires = emptyList();
+            requires = List.of();
         }
         if (blogCategoriesCustomizations == null) {
-            blogCategoriesCustomizations = emptyMap();
+            blogCategoriesCustomizations = Map.of();
         }
+
+        // ensure writable
+        templateExtensionPoints = new HashMap<>(templateExtensionPoints == null ? Map.of() : templateExtensionPoints);
+        // ensure there are defaults for built-in custom extension points (empty for not yupiik case)
+        templateExtensionPoints.putIfAbsent("socialLinks", (injectYupiikTemplateExtensionPoints ? "" +
+                // add github
+                "<li class=\"list-inline-item\"><a href=\"https://www.github.com/{{linkedInCompany}}/\"><i class=\"fab fa-github fa-fw\"></i></a></li>" +
+                "" : "") +
+                // always linkedin
+                "<li class=\"list-inline-item\"><a href=\"https://www.linkedin.com/company/{{linkedInCompany}}/\"><i class=\"fab fa-linkedin fa-fw\"></i></a></li>");
+        templateExtensionPoints.putIfAbsent("copyrightLine", "" +
+                "<small class=\"copyright\">{{copyright}}</small>" + (injectYupiikTemplateExtensionPoints ? "" +
+                // add terms of service and privacy policy
+                " | <a href=\"https://www.{{linkedInCompany}}.com/terms-of-service/\">Terms of service</a> | " +
+                "<a href=\"https://www.{{linkedInCompany}}.com/privacy-policy/\">Privacy policy</a>" : ""));
     }
 
     @Data

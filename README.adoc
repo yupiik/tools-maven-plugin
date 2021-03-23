@@ -233,6 +233,8 @@ It comes with its companion serve goal to have a live preview.
 |addIndexRegistrationPerCategory|boolean|false|yupiik.minisite.addIndexRegistrationPerCategory|Should categories be added to home page.
 |skipIndexTitleDocumentationText|boolean|false|yupiik.minisite.skipIndexTitleDocumentationText|Should ` Documentation` be appended to index text.
 |logoSideText|String|Docs|yupiik.minisite.logoSideText|Text next logo text, generally the subproject or just `Docs`.
+|injectYupiikTemplateExtensionPoints|boolean|true|yupiik.minisite.injectYupiikTemplateExtensionPoints|Should Yupiik custom points be used (alias for multiple custom extension points, only override missing ones).
+|templateExtensionPoints|Map<String,String>|-|yupiik.minisite.templateExtensionPoints|Values for custom template extension points like `socialLinks` and `copyrightLine`.
 |====
 
 TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.

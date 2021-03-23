@@ -67,13 +67,16 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 
-@RequiredArgsConstructor
 public class MiniSite implements Runnable {
     private final MiniSiteConfiguration configuration;
 
+    public MiniSite(final MiniSiteConfiguration configuration) {
+        this.configuration = configuration;
+        this.configuration.fixConfig();
+    }
+
     @Override
     public void run() {
-        configuration.fixConfig();
         executePreActions();
         if (configuration.isSkipRendering()) {
             configuration.getAsciidoctorConfiguration().info().accept("Rendering (and upload) skipped");
@@ -698,6 +701,7 @@ public class MiniSite implements Runnable {
                                                  final Collection<Page> pages) {
         final var layout = configuration.getSource().resolve("templates");
         final var hasBlog = pages.stream().anyMatch(this::isBlogPage);
+        final var extensionPoints = ofNullable(configuration.getTemplateExtensionPoints()).orElseGet(Map::of);
         String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
                 .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
                         "<a href=\"" + configuration.getSiteBase() + "/blog/\">" +
@@ -859,7 +863,7 @@ public class MiniSite implements Runnable {
     }
 
     protected String readTemplates(final Path layout, final List<String> templatePrefixes) {
-        return templatePrefixes.stream()
+        return new TemplateSubstitutor(configuration.getTemplateExtensionPoints()::get).replace(templatePrefixes.stream()
                 .map(it -> {
                     final Path resolved = layout.resolve(it);
                     if (Files.exists(resolved)) {
@@ -885,7 +889,7 @@ public class MiniSite implements Runnable {
                         throw new IllegalStateException(e);
                     }
                 })
-                .collect(joining("\n"));
+                .collect(joining("\n")));
     }
 
     public Options createOptions() {

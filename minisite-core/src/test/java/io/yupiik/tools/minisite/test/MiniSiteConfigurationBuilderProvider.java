@@ -47,6 +47,7 @@ import java.util.logging.Logger;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Optional.ofNullable;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -205,6 +206,14 @@ public @interface MiniSiteConfigurationBuilderProvider {
                 final var content = generated.get(file);
                 assertNotNull(content, file);
                 assertTrue(content.contains(text), content);
+            });
+        }
+
+        public void assertNotContains(final String file, final String text) {
+            assertThat(m -> {
+                final var content = generated.get(file);
+                assertNotNull(content, file);
+                assertFalse(content.contains(text), content);
             });
         }
     }
