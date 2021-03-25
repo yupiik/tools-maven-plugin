@@ -49,7 +49,7 @@ html lang=(attr :lang, 'en' unless attr? :nolang)
     - when 'highlight.js'
       script src="#{_highlightjs_path}/highlight.min.js"
       |<script>Array.prototype.forEach.call(document.querySelectorAll('i.conum+b'),function(n){n.parentNode.removeChild(n)});</script>
-      |<script>hljs.initHighlighting()</script>
+      |<script>hljs.highlightAll()</script>
     - when 'prettify'
       script src="#{_prettify_path}/prettify.js"
       |<script>Array.prototype.forEach.call(document.querySelectorAll('i.conum+b'),function(n){n.parentNode.removeChild(n)})</script>

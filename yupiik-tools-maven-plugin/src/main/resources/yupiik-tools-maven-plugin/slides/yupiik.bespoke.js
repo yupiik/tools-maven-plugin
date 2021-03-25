@@ -23,4 +23,4 @@
   bespoke.plugins.title(),
   bespoke.plugins.hash(),
 ]);
-hljs.initHighlighting();
+hljs.highlightAll();
