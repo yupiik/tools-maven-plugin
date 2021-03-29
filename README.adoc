@@ -551,3 +551,43 @@ See `io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead` for details
   </profiles>
 </project>
 ----
+
+== Inline pom contributor extension
+
+It enables to put in each module a `YupiikContributor.java` file which will be compiled and executed in `afterProjectRead(MavenSession)` callback.
+
+Example:
+
+[source,java]
+----
+import org.apache.maven.AbstractMavenLifecycleParticipant;
+import org.apache.maven.execution.MavenSession;
+import org.codehaus.plexus.component.annotations.Component;
+
+@Component(role = AbstractMavenLifecycleParticipant.class, hint = "my-module-customizer")
+public class YupiikContributor extends AbstractMavenLifecycleParticipant {
+    @Override
+    public void afterProjectsRead(final MavenSession session) {
+        System.out.println(">>>> hello: " + session);
+    }
+}
+----
+
+This enables to programmatically handle the pom (mainly intended for plugins since dependencies are not synchronized in maven poms when contributed this way).
+
+To enable it, enable the related extension:
+
+[source,xml]
+----
+<build>
+  <extensions>
+    <extension>
+      <groupId>io.yupiik.maven</groupId>
+      <artifactId>yupiik-tools-maven-plugin</artifactId>
+      <version>${yupiik-tools-maven-plugin.version}</version>
+    </extension>
+  </extensions>
+</build>
+----
+
+TIP: see `io.yupiik.maven.extension.YupiikOSSExtension` for a more complex participant example.
