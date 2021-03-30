@@ -26,6 +26,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -39,7 +40,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @RequiredArgsConstructor
 public class Watch implements Runnable {
     private final Log log;
-    private final Path source;
+    private final List<Path> sources;
     private final Options options;
     private final Asciidoctor asciidoctor;
     private final long watchDelay;
@@ -61,10 +62,10 @@ public class Watch implements Runnable {
                 return thread;
             }
         });
-        final AtomicLong lastModified = new AtomicLong(findLastUpdated(-1, source));
+        final AtomicLong lastModified = new AtomicLong(findLastUpdated(-1, sources));
         final AtomicLong checksCount = new AtomicLong(0);
         service.scheduleWithFixedDelay(() -> {
-            final long currentLM = findLastUpdated(-1, source);
+            final long currentLM = findLastUpdated(-1, sources);
             final long lastModifiedValue = lastModified.get();
             if (lastModifiedValue < currentLM) {
                 lastModified.set(currentLM);
@@ -117,6 +118,10 @@ public class Watch implements Runnable {
         } catch (final IOException e) {
             log.debug("Exiting waiting loop", e);
         }
+    }
+
+    private long findLastUpdated(final long value, final List<Path> dirs) {
+        return dirs.stream().mapToLong(it -> findLastUpdated(value, it)).max().orElse(value);
     }
 
     private long findLastUpdated(final long value, final Path dir) {

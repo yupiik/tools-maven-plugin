@@ -39,13 +39,17 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ROOT;
+import static java.util.stream.Collectors.toList;
 
 @Setter
 @Mojo(name = "slides")
@@ -125,7 +129,7 @@ public class SlidesMojo extends BaseMojo {
                 case SERVE:
                     final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
                     final Watch watch = new Watch(
-                            getLog(), source.toPath(), options, adoc, watchDelay,
+                            getLog(), getWatchedPath(), options, adoc, watchDelay,
                             this::render, () -> onFirstRender(server.get()));
                     final StaticHttpServer staticHttpServer = new StaticHttpServer(
                             getLog(), port, targetDirectory.toPath(),
@@ -136,7 +140,7 @@ public class SlidesMojo extends BaseMojo {
                     break;
                 case WATCH:
                     new Watch(
-                            getLog(), source.toPath(), options, adoc, watchDelay,
+                            getLog(), getWatchedPath(), options, adoc, watchDelay,
                             this::render, () -> onFirstRender(null))
                             .run();
                     break;
@@ -145,6 +149,36 @@ public class SlidesMojo extends BaseMojo {
             }
             return null;
         });
+    }
+
+    private List<Path> getWatchedPath() {
+        if (source.getParent() == null) {
+            getLog().info("Watching '" + source + "'");
+            return List.of(source.toPath());
+        }
+        final var parent = source.toPath().getParent();
+        final List<Path> watched = new ArrayList<>();
+        watched.add(parent);
+        if (synchronizationFolders != null) {
+            for (final Synchronization synchronization : synchronizationFolders) { // no lambda since we really iterate
+                if (synchronization.getSource() == null) {
+                    continue;
+                }
+                final var src = synchronization.getSource().toPath().normalize().toAbsolutePath();
+                if (watched.stream().anyMatch(src::startsWith)) { // already watched
+                    continue;
+                }
+                watched.removeIf(it -> it.startsWith(src)); // reverse test on already added dirs
+                watched.add(src);
+            }
+        }
+        watched.addAll(Stream.of(customCss, templateDirs)
+                .filter(Objects::nonNull)
+                .map(File::toPath)
+                .filter(it -> watched.stream().noneMatch(it::startsWith))
+                .collect(toList()));
+        getLog().info("Watching " + watched);
+        return watched;
     }
 
     protected Mode getMode() {
