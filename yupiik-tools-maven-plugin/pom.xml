@@ -135,33 +135,6 @@
       <artifactId>org.eclipse.jgit.ssh.jsch</artifactId>
       <version>${jgit.version}</version>
     </dependency>
-
-    <dependency>
-      <groupId>rubygems</groupId>
-      <artifactId>asciidoctor-revealjs</artifactId>
-      <version>${asciidoctor-revealjs.version}</version>
-      <scope>provided</scope>
-      <type>gem</type>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>rubygems</groupId>
-      <artifactId>asciidoctor-bespoke</artifactId>
-      <version>${asciidoctor-bespoke.version}</version>
-      <scope>provided</scope>
-      <type>gem</type>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
   </dependencies>
 
   <build>
@@ -169,7 +142,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <executions> <!-- gem plugin is better but it supports jruby 1.7 (not 9.x) for java 11 -->
+        <executions>
           <execution>
             <id>install-revealjs-gem</id>
             <phase>process-resources</phase>
