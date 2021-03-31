@@ -45,10 +45,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ROOT;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @Setter
@@ -71,6 +73,12 @@ public class SlidesMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.slides.customCss")
     private File customCss;
+
+    /**
+     * Custom js if needed.
+     */
+    @Parameter(property = "yupiik.slides.customScripts")
+    private String[] customScripts;
 
     /**
      * Template directory if set.
@@ -172,6 +180,16 @@ public class SlidesMojo extends BaseMojo {
                 watched.add(src);
             }
         }
+        if (customScripts != null) {
+            for (final String js : customScripts) { // no lambda since we really iterate
+                final var script = source.toPath().getParent().resolve(js);
+                if (watched.stream().anyMatch(script::startsWith)) { // already watched
+                    continue;
+                }
+                // no need to remove since it is files
+                watched.add(script);
+            }
+        }
         watched.addAll(Stream.of(customCss, templateDirs)
                 .filter(Objects::nonNull)
                 .map(File::toPath)
@@ -191,7 +209,7 @@ public class SlidesMojo extends BaseMojo {
 
     private synchronized void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
-        slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath());
+        slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath(), customScripts);
         if (synchronizationFolders != null) {
             synchronizationFolders.forEach(s -> {
                 final Path root = s.source.toPath();
@@ -211,6 +229,22 @@ public class SlidesMojo extends BaseMojo {
                     }
                 }
             });
+        }
+        if (customScripts != null) {
+            try {
+                final var targetBase = Files.createDirectories(targetDirectory.toPath());
+                Stream.of(customScripts).forEach(script -> {
+                    final var target = targetBase.resolve(targetBase.resolve(script)).normalize().toAbsolutePath();
+                    try {
+                        Files.createDirectories(target.getParent());
+                        Files.copy(source.toPath().getParent().resolve(script), target, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (final IOException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                });
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
         }
         getLog().info("Rendered '" + source.getName() + "'");
     }
@@ -314,7 +348,7 @@ public class SlidesMojo extends BaseMojo {
             }
 
             @Override
-            protected void postProcess(final Path path, final Path customCss, final Path target) {
+            protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts) {
                 if (customCss != null) {
                     final String relative = "css/" + customCss.getFileName();
                     final Path targetPath = target.resolve(relative);
@@ -341,7 +375,8 @@ public class SlidesMojo extends BaseMojo {
                                             "<script src=\"//unpkg.com/bespoke-title@1.0.0/dist/bespoke-title.min.js\"></script>\n" +
                                             "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\"" +
                                             " integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
-                                            "<script src=\"js/yupiik.bespoke.js\"></script>\n")
+                                            "<script src=\"js/yupiik.bespoke.js\"></script>\n" +
+                                            (scripts == null ? "" : (Stream.of(scripts).map(it -> "<script src=\"" + it + "\"></script>\n").collect(joining("\n")) + '\n')))
                             .replace(
                                     "<link rel=\"stylesheet\" href=\"build/build.css\">",
                                     "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" " +
@@ -357,7 +392,7 @@ public class SlidesMojo extends BaseMojo {
             }
         };
 
-        protected void postProcess(final Path path, final Path customCss, final Path target) {
+        protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts) {
             // no-op
         }
 
