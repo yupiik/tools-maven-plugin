@@ -24,8 +24,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -127,13 +130,34 @@ public class Watch implements Runnable {
     private long findLastUpdated(final long value, final Path dir) {
         if (Files.exists(dir) && Files.isDirectory(dir)) {
             try {
-                return Files.walk(dir).reduce(value, (current, path) -> {
-                    try {
-                        return Math.max(current, Files.getLastModifiedTime(path).toMillis());
-                    } catch (final IOException e) {
-                        throw new IllegalStateException(e);
+                final var max = new AtomicLong(0);
+                Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
+                        if (isIgnored(dir)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        return super.preVisitDirectory(dir, attrs);
                     }
-                }, Math::max);
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        try {
+                            final var current = Files.getLastModifiedTime(file).toMillis();
+                            if (current > max.get()) {
+                                max.set(current);
+                            }
+                        } catch (final IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                        return super.visitFile(file, attrs);
+                    }
+                });
+                final var result = max.get();
+                if (result == 0) {
+                    return value;
+                }
+                return result;
             } catch (final IOException e) {
                 // no-op, default to value for this iteration
             }
@@ -143,5 +167,10 @@ public class Watch implements Runnable {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private boolean isIgnored(final Path dir) {
+        final var name = dir.getFileName().toString();
+        return ".idea".equals(name) || "target".equals(name) || "node_modules".equals(name);
     }
 }
