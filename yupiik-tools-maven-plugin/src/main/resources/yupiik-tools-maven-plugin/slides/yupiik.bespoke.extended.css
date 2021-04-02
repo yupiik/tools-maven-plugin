@@ -1,0 +1,361 @@
+/**
+ * Copyright (c) 2020 - Yupiik SAS - https://www.yupiik.com
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+/* fa 5 compat */
+
+span.icon.fab>i.fa {
+	font-family: "Font Awesome 5 Brands";
+	font-weight: initial;
+}
+
+
+/*
+ * all slides
+ */
+
+.bespoke-slide {
+    color: #00366f;
+}
+
+.lh-15, .lh-15 figure.quote > blockquote > p {
+    line-height: 1.5rem !important;
+}
+
+.admonitionblock td.content {
+    line-height: 1.5rem;
+}
+
+div.admonitionblock>table,
+table.iconed-tablelist {
+	table-layout: auto;
+	width: 100%;
+}
+
+div.admonitionblock>table tr>td,
+table.iconed-tablelist tr>td,
+.no-background table tr>td {
+	background: none;
+}
+
+.simple-td-padding td:last-child ul {
+    padding-left: 3rem;
+}
+
+table.iconed-tablelist tr>td {
+	background: none;
+	display: inline-table;
+}
+
+div.admonitionblock>table tr>td:first-child {
+    width: 3rem;
+    text-align: center;
+}
+table.iconed-tablelist tr>td:first-child {
+    width: 10rem;
+    text-align: center;
+}
+
+figcaption {
+	margin: 0 !important;
+	text-indent: 0 !important;
+}
+
+li>ul>li {
+	font-size: 1rem;
+	line-height: 1.2rem !important;
+}
+
+li>ul>li>ul>li {
+	font-size: 0.8rem;
+	line-height: 1rem !important;
+}
+
+.bespoke-slide li {
+	line-height: 1.8rem;
+}
+
+caption.title {
+	font-size: small;
+	margin-bottom: -1rem;
+}
+
+.table-2col-block table>tbody>tr>td.tableblock:last-child {
+	display: block;
+	background: none;
+	font-size: small;
+}
+
+.no-table-margin table {
+	margin-bottom: 0rem !important;
+}
+
+.fs-40 {
+	font-size: 40px;
+}
+.fs-60 {
+	font-size: 60px;
+}
+
+.fs-55 {
+	font-size: 0.55rem;
+}
+
+.fs-normal {
+	font-size: initial;
+}
+
+.c-red {
+	color: red;
+}
+
+.c-orange {
+    color: #E44D26;
+}
+
+.c-node {
+    color: #57A544;
+}
+.c-firefox {
+    color: #F77F05;
+}
+span.c-chrome > i.fa-chrome {
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: -webkit-linear-gradient(210deg, transparent 66.4%, #4DB849 33%, #328440),
+                      -webkit-linear-gradient(90deg, transparent 72%, #D01D21 33%, #F06B59),
+                      -webkit-linear-gradient(150deg, transparent 60%, #D01D21 33%, #D01D21),
+                      -webkit-linear-gradient(330deg, transparent 66.45%, #FCD209 33%, #D49B28),
+                      -webkit-linear-gradient(37deg, transparent 58%, #FCD209 33%, #FCD209),
+                      -webkit-linear-gradient(280deg, transparent 58%, #4DB849 33%, #4DB849),
+                      -webkit-linear-gradient(150deg, transparent 54%, #D01D21 33%, #D01D21);
+}
+.c-ie {
+    color: #6BD6F1;
+}
+
+.c-green {
+	color: green;
+}
+
+.p-l-inherit {
+	padding-left: inherit !important;
+}
+figure.source, figure.listing {
+    margin: 0;
+}
+.source.code-badge-pre {
+    border: 1px solid lightgrey;
+}
+.code-badge,
+li code {
+    font-size: xx-small !important;
+    text-indent: initial;
+}
+
+.code-badge {
+    line-height: 1rem;
+    font-size: 12px;
+    background-color: #00366f !important;
+}
+.code-badge-language {
+    color: white !important;
+}
+
+.table-pt-1 tr {
+	display: block;
+	padding-top: 1.2rem;
+}
+
+pre.source {
+    margin-bottom: 1rem;
+}
+
+.pt-1 {
+	padding-top: 1rem !important;
+}
+
+.pt-2 {
+	padding-top: 2rem !important;
+}
+
+.pt-3 {
+	padding-top: 3rem !important;
+}
+
+.skip-admonition-margin div.admonitionblock>table {
+	margin: 0 !important;
+}
+
+.fs2-small {
+	font-size: small;
+}
+
+section.fs-large code {
+	font-size: large !important;
+}
+
+section.fs-small code {
+	font-size: small !important;
+}
+
+section.fs-smaller code {
+	font-size: smaller !important;
+}
+
+section.fs-xxsmall code {
+	font-size: xx-small !important;
+}
+
+section.fs-xsmall code {
+	font-size: x-small !important;
+}
+
+.code-no-margin pre {
+	margin-bottom: 0 !important;
+}
+
+section.f-italic code {
+	font-style: italic;
+}
+
+.flex {
+    display: flex;
+    flex-direction: row;
+}
+.flex1 {
+    flex: 1;
+}
+.fimage {
+    align-items: center;
+}
+.fimage img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.mh-20 {
+    max-height: 20%;
+}
+
+/*
+  *first slide
+  */
+
+table.social-badges {
+	padding-top: 1rem;
+	max-width: 100%;
+}
+
+table.social-badges tr {
+	text-align: center;
+}
+
+table.social-badges tr>td {
+	background: none;
+}
+
+table.social-badges tr>td:first-child {
+	text-align: right;
+	padding-right: 1rem;
+}
+
+table.social-badges tr>td:last-child {
+	text-align: left;
+	padding-left: 1rem;
+}
+
+table.social-badges tr>td img {
+	max-width: 20rem;
+	max-height: 3.5rem;
+}
+
+/* chrome logo */
+.fa.fa-chrome-custom {
+  display: block;
+  position:relative;
+  width: 450px;
+  height: 450px;
+  overflow: hidden;
+	margin: 40px auto 0;
+	border-radius: 400px;
+	background-image: -webkit-linear-gradient(210deg, transparent 66.4%, #4DB849 33%, #328440),
+			          		-webkit-linear-gradient(90deg, transparent 72%, #D01D21 33%, #F06B59),
+			          		-webkit-linear-gradient(150deg, transparent 60%, #D01D21 33%, #D01D21),
+			          		-webkit-linear-gradient(330deg, transparent 66.45%, #FCD209 33%, #D49B28),
+			          		-webkit-linear-gradient(37deg, transparent 58%, #FCD209 33%, #FCD209),
+			          		-webkit-linear-gradient(280deg, transparent 58%, #4DB849 33%, #4DB849),
+			          		-webkit-linear-gradient(150deg, transparent 54%, #D01D21 33%, #D01D21);
+	background-image: -moz-linear-gradient(210deg, transparent 66.4%, #4DB849 33%, #328440),
+			          		-moz-linear-gradient(90deg, transparent 72%, #D01D21 33%, #F06B59),
+			          		-moz-linear-gradient(150deg, transparent 60%, #D01D21 33%, #D01D21),
+			          		-moz-linear-gradient(330deg, transparent 66.45%, #FCD209 33%, #D49B28),
+			          		-moz-linear-gradient(37deg, transparent 58%, #FCD209 33%, #FCD209),
+			          		-moz-linear-gradient(280deg, transparent 58%, #4DB849 33%, #4DB849),
+			          		-moz-linear-gradient(150deg, transparent 54%, #D01D21 33%, #D01D21);
+	box-shadow: inset 0px 0px 160px rgba(0,0,0,0.05),
+							0px 0px 100px rgba(0,0,0,0.05),
+							0px 0px 10px rgba(255,255,255, 1.0);
+	-webkit-transition: all 1s ease-in-out;
+	-moz-transition: all 1s ease-in-out;
+}
+
+.fa.fa-chrome-custom:after{
+	content: '';
+	display: block;
+	width: 170px;
+	height: 170px;
+	position: absolute;
+	top: 0;
+	left: 141px;
+	margin: 141px auto 0;
+	border-radius: 200px;
+  box-shadow: 0px 0px 0px 15px rgba(255,255,255,1.0);
+  background: #0d5a94;
+  background-image: -webkit-radial-gradient(center -10%, 100% 100%, #7eb2df 10%, #0d5a94 110%);
+  background-image: -moz-radial-gradient(center 0%, circle cover, #7eb2df 10%, #0d5a94 110%);
+}
+
+.fa.fa-chrome-custom:before{
+	content:'';
+	display: block;
+	position: absolute;
+	top: 423px;
+	left: 218px;
+	width: 25px;
+	height: 38px;
+	background: #FCD209;
+	background-image: -webkit-linear-gradient(305deg, rgba(243, 206, 9, 0.95) 33%, #E1AC25);
+	background-image: -moz-linear-gradient(305deg, rgba(243, 206, 9, 0.95) 33%, #E1AC25);
+	border-bottom-right-radius: 200px;
+	-webkit-transform: rotate(30deg);
+	-moz-transform: rotate(30deg);
+}
+
+section > *:not(h2):first-child {
+  padding-top: 1rem;
+}
+
+section:not(.title) {
+    padding-top: 5rem !important;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+}
+section:not(.title) > h2 {
+    position: absolute;
+    top: 4rem;
+}

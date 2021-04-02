@@ -40,12 +40,10 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
@@ -95,7 +93,7 @@ public class SlidesMojo extends BaseMojo {
     /**
      * Which renderer (slide) to use.
      */
-    @Parameter(property = "yupiik.slides.slider", defaultValue = "BESPOKE")
+    @Parameter(property = "yupiik.slides.slider", defaultValue = "BESPOKE_ENRICHED")
     private Slider slider;
 
     /**
@@ -216,7 +214,7 @@ public class SlidesMojo extends BaseMojo {
 
     private synchronized void render(final Options options, final Asciidoctor adoc) {
         adoc.convertFile(source, options);
-        slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath(), customScripts);
+        slider.postProcess(toOutputPath(), customCss != null ? customCss.toPath() : null, targetDirectory.toPath(), customScripts, options);
         if (synchronizationFolders != null) {
             synchronizationFolders.forEach(s -> {
                 final Path root = s.source.toPath();
@@ -258,11 +256,11 @@ public class SlidesMojo extends BaseMojo {
 
     private Options createOptions() {
         // ensure js is copied
-        stage(workDir.toPath().resolve("slides/yupiik." + slider.name().toLowerCase(ROOT) + ".js").normalize(), "js/");
+        slider.js().forEach(js -> stage(workDir.toPath().resolve(js).normalize(), "js/"));
 
         // ensure images are copied
         Stream.of("background", "title").forEach(it ->
-                stage(workDir.toPath().resolve("slides/" + it + "." + slider.name().toLowerCase(ROOT) + ".svg").normalize(), "img/"));
+                stage(workDir.toPath().resolve("slides/" + it + "." + slider.imageDir() + ".svg").normalize(), "img/"));
 
         // copy favicon
         stage(workDir.toPath().resolve("slides/favicon.ico").normalize(), "img/");
@@ -270,7 +268,7 @@ public class SlidesMojo extends BaseMojo {
         // finally create the options now the target folder is ready
         final OptionsBuilder base = OptionsBuilder.options()
                 .safe(SafeMode.UNSAFE)
-                .backend(slider.name().toLowerCase(ROOT))
+                .backend(slider.backend())
                 .inPlace(false)
                 .toDir(targetDirectory)
                 .destinationDir(targetDirectory)
@@ -290,7 +288,7 @@ public class SlidesMojo extends BaseMojo {
                         .attribute("imagesdir", source.toPath().getParent().resolve("images").toAbsolutePath().normalize().toString())
                         .attributes(this.attributes == null ? emptyMap() : this.attributes)));
 
-        final Path builtInTemplateDir = workDir.toPath().resolve("slides/template." + slider.name().toLowerCase(ROOT));
+        final Path builtInTemplateDir = workDir.toPath().resolve("slides/template." + slider.templateDir());
         if (templateDirs == null) {
             base.templateDirs(builtInTemplateDir.toFile());
         } else {
@@ -318,14 +316,40 @@ public class SlidesMojo extends BaseMojo {
     }
 
     private String findCss() {
-        final Path cssSource = (slider == Slider.REVEALJS && customCss != null ?
-                customCss.toPath() :
-                workDir.toPath().resolve("slides/yupiik." + slider.name().toLowerCase(ROOT) + ".css")).normalize();
-        final String relative = "css/" + cssSource.getFileName();
+        final var css = (slider == Slider.REVEALJS && customCss != null ?
+                Stream.of(customCss.toPath()) :
+                Stream.concat(
+                        slider.css().map(it -> workDir.toPath().resolve(it).normalize()),
+                        customCss != null && customCss.exists() ? Stream.of(customCss.toPath()) : Stream.empty()))
+                .collect(toList());
+
+        if (css.size() == 1) {
+            final var cssSource = css.iterator().next();
+            final String relative = "css/" + cssSource.getFileName();
+            final Path target = targetDirectory.toPath().resolve(relative);
+            try {
+                mkdirs(target.getParent());
+                Files.copy(cssSource, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (final MojoExecutionException | IOException e) {
+                throw new IllegalStateException(e);
+            }
+            return relative;
+        }
+        // merge them all in one
+        final var content = css.stream()
+                .map(it -> {
+                    try {
+                        return Files.readString(it);
+                    } catch (final IOException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                })
+                .collect(joining("\n"));
+        final String relative = "css/slides.generated." + Math.abs(content.hashCode()) + ".css";
         final Path target = targetDirectory.toPath().resolve(relative);
         try {
             mkdirs(target.getParent());
-            Files.copy(cssSource, target, StandardCopyOption.REPLACE_EXISTING);
+            Files.writeString(target, content);
         } catch (final MojoExecutionException | IOException e) {
             throw new IllegalStateException(e);
         }
@@ -355,55 +379,122 @@ public class SlidesMojo extends BaseMojo {
             }
 
             @Override
-            protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts) {
-                if (customCss != null) {
-                    final String relative = "css/" + customCss.getFileName();
-                    final Path targetPath = target.resolve(relative);
-                    try {
-                        mkdirs(target.getParent());
-                        Files.copy(customCss, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (final MojoExecutionException | IOException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }
-                try {
-                    Files.write(path, String.join("\n", Files.readAllLines(path))
-                            .replace(
-                                    "<script src=\"build/build.js\"></script>",
-                                    "\n" +
-                                            "<script src=\"//cdnjs.cloudflare.com/ajax/libs/bespoke.js/1.1.0/bespoke.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-classes@1.0.0/dist/bespoke-classes.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-bullets@1.1.0/dist/bespoke-bullets.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-fullscreen@1.0.0/dist/bespoke-fullscreen.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-hash@1.1.0/dist/bespoke-hash.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-nav@1.0.2/dist/bespoke-nav.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-overview@1.0.5/dist/bespoke-overview.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-scale@1.0.1/dist/bespoke-scale.min.js\"></script>\n" +
-                                            "<script src=\"//unpkg.com/bespoke-title@1.0.0/dist/bespoke-title.min.js\"></script>\n" +
-                                            "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\"" +
-                                            " integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
-                                            "<script src=\"js/yupiik.bespoke.js\"></script>\n" +
-                                            (scripts == null ? "" : (Stream.of(scripts).map(it -> "<script src=\"" + it + "\"></script>\n").collect(joining("\n")) + '\n')))
-                            .replace(
-                                    "<link rel=\"stylesheet\" href=\"build/build.css\">",
-                                    "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" " +
-                                            "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
-                                            "<link rel=\"stylesheet\" href=\"css/yupiik.bespoke.css\">\n" +
-                                            "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css\"" +
-                                            " integrity=\"sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==\" crossorigin=\"anonymous\" />\n" +
-                                            (customCss != null ? "<link rel=\"stylesheet\" href=\"css/" + customCss.getFileName() + "\">\n" : ""))
-                            .getBytes(StandardCharsets.UTF_8));
-                } catch (final IOException e) {
-                    throw new IllegalStateException(e);
-                }
+            protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
+                                       final Options options) {
+                doBespokePostProcess(path, customCss, target, scripts,
+                        String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss")));
+            }
+        },
+        BESPOKE_ENRICHED { // inherit from
+            @Override
+            protected AttributesBuilder append(final AttributesBuilder builder) {
+                return BESPOKE.append(builder);
+            }
+
+            @Override
+            protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
+                                       final Options options) {
+                doBespokePostProcess(
+                        path, customCss, target, Stream.concat(
+                                Stream.of(scripts),
+                                Stream.of("//unpkg.com/highlightjs-badge@0.1.9/highlightjs-badge.min.js", "yupiik.bespoke.extended.js"))
+                                .toArray(String[]::new),
+                        String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss")));
+            }
+
+            @Override
+            protected Stream<String> js() {
+                return Stream.concat(
+                        BESPOKE.js(),
+                        Stream.of("slides/yupiik.bespoke.extended.js"));
+            }
+
+            @Override
+            protected Stream<String> css() {
+                return Stream.concat(
+                        BESPOKE.css(),
+                        Stream.of("slides/yupiik.bespoke.extended.css"));
+            }
+
+            @Override
+            protected String templateDir() {
+                return BESPOKE.templateDir();
+            }
+
+            @Override
+            protected String imageDir() {
+                return BESPOKE.imageDir();
+            }
+
+            @Override
+            protected String backend() {
+                return BESPOKE.backend();
             }
         };
 
-        protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts) {
+        protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
+                                   final Options options) {
             // no-op
         }
 
         protected abstract AttributesBuilder append(AttributesBuilder builder);
+
+        protected Stream<String> js() {
+            return Stream.of("slides/yupiik." + name().toLowerCase(ROOT) + ".js");
+        }
+
+        protected Stream<String> css() {
+            return Stream.of("slides/yupiik." + name().toLowerCase(ROOT) + ".css");
+        }
+
+        protected String templateDir() {
+            return name().toLowerCase(ROOT);
+        }
+
+        protected String imageDir() {
+            return name().toLowerCase(ROOT);
+        }
+
+        protected String backend() {
+            return name().toLowerCase(ROOT);
+        }
+    }
+
+    private static void doBespokePostProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
+                                             final String... cssFiles) {
+        try {
+            Files.write(path, String.join("\n", Files.readAllLines(path))
+                    .replace(
+                            "<script src=\"build/build.js\"></script>",
+                            "\n" +
+                                    "<script src=\"//cdnjs.cloudflare.com/ajax/libs/bespoke.js/1.1.0/bespoke.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-classes@1.0.0/dist/bespoke-classes.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-bullets@1.1.0/dist/bespoke-bullets.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-fullscreen@1.0.0/dist/bespoke-fullscreen.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-hash@1.1.0/dist/bespoke-hash.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-nav@1.0.2/dist/bespoke-nav.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-overview@1.0.5/dist/bespoke-overview.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-scale@1.0.1/dist/bespoke-scale.min.js\"></script>\n" +
+                                    "<script src=\"//unpkg.com/bespoke-title@1.0.0/dist/bespoke-title.min.js\"></script>\n" +
+                                    "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\"" +
+                                    " integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
+                                    "<script src=\"js/yupiik.bespoke.js\"></script>\n" +
+                                    (scripts == null ? "" : (Stream.of(scripts)
+                                            .map(it -> "<script src=\"" +
+                                                    (it.startsWith("yupiik.bespoke") ? "js/" + it : it) + "\"></script>\n")
+                                            .collect(joining("\n")) + '\n')))
+                    .replace(
+                            "<link rel=\"stylesheet\" href=\"build/build.css\">",
+                            "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" " +
+                                    "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
+                                    Stream.of(cssFiles).map(it -> "<link rel=\"stylesheet\" href=\"" + it + "\">\n").collect(joining()) +
+                                    "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css\"" +
+                                    " integrity=\"sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==\" crossorigin=\"anonymous\" />\n" +
+                                    (customCss != null ? "<link rel=\"stylesheet\" href=\"css/" + customCss.getFileName() + "\">\n" : ""))
+                    .getBytes(StandardCharsets.UTF_8));
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Data
