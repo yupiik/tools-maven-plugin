@@ -211,15 +211,18 @@ section.fs-small code {
 	font-size: small !important;
 }
 
-section.fs-smaller code {
+section.fs-smaller code,
+section.fs-smaller table {
 	font-size: smaller !important;
 }
 
-section.fs-xxsmall code {
+section.fs-xxsmall code,
+section.fs-xxsmall table {
 	font-size: xx-small !important;
 }
 
-section.fs-xsmall code {
+section.fs-xsmall code,
+section.fs-xsmall table {
 	font-size: x-small !important;
 }
 
