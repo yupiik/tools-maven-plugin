@@ -182,6 +182,9 @@ public class SlidesMojo extends BaseMojo {
         }
         if (customScripts != null) {
             for (final String js : customScripts) { // no lambda since we really iterate
+                if (isRemote(js)) {
+                    continue;
+                }
                 final var script = source.toPath().getParent().resolve(js);
                 if (watched.stream().anyMatch(script::startsWith)) { // already watched
                     continue;
@@ -197,6 +200,10 @@ public class SlidesMojo extends BaseMojo {
                 .collect(toList()));
         getLog().info("Watching " + watched);
         return watched;
+    }
+
+    private boolean isRemote(final String js) {
+        return js.startsWith("//") || js.startsWith("http:") || js.startsWith("https:");
     }
 
     protected Mode getMode() {
@@ -233,7 +240,7 @@ public class SlidesMojo extends BaseMojo {
         if (customScripts != null) {
             try {
                 final var targetBase = Files.createDirectories(targetDirectory.toPath());
-                Stream.of(customScripts).forEach(script -> {
+                Stream.of(customScripts).filter(it -> !isRemote(it)).forEach(script -> {
                     final var target = targetBase.resolve(targetBase.resolve(script)).normalize().toAbsolutePath();
                     try {
                         Files.createDirectories(target.getParent());
