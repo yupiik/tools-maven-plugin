@@ -13,6 +13,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+(window.bespoke = bespoke).deck = bespoke.from('.deck', [
+  bespoke.plugins.classes(),
+  bespoke.plugins.nav(),
+  bespoke.plugins.fullscreen(),
+  bespoke.plugins.scale('transform'),
+  bespoke.plugins.overview({ margin: 300, autostart: false, title: true, numbers: true }),
+  bespoke.plugins.bullets('.build,.build-items>*:not(.build-items)'),
+  bespoke.plugins.title(),
+  bespoke.plugins.hash(),
+  bespoke.plugins.progress(),
+]);
+
 document.addEventListener('DOMContentLoaded', (event) => {
   hljs.registerLanguage('gherkin', function (hljs) {
     return {
@@ -51,6 +63,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     };
   });
 
+  hljs.highlightAll();
   setTimeout(function () {
     highlightJsBadge({ loadDelay: 0, copyIconClass: 'fa fa-copy', checkIconClass: 'fa fa-check text-success' });
   });

@@ -381,11 +381,11 @@ public class SlidesMojo extends BaseMojo {
             @Override
             protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
                                        final Options options) {
-                doBespokePostProcess(path, customCss, target, scripts,
-                        String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss")));
+                doBespokePostProcess(path, customCss, scripts, new String[0], extractCustomCss(options));
             }
         },
-        BESPOKE_ENRICHED { // inherit from
+        BESPOKE_ENRICHED { // inherit from BESPOKE
+
             @Override
             protected AttributesBuilder append(final AttributesBuilder builder) {
                 return BESPOKE.append(builder);
@@ -395,18 +395,19 @@ public class SlidesMojo extends BaseMojo {
             protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
                                        final Options options) {
                 doBespokePostProcess(
-                        path, customCss, target, Stream.concat(
+                        path, customCss, Stream.concat(
                                 Stream.of(scripts),
                                 Stream.of("//unpkg.com/highlightjs-badge@0.1.9/highlightjs-badge.min.js", "yupiik.bespoke.extended.js"))
                                 .toArray(String[]::new),
-                        String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss")));
+                        new String[]{
+                                "//unpkg.com/bespoke-progress@1.0.0/dist/bespoke-progress.min.js"
+                        },
+                        extractCustomCss(options));
             }
 
             @Override
             protected Stream<String> js() {
-                return Stream.concat(
-                        BESPOKE.js(),
-                        Stream.of("slides/yupiik.bespoke.extended.js"));
+                return Stream.of("slides/yupiik.bespoke.extended.js");
             }
 
             @Override
@@ -431,6 +432,10 @@ public class SlidesMojo extends BaseMojo {
                 return BESPOKE.backend();
             }
         };
+
+        protected String extractCustomCss(final Options options) {
+            return String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss"));
+        }
 
         protected void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
                                    final Options options) {
@@ -460,7 +465,8 @@ public class SlidesMojo extends BaseMojo {
         }
     }
 
-    private static void doBespokePostProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
+    private static void doBespokePostProcess(final Path path, final Path customCss, final String[] scripts,
+                                             final String[] additionalPlugins,
                                              final String... cssFiles) {
         try {
             Files.write(path, String.join("\n", Files.readAllLines(path))
@@ -476,9 +482,9 @@ public class SlidesMojo extends BaseMojo {
                                     "<script src=\"//unpkg.com/bespoke-overview@1.0.5/dist/bespoke-overview.min.js\"></script>\n" +
                                     "<script src=\"//unpkg.com/bespoke-scale@1.0.1/dist/bespoke-scale.min.js\"></script>\n" +
                                     "<script src=\"//unpkg.com/bespoke-title@1.0.0/dist/bespoke-title.min.js\"></script>\n" +
+                                    Stream.of(additionalPlugins).map(it -> "<script src=\"" + it + "\"></script>\n").collect(joining()) +
                                     "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\"" +
                                     " integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
-                                    "<script src=\"js/yupiik.bespoke.js\"></script>\n" +
                                     (scripts == null ? "" : (Stream.of(scripts)
                                             .map(it -> "<script src=\"" +
                                                     (it.startsWith("yupiik.bespoke") ? "js/" + it : it) + "\"></script>\n")

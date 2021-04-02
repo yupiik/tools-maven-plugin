@@ -362,3 +362,10 @@ section:not(.title) > h2 {
     position: absolute;
     top: 4rem;
 }
+
+.bespoke-progress-bar {
+    position: absolute;
+    bottom: 0px;
+    min-height: 4px;
+    background-color: #0075ba;
+}
