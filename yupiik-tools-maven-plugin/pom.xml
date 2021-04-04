@@ -140,71 +140,28 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.2</version>
         <executions>
           <execution>
-            <id>install-revealjs-gem</id>
-            <phase>process-resources</phase>
+            <id>unpack</id>
+            <phase>generate-resources</phase>
             <goals>
-              <goal>exec</goal>
+              <goal>unpack</goal>
             </goals>
             <configuration>
-              <executable>java</executable>
-              <arguments>
-                <argument>-cp</argument>
-                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
-                <argument>org.jruby.Main</argument>
-                <argument>-e</argument>
-                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
-                <argument>--</argument>
-                <argument>install</argument>
-                <argument>--ignore-dependencies</argument>
-                <argument>--no-document</argument>
-                <argument>--no-user-install</argument>
-                <argument>--no-verbose</argument>
-                <argument>${settings.localRepository}/rubygems/asciidoctor-revealjs/${asciidoctor-revealjs.version}/asciidoctor-revealjs-${asciidoctor-revealjs.version}.gem</argument>
-                <argument>--bindir</argument>
-                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
-              </arguments>
-              <environmentVariables>
-                <JARS_SKIP>true</JARS_SKIP>
-                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
-                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
-                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
-              </environmentVariables>
-            </configuration>
-          </execution>
-          <execution>
-            <id>install-bespoke-gem</id>
-            <phase>process-resources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>java</executable>
-              <arguments>
-                <argument>-cp</argument>
-                <argument>${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar</argument>
-                <argument>org.jruby.Main</argument>
-                <argument>-e</argument>
-                <argument>load('jar:file:${settings.localRepository}/org/jruby/jruby-complete/${jruby.version}/jruby-complete-${jruby.version}.jar!/META-INF/jruby.home/bin/gem')</argument>
-                <argument>--</argument>
-                <argument>install</argument>
-                <argument>--ignore-dependencies</argument>
-                <argument>--no-document</argument>
-                <argument>--no-user-install</argument>
-                <argument>--no-verbose</argument>
-                <argument>${settings.localRepository}/rubygems/asciidoctor-bespoke/${asciidoctor-bespoke.version}/asciidoctor-bespoke-${asciidoctor-bespoke.version}.gem</argument>
-                <argument>--bindir</argument>
-                <argument>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</argument>
-              </arguments>
-              <environmentVariables>
-                <JARS_SKIP>true</JARS_SKIP>
-                <JBUNDLE_SKIP>true</JBUNDLE_SKIP>
-                <GEM_PATH>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_PATH>
-                <GEM_HOME>${project.build.outputDirectory}/yupiik-tools-maven-plugin/gem</GEM_HOME>
-              </environmentVariables>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>1.0.10</version>
+                  <type>${project.packaging}</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                  <includes>yupiik-tools-maven-plugin/gem/**</includes>
+                </artifactItem>
+              </artifactItems>
             </configuration>
           </execution>
         </executions>
