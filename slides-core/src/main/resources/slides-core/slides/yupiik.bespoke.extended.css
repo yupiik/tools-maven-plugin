@@ -349,18 +349,18 @@ table.social-badges tr>td img {
 }
 
 section > *:not(h2):first-child {
-  padding-top: 1rem;
+  padding-top: 1rem !important;
 }
 
 section:not(.title) {
-    padding-top: 5rem !important;
+    padding-top: 6rem !important;
     display: flex;
     justify-content: space-between;
     flex-direction: column;
 }
 section:not(.title) > h2 {
     position: absolute;
-    top: 4rem;
+    top: 4.5rem;
 }
 
 .bespoke-progress-bar {
