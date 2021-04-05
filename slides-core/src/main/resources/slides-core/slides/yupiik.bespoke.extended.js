@@ -28,8 +28,9 @@
 document.addEventListener('DOMContentLoaded', (event) => {
   hljs.registerLanguage('gherkin', function (hljs) {
     return {
+      name: 'Gherkin',
       aliases: ['feature'],
-      keywords: 'Feature Background Ability Business\ Need Scenario Scenarios Scenario\ Outline Scenario\ Template Examples Given And Then But When',
+      keywords: 'Feature Background Ability Business\ Need Scenario Scenarios Scenario\ Outline Scenario\ Template Examples Example Given And Then But When',
       contains: [
         {
           className: 'symbol',
@@ -41,7 +42,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
           begin: '@[^@\\s]+'
         },
         {
-          begin: '\\|', end: '\\|\\w*$',
+          begin: '\\|',
+          end: '\\|\\w*$',
           contains: [
             {
               className: 'string',
@@ -51,12 +53,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
         },
         {
           className: 'variable',
-          begin: '<', end: '>'
+          begin: '<',
+          end: '>'
         },
         hljs.HASH_COMMENT_MODE,
         {
           className: 'string',
-          begin: '"""', end: '"""'
+          begin: '"""',
+          end: '"""'
         },
         hljs.QUOTE_STRING_MODE
       ]
