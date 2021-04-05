@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     return {
       name: 'Gherkin',
       aliases: ['feature'],
-      keywords: 'Feature Background Ability Business\ Need Scenario Scenarios Scenario\ Outline Scenario\ Template Examples Example Given And Then But When',
+      keywords: 'Feature Background Ability Business\ Need Scenario Scenarios Scenario\ Outline Scenario\ Template Rule Examples Example Given And Then But When',
       contains: [
         {
           className: 'symbol',
