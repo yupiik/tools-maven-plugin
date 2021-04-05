@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -54,6 +55,7 @@ public @interface MavenTest {
             return new BaseMojo() {
                 {
                     project = new MavenProject();
+                    setRequires(List.of());
                     setWorkDir(Paths.get("target/classes/yupiik-tools-maven-plugin").toFile());
                     setLog(new SystemStreamLog());
                 }

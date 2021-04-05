@@ -13,10 +13,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.service.watch;
+package io.yupiik.tools.common.watch;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.maven.plugin.logging.Log;
 import org.asciidoctor.Asciidoctor;
 import org.asciidoctor.Options;
 
@@ -37,12 +36,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @RequiredArgsConstructor
 public class Watch implements Runnable {
-    private final Log log;
+    private final Consumer<String> logInfo;
+    private final Consumer<String> logDebug;
+    private final BiConsumer<String, Throwable> logDebugWithException;
+    private final Consumer<String> logError;
     private final List<Path> sources;
     private final Options options;
     private final Asciidoctor asciidoctor;
@@ -73,18 +76,18 @@ public class Watch implements Runnable {
             if (lastModifiedValue < currentLM) {
                 lastModified.set(currentLM);
                 if (checksCount.getAndIncrement() > 0) {
-                    log.debug("Change detected, re-rendering");
+                    logDebug.accept("Change detected, re-rendering");
                     renderer.accept(options, adoc);
                     checksCount.set(0);
                 } else {
-                    log.debug("Change detected, waiting another iteration to ensure it is fully refreshed");
+                    logDebug.accept("Change detected, waiting another iteration to ensure it is fully refreshed");
                 }
             } else if (checksCount.get() > 0) {
-                log.debug("Change detected, re-rendering");
+                logDebug.accept("Change detected, re-rendering");
                 renderer.accept(options, adoc);
                 checksCount.set(0);
             } else {
-                log.debug("No change");
+                logDebug.accept("No change");
             }
         }, watchDelay, watchDelay, TimeUnit.MILLISECONDS);
         launchCli(options, adoc);
@@ -103,7 +106,7 @@ public class Watch implements Runnable {
 
         try (final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line;
-            log.info("Type '[refresh|exit]' to either force a rendering or exit");
+            logInfo.accept("Type '[refresh|exit]' to either force a rendering or exit");
             while ((line = reader.readLine()) != null)
                 switch (line) {
                     case "":
@@ -116,10 +119,10 @@ public class Watch implements Runnable {
                     case "q":
                         return;
                     default:
-                        log.error("Unknown command: '" + line + "', type: '[refresh|exit]'");
+                        logError.accept("Unknown command: '" + line + "', type: '[refresh|exit]'");
                 }
         } catch (final IOException e) {
-            log.debug("Exiting waiting loop", e);
+            logDebugWithException.accept("Exiting waiting loop", e);
         }
     }
 

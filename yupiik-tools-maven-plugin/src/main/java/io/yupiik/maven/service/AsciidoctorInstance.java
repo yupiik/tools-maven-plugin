@@ -85,8 +85,7 @@ public class AsciidoctorInstance {
         if (requires != null) {
             asciidoctor.requireLibraries(requires);
         } else {
-            asciidoctor.requireLibrary("asciidoctor-diagram");
-            asciidoctor.requireLibrary("asciidoctor-revealjs");
+            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
             try {
                 asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
                         .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))

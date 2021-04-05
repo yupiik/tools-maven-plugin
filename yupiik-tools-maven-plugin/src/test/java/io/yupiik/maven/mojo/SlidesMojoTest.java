@@ -16,6 +16,7 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.tools.slides.SlidesConfiguration;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.AfterAll;
@@ -83,10 +84,10 @@ class SlidesMojoTest {
         final SlidesMojo mojo = new SlidesMojo();
         mojo.setSource(new File("src/test/resources/src/main/slides/" + slider + ".adoc"));
         mojo.setTargetDirectory(output.toFile());
-        mojo.setWorkDir(new File("target/classes/yupiik-tools-maven-plugin"));
+        mojo.setWorkDir(new File("../slides-core/target/classes/slides-core"));
         mojo.setAsciidoctor(asciidoctor);
-        mojo.setSlider(SlidesMojo.Slider.valueOf(slider.toUpperCase(ROOT)));
-        mojo.setMode(SlidesMojo.Mode.DEFAULT);
+        mojo.setSlider(SlidesConfiguration.SliderType.valueOf(slider.toUpperCase(ROOT)));
+        mojo.setMode(SlidesConfiguration.Mode.DEFAULT);
         mojo.setLog(new SystemStreamLog());
         return mojo;
     }

@@ -15,13 +15,11 @@
  */
 package io.yupiik.maven.mojo;
 
-import io.yupiik.maven.service.http.StaticHttpServer;
+import io.yupiik.tools.common.http.StaticHttpServer;
+import io.yupiik.tools.slides.SlidesConfiguration;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-
-import java.io.IOException;
-import java.net.URI;
 
 @Setter
 @Mojo(name = "serve-slides")
@@ -30,8 +28,8 @@ public class ServeSlidesMojo extends SlidesMojo {
     private boolean openBrowser;
 
     @Override
-    protected Mode getMode() {
-        return Mode.SERVE;
+    protected SlidesConfiguration.Mode getMode() {
+        return SlidesConfiguration.Mode.SERVE;
     }
 
     @Override

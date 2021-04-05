@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -84,6 +85,7 @@ class XsltMacroTest {
         return new BaseMojo() {
             {
                 project = fakeProject;
+                setRequires(List.of());
                 setWorkDir(Paths.get("target/classes/yupiik-tools-maven-plugin").toFile());
                 setLog(new SystemStreamLog());
             }

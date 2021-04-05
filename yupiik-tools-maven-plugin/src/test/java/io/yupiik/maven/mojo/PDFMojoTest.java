@@ -24,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,6 +37,7 @@ class PDFMojoTest {
         final AsciidoctorInstance asciidoctor = new AsciidoctorInstance();
         mojo.setSourceDirectory(new File("src/test/resources/src/main/pdf"));
         mojo.setTargetDirectory(output.toFile());
+        mojo.setRequires(List.of());
         mojo.setWorkDir(new File("target/classes/yupiik-tools-maven-plugin"));
         mojo.setAsciidoctor(asciidoctor);
         mojo.setLog(new SystemStreamLog());

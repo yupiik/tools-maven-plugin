@@ -16,6 +16,7 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import io.yupiik.tools.common.jar.Extractor;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.maven.artifact.Artifact;
@@ -70,6 +71,7 @@ public abstract class BaseMojo extends AbstractMojo implements AsciidoctorConfig
      * Override defaults require - completely.
      */
     @Getter
+    @Setter
     @Parameter
     protected List<String> requires;
 
@@ -87,32 +89,17 @@ public abstract class BaseMojo extends AbstractMojo implements AsciidoctorConfig
         }
         mkdirs(output);
         final Properties properties = new Properties();
-        try (final InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("META-INF/maven/io.yupiik.maven/yupiik-tools-maven-plugin/pom.properties")) {
+        try (final InputStream stream = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("META-INF/maven/io.yupiik.maven/yupiik-tools-maven-plugin/pom.properties")) {
             properties.load(stream);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        final File self = resolve(properties.getProperty("groupId"), properties.getProperty("artifactId"), properties.getProperty("version"));
-        final String prefix = "yupiik-tools-maven-plugin/";
-        try (final JarFile file = new JarFile(self)) {
-            list(file.entries()).stream()
-                    .filter(it -> it.getName().startsWith(prefix) && !it.isDirectory())
-                    .forEach(e -> {
-                        final Path target = output.resolve(e.getName().substring(prefix.length()));
-                        try {
-                            mkdirs(target.getParent());
-                        } catch (final MojoExecutionException mojoExecutionException) {
-                            throw new IllegalStateException(mojoExecutionException);
-                        }
-                        try (final InputStream in = file.getInputStream(e)) {
-                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-                        } catch (final IOException ex) {
-                            throw new IllegalStateException(ex.getMessage(), ex);
-                        }
-                    });
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
-        }
+        final var extractor = new Extractor();
+        final File common = resolve(properties.getProperty("groupId"), "slides-core", properties.getProperty("version"));
+        extractor.extract(output, common, "slides-core/");
+        final File plugin = resolve(properties.getProperty("groupId"), properties.getProperty("artifactId"), properties.getProperty("version"));
+        extractor.extract(output, plugin, "yupiik-tools-maven-plugin/");
         return output;
     }
 

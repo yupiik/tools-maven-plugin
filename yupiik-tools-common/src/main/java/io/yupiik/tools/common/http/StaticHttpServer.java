@@ -13,24 +13,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.service.http;
+package io.yupiik.tools.common.http;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import lombok.RequiredArgsConstructor;
-import org.apache.maven.plugin.logging.Log;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @RequiredArgsConstructor
 public class StaticHttpServer implements Runnable {
-    private final Log log;
+    private final Consumer<String> logInfo;
+    private final BiConsumer<String, Throwable> logError;
     private final int port;
     private final Path docBase;
     private final String indexName;
@@ -91,7 +93,7 @@ public class StaticHttpServer implements Runnable {
             }
         });
         server.start();
-        log.info("Started server at 'http://localhost:" + port + "'");
+        logInfo.accept("Started server at 'http://localhost:" + port + "'");
         try {
             afterStart.run();
         } finally {
@@ -105,13 +107,13 @@ public class StaticHttpServer implements Runnable {
         }
         final URI uri = URI.create("http://localhost:" + port);
         if (!java.awt.Desktop.isDesktopSupported()) {
-            log.info("Desktop is not supported on this JVM, go to " + uri + " in your browser");
+            logInfo.accept("Desktop is not supported on this JVM, go to " + uri + " in your browser");
             return;
         }
         try {
             java.awt.Desktop.getDesktop().browse(uri);
         } catch (final IOException e) {
-            log.error("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")");
+            logError.accept("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")", e);
         }
     }
 }

@@ -15,8 +15,8 @@
  */
 package io.yupiik.maven.mojo;
 
-import io.yupiik.maven.service.http.StaticHttpServer;
-import io.yupiik.maven.service.watch.Watch;
+import io.yupiik.tools.common.http.StaticHttpServer;
+import io.yupiik.tools.common.watch.Watch;
 import io.yupiik.tools.minisite.MiniSite;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -58,13 +58,14 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
         asciidoctor.withAsciidoc(this, adoc -> {
             final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
             final Watch watch = new Watch(
-                    getLog(), List.of(source.toPath()), options, adoc, watchDelay,
+                    getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
+                    List.of(source.toPath()), options, adoc, watchDelay,
                     (opts, a) -> {
                         miniSite.doRender(a, opts);
                         getLog().info("Minisite re-rendered");
                     }, () -> server.get().open(openBrowser));
             final StaticHttpServer staticHttpServer = new StaticHttpServer(
-                    getLog(), port, target.toPath(), "index.html", watch);
+                    getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
             server.set(staticHttpServer);
             server.get().run();
             return null;
