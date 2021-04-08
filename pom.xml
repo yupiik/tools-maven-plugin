@@ -44,6 +44,7 @@
     <module>minisite-core</module>
     <module>yupiik-tools-common</module>
     <module>slides-core</module>
+    <module>yupiik-tools-cli</module>
   </modules>
 
   <dependencyManagement>

@@ -32,6 +32,8 @@ Plugin definition:
 </plugin>
 ----
 
+TIP: `yupiik-tools-cli` enables to run the slides and minisite tools without maven, run `help` on the fat jar (`java -jar yupiik-tools-cli-<version>-fatjar.jar`) to see the configuration.
+
 == Goals
 
 === PDF
