@@ -44,6 +44,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,6 +70,7 @@ import static java.util.stream.Collectors.toList;
 
 public class MiniSite implements Runnable {
     private final MiniSiteConfiguration configuration;
+    private final ReadingTimeComputer readingTimeComputer = new ReadingTimeComputer();
 
     public MiniSite(final MiniSiteConfiguration configuration) {
         this.configuration = configuration;
@@ -494,7 +496,7 @@ public class MiniSite implements Runnable {
                     bp.page.relativePath,
                     bp.page.title,
                     bp.page.attributes,
-                    bp.page.content + "\n" +
+                    (configuration.isInjectBlogMeta() ? injectBlogMeta(bp) : bp.page.content) + "\n" +
                             "\n" +
                             ofNullable(bp.page.attributes.get("minisite-blog-authors"))
                                     .map(String::valueOf)
@@ -528,6 +530,41 @@ public class MiniSite implements Runnable {
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
         return allCategories;
+    }
+
+    private String injectBlogMeta(final BlogPage bp) {
+        final List<String> lines;
+        try (final var reader = new BufferedReader(new StringReader(bp.page.content))) {
+            lines = reader.lines().collect(toList());
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+        int idx = 0;
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).isBlank()) {
+                idx = i;
+                break;
+            }
+        }
+        lines.addAll(idx, List.of(
+                "",
+                Stream.of(
+                        ofNullable(bp.page.attributes.get("minisite-blog-authors"))
+                                .map(value -> (List.class.isInstance(value) ?
+                                        ((List<String>) value).stream() :
+                                        Stream.of(String.valueOf(value).split(",")))
+                                        .map(String::strip)
+                                        .filter(it -> !it.isBlank())
+                                        .map(it -> "link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + "]")
+                                        .collect(joining(" ")))
+                                .map(it -> "[.metadata-authors]#" + it + "#")
+                                .orElse(""),
+                        "[.metadata-published]#" + bp.publishedDate.format(DateTimeFormatter.ISO_LOCAL_DATE) + "#",
+                        "[.metadata-readingtime]#" + readingTimeComputer.toReadingTime(bp.page.content) + "#")
+                        .filter(it -> !it.isBlank())
+                        .collect(joining(", ", "[.metadata]\n", "")),
+                ""));
+        return String.join("\n", lines);
     }
 
     protected Collection<String> paginatePer(final String singular, final String plural, final List<BlogPage> blog,

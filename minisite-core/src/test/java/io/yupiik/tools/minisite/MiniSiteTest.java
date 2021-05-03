@@ -123,4 +123,16 @@ class MiniSiteTest {
                 "</div>");
         // todo: assert home, authors, category etc page contents
     }
+
+    @Test
+    void blogReadingTime(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder
+                .injectBlogMeta(true)
+                .build())
+                .run();
+        asserts.assertContains("blog1.html", "" +
+                "<div class=\"paragraph metadata\">\n" +
+                "<p><span class=\"metadata-authors\"><a href=\"/blog/author/some-body/page-1.html\">Some Body</a></span>, <span class=\"metadata-published\">2021-02-15</span>, <span class=\"metadata-readingtime\">4 sec read</span></p>\n" +
+                "</div>\n");
+    }
 }

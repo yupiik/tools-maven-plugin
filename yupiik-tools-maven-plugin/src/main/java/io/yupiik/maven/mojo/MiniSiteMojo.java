@@ -205,6 +205,12 @@ public class MiniSiteMojo extends BaseMojo {
     private int blogPageSize;
 
     /**
+     * Add reading time on blog pages.
+     */
+    @Parameter(property = "yupiik.minisite.injectBlogMeta", defaultValue = "true")
+    private boolean injectBlogMeta;
+
+    /**
      * Generate index page.
      */
     @Parameter(property = "yupiik.minisite.generateIndex", defaultValue = "true")
@@ -344,6 +350,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .indexSubTitle(indexSubTitle)
                 .copyright(copyright)
                 .blogPageSize(blogPageSize)
+                .injectBlogMeta(injectBlogMeta)
                 .generateBlog(generateBlog)
                 .linkedInCompany(linkedInCompany)
                 .customHead(customHead)

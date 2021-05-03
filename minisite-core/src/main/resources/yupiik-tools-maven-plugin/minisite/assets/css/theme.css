@@ -364,3 +364,8 @@ div.colist.arabic > ol > li > p {
 .ulist.blog-links-page {
     padding-top: 1rem;
 }
+
+.page-content-body .metadata {
+    font-size: smaller;
+    font-style: italic;
+}

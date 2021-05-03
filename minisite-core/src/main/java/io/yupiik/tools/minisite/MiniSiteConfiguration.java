@@ -82,6 +82,7 @@ public class MiniSiteConfiguration {
     private Map<String, BlogCategoryConfiguration> blogCategoriesCustomizations;
     private Map<String, String> templateExtensionPoints;
     private boolean injectYupiikTemplateExtensionPoints;
+    private boolean injectBlogMeta;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
