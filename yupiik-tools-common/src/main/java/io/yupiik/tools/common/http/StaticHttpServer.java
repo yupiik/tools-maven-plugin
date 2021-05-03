@@ -50,7 +50,10 @@ public class StaticHttpServer implements Runnable {
         ctx.setHandler(new HttpHandler() {
             @Override
             public void handle(final HttpExchange exchange) throws IOException {
-                final Path file = resolveFile(exchange.getRequestURI());
+                Path file = resolveFile(exchange.getRequestURI());
+                if (Files.isDirectory(file)) {
+                    file = file.resolve(indexName);
+                }
                 if (!Files.exists(file)) {
                     exchange.sendResponseHeaders(404, 0);
                     exchange.close();
