@@ -57,6 +57,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -72,6 +73,7 @@ import static java.util.stream.Collectors.toList;
 public class MiniSite implements Runnable {
     private final MiniSiteConfiguration configuration;
     private final ReadingTimeComputer readingTimeComputer = new ReadingTimeComputer();
+    private final Pattern linkTitleReplacement = Pattern.compile("[\"\n]");
 
     public MiniSite(final MiniSiteConfiguration configuration) {
         this.configuration = configuration;
@@ -169,12 +171,19 @@ public class MiniSite implements Runnable {
                 "            <h3>Menu</h3>\n" +
                 "            <ul>\n" +
                 findIndexPages(files).map(it -> "                " +
-                        "<li><a href=\"" + configuration.getSiteBase() + '/' + output.relativize(it.getValue()) + "\">" +
+                        "<li><a title=\"" + toLinkTitle(it) + "\" href=\"" + configuration.getSiteBase() + '/' + output.relativize(it.getValue()) + "\">" +
                         "<i class=\"" + getIcon(it.getKey()) + "\"></i> " +
                         getTitle(it.getKey()) + "</a></li>\n")
                         .collect(joining()) +
                 "            </ul>\n" +
                 "        </div>";
+    }
+
+    private String toLinkTitle(final Map.Entry<Page, Path> it) {
+        if (it.getKey().title == null) {
+            return "";
+        }
+        return linkTitleReplacement.matcher(it.getKey().title).replaceAll(" ");
     }
 
     /**
@@ -244,7 +253,7 @@ public class MiniSite implements Runnable {
                         "                                <div class=\"card-text\">\n                                  " +
                         ofNullable(p.getKey().attributes.get("minisite-index-description")).map(String::valueOf).orElse(p.getKey().title) +
                         "\n                                </div>\n" +
-                        "                                <a class=\"card-link-mask\" href=\"" + configuration.getSiteBase() + '/' + output.relativize(p.getValue()) + "\"></a>\n" +
+                        "                                <a title=\"" + toLinkTitle(p) + "\" class=\"card-link-mask\" href=\"" + configuration.getSiteBase() + '/' + output.relativize(p.getValue()) + "\"></a>\n" +
                         "                            </div>\n" +
                         "                        </div>\n" +
                         "                    </div>\n" +
@@ -296,7 +305,7 @@ public class MiniSite implements Runnable {
         final String now = LocalDate.now().toString();
         final Path output = configuration.getTarget();
         return pages.entrySet().stream()
-                .sorted(comparing(p -> p.getKey().title))
+                .sorted(comparing(p -> p.getKey().title == null ? "" : p.getKey().title))
                 .map(it -> "" +
                         "    <url>\n" +
                         "        <loc>" + configuration.getSiteBase() + '/' + output.relativize(it.getValue()) + "</loc>\n" +
@@ -435,7 +444,8 @@ public class MiniSite implements Runnable {
     protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
                                                              final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
-            return t -> {};
+            return t -> {
+            };
         }
         final var out = configuration.getTarget().resolve(page.relativePath.substring(1));
         if (out.getParent() != null && !Files.exists(out.getParent())) {
@@ -452,7 +462,8 @@ public class MiniSite implements Runnable {
             if (now.isAfter(publishedDate)) {
                 blog.add(new BlogPage(page, publishedDate));
             }
-            return t -> {};
+            return t -> {
+            };
         } else {
             return template -> {
                 render(page, out, asciidoctor, options, true, identity()).accept(template);
@@ -752,11 +763,11 @@ public class MiniSite implements Runnable {
         final var layout = configuration.getSource().resolve("templates");
         var prefix = readTemplates(layout, configuration.getTemplatePrefixes())
                 .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
-                        "<a href=\"" + configuration.getSiteBase() + "/blog/\">" +
+                        "<a title=\"Blog\" href=\"" + configuration.getSiteBase() + "/blog/\">" +
                         "<i class=\"fa fa-blog fa-fw\"></i></a></li>")
                 .replace("{{search}}", hasSearch() ? "" +
                         "<li class=\"list-inline-item\">" +
-                        "<a id=\"search-button\" href=\"#\" data-toggle=\"modal\" data-target=\"#searchModal\">" +
+                        "<a title=\"Search\" id=\"search-button\" href=\"#\" data-toggle=\"modal\" data-target=\"#searchModal\">" +
                         "<i data-toggle=\"tooltip\" data-placement=\"top\" title=\"Search\" class=\"fas fa-search\"></i>" +
                         "</a>" +
                         "</li>\n" +
