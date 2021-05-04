@@ -71,4 +71,8 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
             return null;
         });
     }
+
+    protected String getDefaultPublicationDate() {
+        return "infinite";
+    }
 }

@@ -205,6 +205,14 @@ public class MiniSiteMojo extends BaseMojo {
     private int blogPageSize;
 
     /**
+     * Max date until when posts are published.
+     * {@code today} and {@code infinite} are supported as dynamic alias.
+     * Using {@code default} the minisite rendering uses {@code today} and the serve mode uses {@code infinite} to get local previews.
+     */
+    @Parameter(property = "yupiik.minisite.blogPublicationDate", defaultValue = "default")
+    private String blogPublicationDate;
+
+    /**
      * Add reading time on blog pages.
      */
     @Parameter(property = "yupiik.minisite.injectBlogMeta", defaultValue = "true")
@@ -350,6 +358,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .indexSubTitle(indexSubTitle)
                 .copyright(copyright)
                 .blogPageSize(blogPageSize)
+                .blogPublicationDate("default".equals(blogPublicationDate) ? getDefaultPublicationDate() : blogPublicationDate)
                 .injectBlogMeta(injectBlogMeta)
                 .generateBlog(generateBlog)
                 .linkedInCompany(linkedInCompany)
@@ -381,6 +390,10 @@ public class MiniSiteMojo extends BaseMojo {
                 .injectYupiikTemplateExtensionPoints(injectYupiikTemplateExtensionPoints)
                 .templateExtensionPoints(templateExtensionPoints)
                 .build();
+    }
+
+    protected String getDefaultPublicationDate() {
+        return "today";
     }
 
     private URLClassLoader createProjectLoader(final ClassLoader parent) {

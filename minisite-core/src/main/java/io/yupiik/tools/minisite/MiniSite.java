@@ -55,6 +55,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -115,33 +116,34 @@ public class MiniSite implements Runnable {
         }
     }
 
-    protected void render(final Page page, final Path html,
-                          final Asciidoctor asciidoctor, final Options options,
-                          final Function<Page, String> template,
-                          final boolean withLeftMenuIfConfigured,
-                          final Function<String, String> postProcessor) {
-        try {
-            final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
-            attrs.putAll(page.attributes);
-            final var content = template.apply(new Page(
-                    '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
-                    ofNullable(page.title).orElseGet(this::getTitle),
-                    attrs, "" +
-                    "        <div class=\"container page-content\">\n" +
-                    ofNullable(page.title).map(t -> "" +
-                            "            <div class=\"page-header\">\n" +
-                            "                <h1>" + t + "</h1>\n" +
-                            "            </div>\n")
-                            .orElse("") +
-                    "            <div class=\"page-content-body\">\n" +
-                    renderAdoc(page, asciidoctor, options).trim() + '\n' +
-                    "            </div>\n" +
-                    "        </div>\n"
-            ));
-            Files.writeString(html, postProcessor.apply(withLeftMenuIfConfigured || !configuration.isTemplateAddLeftMenu() ? content : dropLeftMenu(content)));
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
-        }
+    protected Consumer<Function<Page, String>> render(final Page page, final Path html,
+                                                      final Asciidoctor asciidoctor, final Options options,
+                                                      final boolean withLeftMenuIfConfigured,
+                                                      final Function<String, String> postProcessor) {
+        return template -> {
+            try {
+                final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
+                attrs.putAll(page.attributes);
+                final var content = template.apply(new Page(
+                        '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
+                        ofNullable(page.title).orElseGet(this::getTitle),
+                        attrs, "" +
+                        "        <div class=\"container page-content\">\n" +
+                        ofNullable(page.title).map(t -> "" +
+                                "            <div class=\"page-header\">\n" +
+                                "                <h1>" + t + "</h1>\n" +
+                                "            </div>\n")
+                                .orElse("") +
+                        "            <div class=\"page-content-body\">\n" +
+                        renderAdoc(page, asciidoctor, options).trim() + '\n' +
+                        "            </div>\n" +
+                        "        </div>\n"
+                ));
+                Files.writeString(html, postProcessor.apply(withLeftMenuIfConfigured || !configuration.isTemplateAddLeftMenu() ? content : dropLeftMenu(content)));
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        };
     }
 
     protected String getIcon(final Page it) {
@@ -199,16 +201,17 @@ public class MiniSite implements Runnable {
                                         }).thenComparing(identity()))
                                         .map(category -> {
                                             final var categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toCategoryCustomizationId(category));
+                                            final var link = "blog/category/" + toUrlName(category) + "/page-1.html";
                                             return Map.entry(
                                                     new Page(
-                                                            "/blog/index.html",
+                                                            "/" + link,
                                                             "Blog",
                                                             Map.of(
                                                                     "minisite-index-icon", toIcon(ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon).orElse("fa fa-blog")),
                                                                     "minisite-index-title", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getHomePageName).orElse(category),
                                                                     "minisite-index-description", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getDescription).orElseGet(() -> category + " category.")),
                                                             null),
-                                                    output.resolve("blog/category/" + toUrlName(category) + "/page-1.html"));
+                                                    output.resolve(link));
                                         }) :
                                         Stream.empty(),
                                 // add blog last for now
@@ -310,7 +313,8 @@ public class MiniSite implements Runnable {
         final var content = configuration.getSource().resolve("content");
         final Map<Page, Path> files = new HashMap<>();
         final Path output = configuration.getTarget();
-        final var now = OffsetDateTime.now();
+        final var now = configuration.getRuntimeBlogPublicationDate() == null ?
+                OffsetDateTime.now() : configuration.getRuntimeBlogPublicationDate();
         if (!Files.exists(output)) {
             try {
                 Files.createDirectories(output);
@@ -319,18 +323,25 @@ public class MiniSite implements Runnable {
             }
         }
         final var pages = findPages(asciidoctor);
-        final var template = createTemplate(options, asciidoctor, pages);
+        Function<Page, String> template = null;
         boolean hasBlog = false;
         List<String> categories = emptyList();
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
-            pages.forEach(page -> onVisitedFile(page, asciidoctor, options, template, files, now, blog));
+            final var pageToRender = new ArrayList<Consumer<Function<Page, String>>>();
+            pages.forEach(page -> pageToRender.add(onVisitedFile(page, asciidoctor, options, files, now, blog)));
             hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
+            template = createTemplate(options, asciidoctor, hasBlog);
+            final var tpl = template;
+            pageToRender.forEach(it -> it.accept(tpl));
             if (hasBlog) {
                 categories = generateBlog(blog, asciidoctor, options, template);
             }
         }
         if (configuration.isGenerateIndex()) {
+            if (template == null) {
+                template = createTemplate(options, asciidoctor, false);
+            }
             try {
                 Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog, categories).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated index.html");
@@ -420,11 +431,10 @@ public class MiniSite implements Runnable {
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }
 
-    protected void onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
-                                 final Function<Page, String> template, Map<Page, Path> files,
-                                 final OffsetDateTime now, final List<BlogPage> blog) {
+    protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
+                                                             final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
-            return;
+            return t -> {};
         }
         final var out = configuration.getTarget().resolve(page.relativePath.substring(1));
         if (out.getParent() != null && !Files.exists(out.getParent())) {
@@ -441,9 +451,12 @@ public class MiniSite implements Runnable {
             if (now.isAfter(publishedDate)) {
                 blog.add(new BlogPage(page, publishedDate));
             }
+            return t -> {};
         } else {
-            render(page, out, asciidoctor, options, template, true, identity());
-            configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
+            return template -> {
+                render(page, out, asciidoctor, options, true, identity()).accept(template);
+                configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
+            };
         }
     }
 
@@ -526,7 +539,7 @@ public class MiniSite implements Runnable {
                             (idx > 0 ? "* link:" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "[Previous,role=\"blog-link-previous\"]\n" : "") +
                             "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
                             (idx < (blog.size() - 1) ? "* link:" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "[Next,role=\"blog-link-next\"]\n" : "")
-            ), out, asciidoctor, options, template, false, this::markPageAsBlog);
+            ), out, asciidoctor, options, false, this::markPageAsBlog).accept(template);
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
         return allCategories;
@@ -600,9 +613,9 @@ public class MiniSite implements Runnable {
                                 perCriteria.keySet().stream()
                                         .map(it -> "* link:" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + ']')
                                         .collect(joining("\n"))),
-                baseBlog.resolve(singular + "/index.html"), asciidoctor, options, template,
+                baseBlog.resolve(singular + "/index.html"), asciidoctor, options,
                 false,
-                this::markPageAsBlog);
+                this::markPageAsBlog).accept(template);
         return perCriteria.keySet();
     }
 
@@ -702,8 +715,8 @@ public class MiniSite implements Runnable {
                                     (page > 1 ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page - 1) + ".html[Previous,role=\"blog-link-previous\"]\n" : "") +
                                     "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
                                     (page < pages.size() ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page + 1) + ".html[Next,role=\"blog-link-next\"]\n" : "")),
-                    output, asciidoctor, options, template, false,
-                    this::markPageAsBlog);
+                    output, asciidoctor, options, false,
+                    this::markPageAsBlog).accept(template);
         });
 
         final var indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
@@ -734,12 +747,9 @@ public class MiniSite implements Runnable {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
     }
 
-    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor,
-                                                 final Collection<Page> pages) {
+    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor, final boolean hasBlog) {
         final var layout = configuration.getSource().resolve("templates");
-        final var hasBlog = pages.stream().anyMatch(this::isBlogPage);
-        final var extensionPoints = ofNullable(configuration.getTemplateExtensionPoints()).orElseGet(Map::of);
-        String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
+        var prefix = readTemplates(layout, configuration.getTemplatePrefixes())
                 .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
                         "<a href=\"" + configuration.getSiteBase() + "/blog/\">" +
                         "<i class=\"fa fa-blog fa-fw\"></i></a></li>")

@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
@@ -39,18 +40,16 @@ class MiniSiteTest {
 
     @Test
     void blog(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
-        asserts.assertThat(files -> {
-            assertEquals(
-                    List.of(
-                            "blog/author/index.html", "blog/author/romain-manni-bucau/index.html", "blog/author/romain-manni-bucau/page-1.html",
-                            "blog/category/index.html",
-                            "blog/category/others/index.html", "blog/category/others/page-1.html",
-                            "blog/category/simple/index.html", "blog/category/simple/page-1.html",
-                            "blog/index.html", "blog/page-1.html", "blog/page-2.html",
-                            "blog1.html", "blog2.html", "blog3.html",
-                            "css/theme.css", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
-                    files.keySet().stream().sorted().collect(toList()));
-        });
+        asserts.assertThat(files -> assertEquals(
+                List.of(
+                        "blog/author/index.html", "blog/author/romain-manni-bucau/index.html", "blog/author/romain-manni-bucau/page-1.html",
+                        "blog/category/index.html",
+                        "blog/category/others/index.html", "blog/category/others/page-1.html",
+                        "blog/category/simple/index.html", "blog/category/simple/page-1.html",
+                        "blog/index.html", "blog/page-1.html", "blog/page-2.html",
+                        "blog1.html", "blog2.html", "blog3.html",
+                        "css/theme.css", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
+                files.keySet().stream().sorted().collect(toList())));
         asserts.assertContains("blog/page-1.html", "" +
                 "<div class=\"card shadow-sm\">\n" +
                 "  <div class=\"card-body\">\n" +
@@ -134,5 +133,14 @@ class MiniSiteTest {
                 "<div class=\"paragraph metadata\">\n" +
                 "<p><span class=\"metadata-authors\"><a href=\"/blog/author/some-body/page-1.html\">Some Body</a></span>, <span class=\"metadata-published\">2021-02-15</span>, <span class=\"metadata-readingtime\">4 sec read</span></p>\n" +
                 "</div>\n");
+    }
+
+    @Test
+    void blogPublicationDate(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder
+                .blogPublicationDate("2021-02-14")
+                .build())
+                .run();
+        asserts.assertThat(m -> assertEquals(0, m.keySet().stream().filter(it -> it.startsWith("blog")).count(), m.keySet()::toString));
     }
 }

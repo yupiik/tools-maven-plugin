@@ -24,6 +24,11 @@ import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +36,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static lombok.AccessLevel.PRIVATE;
 
 @Data
@@ -83,6 +86,8 @@ public class MiniSiteConfiguration {
     private Map<String, String> templateExtensionPoints;
     private boolean injectYupiikTemplateExtensionPoints;
     private boolean injectBlogMeta;
+    private String blogPublicationDate;
+    private OffsetDateTime runtimeBlogPublicationDate;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
@@ -90,6 +95,31 @@ public class MiniSiteConfiguration {
         }
         if (blogCategoriesCustomizations == null) {
             blogCategoriesCustomizations = Map.of();
+        }
+
+        if (blogPublicationDate == null) {
+            runtimeBlogPublicationDate = OffsetDateTime.now();
+        } else {
+            switch (blogPublicationDate) {
+                case "today":
+                    runtimeBlogPublicationDate = OffsetDateTime.now();
+                    break;
+                case "yesterday":
+                    runtimeBlogPublicationDate = OffsetDateTime.now().minusDays(1);
+                    break;
+                case "tomorrow":
+                    runtimeBlogPublicationDate = OffsetDateTime.now().plusDays(1);
+                    break;
+                case "infinite":
+                    runtimeBlogPublicationDate = OffsetDateTime.MAX;
+                    break;
+                default:
+                    try {
+                        runtimeBlogPublicationDate = OffsetDateTime.parse(blogPublicationDate.strip());
+                    } catch (final DateTimeParseException dtpe) {
+                        runtimeBlogPublicationDate = LocalDate.parse(blogPublicationDate.strip()).atTime(LocalTime.MIN.atOffset(ZoneOffset.UTC));
+                    }
+            }
         }
 
         // ensure writable
