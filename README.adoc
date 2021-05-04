@@ -232,6 +232,9 @@ It comes with its companion serve goal to have a live preview.
 |logo|String|yupiik logo|yupiik.minisite.logo|Logo url.
 |preActions|String|-|-|List of pre actions to execute before the rendering (`{type:xxx,configuration:{}}`).
 |reverseBlogOrder|boolean|true|yupiik.minisite.reverseBlogOrder|Sort by reversed published date the posts on index pages.
+|injectBlogMeta|boolean|false|yupiik.minisite.injectBlogMeta|Add to the top of blog posts the author names (with link to their page), published date and reading time.
+|blogPublicationDate|String|today|yupiik.minisite.blogPublicationDate|Max publication date supported for posts, enables to preview future posts in "writing" mode.
+|blogPageSize|String|10|yupiik.minisite.blogPageSize|How many post to put on a single index/list page.
 |addIndexRegistrationPerCategory|boolean|false|yupiik.minisite.addIndexRegistrationPerCategory|Should categories be added to home page.
 |skipIndexTitleDocumentationText|boolean|false|yupiik.minisite.skipIndexTitleDocumentationText|Should ` Documentation` be appended to index text.
 |logoSideText|String|Docs|yupiik.minisite.logoSideText|Text next logo text, generally the subproject or just `Docs`.
