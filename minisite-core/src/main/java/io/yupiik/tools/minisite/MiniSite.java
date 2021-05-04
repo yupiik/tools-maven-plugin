@@ -124,11 +124,12 @@ public class MiniSite implements Runnable {
             try {
                 final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
                 attrs.putAll(page.attributes);
+                final var pageClass = toUrlName(page.relativePath).replaceFirst("^/", "").replace('/', '-');
                 final var content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
                         ofNullable(page.title).orElseGet(this::getTitle),
                         attrs, "" +
-                        "        <div class=\"container page-content\">\n" +
+                        "        <div id=\"" + pageClass + "-container\" class=\"container page-content " + pageClass + "\">\n" +
                         ofNullable(page.title).map(t -> "" +
                                 "            <div class=\"page-header\">\n" +
                                 "                <h1>" + t + "</h1>\n" +
