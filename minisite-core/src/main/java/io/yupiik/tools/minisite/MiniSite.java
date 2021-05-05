@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -153,22 +154,30 @@ public class MiniSite implements Runnable {
     protected String getIcon(final Page it) {
         return of(it)
                 .flatMap(p -> isBlogPage(p) ?
-                        ofNullable(p.attributes.get("minisite-blog-categories"))
-                                .map(String::valueOf)
-                                .map(this::parseCsv)
-                                .flatMap(cats -> cats
-                                        .map(c -> configuration.getBlogCategoriesCustomizations().get(c))
-                                        .filter(Objects::nonNull)
-                                        .map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon)
-                                        .filter(Objects::nonNull)
-                                        .findFirst()) :
+                        findFirstBlogCategoryIcon(p) :
                         ofNullable(p.attributes.get("minisite-index-icon"))
                                 .map(String::valueOf))
                 .map(this::toIcon)
                 .orElse("fas fa-download-alt");
     }
 
-    private String toIcon(final String i) {
+    protected Optional<String> findFirstBlogCategoryIcon(final Page p) {
+        return ofNullable(getPageCategories(p))
+                .map(String::valueOf)
+                .map(this::parseCsv)
+                .flatMap(cats -> cats
+                        .map(c -> configuration.getBlogCategoriesCustomizations().get(c))
+                        .filter(Objects::nonNull)
+                        .map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon)
+                        .filter(Objects::nonNull)
+                        .findFirst());
+    }
+
+    protected Object getPageCategories(final Page p) {
+        return p.attributes.get("minisite-blog-categories");
+    }
+
+    protected String toIcon(final String i) {
         return i.startsWith("fa") && i.contains(" ") ? i : ("fas fa-" + i);
     }
 
@@ -256,7 +265,7 @@ public class MiniSite implements Runnable {
                         "                            <div class=\"card-body\">\n" +
                         "                                <h5 class=\"card-title mb-3\">\n" +
                         "                                    <span class=\"theme-icon-holder card-icon-holder mr-2 " +
-                        getCategoryClass(p.getKey().attributes.get("minisite-blog-categories")) + "\">\n" +
+                        getCategoryClass(getPageCategories(p.getKey())) + "\">\n" +
                         "                                        <i class=\"" +
                         getIcon(p.getKey()) + "\"></i>\n" +
                         "                                    </span>\n" +
@@ -556,7 +565,7 @@ public class MiniSite implements Runnable {
                                                             "\n" +
                                                             "[role=\"blog-links blog-categories\"]\n", "\n\n")))
                                     .orElse("") +
-                            ofNullable(bp.page.attributes.get("minisite-blog-categories"))
+                            ofNullable(getPageCategories(bp.page))
                                     .map(String::valueOf)
                                     .map(categories -> parseCsv(categories)
                                             .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
@@ -599,6 +608,10 @@ public class MiniSite implements Runnable {
         lines.addAll(idx, List.of(
                 "",
                 Stream.of(
+                        findFirstBlogCategoryIcon(bp.page)
+                                .map(this::toIcon)
+                                .map(icon -> "[.mr-2." + getCategoryClass(getPageCategories(bp.page)) + "]#icon:" + icon + "[]#")
+                                .orElse(""),
                         ofNullable(bp.page.attributes.get("minisite-blog-authors"))
                                 .map(value -> (List.class.isInstance(value) ?
                                         ((List<String>) value).stream() :
@@ -721,7 +734,7 @@ public class MiniSite implements Runnable {
                                                     "  <div class=\"card-body\">\n" +
                                                     "      <h5 class=\"card-title mb-3\">\n" +
                                                     "          <span class=\"theme-icon-holder card-icon-holder mr-2 " +
-                                                    getCategoryClass(it.page.attributes.get("minisite-blog-categories")) + "\">\n" +
+                                                    getCategoryClass(getPageCategories(it.page)) + "\">\n" +
                                                     "              <i class=\"" + getIcon(it.page) + "\"></i>\n" +
                                                     "          </span>\n" +
                                                     "          <span class=\"card-title-text\">" + it.page.title + "</span>\n" +
