@@ -23,7 +23,6 @@ import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
@@ -58,13 +57,13 @@ class MiniSiteTest {
                 "              <i class=\"fas fa-download-alt\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My First Post</span>\n" +
-                "          <span class=\"card-subtitle-text\">2021-02-15</span>\n" +
+                "          <span class=\"card-subtitle-text\">, 2021-02-15</span>\n" +
                 "      </h5>\n" +
                 "      <div class=\"card-text\">\n" +
                 "<div class=\"paragraph\">\n" +
                 "<p>First post.</p>\n" +
                 "</div>\n" +
-                "      </div>\n" +
+                "          </div>\n" +
                 "      <a class=\"card-link-mask\" href=\"/blog1.html\"></a>\n" +
                 "  </div>\n" +
                 "</div>\n" +
@@ -75,10 +74,10 @@ class MiniSiteTest {
                 "              <i class=\"fas fa-download-alt\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My Second Post</span>\n" +
-                "          <span class=\"card-subtitle-text\">2021-02-16</span>\n" +
+                "          <span class=\"card-subtitle-text\">, 2021-02-16</span>\n" +
                 "      </h5>\n" +
                 "      <div class=\"card-text\">\n" +
-                "      </div>\n" +
+                "          </div>\n" +
                 "      <a class=\"card-link-mask\" href=\"/blog3.html\"></a>\n" +
                 "  </div>\n" +
                 "</div>\n" +
@@ -93,7 +92,7 @@ class MiniSiteTest {
                 "</ul>\n" +
                 "</div>");
         asserts.assertContains("blog/page-2.html", "" +
-                "<div class=\"card shadow-sm\">\n" +
+                "                <div class=\"card shadow-sm\">\n" +
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
                 "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-others\">\n" +
@@ -106,7 +105,7 @@ class MiniSiteTest {
                 "<div class=\"paragraph\">\n" +
                 "<p>Second post.</p>\n" +
                 "</div>\n" +
-                "      </div>\n" +
+                "          </div>\n" +
                 "      <a class=\"card-link-mask\" href=\"/blog2.html\"></a>\n" +
                 "  </div>\n" +
                 "</div>\n" +
