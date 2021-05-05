@@ -206,11 +206,11 @@ public class MiniSite implements Runnable {
                         Stream.concat(
                                 configuration.isAddIndexRegistrationPerCategory() ? blogCategories.stream()
                                         .sorted(Comparator.<String, Integer>comparing(c -> {
-                                            final var configuration = this.configuration.getBlogCategoriesCustomizations().get(toCategoryCustomizationId(c));
+                                            final var configuration = this.configuration.getBlogCategoriesCustomizations().get(toClassName(c));
                                             return configuration == null ? -1 : configuration.getOrder();
                                         }).thenComparing(identity()))
                                         .map(category -> {
-                                            final var categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toCategoryCustomizationId(category));
+                                            final var categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toClassName(category));
                                             final var link = "blog/category/" + toUrlName(category) + "/page-1.html";
                                             return Map.entry(
                                                     new Page(
@@ -243,7 +243,8 @@ public class MiniSite implements Runnable {
                         "                        <div class=\"card shadow-sm\">\n" +
                         "                            <div class=\"card-body\">\n" +
                         "                                <h5 class=\"card-title mb-3\">\n" +
-                        "                                    <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                        "                                    <span class=\"theme-icon-holder card-icon-holder mr-2 " +
+                        getCategoryClass(p.getKey().attributes.get("minisite-blog-categories")) + "\">\n" +
                         "                                        <i class=\"" +
                         getIcon(p.getKey()) + "\"></i>\n" +
                         "                                    </span>\n" +
@@ -279,8 +280,18 @@ public class MiniSite implements Runnable {
         return dropRightColumn(content);
     }
 
-    private String toCategoryCustomizationId(final String c) {
-        return c.replace(" ", "").replace("/", "");
+    private String getCategoryClass(final Object categories) {
+        return "category-" + ofNullable(categories)
+                .map(String::valueOf)
+                .map(this::parseCsv)
+                .flatMap(Stream::findFirst)
+                .map(this::toClassName)
+                .map(it -> it.toLowerCase(Locale.ROOT))
+                .orElse("default");
+    }
+
+    private String toClassName(final String value) {
+        return value.replace(" ", "").replace("/", "");
     }
 
     protected String dropRightColumn(final String content) {
@@ -525,9 +536,7 @@ public class MiniSite implements Runnable {
                             "\n" +
                             ofNullable(bp.page.attributes.get("minisite-blog-authors"))
                                     .map(String::valueOf)
-                                    .map(authors -> Stream.of(authors.split(","))
-                                            .map(String::trim)
-                                            .filter(c -> !c.isBlank())
+                                    .map(authors -> parseCsv(authors)
                                             .map(author -> "* link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(author) + "/page-1.html" + "[" + author + "]")
                                             .collect(joining("\n",
                                                     "[role=blog-categories]\n" +
@@ -537,9 +546,7 @@ public class MiniSite implements Runnable {
                                     .orElse("") +
                             ofNullable(bp.page.attributes.get("minisite-blog-categories"))
                                     .map(String::valueOf)
-                                    .map(categories -> Stream.of(categories.split(","))
-                                            .map(String::trim)
-                                            .filter(c -> !c.isBlank())
+                                    .map(categories -> parseCsv(categories)
                                             .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
                                             .collect(joining("\n",
                                                     "[role=blog-categories]\n" +
@@ -555,6 +562,12 @@ public class MiniSite implements Runnable {
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
         return allCategories;
+    }
+
+    private Stream<String> parseCsv(final String categories) {
+        return Stream.of(categories.split(","))
+                .map(String::trim)
+                .filter(c -> !c.isBlank());
     }
 
     private String injectBlogMeta(final BlogPage bp) {
@@ -598,9 +611,7 @@ public class MiniSite implements Runnable {
         // per category pagination /category/<name>/page-<x>.html
         final var perCriteria = blog.stream()
                 .filter(it -> it.page.attributes.containsKey("minisite-blog-" + plural))
-                .flatMap(it -> Stream.of(String.valueOf(it.page.attributes.get("minisite-blog-" + plural)).split(","))
-                        .map(String::trim)
-                        .filter(c -> !c.isBlank())
+                .flatMap(it -> parseCsv(String.valueOf(it.page.attributes.get("minisite-blog-" + plural)))
                         .map(c -> new AbstractMap.SimpleImmutableEntry<>(c, it)))
                 .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
         perCriteria.forEach((key, posts) -> {
@@ -697,7 +708,8 @@ public class MiniSite implements Runnable {
                                                     "<div class=\"card shadow-sm\">\n" +
                                                     "  <div class=\"card-body\">\n" +
                                                     "      <h5 class=\"card-title mb-3\">\n" +
-                                                    "          <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                                                    "          <span class=\"theme-icon-holder card-icon-holder mr-2 " +
+                                                    getCategoryClass(it.page.attributes.get("minisite-blog-categories")) + "\">\n" +
                                                     "              <i class=\"fa fa-blog\"></i>\n" +
                                                     "          </span>\n" +
                                                     "          <span class=\"card-title-text\">" + it.page.title + "</span>\n" +

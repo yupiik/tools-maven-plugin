@@ -54,7 +54,7 @@ class MiniSiteTest {
                 "<div class=\"card shadow-sm\">\n" +
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
-                "          <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-others\">\n" +
                 "              <i class=\"fa fa-blog\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My First Post</span>\n" +
@@ -71,7 +71,7 @@ class MiniSiteTest {
                 "<div class=\"card shadow-sm\">\n" +
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
-                "          <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-default\">\n" +
                 "              <i class=\"fa fa-blog\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My Second Post</span>\n" +
@@ -96,7 +96,7 @@ class MiniSiteTest {
                 "<div class=\"card shadow-sm\">\n" +
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
-                "          <span class=\"theme-icon-holder card-icon-holder mr-2\">\n" +
+                "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-others\">\n" +
                 "              <i class=\"fa fa-blog\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My Third Post</span>\n" +
