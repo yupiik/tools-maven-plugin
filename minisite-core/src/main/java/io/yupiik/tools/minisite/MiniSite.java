@@ -63,6 +63,7 @@ import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
@@ -150,9 +151,20 @@ public class MiniSite implements Runnable {
     }
 
     protected String getIcon(final Page it) {
-        return ofNullable(it.attributes.get("minisite-index-icon"))
-                .map(String::valueOf)
-                .map(i -> toIcon(i))
+        return of(it)
+                .flatMap(p -> isBlogPage(p) ?
+                        ofNullable(p.attributes.get("minisite-blog-categories"))
+                                .map(String::valueOf)
+                                .map(this::parseCsv)
+                                .flatMap(cats -> cats
+                                        .map(c -> configuration.getBlogCategoriesCustomizations().get(c))
+                                        .filter(Objects::nonNull)
+                                        .map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon)
+                                        .filter(Objects::nonNull)
+                                        .findFirst()) :
+                        ofNullable(p.attributes.get("minisite-index-icon"))
+                                .map(String::valueOf))
+                .map(this::toIcon)
                 .orElse("fas fa-download-alt");
     }
 
@@ -710,7 +722,7 @@ public class MiniSite implements Runnable {
                                                     "      <h5 class=\"card-title mb-3\">\n" +
                                                     "          <span class=\"theme-icon-holder card-icon-holder mr-2 " +
                                                     getCategoryClass(it.page.attributes.get("minisite-blog-categories")) + "\">\n" +
-                                                    "              <i class=\"fa fa-blog\"></i>\n" +
+                                                    "              <i class=\"" + getIcon(it.page) + "\"></i>\n" +
                                                     "          </span>\n" +
                                                     "          <span class=\"card-title-text\">" + it.page.title + "</span>\n" +
                                                     "          <span class=\"card-subtitle-text\">" +

@@ -71,7 +71,9 @@ code {
 .theme-icon-holder .svg-inline---fa {
     color: #007bff
 }
-span.theme-icon-holder > i.fa {
+span.theme-icon-holder > i.fa,
+span.theme-icon-holder > i.fab,
+span.theme-icon-holder > i.fas {
     padding-top: 0.4rem;
 }
 
