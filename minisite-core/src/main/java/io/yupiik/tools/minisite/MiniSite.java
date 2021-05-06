@@ -76,6 +76,7 @@ import static java.util.stream.Collectors.toList;
 public class MiniSite implements Runnable {
     private final MiniSiteConfiguration configuration;
     private final ReadingTimeComputer readingTimeComputer = new ReadingTimeComputer();
+    private final Gravatar gravatar = new Gravatar();
     private final Pattern linkTitleReplacement = Pattern.compile("[\"\n]");
 
     public MiniSite(final MiniSiteConfiguration configuration) {
@@ -345,6 +346,16 @@ public class MiniSite implements Runnable {
                 return ofNullable(page.attributes.get("minisite-blog-authors"))
                         .map(String::valueOf)
                         .map(a -> "by " + String.join(" and ", a.split(",")))
+                        .orElse("");
+            case "gravatar":
+                return ofNullable(page.attributes.get("minisite-blog-gravatar"))
+                        .map(String::valueOf)
+                        .map(String::strip)
+                        .or(() -> ofNullable(page.attributes.get("minisite-blog-authors"))
+                                .map(String::valueOf)
+                                .map(it -> it.split(","))
+                                .flatMap(it -> Stream.of(it).map(String::strip).filter(n -> !n.isBlank()).findFirst()))
+                        .map(a -> gravatar.toUrl(configuration.getGravatar(), a))
                         .orElse("");
             case "publishedDate":
                 return readPublishedDate(page).toLocalDate().toString();

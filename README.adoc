@@ -240,6 +240,7 @@ It comes with its companion serve goal to have a live preview.
 |logoSideText|String|Docs|yupiik.minisite.logoSideText|Text next logo text, generally the subproject or just `Docs`.
 |injectYupiikTemplateExtensionPoints|boolean|true|yupiik.minisite.injectYupiikTemplateExtensionPoints|Should Yupiik custom points be used (alias for multiple custom extension points, only override missing ones).
 |templateExtensionPoints|Map<String,String>|-|yupiik.minisite.templateExtensionPoints|Values for custom template extension points like `socialLinks` and `copyrightLine`. Note that these templates can also be put in `templates/extension-points` folder (with `.html` extension appended to their name).
+|gravatar|GravatarConfiguration|-|-|An object where gravatar URL pattern can be configured. Default is equivalent to: `<gravatar><url>https://www.gravatar.com/avatar/%s?d=identicon&size=40</url></gravatar>`.
 |====
 
 TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.

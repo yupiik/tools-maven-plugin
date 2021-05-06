@@ -292,6 +292,12 @@ public class MiniSiteMojo extends BaseMojo {
     private String logoSideText;
 
     /**
+     * Gravatar configuration.
+     */
+    @Parameter
+    private MiniSiteConfiguration.GravatarConfiguration gravatar;
+
+    /**
      * Enables to customize how categories are shown on home page.
      */
     @Parameter
@@ -389,6 +395,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .logoSideText(logoSideText)
                 .injectYupiikTemplateExtensionPoints(injectYupiikTemplateExtensionPoints)
                 .templateExtensionPoints(templateExtensionPoints)
+                .gravatar(gravatar == null ? new MiniSiteConfiguration.GravatarConfiguration() : gravatar)
                 .build();
     }
 

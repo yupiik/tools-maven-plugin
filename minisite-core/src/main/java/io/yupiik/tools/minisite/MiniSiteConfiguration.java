@@ -23,6 +23,8 @@ import lombok.NoArgsConstructor;
 import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -31,11 +33,15 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.joining;
 import static lombok.AccessLevel.PRIVATE;
 
 @Data
@@ -88,6 +94,7 @@ public class MiniSiteConfiguration {
     private boolean injectBlogMeta;
     private String blogPublicationDate;
     private OffsetDateTime runtimeBlogPublicationDate;
+    private GravatarConfiguration gravatar = new GravatarConfiguration();
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
@@ -146,5 +153,79 @@ public class MiniSiteConfiguration {
         private String homePageName;
         private String icon;
         private String description;
+    }
+
+    @Data
+    public static class GravatarConfiguration {
+        private String url = "https://www.gravatar.com/avatar/%s?d=identicon&size=40";
+        private Function<String, String> nameToMailMapper = this::defaultMailMappingStrategy;
+
+        public String defaultMailMappingStrategy(final String name) {
+            final var segments = name.split(" ");
+            return Character.toLowerCase(segments[0].charAt(0)) +
+                    Stream.of(segments).skip(1).map(it -> it.replace("-", "").toLowerCase(Locale.ROOT)).collect(joining()) + "@yupiik.com";
+        }
+
+        /**
+         * Enables to specify how to map an author name to a mail.
+         * It uses a properties syntax.
+         * {@code default} enables to force the default implementation to be used.
+         *
+         * @param config configuration in properties format.
+         */
+        public void setMailMappingStrategy(final String config) { // enables to be set from maven config or any IoC
+            if ("default".equals(config)) {
+                nameToMailMapper = this::defaultMailMappingStrategy;
+                return;
+            }
+            final var props = new Properties();
+            try (final var reader = new StringReader(config)) {
+                try {
+                    props.load(reader);
+                } catch (final IOException e) {
+                    throw new IllegalArgumentException(e);
+                }
+            }
+            switch (props.getProperty("strategy", "custom")) {
+                case "default":
+                    nameToMailMapper = this::defaultMailMappingStrategy;
+                    break;
+                case "custom":
+                default:
+                    final var mail = '@' + props.getProperty("mail", "yupiik.com");
+                    final var firstNameFirstLetter = Boolean.parseBoolean(props.getProperty("firstName.firstLetter", "true"));
+                    final var firstNameLowerCase = Boolean.parseBoolean(props.getProperty("firstName.lower", "true"));
+                    final var lastNameConcatenationSep = props.getProperty("lastName.concatenationSeparator", "");
+                    final var lastNameStripNotAlphaChars = Boolean.parseBoolean(props.getProperty("lastName.stripNotAlphaChars", "true"));
+                    final var lastNameLowerCase = Boolean.parseBoolean(props.getProperty("lastName.lower", "true"));
+                    final var firstNameLastNameSeparator = props.getProperty("names.separator", "");
+                    nameToMailMapper = name -> {
+                        final var segments = name.split(" ");
+
+                        var firstname = segments[0];
+                        if (firstNameFirstLetter) {
+                            firstname = firstname.substring(0, 1);
+                        }
+                        if (firstNameLowerCase) {
+                            firstname = firstname.toLowerCase(Locale.ROOT);
+                        }
+
+                        final var lastName = Stream.of(segments)
+                                .skip(1)
+                                .map(it -> {
+                                    var value = it;
+                                    if (lastNameStripNotAlphaChars) {
+                                        value = value.replaceAll("[\\W]", "");
+                                    }
+                                    if (lastNameLowerCase) {
+                                        value = value.toLowerCase(Locale.ROOT);
+                                    }
+                                    return value;
+                                })
+                                .collect(joining(lastNameConcatenationSep));
+                        return firstname + firstNameLastNameSeparator + lastName + mail;
+                    };
+            }
+        }
     }
 }
