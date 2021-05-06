@@ -138,7 +138,7 @@ public class MiniSite implements Runnable {
                             if ("title".equals(key)) {
                                 return t;
                             }
-                            throw new IllegalArgumentException("Unknown page-title template key '" + key + "', only 'title' is supported");
+                            return getDefaultInterpolation(key, page, asciidoctor, options);
                         }).replace(titleTemplate))
                         .orElse("");
                 final var body = new TemplateSubstitutor(key -> {
