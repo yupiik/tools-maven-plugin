@@ -132,7 +132,6 @@ public class MiniSite implements Runnable {
             try {
                 final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
                 attrs.putAll(page.attributes);
-                final var pageClass = toUrlName(page.relativePath).replaceFirst("^/", "").replace('/', '-');
                 final var title = ofNullable(page.title)
                         .map(t -> new TemplateSubstitutor(key -> {
                             if ("title".equals(key)) {
@@ -142,16 +141,10 @@ public class MiniSite implements Runnable {
                         }).replace(titleTemplate))
                         .orElse("");
                 final var body = new TemplateSubstitutor(key -> {
-                    switch (key) {
-                        case "pageClass":
-                            return pageClass;
-                        case "title":
-                            return title;
-                        case "body":
-                            return renderAdoc(page, asciidoctor, options).strip();
-                        default:
-                            throw new IllegalArgumentException("Unknown page-content template key '" + key + "'");
+                    if ("title".equals(key)) {
+                        return title;
                     }
+                    return getDefaultInterpolation(key, page, asciidoctor, options);
                 }).replace(contentTemplate);
                 final var content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
@@ -224,24 +217,20 @@ public class MiniSite implements Runnable {
         return new TemplateSubstitutor(key -> {
             switch (key) {
                 case "title":
-                    return toLinkTitle(it);
+                    return toLinkTitle(it.getKey());
                 case "href":
                     return configuration.getSiteBase() + '/' + output.relativize(it.getValue());
-                case "icon":
-                    return getIcon(it.getKey());
-                case "text":
-                    return getTitle(it.getKey());
                 default:
-                    throw new IllegalArgumentException("Unknown key '" + key + "'");
+                    return getDefaultInterpolation(key, it.getKey(), null, null);
             }
         }).replace(template);
     }
 
-    protected String toLinkTitle(final Map.Entry<Page, Path> it) {
-        if (it.getKey().title == null) {
+    protected String toLinkTitle(final Page page) {
+        if (page.title == null) {
             return "";
         }
-        return linkTitleReplacement.matcher(it.getKey().title).replaceAll(" ");
+        return linkTitleReplacement.matcher(page.title).replaceAll(" ");
     }
 
     /**
@@ -299,32 +288,12 @@ public class MiniSite implements Runnable {
                                                         null),
                                                 output.resolve("blog/index.html"))))) :
                 findIndexPages(htmls))
-                .map(p -> {
-                    final var categoryClass = getCategoryClass(getPageCategories(p.getKey()));
-                    final var icon = getIcon(p.getKey());
-                    final var title = getTitle(p.getKey());
-                    final var description = ofNullable(p.getKey().attributes.get("minisite-index-description")).map(String::valueOf).orElse(p.getKey().title);
-                    final var hrefTitle = toLinkTitle(p);
-                    final var href = configuration.getSiteBase() + '/' + output.relativize(p.getValue());
-                    return new TemplateSubstitutor(key -> {
-                        switch (key) {
-                            case "categoryClass":
-                                return categoryClass;
-                            case "icon":
-                                return icon;
-                            case "title":
-                                return title;
-                            case "description":
-                                return description;
-                            case "hrefTitle":
-                                return hrefTitle;
-                            case "href":
-                                return href;
-                            default:
-                                throw new IllegalArgumentException("Unknown key '" + key + "'");
-                        }
-                    }).replace(itemTemplate);
-                })
+                .map(p -> new TemplateSubstitutor(key -> {
+                    if ("href".equals(key)) {
+                        return configuration.getSiteBase() + '/' + output.relativize(p.getValue());
+                    }
+                    return getDefaultInterpolation(key, p.getKey(), null, null);
+                }).replace(itemTemplate))
                 .collect(joining(""));
 
         final var content = dropLeftMenu(
@@ -350,7 +319,45 @@ public class MiniSite implements Runnable {
         return dropRightColumn(content);
     }
 
-    private String getCategoryClass(final Object categories) {
+    protected String getDefaultInterpolation(final String key, final Page page,
+                                             final Asciidoctor asciidoctor, final Options options) {
+        switch (key) {
+            case "categoryClass":
+                return getCategoryClass(getPageCategories(page));
+            case "icon":
+                return getIcon(page);
+            case "title":
+                return getTitle(page);
+            case "description":
+                return ofNullable(page.attributes.get("minisite-index-description")).map(String::valueOf).orElse(page.title);
+            case "hrefTitle":
+                return toLinkTitle(page);
+            case "pageClass":
+                return toUrlName(page.relativePath).replaceFirst("^/", "").replace('/', '-');
+            case "body":
+                if (asciidoctor == null) {
+                    throw new IllegalArgumentException("'body' no available");
+                }
+                return renderAdoc(page, asciidoctor, options).strip();
+            case "href":
+                return page.relativePath;
+            case "authors":
+                return ofNullable(page.attributes.get("minisite-blog-authors"))
+                        .map(String::valueOf)
+                        .map(a -> "by " + String.join(" and ", a.split(",")))
+                        .orElse("");
+            case "publishedDate":
+                return readPublishedDate(page).toLocalDate().toString();
+            case "summary":
+                return ofNullable(page.attributes.get("minisite-blog-summary"))
+                        .map(String::valueOf)
+                        .orElse("");
+            default:
+                throw new IllegalArgumentException("Unknown template key '" + key + "'");
+        }
+    }
+
+    protected String getCategoryClass(final Object categories) {
         return "category-" + ofNullable(categories)
                 .map(String::valueOf)
                 .map(this::parseCsv)
@@ -787,29 +794,10 @@ public class MiniSite implements Runnable {
                                     case "items":
                                         return pages.get(page - 1).stream()
                                                 .map(it -> new TemplateSubstitutor(itemKey -> {
-                                                    switch (itemKey) {
-                                                        case "categoryClass":
-                                                            return getCategoryClass(getPageCategories(it.page));
-                                                        case "icon":
-                                                            return getIcon(it.page);
-                                                        case "title":
-                                                            return it.page.title;
-                                                        case "authors":
-                                                            return ofNullable(it.page.attributes.get("minisite-blog-authors"))
-                                                                    .map(String::valueOf)
-                                                                    .map(a -> "by " + String.join(" and ", a.split(",")))
-                                                                    .orElse("");
-                                                        case "publishedDate":
-                                                            return readPublishedDate(it.page).toLocalDate().toString();
-                                                        case "summary":
-                                                            return ofNullable(it.page.attributes.get("minisite-blog-summary"))
-                                                                    .map(String::valueOf)
-                                                                    .orElse("");
-                                                        case "href":
-                                                            return it.page.relativePath;
-                                                        default:
-                                                            throw new IllegalArgumentException("Unknown key '" + itemKey + "'");
+                                                    if ("title".equals(itemKey)) {
+                                                        return it.page.title;
                                                     }
+                                                    return getDefaultInterpolation(itemKey, it.page, asciidoctor, options);
                                                 }).replace(itemTemplate))
                                                 .collect(joining("\n", "\n", "\n"));
                                     case "links":
