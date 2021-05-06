@@ -182,7 +182,12 @@ public class MiniSite implements Runnable {
                 .map(String::valueOf)
                 .map(this::parseCsv)
                 .flatMap(cats -> cats
-                        .map(c -> configuration.getBlogCategoriesCustomizations().get(c))
+                        .map(c -> {
+                            final var customizations = configuration.getBlogCategoriesCustomizations();
+                            return ofNullable(customizations.get(c))
+                                    // for complex names (with slashes or so) we normalize it to make it conf friendly)
+                                    .orElseGet(() -> customizations.get(toClassName(c)));
+                        })
                         .filter(Objects::nonNull)
                         .map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon)
                         .filter(Objects::nonNull)
@@ -268,6 +273,7 @@ public class MiniSite implements Runnable {
                                                             "/" + link,
                                                             "Blog",
                                                             Map.of(
+                                                                    "minisite-blog-categories", category,
                                                                     "minisite-index-icon", toIcon(ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon).orElse("fa fa-blog")),
                                                                     "minisite-index-title", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getHomePageName).orElse(category),
                                                                     "minisite-index-description", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getDescription).orElseGet(() -> category + " category.")),

@@ -77,6 +77,16 @@ span.theme-icon-holder > i.fas {
     padding-top: 0.4rem;
 }
 
+/*asciidoctor vs fontawesome 5 compat*/
+.fa.fab {
+    font-family: "Font Awesome 5 Free" !important;
+}
+.fa.fa-fab {
+    font-weight: 400;
+    font-family: "Font Awesome 5 Brands";
+}
+
+
 .border-radius-0 {
     border-radius: 0
 }
@@ -374,3 +384,5 @@ div.colist.arabic > ol > li > p {
     font-size: smaller;
     font-style: italic;
 }
+
+
