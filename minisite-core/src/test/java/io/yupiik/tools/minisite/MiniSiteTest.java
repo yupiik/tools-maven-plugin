@@ -54,7 +54,7 @@ class MiniSiteTest {
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
                 "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-others\">\n" +
-                "              <i class=\"fas fa-download-alt\"></i>\n" +
+                "              <i class=\"fas fa-download\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My First Post</span>\n" +
                 "          <span class=\"card-subtitle-text\">, 2021-02-15</span>\n" +
@@ -71,7 +71,7 @@ class MiniSiteTest {
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
                 "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-default\">\n" +
-                "              <i class=\"fas fa-download-alt\"></i>\n" +
+                "              <i class=\"fas fa-download\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My Second Post</span>\n" +
                 "          <span class=\"card-subtitle-text\">, 2021-02-16</span>\n" +
@@ -96,7 +96,7 @@ class MiniSiteTest {
                 "  <div class=\"card-body\">\n" +
                 "      <h5 class=\"card-title mb-3\">\n" +
                 "          <span class=\"theme-icon-holder card-icon-holder mr-2 category-others\">\n" +
-                "              <i class=\"fas fa-download-alt\"></i>\n" +
+                "              <i class=\"fas fa-download\"></i>\n" +
                 "          </span>\n" +
                 "          <span class=\"card-title-text\">My Third Post</span>\n" +
                 "          <span class=\"card-subtitle-text\">by Romain Manni-Bucau, 2021-02-16</span>\n" +

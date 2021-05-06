@@ -174,7 +174,7 @@ public class MiniSite implements Runnable {
                         ofNullable(p.attributes.get("minisite-index-icon"))
                                 .map(String::valueOf))
                 .map(this::toIcon)
-                .orElse("fas fa-download-alt");
+                .orElse("fas fa-download");
     }
 
     protected Optional<String> findFirstBlogCategoryIcon(final Page p) {
