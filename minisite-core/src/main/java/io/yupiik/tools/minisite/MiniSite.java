@@ -165,7 +165,7 @@ public class MiniSite implements Runnable {
     }
 
     protected String findPageTemplate(final Path templates, final String name) {
-        return requireNonNull(findTemplate(templates, name + ".html"), "can't find " + name + ".html template")
+        return requireNonNull(findTemplate(templates, name + (name.endsWith(".adoc") ? "" : ".html")), "can't find " + name + " template")
                 .collect(joining("\n"));
     }
 
@@ -591,8 +591,8 @@ public class MiniSite implements Runnable {
         }
 
         final var templateDir = getTemplatesDir();
-        final var blogItemTemplate = findPageTemplate(templateDir, "blog-list-item");
-        final var blogTemplate = findPageTemplate(templateDir, "blog-list");
+        final var blogItemTemplate = findPageTemplate(templateDir, "blog-list-item.adoc");
+        final var blogTemplate = findPageTemplate(templateDir, "blog-list.adoc");
 
         paginateBlogPages((number, total) -> "Blog Page " + number + "/" + total, "", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate);
         final var allCategories = new ArrayList<>(paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate));
