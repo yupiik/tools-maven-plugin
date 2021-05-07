@@ -379,6 +379,8 @@ public class MiniSite implements Runnable {
                 return ofNullable(page.attributes.get("minisite-blog-summary"))
                         .map(String::valueOf)
                         .orElse("");
+            case "readingTime":
+                return readingTimeComputer.toReadingTime(page.content);
             default:
                 throw new IllegalArgumentException("Unknown template key '" + key + "'");
         }
