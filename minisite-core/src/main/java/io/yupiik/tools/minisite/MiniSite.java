@@ -348,10 +348,20 @@ public class MiniSite implements Runnable {
                 return renderAdoc(page, asciidoctor, options).strip();
             case "href":
                 return page.relativePath;
+            case "author":
+                return ofNullable(page.attributes.get("minisite-blog-authors"))
+                        .map(String::valueOf)
+                        .flatMap(a -> Stream.of(a.split(",")).findFirst())
+                        .orElse("");
             case "authors":
                 return ofNullable(page.attributes.get("minisite-blog-authors"))
                         .map(String::valueOf)
                         .map(a -> "by " + String.join(" and ", a.split(",")))
+                        .orElse("");
+            case "authors-list":
+                return ofNullable(page.attributes.get("minisite-blog-authors"))
+                        .map(String::valueOf)
+                        .map(a -> String.join(" and ", a.split(",")))
                         .orElse("");
             case "gravatar":
                 return ofNullable(page.attributes.get("minisite-blog-gravatar"))
