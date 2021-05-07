@@ -716,37 +716,36 @@ public class MiniSite implements Runnable {
         return allCategories;
     }
 
-    private String getCategoriesList(final BlogPage bp) {
-        return ofNullable(getPageCategories(bp.page))
+    private String getHtmlList(final String urlMarker, final Function<String, String> prefixText, final Object value) {
+        return ofNullable(value)
                 .map(String::valueOf)
                 .map(categories -> parseCsv(categories)
-                        .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
+                        .map(category -> "<li><p><a href=\"" + configuration.getSiteBase() + "/blog/" + urlMarker + "/" + toUrlName(category) + "/page-1.html\">" + toHumanName(category) + "</a></p></li>")
                         .collect(joining("\n",
-                                "[role=blog-categories]\n" +
-                                        "In the same categor" + (categories.contains(",") ? "ies" : "y") + ":\n" +
-                                        "\n" +
-                                        "[role=\"blog-links blog-categories\"]\n", "\n\n")))
+                                "\n\n<div class=\"paragraph blog-categories\">\n" +
+                                        prefixText.apply(categories) +
+                                        "</div>\n" +
+                                        "<div class=\"ulist blog-links blog-categories\">\n" +
+                                        "<ul>\n", "</ul>\n</div>\n\n\n")))
                 .orElse("");
+    }
+
+    private String getCategoriesList(final BlogPage bp) {
+        return getHtmlList("category", categories -> "<p>In the same categor" + (categories.contains(",") ? "ies" : "y") + ":</p>\n", getPageCategories(bp.page));
     }
 
     private String getAuthorsList(final BlogPage bp) {
-        return ofNullable(bp.page.attributes.get("minisite-blog-authors"))
-                .map(String::valueOf)
-                .map(authors -> parseCsv(authors)
-                        .map(author -> "* link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(author) + "/page-1.html" + "[" + author + "]")
-                        .collect(joining("\n",
-                                "[role=blog-categories]\n" +
-                                        "From the same author" + (authors.contains(",") ? "s" : "") + ":\n" +
-                                        "\n" +
-                                        "[role=\"blog-links blog-categories\"]\n", "\n\n")))
-                .orElse("");
+        return getHtmlList("author", authors -> "<p>From the same author" + (authors.contains(",") ? "s" : "") + ":<p>\n", bp.page.attributes.get("minisite-blog-authors"));
     }
 
     private String getNavigationLinks(final List<BlogPage> blog, final int idx) {
-        return "[role=blog-links]\n" +
-                (idx > 0 ? "* link:" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "[Previous,role=\"blog-link-previous\"]\n" : "") +
-                "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
-                (idx < (blog.size() - 1) ? "* link:" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "[Next,role=\"blog-link-next\"]\n" : "");
+        return "\n\n<div class=\"ulist blog-links\">\n" +
+                "<ul>\n" +
+                (idx > 0 ? "<li class=\"blog-link-previous\"><p><a href=\"" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "\">Previous</a></p></li>\n" : "") +
+                "<li class=\"blog-link-all\"><p><a href=\"" + configuration.getSiteBase() + "/blog/index.html\">All posts</a></p></li>\n" +
+                (idx < (blog.size() - 1) ? "<li class=\"blog-link-next\"><p><a href=\"" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "\">Next</a></p></li>\n" : "") +
+                "</ul>\n" +
+                "</div>\n\n";
     }
 
     private Stream<String> parseCsv(final String categories) {

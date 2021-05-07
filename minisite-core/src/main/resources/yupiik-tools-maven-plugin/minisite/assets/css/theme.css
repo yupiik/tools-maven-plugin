@@ -385,4 +385,14 @@ div.colist.arabic > ol > li > p {
     font-style: italic;
 }
 
-
+.has-previous-link-false,
+.has-next-link-false {
+    visibility: hidden;
+}
+.blog-links {
+    visibility: hidden;
+    max-width: 0;
+}
+.is-blog .blog-links {
+    visibility: inherit !important;
+}
