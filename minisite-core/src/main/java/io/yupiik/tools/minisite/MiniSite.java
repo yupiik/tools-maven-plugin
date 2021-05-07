@@ -341,7 +341,7 @@ public class MiniSite implements Runnable {
         final var ignoreErrors = Boolean.parseBoolean(params.getOrDefault("ignoreErrors", "false"));
         try {
             return getDefaultInterpolation(
-                    key, page, asciidoctor, options,
+                    key.substring(0, idx), page, asciidoctor, options,
                     Boolean.parseBoolean(params.getOrDefault("emptyIfMissing", "false")),
                     customInterpolations);
         } catch (final RuntimeException re) {
