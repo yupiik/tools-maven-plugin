@@ -72,6 +72,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 public class MiniSite implements Runnable {
     private final MiniSiteConfiguration configuration;
@@ -125,7 +126,8 @@ public class MiniSite implements Runnable {
     protected Consumer<Function<Page, String>> render(final Page page, final Path html,
                                                       final Asciidoctor asciidoctor, final Options options,
                                                       final boolean withLeftMenuIfConfigured,
-                                                      final Function<String, String> postProcessor) {
+                                                      final Function<String, String> postProcessor,
+                                                      final Function<String, String> customInterpolations) {
         final var templates = getTemplatesDir();
         final var titleTemplate = findPageTemplate(templates, "page-title");
         final var contentTemplate = findPageTemplate(templates, "page-content");
@@ -138,14 +140,14 @@ public class MiniSite implements Runnable {
                             if ("title".equals(key)) {
                                 return t;
                             }
-                            return getDefaultInterpolation(key, page, asciidoctor, options);
+                            return getDefaultInterpolation(key, page, asciidoctor, options, null);
                         }).replace(titleTemplate))
                         .orElse("");
                 final var body = new TemplateSubstitutor(key -> {
                     if ("title".equals(key)) {
                         return title;
                     }
-                    return getDefaultInterpolation(key, page, asciidoctor, options);
+                    return getDefaultInterpolation(key, page, asciidoctor, options, customInterpolations);
                 }).replace(contentTemplate);
                 final var content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
@@ -227,7 +229,7 @@ public class MiniSite implements Runnable {
                 case "href":
                     return configuration.getSiteBase() + '/' + output.relativize(it.getValue());
                 default:
-                    return getDefaultInterpolation(key, it.getKey(), null, null);
+                    return getDefaultInterpolation(key, it.getKey(), null, null, null);
             }
         }).replace(template);
     }
@@ -299,7 +301,7 @@ public class MiniSite implements Runnable {
                     if ("href".equals(key)) {
                         return configuration.getSiteBase() + '/' + output.relativize(p.getValue());
                     }
-                    return getDefaultInterpolation(key, p.getKey(), null, null);
+                    return getDefaultInterpolation(key, p.getKey(), null, null, null);
                 }).replace(itemTemplate))
                 .collect(joining(""));
 
@@ -327,8 +329,42 @@ public class MiniSite implements Runnable {
     }
 
     protected String getDefaultInterpolation(final String key, final Page page,
-                                             final Asciidoctor asciidoctor, final Options options) {
+                                             final Asciidoctor asciidoctor, final Options options,
+                                             final Function<String, String> customInterpolations) {
+        final int idx = key.lastIndexOf('?');
+        if (idx < 0) {
+            return getDefaultInterpolation(key, page, asciidoctor, options, false, customInterpolations);
+        }
+        final var params = Stream.of(key.substring(idx + 1).split("&"))
+                .map(it -> it.split("="))
+                .collect(toMap(it -> it[0], it -> it[1]));
+        final var ignoreErrors = Boolean.parseBoolean(params.getOrDefault("ignoreErrors", "false"));
+        try {
+            return getDefaultInterpolation(
+                    key, page, asciidoctor, options,
+                    Boolean.parseBoolean(params.getOrDefault("emptyIfMissing", "false")),
+                    customInterpolations);
+        } catch (final RuntimeException re) {
+            if (ignoreErrors) {
+                return "";
+            }
+            throw re;
+        }
+    }
+
+    protected String getDefaultInterpolation(final String key, final Page page,
+                                             final Asciidoctor asciidoctor, final Options options,
+                                             final boolean emptyIfMissing,
+                                             final Function<String, String> customInterpolations) {
+        if (customInterpolations != null) {
+            final var value = customInterpolations.apply(key);
+            if (value != null) {
+                return value;
+            }
+        }
         switch (key) {
+            case "isBlogClass":
+                return isBlogPage(page) ? "is-blog" : "";
             case "categoryClass":
                 return getCategoryClass(getPageCategories(page));
             case "icon":
@@ -346,6 +382,8 @@ public class MiniSite implements Runnable {
                     throw new IllegalArgumentException("'body' no available");
                 }
                 return renderAdoc(page, asciidoctor, options).strip();
+            case "defaultEndOfContent": // used for blog OOTB so ensure it does not fail for standard pages
+                return "";
             case "href":
                 return page.relativePath;
             case "author":
@@ -382,6 +420,9 @@ public class MiniSite implements Runnable {
             case "readingTime":
                 return readingTimeComputer.toReadingTime(page.content);
             default:
+                if (emptyIfMissing) {
+                    return "";
+                }
                 throw new IllegalArgumentException("Unknown template key '" + key + "'");
         }
     }
@@ -583,7 +624,7 @@ public class MiniSite implements Runnable {
             };
         } else {
             return template -> {
-                render(page, out, asciidoctor, options, true, identity()).accept(template);
+                render(page, out, asciidoctor, options, true, identity(), null).accept(template);
                 configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
             };
         }
@@ -639,39 +680,73 @@ public class MiniSite implements Runnable {
             final var out = configuration.getTarget().resolve(bp.page.relativePath.substring(1));
             final var idx = blog.indexOf(bp);
             render(new Page( // add links to other posts
-                    bp.page.relativePath,
-                    bp.page.title,
-                    bp.page.attributes,
-                    (configuration.isInjectBlogMeta() ? injectBlogMeta(bp) : bp.page.content) + "\n" +
-                            "\n" +
-                            ofNullable(bp.page.attributes.get("minisite-blog-authors"))
-                                    .map(String::valueOf)
-                                    .map(authors -> parseCsv(authors)
-                                            .map(author -> "* link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(author) + "/page-1.html" + "[" + author + "]")
-                                            .collect(joining("\n",
-                                                    "[role=blog-categories]\n" +
-                                                            "From the same author" + (authors.contains(",") ? "s" : "") + ":\n" +
-                                                            "\n" +
-                                                            "[role=\"blog-links blog-categories\"]\n", "\n\n")))
-                                    .orElse("") +
-                            ofNullable(getPageCategories(bp.page))
-                                    .map(String::valueOf)
-                                    .map(categories -> parseCsv(categories)
-                                            .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
-                                            .collect(joining("\n",
-                                                    "[role=blog-categories]\n" +
-                                                            "In the same categor" + (categories.contains(",") ? "ies" : "y") + ":\n" +
-                                                            "\n" +
-                                                            "[role=\"blog-links blog-categories\"]\n", "\n\n")))
-                                    .orElse("") +
-                            "[role=blog-links]\n" +
-                            (idx > 0 ? "* link:" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "[Previous,role=\"blog-link-previous\"]\n" : "") +
-                            "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
-                            (idx < (blog.size() - 1) ? "* link:" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "[Next,role=\"blog-link-next\"]\n" : "")
-            ), out, asciidoctor, options, false, this::markPageAsBlog).accept(template);
+                            bp.page.relativePath,
+                            bp.page.title,
+                            bp.page.attributes,
+                            (configuration.isInjectBlogMeta() ? injectBlogMeta(bp) : bp.page.content) + "\n"),
+                    out, asciidoctor, options, false, this::markPageAsBlog, key -> {
+                        switch (key) {
+                            case "hasPreviousLinkClass":
+                                return "has-previous-link-" + (idx > 0);
+                            case "hasNextLinkClass":
+                                return "has-next-link-" + (idx < (blog.size() - 1));
+                            case "previousLinkHref":
+                                return configuration.getSiteBase() + blog.get(idx - 1).page.relativePath;
+                            case "nextLinkHref":
+                                return configuration.getSiteBase() + blog.get(idx + 1).page.relativePath;
+                            case "blogHomeLinkHref":
+                                return configuration.getSiteBase() + "/blog/index.html";
+                            case "categoriesList":
+                                return getCategoriesList(bp);
+                            case "authorsList":
+                                return getAuthorsList(bp);
+                            case "navigationLinks":
+                                return getNavigationLinks(blog, idx);
+                            case "defaultEndOfContent":
+                                return "\n" +
+                                        getAuthorsList(bp) + '\n' +
+                                        getCategoriesList(bp) + '\n' +
+                                        getNavigationLinks(blog, idx);
+                            default:
+                                return null;
+                        }
+                    }).accept(template);
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
         return allCategories;
+    }
+
+    private String getCategoriesList(final BlogPage bp) {
+        return ofNullable(getPageCategories(bp.page))
+                .map(String::valueOf)
+                .map(categories -> parseCsv(categories)
+                        .map(category -> "* link:" + configuration.getSiteBase() + "/blog/category/" + toUrlName(category) + "/page-1.html" + "[" + toHumanName(category) + "]")
+                        .collect(joining("\n",
+                                "[role=blog-categories]\n" +
+                                        "In the same categor" + (categories.contains(",") ? "ies" : "y") + ":\n" +
+                                        "\n" +
+                                        "[role=\"blog-links blog-categories\"]\n", "\n\n")))
+                .orElse("");
+    }
+
+    private String getAuthorsList(final BlogPage bp) {
+        return ofNullable(bp.page.attributes.get("minisite-blog-authors"))
+                .map(String::valueOf)
+                .map(authors -> parseCsv(authors)
+                        .map(author -> "* link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(author) + "/page-1.html" + "[" + author + "]")
+                        .collect(joining("\n",
+                                "[role=blog-categories]\n" +
+                                        "From the same author" + (authors.contains(",") ? "s" : "") + ":\n" +
+                                        "\n" +
+                                        "[role=\"blog-links blog-categories\"]\n", "\n\n")))
+                .orElse("");
+    }
+
+    private String getNavigationLinks(final List<BlogPage> blog, final int idx) {
+        return "[role=blog-links]\n" +
+                (idx > 0 ? "* link:" + configuration.getSiteBase() + blog.get(idx - 1).page.relativePath + "[Previous,role=\"blog-link-previous\"]\n" : "") +
+                "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
+                (idx < (blog.size() - 1) ? "* link:" + configuration.getSiteBase() + blog.get(idx + 1).page.relativePath + "[Next,role=\"blog-link-next\"]\n" : "");
     }
 
     private Stream<String> parseCsv(final String categories) {
@@ -752,7 +827,7 @@ public class MiniSite implements Runnable {
                                         .collect(joining("\n"))),
                 baseBlog.resolve(singular + "/index.html"), asciidoctor, options,
                 false,
-                this::markPageAsBlog).accept(template);
+                this::markPageAsBlog, null).accept(template);
         return perCriteria.keySet();
     }
 
@@ -826,7 +901,7 @@ public class MiniSite implements Runnable {
                                                     if ("title".equals(itemKey)) {
                                                         return it.page.title;
                                                     }
-                                                    return getDefaultInterpolation(itemKey, it.page, asciidoctor, options);
+                                                    return getDefaultInterpolation(itemKey, it.page, asciidoctor, options, null);
                                                 }).replace(itemTemplate))
                                                 .collect(joining("\n", "\n", "\n"));
                                     case "links":
@@ -840,7 +915,7 @@ public class MiniSite implements Runnable {
                                 }
                             }).replace(contentTemplate)),
                     output, asciidoctor, options, false,
-                    this::markPageAsBlog).accept(template);
+                    this::markPageAsBlog, null).accept(template);
         });
 
         final var indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
