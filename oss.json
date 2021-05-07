@@ -1,0 +1,11 @@
+{
+  "skip": false,
+  "name": "Tools Maven Plugin",
+  "description": "An Apache Maven plugin set of tools.",
+  "website": "https://github.com/yupiik/tools-maven-plugin",
+  "logo": "https://www.yupiik.com/img/logo.png",
+  "categories": [
+    "maven",
+    "build"
+  ]
+}
