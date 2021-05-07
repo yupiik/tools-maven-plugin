@@ -395,4 +395,5 @@ div.colist.arabic > ol > li > p {
 }
 .is-blog .blog-links {
     visibility: inherit !important;
+    max-width: inherit;
 }
