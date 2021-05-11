@@ -1,7 +1,7 @@
 {
   "skip": false,
   "name": "Tools Maven Plugin",
-  "description": "An Apache Maven plugin set of tools.",
+  "description": "An Apache Maven plugin set of tools (living website, PDF adoc renderer, HTML5 slides, Github Release synchronizer).",
   "website": "https://github.com/yupiik/tools-maven-plugin",
   "logo": "https://www.yupiik.com/img/logo.png",
   "categories": [
