@@ -226,6 +226,8 @@ public class MiniSite implements Runnable {
             switch (key) {
                 case "title":
                     return toLinkTitle(it.getKey());
+                case "text":
+                    return getTitle(it.getKey());
                 case "href":
                     return configuration.getSiteBase() + '/' + output.relativize(it.getValue());
                 default:
