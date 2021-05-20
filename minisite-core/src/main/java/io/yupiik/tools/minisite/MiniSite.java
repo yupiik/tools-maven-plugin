@@ -277,6 +277,7 @@ public class MiniSite implements Runnable {
                                                             "/" + link,
                                                             "Blog",
                                                             Map.of(
+                                                                    "minisite-keywords", "Blog, " + indexText + ", " + category,
                                                                     "minisite-blog-categories", category,
                                                                     "minisite-index-icon", toIcon(ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getIcon).orElse("fa fa-blog")),
                                                                     "minisite-index-title", ofNullable(categoryConf).map(MiniSiteConfiguration.BlogCategoryConfiguration::getHomePageName).orElse(category),
@@ -292,6 +293,7 @@ public class MiniSite implements Runnable {
                                                         "/blog/index.html",
                                                         "Blog",
                                                         Map.of(
+                                                                "minisite-keywords", "Blog, " + indexText,
                                                                 "minisite-index-icon", "fa fa-blog",
                                                                 "minisite-index-title", "Blog",
                                                                 "minisite-index-description", configuration.isAddIndexRegistrationPerCategory() ?
@@ -310,7 +312,9 @@ public class MiniSite implements Runnable {
         final var content = dropLeftMenu(
                 template.apply(new Page(
                         "/index.html",
-                        ofNullable(configuration.getTitle()).orElse("Index"), Map.of("minisite-passthrough", true),
+                        ofNullable(configuration.getTitle()).orElse("Index"), Map.of(
+                        "minisite-keywords", indexText,
+                        "minisite-passthrough", true),
                         new TemplateSubstitutor(key -> {
                             switch (key) {
                                 case "title":
@@ -365,6 +369,17 @@ public class MiniSite implements Runnable {
             }
         }
         switch (key) {
+            case "metaAuthor":
+                return ofNullable(page.attributes.get("minisite-blog-authors"))
+                        .map(String::valueOf)
+                        .map(String::strip)
+                        .orElse("Yupiik Minisite Generator");
+            case "metaKeywords":
+                return ofNullable(page.attributes.get("minisite-keywords"))
+                        .map(String::valueOf)
+                        .map(String::strip)
+                        .map(it -> "<meta name=\"keywords\" content=\"" + it + "\">\n")
+                        .orElse("");
             case "isBlogClass":
                 return isBlogPage(page) ? "is-blog" : "";
             case "categoryClass":
@@ -1015,7 +1030,9 @@ public class MiniSite implements Runnable {
         return page -> String.join(
                 "\n",
                 prefixRef
-                        .replace("{{title}}", ofNullable(page.title).orElse(configuration.getTitle()))
+                        .replace("{{title}}", getDefaultInterpolation("title", page, null, null, null))
+                        .replace("{{metaAuthor}}", getDefaultInterpolation("metaAuthor", page, null, null, null))
+                        .replace("{{metaKeywords}}", getDefaultInterpolation("metaKeywords", page, null, null, null))
                         .replace("{{highlightJsCss}}", page.attributes == null || !page.attributes.containsKey("minisite-highlightjs-skip") ?
                                 "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css\" integrity=\"sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==\" crossorigin=\"anonymous\" />" :
                                 "")

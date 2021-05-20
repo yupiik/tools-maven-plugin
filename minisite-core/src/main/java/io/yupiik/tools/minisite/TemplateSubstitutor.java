@@ -45,14 +45,15 @@ public class TemplateSubstitutor {
         return replace(builder.toString());
     }
 
-    private int substitute(final StringBuilder buf, final int offset, final int length,
+    private int substitute(final StringBuilder buf, final int offset, final int inLength,
                            List<String> priorVariables) {
         final boolean top = priorVariables == null;
         boolean altered = false;
         int lengthChange = 0;
         char[] chars = buf.toString().toCharArray();
-        int bufEnd = offset + length;
+        int bufEnd = offset + inLength;
         int pos = offset;
+        int length = inLength;
         while (pos < bufEnd) {
             final int startMatchLen = isMatch(PREFIX, chars, pos, bufEnd);
             if (startMatchLen == 0) {
@@ -61,6 +62,7 @@ public class TemplateSubstitutor {
                 if (pos > offset && chars[pos - 1] == ESCAPE) {
                     buf.deleteCharAt(pos - 1);
                     chars = buf.toString().toCharArray();
+                    length = chars.length;
                     lengthChange--;
                     altered = true;
                     bufEnd--;
