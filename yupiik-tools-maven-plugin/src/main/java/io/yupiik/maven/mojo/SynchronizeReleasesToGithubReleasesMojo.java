@@ -555,7 +555,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                 .thenCompose(r -> {
                     ensure200(url, r);
                     final List<GithubRelease> releases = jsonb.fromJson(r.body().trim(), new JohnzonParameterizedType(List.class, GithubRelease.class));
-                    final var releaseNames = releases.stream().collect(toMap(GithubRelease::getName, identity()));
+                    final var releaseNames = releases.stream().collect(toMap(GithubRelease::getName, identity(), (a, b) -> a.id < b.id ? a : b));
                     return findNextLink(r.headers().firstValue("Link").orElse(null))
                             .map(next -> findExistingReleases(httpClient, jsonb, next)
                                     .thenApply(added -> Stream.concat(releaseNames.entrySet().stream(), added.entrySet().stream())
