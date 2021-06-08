@@ -469,6 +469,53 @@ TIP: if you use maven central you need to await for the synchronization to run t
 
 Then run `mvn yupiik-tools:synchronize-github-releases`.
 
+=== Cucumber to Asciidoc
+
+Convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals.
+
+Name: `cucumber2asciidoc`.
+
+==== Configuration
+
+[options="header",cols="1,m,2"]
+|====
+|Name|Type|Property|Description
+|source|File|yupiik.cucumber.source|Input JSON file or directory path containing report files (cucumber JSON format) - matched by their `.json` extension. Default: `${project.build.directory/cucumber-reports/`.
+|target|File|yupiik.cucumber.target|Output asciidoc file path. Default: `${project.build.directory}/generated-adoc/cucumber.report.adoc`.
+|prefix|String|yupiik.cucumber.prefix|Header (top, i.e. before report) of the document.
+|suffix|String|yupiik.cucumber.suffix|Footer (end, i.e. after report) of the document.
+|====
+
+==== Example
+
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>default-cli</id>
+      <phase>none</phase>
+      <goals>
+        <goal>cucumber2asciidoc</goal>
+      </goals>
+      <configuration>
+        <prefix>= My Cucumber Report</prefix>
+        <suffix></suffix>
+        <source>${project.build.directory}/cucumber-reports/</source>
+        <target>${project.build.directory}/generated-adoc/cucumber.report.adoc</target>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+Then run `mvn yupiik-tools:cucumber2asciidoc`.
+
+TIP: indeed it can be chained with `yupiik-tools:pdf`.
+
 == Maven Asciidoctor Macro
 
 The project adds asciidoc macros to get back some maven build information.
