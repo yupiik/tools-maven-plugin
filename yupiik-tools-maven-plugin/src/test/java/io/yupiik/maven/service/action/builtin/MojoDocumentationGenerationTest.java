@@ -85,7 +85,7 @@ class MojoDocumentationGenerationTest {
                         "        <!-- execution specific configuration come there -->\n" +
                         "      </configuration>\n" +
                         "    </execution>\n" +
-                        "  </execitions>\n" +
+                        "  </executions>\n" +
                         "</plugin>\n" +
                         "----\n" +
                         "\n" +

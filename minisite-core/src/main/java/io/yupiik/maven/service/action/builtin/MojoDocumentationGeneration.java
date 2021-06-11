@@ -204,7 +204,7 @@ public class MojoDocumentationGeneration implements Runnable {
                 "        <!-- execution specific configuration come there -->\n" +
                 "      </configuration>\n" +
                 "    </execution>\n" +
-                "  </execitions>\n" +
+                "  </executions>\n" +
                 "</plugin>\n" +
                 "----\n" +
                 "\n" +
