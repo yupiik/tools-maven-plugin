@@ -31,7 +31,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <mvn.version>3.6.3</mvn.version>
-    <jruby.version>9.2.14.0</jruby.version>
+    <jruby.version>9.3.1.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
     <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
     <jgit.version>5.10.0.202012080955-r</jgit.version>
