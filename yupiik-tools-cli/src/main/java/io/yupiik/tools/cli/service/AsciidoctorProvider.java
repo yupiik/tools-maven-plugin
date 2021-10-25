@@ -67,7 +67,8 @@ public class AsciidoctorProvider {
         if (conf.requires() != null) {
             asciidoctor.requireLibraries(conf.requires());
         } else {
-            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs", "uri:classloader:/ruby/rouge_themes/yupiik.rb");
+            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
+            requireRougeThemeIfPresent();
             try {
                 asciidoctor.requireLibrary(Files.list(conf.gems().resolve("gems"))
                         .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
@@ -80,6 +81,18 @@ public class AsciidoctorProvider {
             }
         }
         return asciidoctor;
+    }
+
+    private void requireRougeThemeIfPresent() {
+        boolean doIt;
+        try (final var stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("ruby/rouge_themes/yupiik.rb")) {
+            doIt = stream != null;
+        } catch (IOException e) {
+            doIt = false;
+        }
+        if (doIt) {
+            asciidoctor.requireLibrary("uri:classloader:/ruby/rouge_themes/yupiik.rb");
+        }
     }
 
     private void prepare(final Path workDir) throws IOException {
