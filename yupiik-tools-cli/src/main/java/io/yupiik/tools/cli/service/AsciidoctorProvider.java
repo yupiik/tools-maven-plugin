@@ -67,7 +67,7 @@ public class AsciidoctorProvider {
         if (conf.requires() != null) {
             asciidoctor.requireLibraries(conf.requires());
         } else {
-            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
+            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs", "uri:classloader:/ruby/rouge_themes/yupiik.rb");
             try {
                 asciidoctor.requireLibrary(Files.list(conf.gems().resolve("gems"))
                         .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))

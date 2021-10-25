@@ -41,7 +41,7 @@ page:
   size: A4
 base:
   align: justify
-  font_color: #424949
+  font_color: #434343
   font_family: NotoSerif
   font_size: 10
   line_height_length: 15
@@ -57,14 +57,14 @@ vertical_rhythm: $base_line_height_length
 horizontal_rhythm: $base_line_height_length
 vertical_spacing: $vertical_rhythm
 link:
-  font_color: #585ac2
+  font_color: #054470
 literal:
-  font_color: #585ac2
+  font_color: #054470
   font_family: NotoSerif
 menu_caret_content: " <font size=\"1.15em\"><color rgb=\"b12146\">\u203a</color></font> "
 heading:
   align: left
-  font_color: #0b4672
+  font_color: #0075bb
   font_family: OpenSans
   font_style: bold
   text_transform: uppercase
@@ -74,38 +74,49 @@ heading:
   h4_font_size: $base_font_size_large
   h5_font_size: $base_font_size
   h6_font_size: $base_font_size_small
+  h3_font_color: #054470
+  h4_font_color: #000
+  h5_font_color: #000
+  h6_font_color: #000
   line_height: 1
   margin_top: $vertical_rhythm * 0.4
   margin_bottom: $vertical_rhythm * 0.9
 title_page:
-  background-color: #054470
-  font-color: #fff
-  align: right
+  background-color: #fff
+  font-color: #434343
+  align: left
+  margin_right: 0
+  margin_left: 0
   logo:
-    top: 10%
-    align: right
-    image: image:logo.png[pdfwidth=35%,align=right]
+    top: 8%
+    align: center
+    image: image:logo.png[pdfwidth=100%]
+    margin_right: -0.67in
+    margin_left: -0.67in
+    padding: [0,0,0,0]
   title:
-    top: 55%
-    font_size: $heading_h1_font_size
+    top: 40%
+    font_size: 18
     font_family: $heading_font_family
     font_style: bold
     text_transform: uppercase
-    font_color: #fff
+    font_color: #0075bb
     line_height: 0.9
+    margin_top: 0
   subtitle:
     font_size: $heading_h3_font_size
     font_family: $heading_font_family
     font_style: bold_italic
-    font_color: #fff
+    font_color: #434343
     line_height: 1
+    margin_top: 0
   authors:
-    margin_top: $base_font_size * 1.25
+    margin_top: 0
     font_size: $base_font_size_large
-    font_color: #fff
+    font_color: #434343
     font_family: $heading_font_family
   revision:
-    margin_top: $base_font_size * 1.25
+    margin_top: 0
 block:
   margin_top: 0
   margin_bottom: $vertical_rhythm
@@ -210,10 +221,11 @@ table:
 toc:
   indent: $horizontal_rhythm
   line_height: 1.4
-  font_color: #007bff
+  font_color: #434343
+  font_style: bold
   dot_leader:
-    content: ". "
-    font_color: #153182
+    content: " "
+    font_color: #434343
 footer:
   font_size: $base_font_size_small
   border_color: #dddddd
@@ -223,8 +235,10 @@ footer:
   padding: [$base_line_height_length / 2, 1, 0, 1]
   vertical_align: top
   recto:
+    left:
+      content: 'Page {page-number}/{page-count}'
     right:
-      content: '{document-title} - {section-or-chapter-title} - page {page-number}'
+      content: '{document-title} - {section-or-chapter-title}'
   verso:
     left:
       content: $footer_recto_right_content

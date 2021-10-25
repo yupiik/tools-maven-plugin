@@ -38,6 +38,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 
 import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.toList;
 
 @Named
 @Singleton
@@ -83,21 +84,49 @@ public class AsciidoctorInstance {
             }
         });
         if (requires != null) {
-            asciidoctor.requireLibraries(requires);
+            asciidoctor.requireLibraries(requires.stream()
+                    .filter(it -> { // enable to import automatically default requires by aliases
+                        switch (it) {
+                            case "global":
+                                globalRequires(asciidoctor);
+                                return false;
+                            case "pdf":
+                                pdfRequires(asciidoctor);
+                                return false;
+                            case "slides":
+                                slideRequires(path, asciidoctor);
+                                return false;
+                            default:
+                                return true;
+                        }
+                    }).collect(toList()));
         } else {
-            asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
-            try {
-                asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
-                        .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
-                        .findFirst()
-                        .map(it -> it.resolve("lib/asciidoctor-bespoke.rb"))
-                        .orElseThrow(() -> new IllegalStateException("bespoke was not bundled at build time"))
-                        .toAbsolutePath().normalize().toString());
-            } catch (final IOException e) {
-                throw new IllegalStateException(e);
-            }
+            globalRequires(asciidoctor);
+            pdfRequires(asciidoctor);
+            slideRequires(path, asciidoctor);
         }
         return asciidoctor;
+    }
+
+    private void slideRequires(final Path path, final Asciidoctor asciidoctor) {
+        try {
+            asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
+                    .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
+                    .findFirst()
+                    .map(it -> it.resolve("lib/asciidoctor-bespoke.rb"))
+                    .orElseThrow(() -> new IllegalStateException("bespoke was not bundled at build time"))
+                    .toAbsolutePath().normalize().toString());
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void pdfRequires(final Asciidoctor asciidoctor) {
+        asciidoctor.requireLibrary("uri:classloader:/ruby/rouge_themes/yupiik.rb");
+    }
+
+    private void globalRequires(final Asciidoctor asciidoctor) {
+        asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
     }
 
     private void registerExtensions(final JavaExtensionRegistry registry) {

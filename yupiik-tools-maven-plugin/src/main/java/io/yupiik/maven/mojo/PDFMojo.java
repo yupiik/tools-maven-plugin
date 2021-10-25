@@ -140,6 +140,8 @@ public class PDFMojo extends BaseMojo {
                         .attribute("imagesdir", src.resolve("images").toAbsolutePath().normalize().toString())
                         .attribute("idseparator", "-")
                         .attribute("source-highlighter", "rouge")
+                        .attribute("rouge-style", "yupiik")
+                        // .attribute("rouge-style", "igorpro") the closest of the one we want
                         .attributes(attributes == null ? emptyMap() : attributes))
                 .get();
     }
