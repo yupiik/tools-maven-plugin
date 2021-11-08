@@ -16,6 +16,8 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.maven.service.AsciidoctorInstance;
+import io.yupiik.maven.service.confluence.Confluence;
+import io.yupiik.maven.service.confluence.ConfluenceService;
 import io.yupiik.maven.service.ftp.configuration.Ftp;
 import io.yupiik.maven.service.ftp.configuration.FtpService;
 import io.yupiik.maven.service.git.Git;
@@ -313,6 +315,9 @@ public class MiniSiteMojo extends BaseMojo {
     private Ftp ftp;
 
     @Parameter
+    private Confluence confluence;
+
+    @Parameter
     private Git git;
 
     @Inject
@@ -320,6 +325,9 @@ public class MiniSiteMojo extends BaseMojo {
 
     @Inject
     private FtpService ftpService;
+
+    @Inject
+    private ConfluenceService confluenceService;
 
     @Inject
     private GitService gitService;
@@ -346,6 +354,9 @@ public class MiniSiteMojo extends BaseMojo {
         }
         if (git != null && !git.isIgnore()) {
             doGitUpdate();
+        }
+        if (confluence != null && !confluence.isIgnore()) {
+            doConfluenceUpdate();
         }
     }
 
@@ -470,8 +481,19 @@ public class MiniSiteMojo extends BaseMojo {
         ftpService.upload(ftp, target.toPath(), getLog()::info);
     }
 
+    private void doConfluenceUpdate() {
+        final Server clearServer = decryptServer(confluence.getServerId());
+        if (clearServer != null && clearServer.getPassword() != null) {
+            confluence.setBearer(clearServer.getPassword());
+        }
+        confluenceService.upload(confluence, target.toPath(), getLog()::info);
+    }
+
     private Server decryptServer(final String serverId) {
         final Server server = session.getSettings().getServer(ofNullable(serverId).orElse(siteBase));
+        if (server == null) {
+            return null;
+        }
         final SettingsDecryptionResult decrypted = settingsDecrypter.decrypt(new DefaultSettingsDecryptionRequest(server));
         return decrypted.getServer() == null ? server : decrypted.getServer();
     }
