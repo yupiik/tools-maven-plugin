@@ -484,7 +484,7 @@ public class MiniSiteMojo extends BaseMojo {
     private void doConfluenceUpdate() {
         final Server clearServer = decryptServer(confluence.getServerId());
         if (clearServer != null && clearServer.getPassword() != null) {
-            confluence.setBearer(clearServer.getPassword());
+            confluence.setAuthorization(clearServer.getPassword());
         }
         confluenceService.upload(confluence, target.toPath(), getLog()::info);
     }

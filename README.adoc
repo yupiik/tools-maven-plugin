@@ -273,6 +273,51 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 |envBase64SshKey|String|Environment variable the private key will be read as base64 encoded from - useful on CI. note that `<value>_PH` environment variable must contain the associated passphrase.
 |====
 
+The configuration also supports an experimental Atlassian Confluence export support.
+It only works using the default template and require a configuration similar to `git` or `ftp` exports:
+
+[source,xml]
+----
+<profile> <!--  mvn clean package -Pconfluence  -->
+  <id>confluence</id>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.yupiik.maven</groupId>
+        <artifactId>yupiik-tools-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>confluence</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>minisite</goal>
+            </goals>
+            <configuration>
+              <confluence>
+                <ignore>false</ignore>
+                <url>https://base.atlassian.net/wiki/</url> <!-- for cloud, for an on premise instance the /wiki/ is not always needed -->
+                <authorization>Basic base64_value_of(your mail:your token)></authorization>
+                <space>YOURSPACE</space>
+                <skipIndex>false</skipIndex> <!-- if true, will skip all index.html files -->
+              </confluence>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</profile>
+----
+
+IMPORTANT: the nested support of this exporter is very experimental, and we recommend you to keep only one level of `.adoc` files using it.
+
+===== Confluence Limitations
+
+* Links are not updated, so they still rely on the base you set in the plugin and use Asciidoctor style links until you explicitly use `link:` yourself,
+* Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,
+* It only works with the default theme since we extract metadata from there to enable to update the space,
+* To look nice, you can need to tune the Confluence space CSS to import admonitions and codeblocks styling (can require some admin permissions).
+
 ===== Blog
 
 Blog is supported if pages contain at least one block metadata.

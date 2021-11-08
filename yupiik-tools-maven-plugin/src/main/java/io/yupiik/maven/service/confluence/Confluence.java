@@ -29,9 +29,13 @@ public class Confluence {
     @Parameter(property = "yupiik.minisite.confluence.serverId")
     private String serverId;
 
-    @Parameter(property = "yupiik.minisite.confluence.bearer")
-    private String bearer;
+    // basic ou bearer precomputed with its prefix - to enable the switch between both
+    @Parameter(property = "yupiik.minisite.confluence.authorization")
+    private String authorization;
 
     @Parameter(property = "yupiik.minisite.confluence.space")
     private String space;
+
+    @Parameter(property = "yupiik.minisite.confluence.skipIndex")
+    private boolean skipIndex;
 }

@@ -15,13 +15,16 @@
  */
 package io.yupiik.maven.service.confluence;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbBuilder;
 import javax.json.bind.JsonbConfig;
+import javax.json.bind.annotation.JsonbProperty;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,40 +36,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
-/**
- *
- <profile> <!--  mvn clean package -Pconfluence  -->
- <id>confluence</id>
- <build>
- <plugins>
- <plugin>
- <groupId>io.yupiik.maven</groupId>
- <artifactId>yupiik-tools-maven-plugin</artifactId>
- <executions>
- <execution>
- <id>confluence</id>
- <phase>prepare-package</phase>
- <goals>
- <goal>minisite</goal>
- </goals>
- <configuration>
- <confluence>
- <ignore>false</ignore>
- <url>xxxxxxxx/wiki/</url>
- <bearer>xxxxxxx</bearer>
- <space>TESTSPACE</space>
- </confluence>
- </configuration>
- </execution>
- </executions>
- </plugin>
- </plugins>
- </build>
- </profile>
- */
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+
 @Named
 @Singleton
 public class ConfluenceService {
@@ -74,39 +53,26 @@ public class ConfluenceService {
                        final Consumer<String> info) {
         final var httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
         final var uri = URI.create(confluence.getUrl());
-        final var createContent = uri.resolve("rest/api/content");
+        final var uriSep = confluence.getUrl().endsWith("/") ? "" : "/";
+        final var createContent = uri.resolve(uriSep + "rest/api/content");
         final var space = new Space(confluence.getSpace());
-        final var auth = "Bearer " + confluence.getBearer();
+        final var auth = confluence.getAuthorization();
         try (final var jsonb = JsonbBuilder.create(new JsonbConfig().setProperty("johnzon.skip-cdi", true))) {
-
+            final var contents = findAllPages(httpClient, createContent, auth, space, jsonb);
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                    final var relative = path.relativize(file).toString();
-                    /*
-                    final var hasParent = uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath());
-                    final var target = !hasParent ? relative : String.join("/", uri.getPath().substring(1), relative);
-
-                    final var segments = relative.split("/");
-                    final var current = new StringBuilder(hasParent ? uri.getPath().substring(1) : "");
-                    for (int i = 0; i < segments.length - 1; i++) {
-                        if (current.length() > 0) {
-                            current.append('/');
-                        }
-                        current.append(segments[i]);
-                        final var test = current.toString();
-                        final var shouldCreate = existingFolders.add(test);
-                        if (shouldCreate && !ftpClient.makeDirectory(test)) {
-                            throw new IllegalArgumentException("Can't create folder '" + test + "'");
-                        }
-                        if (shouldCreate) {
-                            info.accept("Created directory '" + relative + "' on " + uri);
-                        }
+                    final var name = file.getFileName().toString();
+                    if (!name.endsWith(".html")) { // todo: better asset handling, for now consider them embedded
+                        return FileVisitResult.CONTINUE;
                     }
-                    */
+                    if (confluence.isSkipIndex() && "index.html".equals(name)) {
+                        return FileVisitResult.CONTINUE;
+                    }
 
-                    createOrUpdate(httpClient, createContent, auth, space, jsonb, file);
-                    info.accept("Uploaded file '" + relative + "' on " + uri);
+                    final var relative = path.relativize(file).toString();
+                    final var relativeLink = createOrUpdate(httpClient, createContent, auth, space, jsonb, file, contents);
+                    info.accept("Saved '" + relative + "' on " + uri.resolve(uriSep + (uriSep.isBlank() ? relativeLink.substring(1) : relativeLink)));
 
                     return super.visitFile(file, attrs);
                 }
@@ -118,53 +84,205 @@ public class ConfluenceService {
         }
     }
 
-    private void createOrUpdate(final HttpClient httpClient, final URI createContent, final String auth, final Space space,
-                                final Jsonb jsonb, final Path path) {
+    private Map<String, Content> findAllPages(final HttpClient httpClient, final URI getContent, final String auth, final Space space, final Jsonb jsonb) {
         try {
-            final var content = Files.readString(path, StandardCharsets.UTF_8);
-            final var title = findTitle(content).orElseGet(() -> path.getFileName().toString());
-            final var createResponse = httpClient.send(
+            final var fetch = httpClient.send(
                     HttpRequest.newBuilder()
-                            .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(
-                                    new Content(
-                                            null,
-                                            title,
-                                            space,
-                                            new Body(new Storage(content)),
-                                            null
-                                    )
-                            ), StandardCharsets.UTF_8))
-                            .uri(createContent)
+                            .GET()
+                            .uri(URI.create(getContent.toASCIIString() + "/search?cql=space=" + space.getKey() + "%20AND%20type=page&expand=body.storage,version.number"))
                             .header("Authorization", auth)
                             .header("Accept", "application/json")
                             .header("Content-Type", "application/json")
                             .build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (createResponse.statusCode() > 299) {
-                throw new IllegalStateException("Invalid content creation: " + createResponse + "\n" + createResponse.body());
+            if (fetch.statusCode() != 200) {
+                throw new IllegalStateException("Invalid content fetch: " + fetch + "\n" + fetch.body());
             }
-            // todo: if exists then recreate
-            /*
-            {
-    "version": {
-        "number": 2
-    },
-    "title": "My new title",
-    "type": "page",
-    "body": {
-        "storage": {
-            "value": "<p>New page data.</p>",
-            "representation": "storage"
-        }
-    }
-}
-             */
+            final var contents = jsonb.fromJson(fetch.body(), Contents.class);
+            return (contents.getLinks().containsKey("next") ?
+                    Stream.concat(
+                            contents.getResults().stream(),
+                            fetchContents(httpClient, contents.getLinks().get("base") + contents.getLinks().get("next"), auth, jsonb).stream()) :
+                    contents.getResults().stream())
+                    .filter(it -> {
+                        if (it.getBody() != null && it.getBody().getStorage() != null && it.getBody().getStorage().getValue() != null) {
+                            final var content = it.getBody().getStorage().getValue().stripLeading();
+                            return content.contains("<div class=\"container page-content ") || content.contains("<h1 class=\"page-heading mx-auto\">");
+                        }
+                        return false;
+                    })
+                    .collect(toMap(c -> extractId(c.getBody().getStorage().getValue()).orElseGet(c::getId), identity()));
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+    }
+
+    private List<Content> fetchContents(final HttpClient httpClient, final String uri, final String auth, final Jsonb jsonb) {
+        try {
+            final var fetch = httpClient.send(
+                    HttpRequest.newBuilder()
+                            .GET()
+                            .uri(URI.create(uri))
+                            .header("Authorization", auth)
+                            .header("Accept", "application/json")
+                            .header("Content-Type", "application/json")
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (fetch.statusCode() != 200) {
+                throw new IllegalStateException("Invalid content fetch: " + fetch + "\n" + fetch.body());
+            }
+            final var current = jsonb.fromJson(fetch.body(), Contents.class);
+            return (current.getLinks().containsKey("next") ?
+                    Stream.concat(
+                                    current.getResults().stream(),
+                                    fetchContents(httpClient, current.getLinks().get("base") + current.getLinks().get("next"), auth, jsonb).stream())
+                            .collect(toList()) :
+                    current.getResults());
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private String createOrUpdate(final HttpClient httpClient, final URI createContent, final String auth, final Space space,
+                                  final Jsonb jsonb, final Path path, final Map<String, Content> contents) {
+        try {
+            final var content = toContent(Files.readString(path, StandardCharsets.UTF_8));
+            final var title = findTitle(content).orElseGet(() -> path.getFileName().toString());
+            final var id = extractId(content).orElseThrow(() -> new IllegalArgumentException("No id in " + path));
+            final var existing = contents.get(id);
+            if (existing != null) {
+                return doUpdate(httpClient, createContent, auth, space, existing, jsonb, id, title, content);
+            }
+            return doCreate(httpClient, createContent, auth, space, jsonb, content, title);
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private String doCreate(final HttpClient httpClient, final URI createContent, final String auth, final Space space,
+                            final Jsonb jsonb, final String content, final String title) throws IOException, InterruptedException {
+        final var createResponse = httpClient.send(
+                HttpRequest.newBuilder()
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(
+                                new Content(
+                                        "page",
+                                        null,
+                                        title,
+                                        space,
+                                        new Body(new Storage("storage", content)),
+                                        null,
+                                        null
+                                )
+                        ), StandardCharsets.UTF_8))
+                        .uri(createContent)
+                        .header("Authorization", auth)
+                        .header("Accept", "application/json")
+                        .header("Content-Type", "application/json")
+                        .build(),
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (createResponse.statusCode() > 299) {
+            throw new IllegalStateException("Invalid content creation for '" + title + "': " + createResponse + "\n" + createResponse.body());
+        }
+        final var created = jsonb.fromJson(createResponse.body(), Content.class);
+        return created.getLinks().get("webui");
+    }
+
+    private String doUpdate(final HttpClient httpClient, final URI createContent, final String auth, final Space space, final Content existing,
+                            final Jsonb jsonb, final String id, final String title, final String content) {
+        try {
+            final var response = httpClient.send(
+                    HttpRequest.newBuilder()
+                            .PUT(HttpRequest.BodyPublishers.ofString(jsonb.toJson(
+                                    new Content(
+                                            "page",
+                                            existing.getId(),
+                                            title,
+                                            space,
+                                            new Body(new Storage("storage", content)),
+                                            new Version(existing.getVersion().getNumber() + 1),
+                                            null
+                                    )
+                            ), StandardCharsets.UTF_8))
+                            .uri(URI.create(createContent.toASCIIString() + '/' + existing.getId()))
+                            .header("Authorization", auth)
+                            .header("Accept", "application/json")
+                            .header("Content-Type", "application/json")
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() > 299) {
+                throw new IllegalStateException("Invalid content update: " + response + "\n" + response.body());
+            }
+            return existing.getLinks().get("webui");
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * We extract it from the template which uses:
+     * <p>
+     * {@code <div class="container page-content {{{pageClass}}}">}.
+     * <p>
+     * IMPORTANT: we don't use the {@code id} attribute cause confluence strips it.
+     */
+    private Optional<String> extractId(final String content) {
+        final var start = content.indexOf(" class=\"container page-content ");
+        if (start < 0) {
+            if (content.contains("<h1 class=\"page-heading mx-auto\">")) {
+                return Optional.of("index-html-container"); // not in the dom but by convention on the default template we deduce it
+            }
+            return Optional.empty();
+        }
+        final var end = content.indexOf("\"", start + " class=\"container page-content ".length() + 1);
+        if (end < 0) {
+            throw new IllegalArgumentException("Invalid content, malformed '<div id>':\n" + content);
+        }
+        return Optional.of(content.substring(start + " class=\"container page-content ".length(), end).strip());
+    }
+
+    // todo: disable template upfront, this way no post processing needed? IMPORTANT: only works with default template
+    private String toContent(final String html) {
+        final int start = html.indexOf("<div class=\"page");
+        if (start < 0) {
+            throw new IllegalArgumentException("No '<div class=\"page' found in\n" + html);
+        }
+        final int endStart = html.indexOf(">", start);
+        if (endStart < 0) {
+            throw new IllegalArgumentException("No > after index=" + start + "\n" + html);
+        }
+        int end = html.indexOf("<footer class=\"footer pb-5\">", endStart);
+        if (end < 0) {
+            throw new IllegalArgumentException("No <footer class=\"footer pb-5\"> found in\n" + html);
+        }
+        end = html.lastIndexOf("<hr />", end); // we want this one, but it is not specific enough to match so we go through footer first
+        if (end < 0) {
+            throw new IllegalArgumentException("No <hr /> found in\n" + html);
+        }
+        return stripNavigation(html.substring(start, end).strip());
+    }
+
+    private String stripNavigation(final String html) {
+        final var start = html.indexOf("<div class=\"page-navigation-left\">");
+        if (start < 0) {
+            return html;
+        }
+        final var end = html.indexOf("</div>", start);
+        if (end < 0) {
+            return html;
+        }
+        return html.substring(0, start).stripTrailing() + html.substring(end + "</div>".length()).stripLeading();
     }
 
     private Optional<String> findTitle(final String content) {
@@ -179,33 +297,58 @@ public class ConfluenceService {
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Content {
-        private final String type = "page";
-        private final String id;
-        private final String title;
-        private final Space space;
-        private final Body body;
-        private final Version version;
+        private String type;
+        private String id;
+        private String title;
+        private Space space;
+        private Body body;
+        private Version version;
+
+        @JsonbProperty("_links")
+        private Map<String, String> links;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Version {
-        private final int number;
+        private int number;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Space {
-        private final String key;
+        private String key;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Body {
-        private final Storage storage;
+        private Storage storage;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Storage {
-        private final String representation = "export_view";
-        private final String value;
+        private String representation;
+        private String value;
+    }
+
+    @Data
+    public static class Contents {
+        private List<Content> results;
+
+        private int size;
+        private int start;
+        private int limit;
+
+        @JsonbProperty("_links")
+        private Map<String, String> links;
     }
 }
