@@ -29,7 +29,6 @@ import javax.json.bind.JsonbConfig;
 import javax.json.bind.annotation.JsonbProperty;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -48,9 +47,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -70,10 +69,11 @@ public class ConfluenceService {
         final var createContent = uri.resolve(uriSep + "rest/api/content");
         final var space = new Space(confluence.getSpace());
         final var auth = confluence.getAuthorization();
-        final var baseWikiLink = uri.getPath() + (uri.getPath().endsWith("/") ? "" : "/") + "spaces/" + space.getKey() + "/pages/";
+        final var baseWikiLink = uri.getPath().endsWith("/") ? uri.getPath().substring(0, uri.getPath().length() - 1) : uri.getPath();
         final var state = new State();
         try (final var jsonb = JsonbBuilder.create(new JsonbConfig().setProperty("johnzon.skip-cdi", true))) {
             final var contents = findAllPages(httpClient, createContent, auth, space, jsonb);
+            final var hrefReplacements = toHrefReplacements(contents);
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
@@ -86,7 +86,9 @@ public class ConfluenceService {
                     }
 
                     final var relative = path.relativize(file).toString();
-                    final var relativeLink = createOrUpdate(httpClient, createContent, auth, space, jsonb, file, base, baseWikiLink, contents, state);
+                    final var relativeLink = createOrUpdate(
+                            httpClient, createContent, auth, space, jsonb, file, base,
+                            baseWikiLink, contents, hrefReplacements, state);
                     info.accept("Saved '" + relative + "' on " + uri.resolve(uriSep + (uriSep.isBlank() ? relativeLink.substring(1) : relativeLink)));
 
                     return super.visitFile(file, attrs);
@@ -96,10 +98,13 @@ public class ConfluenceService {
             // recompute links after having created all files - so new files can be linked too
             if (!state.needsRecomputation.isEmpty()) {
                 final var updatedContent = findAllPages(httpClient, createContent, auth, space, jsonb);
+                final var updatedHrefReplacements = toHrefReplacements(updatedContent);
                 final var newState = new State();
                 state.needsRecomputation.forEach(file -> {
                     final var relative = path.relativize(file).toString();
-                    final var relativeLink = createOrUpdate(httpClient, createContent, auth, space, jsonb, file, base, baseWikiLink, updatedContent, newState);
+                    final var relativeLink = createOrUpdate(
+                            httpClient, createContent, auth, space, jsonb, file, base,
+                            baseWikiLink, updatedContent, updatedHrefReplacements, newState);
                     info.accept("Saved '" + relative + "' on " + uri.resolve(uriSep + (uriSep.isBlank() ? relativeLink.substring(1) : relativeLink)));
                 });
 
@@ -117,6 +122,13 @@ public class ConfluenceService {
         } catch (final Exception ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    private Map<Pattern, String> toHrefReplacements(final Map<String, Content> contents) {
+        return contents.entrySet().stream()
+                .collect(toMap( // replace - by . since the reverse process converts foo.html in foo-html so we must use "any char" matching since we don't know if it is a dot or not
+                        it -> Pattern.compile("href=\"" + urlifier.toUrlName(it.getKey()).replace('-', '.') + "\""),
+                        e -> e.getValue().getLinks().get("webui")));
     }
 
     private Map<String, Content> findAllPages(final HttpClient httpClient, final URI getContent, final String auth, final Space space, final Jsonb jsonb) {
@@ -186,9 +198,9 @@ public class ConfluenceService {
 
     private String createOrUpdate(final HttpClient httpClient, final URI createContent, final String auth, final Space space,
                                   final Jsonb jsonb, final Path path, final String base, final String baseWikiLink,
-                                  final Map<String, Content> contents, final State state) {
+                                  final Map<String, Content> contents, final Map<Pattern, String> hrefReplacements, final State state) {
         try {
-            final var content = toContent(Files.readString(path, StandardCharsets.UTF_8), base, baseWikiLink, contents, state, path);
+            final var content = toContent(Files.readString(path, StandardCharsets.UTF_8), base, baseWikiLink, contents, hrefReplacements, state, path);
             final var title = findTitle(content).orElseGet(() -> path.getFileName().toString());
             final var id = extractId(content).orElseThrow(() -> new IllegalArgumentException("No id in " + path));
             final var existing = contents.get(id);
@@ -294,7 +306,8 @@ public class ConfluenceService {
 
     // todo: disable template upfront, this way no post processing needed? IMPORTANT: only works with default template
     private String toContent(final String html, final String base, final String baseWikiLink,
-                             final Map<String, Content> existingPages, final State state, final Path path) {
+                             final Map<String, Content> existingPages, final Map<Pattern, String> hrefReplacements,
+                             final State state, final Path path) {
         final int start = html.indexOf("<div class=\"page");
         if (start < 0) {
             throw new IllegalArgumentException("No '<div class=\"page' found in\n" + html);
@@ -312,9 +325,21 @@ public class ConfluenceService {
             throw new IllegalArgumentException("No <hr /> found in\n" + html);
         }
         return simplifyAdmonition(
-                rewriteLinks(state,
-                        stripNavigationRight(
-                                stripNavigationLeft(html.substring(start, end).strip())), base, baseWikiLink, existingPages, path));
+                rewriteLinksFromPages(
+                        hrefReplacements, baseWikiLink,
+                        rewriteLinks(state,
+                                stripNavigationRight(
+                                        stripNavigationLeft(html.substring(start, end).strip())), base, baseWikiLink, existingPages, path)));
+    }
+
+    // this one is a bit blind but for the case you use link:mydoc.html[...] kind of syntax or xref:mydoc.adoc[...]
+    // WARNING: can need 2 builds/updates to be relevant
+    private String rewriteLinksFromPages(final Map<Pattern, String> replacements, final String baseWikiLink, final String content) {
+        var output = content;
+        for (final var ctx : replacements.entrySet()) {
+            output = ctx.getKey().matcher(output).replaceAll("href=\"" + baseWikiLink + ctx.getValue() + '"');
+        }
+        return output;
     }
 
     private String simplifyAdmonition(final String content) {
@@ -356,7 +381,7 @@ public class ConfluenceService {
             state.badLinks.computeIfAbsent(path.getFileName().toString(), p -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER)).add(id);
             return siteBase + link;
         }
-        return baseWikiLink + found.getId() + '/' + URLEncoder.encode(found.getTitle(), UTF_8);
+        return baseWikiLink + found.getLinks().get("webui");
     }
 
     private String stripNavigationRight(final String html) {

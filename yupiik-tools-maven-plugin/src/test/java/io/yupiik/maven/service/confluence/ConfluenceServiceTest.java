@@ -167,7 +167,9 @@ class ConfluenceServiceTest {
             case "/wiki/rest/api/content/search":
                 assertEquals("GET", exchange.getRequestMethod());
                 final var contents = (searchCount.incrementAndGet() == 2 ?
-                        "{\"results\":[{\"id\":\"httpclient-id-value\",\"title\":\"HTTP Client\",\"body\":{\"storage\":{\"value\":\"<div class=\\\"container page-content http-client-html\\\"></div>\"}}}],\"_links\":{}}" :
+                        "{\"results\":[{\"id\":\"httpclient-id-value\",\"title\":\"HTTP Client\"," +
+                                "\"_links\":{\"webui\":\"/spaces/MYSPACE/pages/httpclient-id-value/HTTP+Client\"}," +
+                                "\"body\":{\"storage\":{\"value\":\"<div class=\\\"container page-content http-client-html\\\"></div>\"}}}],\"_links\":{}}" :
                         "{\"results\":[],\"_links\":{}}").getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(200, contents.length);
                 exchange.getResponseBody().write(contents);
