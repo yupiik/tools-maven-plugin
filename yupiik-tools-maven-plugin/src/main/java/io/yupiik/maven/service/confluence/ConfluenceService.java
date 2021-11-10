@@ -342,8 +342,8 @@ public class ConfluenceService {
         return output;
     }
 
-    private String simplifyAdmonition(final String content) {
-        return content.replace("\"icon confluenceTd\"", "\"confluenceTd\"");
+    private String simplifyAdmonition(final String content) { // makes the title appearing since confluence does not show icons until you tune the css
+        return content.replace("class=\"icon\"", "");
     }
 
     private String rewriteLinks(final State state, final String content, final String siteBase, final String baseWikiLink,
