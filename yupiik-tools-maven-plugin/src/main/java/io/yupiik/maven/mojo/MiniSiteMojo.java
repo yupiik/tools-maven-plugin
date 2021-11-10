@@ -382,7 +382,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .customHead(customHead)
                 .customScripts(customScripts)
                 .customMenu(customMenu)
-                .siteBase("/".equals(siteBase) ? "" : siteBase)
+                .siteBase(getNormalizedSiteBase())
                 .useDefaultAssets(useDefaultAssets)
                 .searchIndexName(searchIndexName)
                 .generateIndex(generateIndex)
@@ -486,7 +486,11 @@ public class MiniSiteMojo extends BaseMojo {
         if (clearServer != null && clearServer.getPassword() != null) {
             confluence.setAuthorization(clearServer.getPassword());
         }
-        confluenceService.upload(confluence, target.toPath(), getLog()::info);
+        confluenceService.upload(confluence, target.toPath(), getLog()::info, getNormalizedSiteBase(), getLog());
+    }
+
+    private String getNormalizedSiteBase() {
+        return "/".equals(siteBase) ? "" : siteBase;
     }
 
     private Server decryptServer(final String serverId) {

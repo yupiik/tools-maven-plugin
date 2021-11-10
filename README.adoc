@@ -313,10 +313,9 @@ IMPORTANT: the nested support of this exporter is very experimental, and we reco
 
 ===== Confluence Limitations
 
-* Links are not updated, so they still rely on the base you set in the plugin and use Asciidoctor style links until you explicitly use `link:` yourself,
 * Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,
 * It only works with the default theme since we extract metadata from there to enable to update the space,
-* To look nice, you can need to tune the Confluence space CSS to import admonitions and codeblocks styling (can require some admin permissions).
+* To look nice, you can need to tune the Confluence space CSS to import admonitions, codeblocks, ... styling (can require some admin permissions).
 
 ===== Blog
 

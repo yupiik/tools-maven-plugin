@@ -79,6 +79,7 @@ public class MiniSite implements Runnable {
     private final ReadingTimeComputer readingTimeComputer = new ReadingTimeComputer();
     private final Gravatar gravatar = new Gravatar();
     private final Pattern linkTitleReplacement = Pattern.compile("[\"\n]");
+    private final Urlifier urlifier = new Urlifier();
 
     public MiniSite(final MiniSiteConfiguration configuration) {
         this.configuration = configuration;
@@ -566,8 +567,8 @@ public class MiniSite implements Runnable {
         }
         if (configuration.isUseDefaultAssets()) {
             Stream.of(
-                    "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
-                    "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js")
+                            "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
+                            "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js")
                     .forEach(resource -> {
                         final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
                         try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(Thread.currentThread().getContextClassLoader()
@@ -788,22 +789,22 @@ public class MiniSite implements Runnable {
         lines.addAll(idx, List.of(
                 "",
                 Stream.of(
-                        findFirstBlogCategoryIcon(bp.page)
-                                .map(this::toIcon)
-                                .map(icon -> "[.mr-2." + getCategoryClass(getPageCategories(bp.page)) + "]#icon:" + icon + "[]#")
-                                .orElse(""),
-                        ofNullable(bp.page.attributes.get("minisite-blog-authors"))
-                                .map(value -> (List.class.isInstance(value) ?
-                                        ((List<String>) value).stream() :
-                                        Stream.of(String.valueOf(value).split(",")))
-                                        .map(String::strip)
-                                        .filter(it -> !it.isBlank())
-                                        .map(it -> "link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + "]")
-                                        .collect(joining(" ")))
-                                .map(it -> "[.metadata-authors]#" + it + "#")
-                                .orElse(""),
-                        "[.metadata-published]#" + bp.publishedDate.format(DateTimeFormatter.ISO_LOCAL_DATE) + "#",
-                        "[.metadata-readingtime]#" + readingTimeComputer.toReadingTime(bp.page.content) + "#")
+                                findFirstBlogCategoryIcon(bp.page)
+                                        .map(this::toIcon)
+                                        .map(icon -> "[.mr-2." + getCategoryClass(getPageCategories(bp.page)) + "]#icon:" + icon + "[]#")
+                                        .orElse(""),
+                                ofNullable(bp.page.attributes.get("minisite-blog-authors"))
+                                        .map(value -> (List.class.isInstance(value) ?
+                                                ((List<String>) value).stream() :
+                                                Stream.of(String.valueOf(value).split(",")))
+                                                .map(String::strip)
+                                                .filter(it -> !it.isBlank())
+                                                .map(it -> "link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + "]")
+                                                .collect(joining(" ")))
+                                        .map(it -> "[.metadata-authors]#" + it + "#")
+                                        .orElse(""),
+                                "[.metadata-published]#" + bp.publishedDate.format(DateTimeFormatter.ISO_LOCAL_DATE) + "#",
+                                "[.metadata-readingtime]#" + readingTimeComputer.toReadingTime(bp.page.content) + "#")
                         .filter(it -> !it.isBlank())
                         .collect(joining(", ", "[.metadata]\n", "")),
                 ""));
@@ -864,21 +865,7 @@ public class MiniSite implements Runnable {
     }
 
     protected String toUrlName(final String string) {
-        final var out = new StringBuilder()
-                .append(Character.toLowerCase(string.charAt(0)));
-        for (int i = 1; i < string.length(); i++) {
-            final var c = string.charAt(i);
-            if (Character.isUpperCase(c)) {
-                out.append('-').append(Character.toLowerCase(c));
-            } else if (c == ' ') {
-                out.append('-');
-            } else if (!Character.isJavaIdentifierPart(c)) { // little shortcut for url friendly test
-                out.append('-');
-            } else {
-                out.append(c);
-            }
-        }
-        return out.toString().replace("--", "-");
+        return urlifier.toUrlName(string);
     }
 
     protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
