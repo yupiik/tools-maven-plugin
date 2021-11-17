@@ -389,6 +389,16 @@ Using `type=jsonschema` (recommended) or `type=io.yupiik.maven.service.action.bu
 NOTE: the model classes can use a custom `@Description(title,description)` annotation (note that `@Doc` is also supported and `value` method can be used instead of `description`).
 See `JsonDocExtractor` for more details.
 
+====== OpenMetrics renderer
+
+Using `type=openmetrics2adoc` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc` will generate an asciidoctor form from an OpenMetrics export.
+
+. `source`: path of the openmetrics dump.
+. `to`: destination of the asciidoc generated from `source`.
+. `levelPrefix`: a prefix set before the part title (`== ` by default for a second level title).
+. `legend`: should tables have a legend (name of the metric), default to `true`.
+. `header`: prefix the whole rendering (enables to set a title and some options if needed).
+
 ===== Example
 
 [source,xml]

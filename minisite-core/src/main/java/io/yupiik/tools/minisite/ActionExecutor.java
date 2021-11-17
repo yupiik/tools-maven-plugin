@@ -18,6 +18,7 @@ package io.yupiik.tools.minisite;
 import io.yupiik.maven.service.action.builtin.CopyFile;
 import io.yupiik.maven.service.action.builtin.JsonSchemaGenerator;
 import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
+import io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Parameter;
@@ -50,6 +51,8 @@ public class ActionExecutor {
                 return CopyFile.class;
             case "jsonschema":
                 return JsonSchemaGenerator.class;
+            case "openmetrics2adoc":
+                return OpenMetricsToAsciidoc.class;
             default:
                 return Thread.currentThread().getContextClassLoader()
                         .loadClass(name)
