@@ -21,7 +21,7 @@
 
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
-  <version>1.0.22-SNAPSHOT</version>
+  <version>1.0.21-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Yupiik Tools Maven Plugin</name>
   <description>Yupiik Tools</description>
