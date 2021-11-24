@@ -100,6 +100,18 @@ x = a + b
 This formula (jmath:_[a + b]) is cool.
 ----
 
+==== Use without a pom.xml
+
+IMPORTANT: this feature is available from version 1.0.22.
+
+[source,bash]
+----
+mvn \
+  io.yupiik.maven:yupiik-tools-maven-plugin:$VERSION:pdf \
+  -Dyupiik.pdf.source=content.adoc \
+  -Dyupiik.pdf.target=.
+----
+
 === Slides
 
 Render an asciidoctor reveal.js slide deck in HTML.
