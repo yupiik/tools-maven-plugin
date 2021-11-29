@@ -36,6 +36,65 @@ TIP: `yupiik-tools-cli` enables to run the slides and minisite tools without mav
 
 == Goals
 
+=== Git Report
+
+Use a `.git` folder to generate an asciidoc report listing commits.
+
+Simplest setup is to define the plugin and create a file `src/main/pdf/index.adoc`, then simply render it with:
+
+[source,sh]
+----
+ mvn yupiik-tools:git-report
+----
+
+==== Configuration
+
+[options="header",cols="1,m,m,m,1"]
+|====
+|Name|Type|Default|Property|Description
+|dotGit|File|-|yupiik.git-report.dotGit|Where is `.git` folder to render.
+|target|File|-|yupiik.git-report.target|Where to render the asciidoc report.
+|title|String|Report|yupiik.git-report.title|The report title.
+|overwrite|boolean|true|yupiik.git-report.overwrite|If `true` and the output already exists it is overwritten, else it would fail.
+|renderers|list of Renderer|DEFAULT|-|How to generate the document (see after).
+|filters|GitLogFilter|-|-|How to filter git logs to generate the document content, depends on the renderers configured (see after).
+|logFormat|GitLogFormat|-|-|How to render a git log line (see after).
+|====
+
+===== Renderers
+
+DEFAULT:: alias for `REPOSITORY_METADATA, COMMITS_PER_NAME_PREFIX_CHRONOLOGICAL`.
+REPOSITORY_METADATA:: creates a part with the repository URL and name, uses `origin` remote repository if possible.
+COMMITS:: simply logs all commits in reverse order (date) using the configured formatter (`logFormat`).
+COMMITS_CHRONOLOGICAL:: simply logs all commits in order (date) using the configured formatter (`logFormat`).
+COMMITS_PER_EMAIL_PREFIX:: same as `COMMITS` but groups each log lines in a part dedicated to the `email` associated to the commit.
+COMMITS_PER_EMAIL_PREFIX_CHRONOLOGICAL:: same as `COMMITS_PER_EMAIL_PREFIX` but sorted by date.
+COMMITS_PER_NAME_PREFIX:: same as `COMMITS` but groups each log lines in a part dedicated to the `name` associated to the commit.
+COMMITS_PER_NAME_PREFIX_CHRONOLOGICAL:: same as `COMMITS_PER_NAME_PREFIX` but sorted by date.
+
+===== Filters
+
+from:: date in `yyyy-MM-dd` format to include commits from (inclusive).
+to:: date in `yyyy-MM-dd` format to include commits to (inclusive).
+mailRegex:: java regex to filter commits per email, it can be used to include only the commits from members of a company for example.
+
+===== Log Format
+
+STAR:: renders `*`.
+BACKQUOTE:: renders ```.
+COLON:: renders `:`.
+SPACE:: renders a space.
+OPEN_BRACKET:: renders `[`.
+CLOSE_BRACKET:: renders `]`.
+OPEN_PARENTHESIS:: renders `(`.
+CLOSE_PARENTHESIS:: renders `)`.
+SHA:: renders commit short sha (abbreviated to 7 chars).
+DATE:: renders commit date.
+AUTHOR:: renders committer name.
+MAIL:: renders committer email.
+MESSAGE:: renders commit short message.
+FULL_MESSAGE:: renders commit full message.
+
 === PDF
 
 Render an asciidoctor file in PDF.

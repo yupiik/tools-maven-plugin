@@ -23,7 +23,7 @@
   <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
   <version>1.0.23-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>Yupiik Tools Maven Plugin</name>
+  <name>Yupiik Tools</name>
   <description>Yupiik Tools</description>
   <url>https://www.yupiik.com/</url>
 
