@@ -43,6 +43,7 @@ class GitReportMojoTest {
                     .addFilepattern("file")
                     .call();
             git.commit()
+                    .setCommitter("Test", "test@yupiik.com")
                     .setMessage("initial import")
                     .call();
         }
@@ -63,7 +64,7 @@ class GitReportMojoTest {
                         "\n" +
                         "== Commits Per Author\n" +
                         "\n" +
-                        "=== Romain Manni-Bucau (#1)\n" +
+                        "=== Test (#1)\n" +
                         "\n" +
                         "* [<sha>][<year>-<month>-<day>T<hour>:<minutes>:<seconds>] initial import\n" +
                         ""),
