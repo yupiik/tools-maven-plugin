@@ -95,6 +95,22 @@ MAIL:: renders committer email.
 MESSAGE:: renders commit short message.
 FULL_MESSAGE:: renders commit full message.
 
+===== TIP
+
+TIP: this goal can be chained with PDF one to render the log in one command (adjust the version, the sample uses the minimal one):
++
+[source,bash]
+----
+mvn \
+  io.yupiik.maven:yupiik-tools-maven-plugin:1.0.23:git-report \
+  io.yupiik.maven:yupiik-tools-maven-plugin:1.0.23-SNAPSHOT:pdf \
+  -Dyupiik.workDir=work \
+  -Dyupiik.git-report.dotGit=/path/to/project/.git \
+  -Dyupiik.git-report.target=log.adoc
+  -Dyupiik.pdf.source=log.adoc \
+  -Dyupiik.pdf.target=.
+----
+
 === PDF
 
 Render an asciidoctor file in PDF.
