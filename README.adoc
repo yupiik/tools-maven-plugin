@@ -98,7 +98,6 @@ FULL_MESSAGE:: renders commit full message.
 ===== TIP
 
 TIP: this goal can be chained with PDF one to render the log in one command (adjust the version, the sample uses the minimal one):
-+
 [source,bash]
 ----
 mvn \
