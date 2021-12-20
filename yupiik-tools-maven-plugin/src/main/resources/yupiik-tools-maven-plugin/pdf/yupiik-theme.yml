@@ -168,10 +168,11 @@ code:
   border_radius: $base_border_radius
   border_width: 0.75
 conum:
-  font_family: OpenSans
+  font_family: M+ 1mn
   font_color: $literal_font_color
   font_size: $base_font_size
   line_height: 4 / 3
+  glyphs: circled
 example:
   border_color: #f5f5f5
   border_radius: $base_border_radius
