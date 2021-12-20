@@ -22,15 +22,15 @@ font:
       bold: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/Bold/OpenSans-Bold.ttf
       bold_italic: uri:classloader:/META-INF/resources/webjars/npm-font-open-sans/1.1.0/fonts/BoldItalic/OpenSans-BoldItalic.ttf
     NotoSerif:
-      normal: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/notoserif-regular-subset.ttf
-      bold: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/notoserif-bold-subset.ttf
-      italic: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/notoserif-italic-subset.ttf
-      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/notoserif-bold_italic-subset.ttf
+      normal: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/notoserif-regular-subset.ttf
+      bold: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/notoserif-bold-subset.ttf
+      italic: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/notoserif-italic-subset.ttf
+      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/notoserif-bold_italic-subset.ttf
     M+ 1mn:
-      normal: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/mplus1mn-regular-subset.ttf
-      bold: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/mplus1mn-bold-subset.ttf
-      italic: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/mplus1mn-italic-subset.ttf
-      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.5.3/data/fonts/mplus1mn-bold_italic-subset.ttf
+      normal: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/mplus1mn-regular-subset.ttf
+      bold: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/mplus1mn-bold-subset.ttf
+      italic: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/mplus1mn-italic-subset.ttf
+      bold_italic: uri:classloader:/gems/asciidoctor-pdf-1.6.0/data/fonts/mplus1mn-bold_italic-subset.ttf
 
 page:
   background_color: #ffffff
