@@ -21,9 +21,8 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.asciidoctor.Asciidoctor;
-import org.asciidoctor.AttributesBuilder;
+import org.asciidoctor.Attributes;
 import org.asciidoctor.Options;
-import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
 
 import javax.inject.Inject;
@@ -78,12 +77,12 @@ public class PDFMojo extends BaseMojo {
         }
         mkdirs(targetDirectory.toPath());
         final Path src = sourceDirectory.toPath();
-        final Map<String, Object> options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent()).map();
+        final Options options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent());
         asciidoctor.withAsciidoc(this, adoc -> {
             if (Files.isDirectory(src)) {
                 final Path ignored = src.resolve("_partials");
                 try {
-                    Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                    Files.walkFileTree(src, new SimpleFileVisitor<>() {
                         @Override
                         public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
                             if (ignored.equals(dir)) {
@@ -110,9 +109,11 @@ public class PDFMojo extends BaseMojo {
         });
     }
 
-    private void doRender(final Path src, final Map<String, Object> options, final Asciidoctor adoc) {
+    private void doRender(final Path src, final Options options, final Asciidoctor adoc) {
         try {
-            options.put(Options.TO_FILE, targetDirectory.toPath().resolve(src.getFileName().toString().replaceFirst(".adoc$", ".pdf")).toString());
+            options.setToFile(targetDirectory.toPath()
+                    .resolve(src.getFileName().toString().replaceFirst(".adoc$", ".pdf"))
+                    .toString());
             adoc.convert(String.join("\n", Files.readAllLines(src)), options);
             getLog().info("Rendered '" + src.getFileName() + "'");
         } catch (final IOException e) {
@@ -121,12 +122,12 @@ public class PDFMojo extends BaseMojo {
     }
 
     private Options createOptions(final Path theme, final Path src) {
-        return OptionsBuilder.options()
+        return Options.builder()
                 .safe(SafeMode.UNSAFE)
                 .backend("pdf")
                 .inPlace(false)
                 .baseDir(sourceDirectory)
-                .attributes(AttributesBuilder.attributes()
+                .attributes(Attributes.builder()
                         .docType("book")
                         .icons("font")
                         .hiddenUriScheme(true)
@@ -142,7 +143,8 @@ public class PDFMojo extends BaseMojo {
                         .attribute("source-highlighter", "rouge")
                         .attribute("rouge-style", "yupiik")
                         // .attribute("rouge-style", "igorpro") the closest of the one we want
-                        .attributes(attributes == null ? emptyMap() : attributes))
-                .get();
+                        .attributes(attributes == null ? emptyMap() : attributes)
+                        .build())
+                .build();
     }
 }

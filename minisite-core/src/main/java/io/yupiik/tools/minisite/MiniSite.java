@@ -17,6 +17,7 @@ package io.yupiik.tools.minisite;
 
 import lombok.RequiredArgsConstructor;
 import org.asciidoctor.Asciidoctor;
+import org.asciidoctor.Attributes;
 import org.asciidoctor.AttributesBuilder;
 import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
@@ -1151,7 +1152,7 @@ public class MiniSite implements Runnable {
     }
 
     public Options createOptions() {
-        final AttributesBuilder attributes = AttributesBuilder.attributes()
+        final AttributesBuilder attributes = Attributes.builder()
                 .linkCss(false)
                 .dataUri(true)
                 .attribute("stem")
@@ -1163,17 +1164,17 @@ public class MiniSite implements Runnable {
         if (configuration.getProjectVersion() != null && (configuration.getAttributes() == null || !configuration.getAttributes().containsKey("projectVersion"))) {
             attributes.attribute("projectVersion", configuration.getProjectVersion());
         }
-        final OptionsBuilder options = OptionsBuilder.options()
+        final OptionsBuilder options = Options.builder()
                 .safe(SafeMode.UNSAFE)
                 .backend("html5")
                 .inPlace(false)
                 .headerFooter(false)
                 .baseDir(configuration.getSource().resolve("content").getParent().toAbsolutePath().normalize().toFile())
-                .attributes(attributes);
+                .attributes(attributes.build());
         if (configuration.getTemplateDirs() != null && !configuration.getTemplateDirs().isEmpty()) {
             options.templateDirs(configuration.getTemplateDirs().toArray(new File[0]));
         }
-        return options.get();
+        return options.build();
     }
 
     @RequiredArgsConstructor

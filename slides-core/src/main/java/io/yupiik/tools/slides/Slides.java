@@ -21,7 +21,7 @@ import io.yupiik.tools.slides.slider.RevealjsSlider;
 import io.yupiik.tools.slides.slider.Slider;
 import lombok.RequiredArgsConstructor;
 import org.asciidoctor.Asciidoctor;
-import org.asciidoctor.AttributesBuilder;
+import org.asciidoctor.Attributes;
 import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
@@ -202,7 +202,7 @@ public class Slides implements Runnable {
         stage(configuration.getWorkDir().resolve("slides/favicon.ico").normalize(), "img/");
 
         // finally create the options now the target folder is ready
-        final OptionsBuilder base = OptionsBuilder.options()
+        final OptionsBuilder base = Options.builder()
                 .safe(SafeMode.UNSAFE)
                 .backend(slider.backend())
                 .inPlace(false)
@@ -211,18 +211,19 @@ public class Slides implements Runnable {
                 .mkDirs(true)
                 .toFile(toOutputPath().toFile())
                 .baseDir(configuration.getSource().getParent().toAbsolutePath().normalize().toFile())
-                .attributes(slider.append(AttributesBuilder.attributes()
-                        .linkCss(false)
-                        .dataUri(true)
-                        .attribute("stem")
-                        .attribute("favicon", "img/favicon.ico")
-                        .attribute("source-highlighter", "highlightjs")
-                        .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1")
-                        .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css")
-                        .attribute("customcss", findCss(slider))
-                        .attribute("partialsdir", configuration.getSource().getParent().resolve("_partials").toAbsolutePath().normalize().toString())
-                        .attribute("imagesdir", configuration.getSource().getParent().resolve("images").toAbsolutePath().normalize().toString())
-                        .attributes(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes())));
+                .attributes(slider.append(Attributes.builder()
+                                .linkCss(false)
+                                .dataUri(true)
+                                .attribute("stem")
+                                .attribute("favicon", "img/favicon.ico")
+                                .attribute("source-highlighter", "highlightjs")
+                                .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1")
+                                .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css")
+                                .attribute("customcss", findCss(slider))
+                                .attribute("partialsdir", configuration.getSource().getParent().resolve("_partials").toAbsolutePath().normalize().toString())
+                                .attribute("imagesdir", configuration.getSource().getParent().resolve("images").toAbsolutePath().normalize().toString())
+                                .attributes(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes()))
+                        .build());
 
         final Path builtInTemplateDir = configuration.getWorkDir().resolve("slides/template." + slider.templateDir());
         if (configuration.getTemplateDirs() == null) {
@@ -230,7 +231,7 @@ public class Slides implements Runnable {
         } else {
             base.templateDirs(Stream.of(builtInTemplateDir, configuration.getTemplateDirs()).filter(Files::exists).map(Path::toFile).toArray(File[]::new));
         }
-        return base.get();
+        return base.build();
     }
 
     private void stage(final Path src, final String outputFolder) {
