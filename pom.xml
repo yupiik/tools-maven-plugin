@@ -49,6 +49,11 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-compress</artifactId>
+        <version>1.21</version>
+      </dependency>
+      <dependency>
         <groupId>org.asciidoctor</groupId>
         <artifactId>asciidoctorj</artifactId>
         <version>2.5.2</version>
@@ -343,11 +348,4 @@ under the License.
       </build>
     </profile>
   </profiles>
-
-  <repositories>
-    <repository>
-      <id>mavengems</id>
-      <url>http://rubygems-proxy.torquebox.org/releases/</url>
-    </repository>
-  </repositories>
 </project>
