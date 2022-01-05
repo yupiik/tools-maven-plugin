@@ -76,9 +76,9 @@ public class WatchPDFMojo extends PDFMojo {
     private Instant findLastUpdate(final Path src, final Path theme) {
         try {
             final var last = new AtomicReference<>(Instant.ofEpochMilli(0));
-            findLastUpdate(theme, last);
+            findLastUpdate(theme, last, false);
             if (Files.isDirectory(src)) {
-                findLastUpdate(src, last);
+                findLastUpdate(src, last, true);
                 return last.get();
             }
             final var source = Files.getLastModifiedTime(src).toInstant();
@@ -92,7 +92,7 @@ public class WatchPDFMojo extends PDFMojo {
         }
     }
 
-    private void findLastUpdate(final Path src, final AtomicReference<Instant> last) {
+    private void findLastUpdate(final Path src, final AtomicReference<Instant> last, final boolean adocOnly) {
         if (!Files.exists(src)) {
             return;
         }
@@ -108,6 +108,6 @@ public class WatchPDFMojo extends PDFMojo {
             } catch (final IOException ie) {
                 getLog().debug(ie.getMessage());
             }
-        });
+        }, adocOnly);
     }
 }

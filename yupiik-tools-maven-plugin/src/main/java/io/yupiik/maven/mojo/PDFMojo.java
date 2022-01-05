@@ -89,12 +89,12 @@ public class PDFMojo extends BaseMojo {
 
     protected void doRender(final Path src, final Options options) {
         asciidoctor.withAsciidoc(this, adoc -> {
-            visit(src, f -> doRender(f, options, adoc));
+            visit(src, f -> doRender(f, options, adoc), true);
             return null;
         });
     }
 
-    protected void visit(final Path src, final Consumer<Path> onFile) {
+    protected void visit(final Path src, final Consumer<Path> onFile, final boolean adocOnly) {
         if (Files.isDirectory(src)) {
             final Path ignored = src.resolve("_partials");
             try {
@@ -109,7 +109,7 @@ public class PDFMojo extends BaseMojo {
 
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        if (file.getFileName().toString().endsWith(".adoc")) {
+                        if (!adocOnly || file.getFileName().toString().endsWith(".adoc")) {
                             onFile.accept(file);
                         }
                         return super.visitFile(file, attrs);
