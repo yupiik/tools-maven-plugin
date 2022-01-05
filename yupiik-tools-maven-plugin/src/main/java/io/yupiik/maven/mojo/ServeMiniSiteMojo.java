@@ -30,7 +30,7 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
 /**
  * Minisite goa with HTTP server.
  */
-@Mojo(name = "serve-minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
+@Mojo(name = "serve-minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class ServeMiniSiteMojo extends MiniSiteMojo {
     @Parameter(property = "yupiik.minisite.openBrowser", defaultValue = "true")
     private boolean openBrowser;

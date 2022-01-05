@@ -60,7 +60,7 @@ import static java.util.stream.StreamSupport.stream;
 /**
  * Generates a report from a {@code .git} folder.
  */
-@Mojo(name = "git-report", requiresProject = false)
+@Mojo(name = "git-report", requiresProject = false, threadSafe = true)
 public class GitReportMojo extends AbstractMojo {
     /**
      * "Where .git folder to analyze is.

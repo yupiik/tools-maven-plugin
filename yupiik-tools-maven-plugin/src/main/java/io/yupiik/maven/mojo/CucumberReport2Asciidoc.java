@@ -49,7 +49,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-@Mojo(name = "cucumber2asciidoc")
+@Mojo(name = "cucumber2asciidoc", threadSafe = true)
 public class CucumberReport2Asciidoc extends AbstractMojo {
     @Parameter(property = "yupiik.cucumber.source", defaultValue = "${project.build.directory/cucumber-reports/")
     protected File source;

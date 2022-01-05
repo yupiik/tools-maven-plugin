@@ -22,7 +22,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 @Setter
-@Mojo(name = "serve-slides")
+@Mojo(name = "serve-slides", threadSafe = true)
 public class ServeSlidesMojo extends SlidesMojo {
     @Parameter(property = "yupiik.slides.openBrowser", defaultValue = "true")
     private boolean openBrowser;

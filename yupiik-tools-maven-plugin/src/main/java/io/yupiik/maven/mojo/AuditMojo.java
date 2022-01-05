@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Setter
-@Mojo(name = "audit")
+@Mojo(name = "audit", threadSafe = true)
 public class AuditMojo extends PDFMojo {
     @Getter
     @Parameter(defaultValue = "${reactorProjects}", readonly = true)

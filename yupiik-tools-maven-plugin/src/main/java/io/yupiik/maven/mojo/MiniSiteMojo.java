@@ -65,7 +65,7 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
  * <p>
  * TODO: add a way to execute a main before the rendering.
  */
-@Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME)
+@Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class MiniSiteMojo extends BaseMojo {
     /**
      * Where to read content (layout root) from.

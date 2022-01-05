@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 @Setter
-@Mojo(name = "slides")
+@Mojo(name = "slides", threadSafe = true)
 public class SlidesMojo extends BaseMojo {
     /**
      * Slide deck source file.

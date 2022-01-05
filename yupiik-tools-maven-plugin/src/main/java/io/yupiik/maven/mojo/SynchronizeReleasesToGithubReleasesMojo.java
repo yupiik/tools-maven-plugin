@@ -82,7 +82,7 @@ import static java.util.stream.Collectors.toSet;
 /**
  * Fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.
  */
-@Mojo(name = "synchronize-github-releases")
+@Mojo(name = "synchronize-github-releases", threadSafe = true)
 public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     private static final String CENTRAL = "https://repo.maven.apache.org/maven2/";
 

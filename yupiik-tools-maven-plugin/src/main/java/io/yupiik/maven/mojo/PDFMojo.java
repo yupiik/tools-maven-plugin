@@ -38,7 +38,7 @@ import java.util.Map;
 import static java.util.Collections.emptyMap;
 
 @Setter
-@Mojo(name = "pdf", requiresProject = false)
+@Mojo(name = "pdf", requiresProject = false, threadSafe = true)
 public class PDFMojo extends BaseMojo {
     /**
      * Source directory or file to render, if a directory all files with extension .adoc will be selected.
