@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static java.util.Collections.emptyMap;
 
@@ -44,31 +45,38 @@ public class PDFMojo extends BaseMojo {
      * Source directory or file to render, if a directory all files with extension .adoc will be selected.
      */
     @Parameter(property = "yupiik.pdf.source", defaultValue = "${project.basedir}/src/main/pdf")
-    private File sourceDirectory;
+    protected File sourceDirectory;
 
     /**
      * Where to render the asciidoc files to.
      */
     @Parameter(property = "yupiik.pdf.target", defaultValue = "${project.build.directory}/yupiik/pdf")
-    private File targetDirectory;
+    protected File targetDirectory;
 
     /**
      * Theme directory (name of the theme is yupiik), let it null to inherit from the default theme.
      */
     @Parameter(property = "yupiik.pdf.themeDir")
-    private File themeDir;
+    protected File themeDir;
 
     /**
      * Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
      */
     @Parameter
-    private Map<String, Object> attributes;
+    protected Map<String, Object> attributes;
 
     @Inject
-    private AsciidoctorInstance asciidoctor;
+    protected AsciidoctorInstance asciidoctor;
 
     @Override
     public void doExecute() throws MojoExecutionException {
+        final Path theme = prepare();
+        final Path src = sourceDirectory.toPath();
+        final Options options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent());
+        doRender(src, options);
+    }
+
+    protected Path prepare() throws MojoExecutionException {
         final Path theme;
         if (themeDir == null) {
             theme = workDir.toPath().resolve("pdf");
@@ -76,37 +84,43 @@ public class PDFMojo extends BaseMojo {
             theme = themeDir.toPath();
         }
         mkdirs(targetDirectory.toPath());
-        final Path src = sourceDirectory.toPath();
-        final Options options = createOptions(theme, Files.isDirectory(src) ? src : src.getParent());
-        asciidoctor.withAsciidoc(this, adoc -> {
-            if (Files.isDirectory(src)) {
-                final Path ignored = src.resolve("_partials");
-                try {
-                    Files.walkFileTree(src, new SimpleFileVisitor<>() {
-                        @Override
-                        public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
-                            if (ignored.equals(dir)) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                            return super.preVisitDirectory(dir, attrs);
-                        }
+        return theme;
+    }
 
-                        @Override
-                        public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                            if (file.getFileName().toString().endsWith(".adoc")) {
-                                doRender(file, options, adoc);
-                            }
-                            return super.visitFile(file, attrs);
-                        }
-                    });
-                } catch (final IOException e) {
-                    throw new IllegalStateException(e);
-                }
-            } else {
-                doRender(src, options, adoc);
-            }
+    protected void doRender(final Path src, final Options options) {
+        asciidoctor.withAsciidoc(this, adoc -> {
+            visit(src, f -> doRender(f, options, adoc));
             return null;
         });
+    }
+
+    protected void visit(final Path src, final Consumer<Path> onFile) {
+        if (Files.isDirectory(src)) {
+            final Path ignored = src.resolve("_partials");
+            try {
+                Files.walkFileTree(src, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
+                        if (ignored.equals(dir)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        return super.preVisitDirectory(dir, attrs);
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                        if (file.getFileName().toString().endsWith(".adoc")) {
+                            onFile.accept(file);
+                        }
+                        return super.visitFile(file, attrs);
+                    }
+                });
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        } else {
+            onFile.accept(src);
+        }
     }
 
     private void doRender(final Path src, final Options options, final Asciidoctor adoc) {
@@ -121,7 +135,7 @@ public class PDFMojo extends BaseMojo {
         }
     }
 
-    private Options createOptions(final Path theme, final Path src) {
+    protected Options createOptions(final Path theme, final Path src) {
         return Options.builder()
                 .safe(SafeMode.UNSAFE)
                 .backend("pdf")

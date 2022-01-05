@@ -121,6 +121,8 @@ Simplest setup is to define the plugin and create a file `src/main/pdf/index.ado
  mvn yupiik-tools:pdf
 ----
 
+TIP: `watch-pdf` goal exists and just keeps re-rendering your `adoc` to `pdf` when something changed in the source directories. You can exit it with `Ctrl+C` command.
+
 ==== Configuration
 
 [options="header",cols="1,m,m,m,1"]
