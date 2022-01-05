@@ -18,8 +18,10 @@ package io.yupiik.maven.mojo;
 import lombok.Setter;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.asciidoctor.Options;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,12 +33,18 @@ import static java.lang.Thread.sleep;
 @Setter
 @Mojo(name = "watch-pdf", requiresProject = false, threadSafe = true)
 public class WatchPDFMojo extends PDFMojo {
+    /**
+     * How long to pause between two check to see if sources must be re-rendered.
+     */
+    @Parameter(property = "yupiik.pdf.pauseBetweenChecks", defaultValue = "1000")
+    private long pauseBetweenChecks;
+
     @Override
     public void doExecute() throws MojoExecutionException {
         final Path theme = super.prepare();
         final Path src = sourceDirectory.toPath();
         final Options options = super.createOptions(theme, Files.isDirectory(src) ? src : src.getParent());
-        final Instant lastUpdate = findLastUpdate(src, theme);
+        Instant lastUpdate = findLastUpdate(src, theme);
         try {
             super.doRender(src, options);
             getLog().info("Rendered " + src);
@@ -44,9 +52,10 @@ public class WatchPDFMojo extends PDFMojo {
             getLog().error(re);
         }
         do {
-            if (findLastUpdate(src, theme).equals(lastUpdate)) {
+            final var update = findLastUpdate(src, theme);
+            if (update.equals(lastUpdate)) {
                 try {
-                    sleep(500);
+                    sleep(pauseBetweenChecks);
                 } catch (final InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -54,6 +63,7 @@ public class WatchPDFMojo extends PDFMojo {
                 getLog().debug("No change since last check time, will pause for 500ms");
                 continue;
             }
+            lastUpdate = update;
             getLog().info("Re-rendering " + src);
             try {
                 super.doRender(src, options);
@@ -65,13 +75,17 @@ public class WatchPDFMojo extends PDFMojo {
 
     private Instant findLastUpdate(final Path src, final Path theme) {
         try {
+            final var last = new AtomicReference<>(Instant.ofEpochMilli(0));
+            findLastUpdate(theme, last);
             if (Files.isDirectory(src)) {
-                final var last = new AtomicReference<>(Instant.ofEpochMilli(0));
                 findLastUpdate(src, last);
-                findLastUpdate(theme, last);
                 return last.get();
             }
-            return Files.getLastModifiedTime(src).toInstant();
+            final var source = Files.getLastModifiedTime(src).toInstant();
+            if (source.isAfter(last.get())) {
+                last.set(source);
+            }
+            return source;
         } catch (final IOException ie) {
             getLog().debug(ie.getMessage());
             return Instant.ofEpochMilli(0);
