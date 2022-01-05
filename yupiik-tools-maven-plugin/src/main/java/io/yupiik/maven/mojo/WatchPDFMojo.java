@@ -99,7 +99,7 @@ public class WatchPDFMojo extends PDFMojo {
         visit(src, f -> {
             try {
                 final var ref = last.get();
-                final var current = Files.getLastModifiedTime(src).toInstant();
+                final var current = Files.getLastModifiedTime(f).toInstant();
                 synchronized (last) {
                     if (current.isAfter(ref)) {
                         last.set(current);
