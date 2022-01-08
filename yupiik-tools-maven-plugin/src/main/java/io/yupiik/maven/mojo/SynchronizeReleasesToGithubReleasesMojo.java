@@ -89,6 +89,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     @Parameter(property = "yupiik.synchronize-github-releases.force", defaultValue = "false")
     private boolean force;
 
+    @Parameter(property = "yupiik.synchronize-github-releases.forceHttpV1", defaultValue = "true")
+    private boolean forceHttpV1;
+
     @Parameter(property = "yupiik.synchronize-github-releases.attachIfExists", defaultValue = "false")
     private boolean attachIfExists;
 
@@ -153,7 +156,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                 return thread;
             }
         });
-        final var httpClient = HttpClient.newBuilder()
+        final var httpClientBuilder = HttpClient.newBuilder();
+        if (forceHttpV1) {
+            httpClientBuilder.version(HttpClient.Version.HTTP_1_1);
+        }
+        final var httpClient = httpClientBuilder
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .executor(threadPool)
                 .build();
