@@ -644,7 +644,11 @@ public class MiniSite implements Runnable {
                 .sorted(Map.Entry.<Page, OffsetDateTime>comparingByValue().reversed())
                 .collect(toList());
 
-        final var escaper = findXmlEscaper();
+        final var escaper = findXmlEscaper().andThen(text -> text
+                // https://www.htmlhelp.com/reference/html40/entities/special.html
+                .replace("&", "&#x26;")
+                .replace("<", "&#x3C;")
+                .replace(">", "&#x3E;"));
         final var formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
         final var baseSite = configuration.getSiteBase() + (!configuration.getSiteBase().endsWith("/") ? "/" : "");
         final var items = all.stream()
@@ -653,8 +657,8 @@ public class MiniSite implements Runnable {
                     final var title = getTitle(it);
                     return "" +
                             "   <item>\n" +
-                            "    <title>" + xmlEscape(title) + "</title>\n" +
-                            "    <description>" + xmlEscape(ofNullable(it.attributes.get("minisite-blog-summary")).map(String::valueOf).orElse(title)) + "</description>\n" +
+                            "    <title>" + escaper.apply(title) + "</title>\n" +
+                            "    <description>" + escaper.apply(ofNullable(it.attributes.get("minisite-blog-summary")).map(String::valueOf).orElse(title)) + "</description>\n" +
                             "    <link>" + baseSite + it.relativePath.substring(1) + "</link>\n" +
                             "    <guid isPermaLink=\"false\">" + it.relativePath + "</guid>\n" +
                             "    <pubDate>" + readPublishedDate(it).format(formatter) + "</pubDate>\n" +
@@ -663,10 +667,11 @@ public class MiniSite implements Runnable {
                 .collect(joining("\n", "", "\n"));
         final var lastDate = all.stream().limit(1).findFirst().map(Map.Entry::getValue).orElseGet(OffsetDateTime::now).format(formatter);
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
-                "<rss version=\"2.0\">\n" +
+                "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n" +
                 "  <channel>\n" +
-                "   <title>" + xmlEscape(getTitle()) + "</title>\n" +
-                "   <description>" + xmlEscape(getIndexSubTitle()) + "</description>\n" +
+                "   <atom:link href=\"" + baseSite + configuration.getRssFeedFile() + "\" rel=\"self\" type=\"application/rss+xml\" />\n" +
+                "   <title>" + escaper.apply(getTitle()) + "</title>\n" +
+                "   <description>" + escaper.apply(getIndexSubTitle()) + "</description>\n" +
                 "   <link>" + baseSite + configuration.getRssFeedFile() + "</link>\n" +
                 "   <lastBuildDate>" + lastDate + "</lastBuildDate>\n" +
                 "   <pubDate>" + lastDate + "</pubDate>\n" +

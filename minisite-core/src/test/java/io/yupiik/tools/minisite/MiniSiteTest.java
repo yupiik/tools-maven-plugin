@@ -128,8 +128,9 @@ class MiniSiteTest {
         asserts.assertThat(files -> assertEquals(
                 "" +
                         "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
-                        "<rss version=\"2.0\">\n" +
+                        "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n" +
                         "  <channel>\n" +
+                        "   <atom:link href=\"https://foo.test.yupiik.com/rss.xml\" rel=\"self\" type=\"application/rss+xml\" />\n" +
                         "   <title>Test Site</title>\n" +
                         "   <description>Index sub title</description>\n" +
                         "   <link>https://foo.test.yupiik.com/rss.xml</link>\n" +
