@@ -123,6 +123,40 @@ class MiniSiteTest {
     }
 
     @Test
+    void rss(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder.rssFeedFile("rss.xml").siteBase("https://foo.test.yupiik.com").build()).run();
+        asserts.assertThat(files -> assertEquals(
+                "" +
+                        "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
+                        "<rss version=\"2.0\">\n" +
+                        "  <channel>\n" +
+                        "   <title>Test Site</title>\n" +
+                        "   <description>Index sub title</description>\n" +
+                        "   <link>https://foo.test.yupiik.com/rss.xml</link>\n" +
+                        "   <lastBuildDate>Tue, 16 Feb 2021 16:00:00 GMT</lastBuildDate>\n" +
+                        "   <pubDate>Tue, 16 Feb 2021 16:00:00 GMT</pubDate>\n" +
+                        "   <ttl>1800</ttl>\n" +
+                        "   <item>\n" +
+                        "    <title>My Third Post</title>\n" +
+                        "    <description>Second post.</description>\n" +
+                        "    <link>https://foo.test.yupiik.com/blog2.html</link>\n" +
+                        "    <guid isPermaLink=\"false\">/blog2.html</guid>\n" +
+                        "    <pubDate>Tue, 16 Feb 2021 16:00:00 GMT</pubDate>\n" +
+                        "   </item>\n" +
+                        "   <item>\n" +
+                        "    <title>My First Post</title>\n" +
+                        "    <description>First post.</description>\n" +
+                        "    <link>https://foo.test.yupiik.com/blog1.html</link>\n" +
+                        "    <guid isPermaLink=\"false\">/blog1.html</guid>\n" +
+                        "    <pubDate>Mon, 15 Feb 2021 00:00:00 GMT</pubDate>\n" +
+                        "   </item>\n" +
+                        "  </channel>\n" +
+                        "</rss>\n" +
+                        "",
+                files.get("rss.xml")));
+    }
+
+    @Test
     void blogReadingTime(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
         new MiniSite(builder
                 .injectBlogMeta(true)

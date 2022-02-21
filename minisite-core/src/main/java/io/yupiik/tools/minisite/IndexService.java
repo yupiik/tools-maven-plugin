@@ -56,8 +56,7 @@ public class IndexService {
                     return super.visitFile(file, attrs);
                 }
             });
-            result.getEntries().sort(Comparator.<IndexEntry, String>comparing(it -> it.title)
-                    .thenComparing(comparing(v -> v.url)));
+            result.getEntries().sort(Comparator.<IndexEntry, String>comparing(it -> it.title).thenComparing(v -> v.url));
             return result;
         } catch (final IOException e) {
             throw new IllegalStateException(e);

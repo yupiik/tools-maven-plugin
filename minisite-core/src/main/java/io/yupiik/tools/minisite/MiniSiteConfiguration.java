@@ -56,6 +56,7 @@ public class MiniSiteConfiguration {
     private Map<String, Object> attributes;
     private String title;
     private String description;
+    private String rssFeedFile;
     private String logoText;
     private String logo;
     private String indexText;

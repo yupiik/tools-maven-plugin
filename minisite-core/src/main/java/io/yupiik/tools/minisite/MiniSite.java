@@ -22,7 +22,6 @@ import org.asciidoctor.AttributesBuilder;
 import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
-import org.asciidoctor.ast.DocumentHeader;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,6 +30,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -63,8 +63,10 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
@@ -509,7 +511,7 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
-        final var pages = findPages(asciidoctor);
+        final var pages = findPages(asciidoctor, options);
         Function<Page, String> template = null;
         boolean hasBlog = false;
         List<String> categories = emptyList();
@@ -614,11 +616,97 @@ public class MiniSite implements Runnable {
                 return true;
             }), output.resolve(configuration.getSearchIndexName()));
         }
+        if (configuration.getRssFeedFile() != null) {
+            final var out = output.resolve(configuration.getRssFeedFile());
+            try {
+                Files.createDirectories(out.getParent());
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+            try (final var rss = Files.newBufferedWriter(out, UTF_8)) {
+                final var rssContent = generateRssFeed(files);
+                rss.write(rssContent);
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
 
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }
 
-    protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor, final Options options,
+    private String generateRssFeed(final Map<Page, Path> files) {
+        final var all = files.keySet().stream()
+                .filter(it -> {
+                    final var name = files.get(it).getFileName().toString();
+                    return !(name.startsWith("page-") || name.equals("index.html")) && name.endsWith(".html");
+                })
+                .map(it -> entry(it, readPublishedDate(it)))
+                .sorted(Map.Entry.<Page, OffsetDateTime>comparingByValue().reversed())
+                .collect(toList());
+
+        final var escaper = findXmlEscaper();
+        final var formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+        final var baseSite = configuration.getSiteBase() + (!configuration.getSiteBase().endsWith("/") ? "/" : "");
+        final var items = all.stream()
+                .map(Map.Entry::getKey)
+                .map(it -> {
+                    final var title = getTitle(it);
+                    return "" +
+                            "   <item>\n" +
+                            "    <title>" + xmlEscape(title) + "</title>\n" +
+                            "    <description>" + xmlEscape(ofNullable(it.attributes.get("minisite-blog-summary")).map(String::valueOf).orElse(title)) + "</description>\n" +
+                            "    <link>" + baseSite + it.relativePath.substring(1) + "</link>\n" +
+                            "    <guid isPermaLink=\"false\">" + it.relativePath + "</guid>\n" +
+                            "    <pubDate>" + readPublishedDate(it).format(formatter) + "</pubDate>\n" +
+                            "   </item>";
+                })
+                .collect(joining("\n", "", "\n"));
+        final var lastDate = all.stream().limit(1).findFirst().map(Map.Entry::getValue).orElseGet(OffsetDateTime::now).format(formatter);
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
+                "<rss version=\"2.0\">\n" +
+                "  <channel>\n" +
+                "   <title>" + xmlEscape(getTitle()) + "</title>\n" +
+                "   <description>" + xmlEscape(getIndexSubTitle()) + "</description>\n" +
+                "   <link>" + baseSite + configuration.getRssFeedFile() + "</link>\n" +
+                "   <lastBuildDate>" + lastDate + "</lastBuildDate>\n" +
+                "   <pubDate>" + lastDate + "</pubDate>\n" +
+                "   <ttl>1800</ttl>\n" +
+                items +
+                "  </channel>\n" +
+                "</rss>\n";
+    }
+
+    private Function<String, String> findXmlEscaper() {
+        try {
+            // org.apache.commons.lang3.StringEscapeUtils.escapeXml11
+            final var clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
+            final var escapeXml11 = clazz.getMethod("escapeXml11");
+            if (!escapeXml11.isAccessible()) {
+                escapeXml11.setAccessible(true);
+            }
+            return s -> {
+                try {
+                    return String.valueOf(escapeXml11.invoke(null, s));
+                } catch (final IllegalAccessException e) {
+                    throw new IllegalStateException(e);
+                } catch (final InvocationTargetException e) {
+                    throw new IllegalStateException(e.getTargetException());
+                }
+            };
+        } catch (final Exception cnfe) {
+            configuration.getAsciidoctorConfiguration().info()
+                    .accept("Can't load StringEscapeUtils " +
+                            "(ensure you added commons-lang3 if you use rss feature with unsafe characters in titles/descriptions).");
+            return this::xmlEscape;
+        }
+    }
+
+    protected String xmlEscape(final String text) {
+        return text;
+    }
+
+    protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor,
+                                                             final Options options,
                                                              final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
             return t -> {
@@ -672,7 +760,8 @@ public class MiniSite implements Runnable {
                 .orElseGet(OffsetDateTime::now);
     }
 
-    protected List<String> generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor, final Options options,
+    protected List<String> generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor,
+                                        final Options options,
                                         final Function<Page, String> template) {
         Comparator<BlogPage> pageComparator = comparing(p -> p.publishedDate);
         if (configuration.isReverseBlogOrder()) {
@@ -735,7 +824,8 @@ public class MiniSite implements Runnable {
         return allCategories;
     }
 
-    private String getHtmlList(final String urlMarker, final Function<String, String> prefixText, final Object value) {
+    private String getHtmlList(final String urlMarker, final Function<String, String> prefixText,
+                               final Object value) {
         return ofNullable(value)
                 .map(String::valueOf)
                 .map(categories -> parseCsv(categories)
@@ -812,7 +902,8 @@ public class MiniSite implements Runnable {
         return String.join("\n", lines);
     }
 
-    protected Collection<String> paginatePer(final String singular, final String plural, final List<BlogPage> blog,
+    protected Collection<String> paginatePer(final String singular, final String plural,
+                                             final List<BlogPage> blog,
                                              final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
                                              final Path baseBlog, final String itemTemplate, final String contentTemplate) {
         // per category pagination /category/<name>/page-<x>.html
@@ -869,7 +960,8 @@ public class MiniSite implements Runnable {
         return urlifier.toUrlName(string);
     }
 
-    protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix, final String pageRelativeFolder,
+    protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix,
+                                     final String pageRelativeFolder,
                                      final List<BlogPage> blogPages,
                                      final Asciidoctor asciidoctor,
                                      final Options options,
@@ -950,7 +1042,8 @@ public class MiniSite implements Runnable {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
     }
 
-    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor, final boolean hasBlog) {
+    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor,
+                                                 final boolean hasBlog) {
         final var layout = getTemplatesDir();
         var prefix = readTemplates(layout, configuration.getTemplatePrefixes())
                 .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
@@ -1038,7 +1131,7 @@ public class MiniSite implements Runnable {
                         "    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.highlightAll(); }</script>")));
     }
 
-    protected Collection<Page> findPages(final Asciidoctor asciidoctor) {
+    protected Collection<Page> findPages(final Asciidoctor asciidoctor, final Options options) {
         try {
             final var content = configuration.getSource().resolve("content");
             final Collection<Page> pages = new ArrayList<>();
@@ -1053,14 +1146,14 @@ public class MiniSite implements Runnable {
                         return FileVisitResult.CONTINUE;
                     }
                     final String contentString = Files.readString(file);
-                    final DocumentHeader header = asciidoctor.readDocumentHeader(contentString);
+                    final var header = asciidoctor.load(contentString, options);
                     final Path out = ofNullable(header.getAttributes().get("minisite-path"))
                             .map(it -> configuration.getTarget().resolve(it.toString()))
                             .orElseGet(() -> configuration.getTarget().resolve(content.relativize(file)).getParent().resolve(
                                     filename.substring(0, filename.length() - ".adoc".length()) + ".html"));
                     final Page page = new Page(
                             '/' + configuration.getTarget().relativize(out).toString().replace(File.separatorChar, '/'),
-                            header.getPageTitle(),
+                            header.getTitle(),
                             header.getAttributes(),
                             contentString);
                     pages.add(page);

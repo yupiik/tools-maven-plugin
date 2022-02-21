@@ -104,6 +104,12 @@ public class MiniSiteMojo extends BaseMojo {
     private String title;
 
     /**
+     * RSS feed location (relative to the output) if set.
+     */
+    @Parameter(property = "yupiik.minisite.rssFeedFile")
+    private String rssFeedFile;
+
+    /**
      * Default HTML page description.
      */
     @Parameter(property = "yupiik.minisite.description")

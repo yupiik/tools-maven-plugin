@@ -1,0 +1,8 @@
+= My Third Post
+:minisite-blog-published-date: 2021-02-16T16:00
+:minisite-blog-categories: others,simple
+:minisite-blog-authors: Romain Manni-Bucau
+:minisite-blog-summary: Second post.
+
+// named 2 and titled third to test publish date ordering
+3
