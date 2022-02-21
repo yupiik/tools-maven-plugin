@@ -381,6 +381,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .indexSubTitle(indexSubTitle)
                 .copyright(copyright)
                 .blogPageSize(blogPageSize)
+                .rssFeedFile(rssFeedFile)
                 .blogPublicationDate("default".equals(blogPublicationDate) ? getDefaultPublicationDate() : blogPublicationDate)
                 .injectBlogMeta(injectBlogMeta)
                 .generateBlog(generateBlog)

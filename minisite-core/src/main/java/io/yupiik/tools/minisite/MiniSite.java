@@ -677,7 +677,7 @@ public class MiniSite implements Runnable {
     }
 
     private Function<String, String> findXmlEscaper() {
-        try {
+        try { // todo: absorb it there to avoid the need of the dep
             // org.apache.commons.lang3.StringEscapeUtils.escapeXml11
             final var clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
             final var escapeXml11 = clazz.getMethod("escapeXml11");
