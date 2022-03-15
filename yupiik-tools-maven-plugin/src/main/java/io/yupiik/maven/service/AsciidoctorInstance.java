@@ -16,6 +16,7 @@
 package io.yupiik.maven.service;
 
 import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.extension.CodeEvalMacro;
 import io.yupiik.maven.service.extension.DependenciesMacro;
 import io.yupiik.maven.service.extension.ExcelTableMacro;
 import io.yupiik.maven.service.extension.JLatexMath;
@@ -133,6 +134,7 @@ public class AsciidoctorInstance {
         registry.block(new DependenciesMacro(() -> BaseMojo.class.cast(mojo.get())));
         registry.block(new XsltMacro(() -> BaseMojo.class.cast(mojo.get())));
         registry.block(new ExcelTableMacro());
+        registry.block(new CodeEvalMacro());
         try {
             Thread.currentThread().getContextClassLoader().loadClass("org.scilab.forge.jlatexmath.TeXFormula");
             registry.inlineMacro(new JLatexMath.Inline());
