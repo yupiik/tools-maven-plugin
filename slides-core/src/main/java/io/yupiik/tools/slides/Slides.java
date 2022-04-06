@@ -142,12 +142,6 @@ public class Slides implements Runnable {
 
     private synchronized void render(final Options options, final Asciidoctor adoc, final Slider slider) {
         adoc.convertFile(configuration.getSource().toFile(), options);
-        slider.postProcess(
-                toOutputPath(),
-                configuration.getCustomCss() != null ? configuration.getCustomCss() : null,
-                configuration.getTargetDirectory(),
-                configuration.getCustomScripts(),
-                options);
         if (configuration.getSynchronizationFolders() != null) {
             configuration.getSynchronizationFolders().forEach(s -> {
                 final Path root = s.getSource().toPath();
@@ -187,6 +181,9 @@ public class Slides implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
+        slider.postProcess(
+                toOutputPath(), configuration.getCustomCss(),
+                configuration.getTargetDirectory(), configuration.getCustomScripts(), options);
         configuration.getLogInfo().accept("Rendered '" + configuration.getSource().getFileName() + "'");
     }
 

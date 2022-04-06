@@ -62,8 +62,13 @@ public class BespokeSlider implements Slider {
                                     "integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
                                     "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css\"" +
                                     " integrity=\"sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==\" crossorigin=\"anonymous\" />\n" +
-                                    Stream.of(cssFiles).map(it -> "<link rel=\"stylesheet\" href=\"" + it + "\">\n").collect(joining()) +
-                                    (customCss != null ? "<link rel=\"stylesheet\" href=\"css/" + customCss.getFileName() + "\">\n" : ""))
+                                    Stream.of(cssFiles)
+                                            .filter(file -> Files.exists(path.getParent().resolve(file)))
+                                            .map(it -> "<link rel=\"stylesheet\" href=\"" + it + "\">\n")
+                                            .collect(joining()) +
+                                    (customCss != null && Files.exists(path.getParent().resolve("css").resolve(customCss.getFileName())) ?
+                                            "<link rel=\"stylesheet\" href=\"css/" + customCss.getFileName() + "\">\n" :
+                                            ""))
                     .getBytes(StandardCharsets.UTF_8));
         } catch (final IOException e) {
             throw new IllegalStateException(e);
