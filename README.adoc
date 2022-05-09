@@ -658,6 +658,35 @@ Then run `mvn yupiik-tools:cucumber2asciidoc`.
 
 TIP: indeed it can be chained with `yupiik-tools:pdf`.
 
+=== Bash CLI Skeleton
+
+This MOJO enables to initialize a folder with a Bash CLI structure.
+
+Usage:
+
+[source,bash]
+----
+mvn yupiik-tools:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/skeleton
+----
+
+==== Configuration
+
+[options="header",cols="1,m,2"]
+|====
+|Name|Type|Property|Description
+|directory|File|yupiik.script-cli-skeleton.directory|Where to bootstrap the CLI.
+|generateHelloWorldCommand|boolean|yupiik.script-cli-skeleton.generateHelloWorldCommand|Should a default command be added or not.
+|====
+
+TIP: can be used on a pomless project: `mvn io.yupiik.maven:yupiik-tools-maven-plugin:<version>:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project` (version >= 1.0.26).
+
+==== Usage
+
+To add a command:
+
+. Create an `index.sh` containing the command script in `commands` folder
+. (optional) create a `commands/<your command name>/_cli/help.txt` file containing the help description.
+
 == Maven Asciidoctor Macro
 
 The project adds asciidoc macros to get back some maven build information.
