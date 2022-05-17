@@ -30,6 +30,10 @@ import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+/**
+ * Injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder.
+ * It can be combined with some javascript to switch between the websites without regenerating everything.
+ */
 @Mojo(name = "inject-version", threadSafe = true)
 public class VersionInjectorMojo extends AbstractMojo {
     /**

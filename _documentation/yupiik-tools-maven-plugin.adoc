@@ -5,7 +5,7 @@
 - xref:audit.adoc[audit]: Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
 - xref:cucumber2asciidoc.adoc[cucumber2asciidoc]: 
 - xref:git-report.adoc[git-report]: Generates a report from a {@code .git} folder.
-- xref:inject-version.adoc[inject-version]: Website encoding.
+- xref:inject-version.adoc[inject-version]: Injects a select in a already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything.
 - xref:minisite.adoc[minisite]: Minisite goal. Enables to generate a small website. <p> It needs a "documentation" module, it uses the following default layout: <ul>     <li>src/main/doc/content: contains a set of .adoc (converted to .html)</li>     <li>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</li>     <li>src/main/doc/templates: contains the templates for the layout and pages of the website</li> </ul> <p> TODO: add a way to execute a main before the rendering.
 - xref:pdf.adoc[pdf]: Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
 - xref:script-cli-skeleton.adoc[script-cli-skeleton]: Seed a simple bash CLI.

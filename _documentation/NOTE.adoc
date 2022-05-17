@@ -1,24 +1,6 @@
 = Note
 :last-generation: 2022-05-17
 
-This folder was generated (on the {last-generation}) with this class:
-
-[source,java]
-----
-public class Tmp {
-    private Tmp() {
-        // no-op
-    }
-
-    public static void main(final String... args) {
-        new MojoDocumentationGeneration(
-                Path.of("ignored"),
-                Map.of(
-                    "toBase", "/tmp/output",
-                    "pluginXml", "yupiik-tools-maven-plugin/target/classes/META-INF/maven/plugin.xml"))
-        .run();
-    }
-}
-----
+This folder was generated (on the {last-generation}) with `io.yupiik.maven.RegenerateDoc` class (`yupiik-tools-maven-plugin/src/test/java/io/yupiik/maven/RegenerateDoc.java`).
 
 IMPORTANT: ensure to regenerate the content and not update it manually if needed.

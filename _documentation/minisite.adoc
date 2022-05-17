@@ -18,7 +18,7 @@ TODO: add a way to execute a main before the rendering.
 <plugin>
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin</artifactId>
-  <version>1.0.26-SNAPSHOT</version>
+  <version>1.0.27-SNAPSHOT</version>
 </plugin>
 ----
 
@@ -31,7 +31,7 @@ To bind this goal in the build you can use:
 <plugin>
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin</artifactId>
-  <version>1.0.26-SNAPSHOT</version>
+  <version>1.0.27-SNAPSHOT</version>
   <executions>
     <execution>
       <id>my-execution</id>

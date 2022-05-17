@@ -1,6 +1,7 @@
 = yupiik-tools:inject-version
 
-Website encoding.
+Injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder.
+It can be combined with some javascript to switch between the websites without regenerating everything.
 
 == Coordinates
 
@@ -9,7 +10,7 @@ Website encoding.
 <plugin>
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin</artifactId>
-  <version>1.0.26-SNAPSHOT</version>
+  <version>1.0.27-SNAPSHOT</version>
 </plugin>
 ----
 
@@ -22,7 +23,7 @@ To bind this goal in the build you can use:
 <plugin>
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin</artifactId>
-  <version>1.0.26-SNAPSHOT</version>
+  <version>1.0.27-SNAPSHOT</version>
   <executions>
     <execution>
       <id>my-execution</id>
