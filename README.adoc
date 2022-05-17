@@ -19,7 +19,7 @@
 
 image::https://github.com/yupiik/tools-maven-plugin/workflows/Java%20CI%20with%20Maven/badge.svg[Java CI with Maven]
 
-A set of goals at Yupiik colors.
+A set of goals at Yupiik colors and easing automotion.
 
 Plugin definition:
 
@@ -35,6 +35,8 @@ Plugin definition:
 TIP: `yupiik-tools-cli` enables to run the slides and minisite tools without maven, run `help` on the fat jar (`java -jar yupiik-tools-cli-<version>-fatjar.jar`) to see the configuration.
 
 == Goals
+
+IMPORTANT: you can also consult out link:_documentation/yupiik-tools-maven-plugin.adoc[generated] documentation, it will contain a more exhaustive content.
 
 === Git Report
 

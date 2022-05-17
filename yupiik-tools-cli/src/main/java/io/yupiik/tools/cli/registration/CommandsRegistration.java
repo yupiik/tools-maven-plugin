@@ -17,6 +17,7 @@ package io.yupiik.tools.cli.registration;
 
 import io.yupiik.tools.cli.command.MinisiteCommand;
 import io.yupiik.tools.cli.command.SlidesCommand;
+import io.yupiik.tools.cli.command.VersionInjectorCommand;
 import io.yupiik.tools.cli.converter.Converters;
 import io.yupiik.tools.cli.service.AsciidoctorProvider;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
@@ -25,14 +26,22 @@ import io.yupiik.tools.slides.SlidesConfiguration;
 import org.tomitribe.crest.api.Loader;
 
 import java.beans.PropertyEditorManager;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class CommandsRegistration implements Loader {
     static {
         if (PropertyEditorManager.findEditor(Path.class) == null) {
             PropertyEditorManager.registerEditor(Path.class, Converters.PathConverter.class);
+        }
+        if (PropertyEditorManager.findEditor(Charset.class) == null) {
+            PropertyEditorManager.registerEditor(Charset.class, Converters.CharsetConverter.class);
+        }
+        if (PropertyEditorManager.findEditor(Map.class) == null) {
+            PropertyEditorManager.registerEditor(Map.class, Converters.MapConverter.class);
         }
         PropertyEditorManager.registerEditor(MiniSiteConfiguration.BlogCategoryConfiguration.class, Converters.BlogCategoryConfigurationConverter.class);
         PropertyEditorManager.registerEditor(PreAction.class, Converters.PreActionConverter.class);
@@ -41,6 +50,6 @@ public class CommandsRegistration implements Loader {
 
     @Override
     public Iterator<Class<?>> iterator() {
-        return List.of(MinisiteCommand.class, SlidesCommand.class, AsciidoctorProvider.class).iterator();
+        return List.of(MinisiteCommand.class, SlidesCommand.class, AsciidoctorProvider.class, VersionInjectorCommand.class).iterator();
     }
 }

@@ -23,6 +23,7 @@ import org.tomitribe.util.editor.AbstractConverter;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Properties;
@@ -30,6 +31,7 @@ import java.util.Properties;
 import static java.util.Objects.requireNonNull;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 public interface Converters {
@@ -76,6 +78,22 @@ public interface Converters {
         @Override
         protected Object toObjectImpl(final String s) {
             return Paths.get(s);
+        }
+    }
+
+    class CharsetConverter extends AbstractConverter {
+        @Override
+        protected Object toObjectImpl(final String s) {
+            return Charset.forName(s.strip());
+        }
+    }
+
+    class MapConverter extends AbstractConverter {
+        @Override
+        protected Object toObjectImpl(final String s) {
+            final var props = readProperties(s);
+            return props.stringPropertyNames().stream()
+                    .collect(toMap(identity(), props::getProperty));
         }
     }
 

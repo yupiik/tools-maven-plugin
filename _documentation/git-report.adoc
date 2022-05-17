@@ -1,0 +1,66 @@
+= yupiik-tools:git-report
+
+Generates a report from a {@code .git} folder.
+
+== Coordinates
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+</plugin>
+----
+
+To call this goal from the command line execute: `mvn yupiik-tools:git-report`.
+
+To bind this goal in the build you can use:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+  <executions>
+    <execution>
+      <id>my-execution</id>
+      <goals>
+        <goal>git-report</goal>
+      </goals>
+      <configuration>
+        <!-- execution specific configuration come there -->
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+You can execute this goal particularly with `mvn yupiik-tools:git-report@my-execution` command.
+
+== Configuration
+
+TIP: `*` means the parameter is required.
+
+dotGit* (`java.io.File`)::
+"Where .git folder to analyze is. Property: `${yupiik.git-report.dotGit}`.
+
+filters (`io.yupiik.maven.mojo.GitReportMojo$GitLogFilter`)::
+Options to filter the git log value. Property: `${yupiik.git-report.filters}`.
+
+logFormat (`io.yupiik.maven.mojo.GitReportMojo$GitLogFormat`)::
+How to format a log line if the renderer needs to. Property: `${yupiik.git-report.logFormat}`.
+
+overwrite (`boolean`)::
+If true existing report is overwritten else it fails if it already exists. Default value: `true`. Property: `${yupiik.git-report.overwrite}`.
+
+renderers (`io.yupiik.maven.mojo.GitReportMojo$Renderer[]`)::
+Kind of rendering. Default value: `DEFAULT`. Property: `${yupiik.git-report.renderer}`.
+
+target (`java.io.File`)::
+Where to write the report. Default value: `${project.build.directory}/yupiik-git/report.adoc`. Property: `${yupiik.git-report.target}`.
+
+title (`String`)::
+Report title. Default value: `Report`. Property: `${yupiik.git-report.title}`.
+

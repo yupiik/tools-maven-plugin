@@ -1,0 +1,51 @@
+= yupiik-tools:script-cli-skeleton
+
+Seed a simple bash CLI.
+
+== Coordinates
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+</plugin>
+----
+
+To call this goal from the command line execute: `mvn yupiik-tools:script-cli-skeleton`.
+
+To bind this goal in the build you can use:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+  <executions>
+    <execution>
+      <id>my-execution</id>
+      <goals>
+        <goal>script-cli-skeleton</goal>
+      </goals>
+      <configuration>
+        <!-- execution specific configuration come there -->
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+You can execute this goal particularly with `mvn yupiik-tools:script-cli-skeleton@my-execution` command.
+
+== Configuration
+
+TIP: `*` means the parameter is required.
+
+directory* (`java.io.File`)::
+Where to create the bash CLI skeleton. Property: `${yupiik.script-cli-skeleton.directory}`.
+
+generateHelloWorldCommand (`boolean`)::
+Where to create the bash CLI skeleton. Default value: `true`. Property: `${yupiik.script-cli-skeleton.generateHelloWorldCommand}`.
+

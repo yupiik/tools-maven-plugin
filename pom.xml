@@ -44,6 +44,7 @@
     <module>yupiik-tools-common</module>
     <module>slides-core</module>
     <module>yupiik-tools-cli</module>
+    <module>html-versioning-injector</module>
   </modules>
 
   <dependencyManagement>

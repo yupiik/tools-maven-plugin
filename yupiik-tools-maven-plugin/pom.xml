@@ -72,6 +72,11 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>html-versioning-injector</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>yupiik-tools-common</artifactId>
       <version>${project.version}</version>
     </dependency>

@@ -73,15 +73,18 @@ public class MojoDocumentationGeneration implements Runnable {
             final String version = findChild(pluginChildren, "version").getTextContent().trim();
             final String goalPrefix = findChild(pluginChildren, "goalPrefix").getTextContent().trim();
 
+            final boolean requiresDefaults = Boolean.parseBoolean(configuration.get("requiresDefaults"));
+            final boolean requiresDescription = Boolean.parseBoolean(configuration.get("requiresDescription"));
+
             final List<Goal> goals = stream(document.getElementsByTagName("mojo"))
                     .filter(it -> it.getNodeType() == Node.ELEMENT_NODE)
                     .map(Element.class::cast)
-                    .map(this::toGoal)
+                    .map(it -> toGoal(it, requiresDefaults))
                     .filter(it -> !"help".equals(it.getName()))
                     .collect(toList());
 
             final Map<String, String> adocs = goals.stream()
-                    .collect(toMap(Goal::getName, g -> toDocumentation(groupId, artifactId, version, goalPrefix, g)));
+                    .collect(toMap(Goal::getName, g -> toDocumentation(groupId, artifactId, version, goalPrefix, g, requiresDescription)));
 
             // dump each goal doc
             adocs.forEach((goalName, content) -> {
@@ -122,7 +125,7 @@ public class MojoDocumentationGeneration implements Runnable {
                 .orElseThrow(() -> new IllegalStateException("No <" + tag + "> found"));
     }
 
-    private Goal toGoal(final Element element) {
+    private Goal toGoal(final Element element, final boolean requiresDefaults) {
         final Map<String, ParameterConfig> defaults = stream(element.getElementsByTagName("configuration"))
                 .findFirst()
                 .map(config -> stream(config.getChildNodes())
@@ -130,10 +133,6 @@ public class MojoDocumentationGeneration implements Runnable {
                         .collect(toMap(Node::getNodeName, it -> {
                             final NamedNodeMap attributes = it.getAttributes();
                             return new ParameterConfig(
-                                    attributes.getNamedItem("implementation")
-                                            .getTextContent().trim()
-                                            .replace("java.util.", "")
-                                            .replace("java.lang.", ""),
                                     ofNullable(it.getTextContent()).map(String::trim).orElse(null),
                                     ofNullable(attributes.getNamedItem("default-value"))
                                             .map(v -> v.getTextContent().trim())
@@ -150,11 +149,17 @@ public class MojoDocumentationGeneration implements Runnable {
                         .filter(e -> Boolean.parseBoolean(getString(e, "editable")))
                         .map(e -> {
                             final String name = getString(e, "name");
+                            final var defaultConfig = defaults.get(name);
                             return new Parameter(
                                     name,
+                                    getString(e, "type")
+                                            .replace("java.util.", "")
+                                            .replace("java.lang.", ""),
                                     Boolean.parseBoolean(getString(e, "required")),
                                     getString(e, "description"),
-                                    requireNonNull(defaults.get(name), "no configuration entry for " + name));
+                                    !requiresDefaults ?
+                                            defaultConfig :
+                                            requireNonNull(defaultConfig, "no configuration entry for '" + name + "'"));
                         })
                         .collect(toList()));
     }
@@ -164,14 +169,19 @@ public class MojoDocumentationGeneration implements Runnable {
     }
 
     private String toDocumentation(final String groupId, final String artifactId, final String version,
-                                   final String goalPrefix, final Goal goal) {
+                                   final String goalPrefix, final Goal goal, final boolean requiresDescription) {
         return "= " + goalPrefix + ':' + goal.getName() + "\n" +
                 "\n" +
                 ofNullable(goal.getDescription())
                         .map(String::trim)
                         .filter(it -> !it.isEmpty())
-                        .orElseThrow(() -> new IllegalArgumentException("No description for " + goal))
-                        .trim() + "\n" +
+                        .map(String::trim)
+                        .orElseGet(() -> {
+                            if (requiresDescription) {
+                                throw new IllegalArgumentException("No description for " + goal);
+                            }
+                            return "";
+                        }) + "\n" +
                 "\n" +
                 "== Coordinates\n" +
                 "\n" +
@@ -225,15 +235,24 @@ public class MojoDocumentationGeneration implements Runnable {
                                     }
                                     return p1.getName().compareTo(p2.getName());
                                 })
-                                .map(p -> p.getName() + (p.isRequired() ? "*" : "") + " (`" + p.getConfig().getType() + "`)" + "::\n" +
-                                        ofNullable(p.getDescription())
-                                                .map(String::trim)
-                                                .filter(it -> !it.isEmpty())
-                                                .map(it -> !it.endsWith(".") ? it + '.' : it)
-                                                .orElseThrow(() -> new IllegalArgumentException(
-                                                        "No description for " + p + " (" + goalPrefix + ':' + goal.getName() + ")")) +
-                                        (p.getConfig().getDefaultValue() != null ? " Default value: `" + p.getConfig().getDefaultValue() + "`." : "") +
-                                        (p.getConfig().getPropertyName() != null ? " Property: `" + p.getConfig().getPropertyName() + "`." : ""))
+                                .map(p -> {
+                                    final var config = p.getConfig();
+                                    return p.getName() + (p.isRequired() ? "*" : "") + " (`" + p.getType() + "`)" + "::\n" +
+                                            ofNullable(p.getDescription())
+                                                    .map(String::trim)
+                                                    .filter(it -> !it.isEmpty())
+                                                    .map(it -> !it.endsWith(".") ? it + '.' : it)
+                                                    .map(String::trim)
+                                                    .orElseGet(() -> {
+                                                        if (requiresDescription) {
+                                                            throw new IllegalArgumentException(
+                                                                    "No description for " + p + " (" + goalPrefix + ':' + goal.getName() + ")");
+                                                        }
+                                                        return "";
+                                                    }) +
+                                            (config != null && config.getDefaultValue() != null ? " Default value: `" + config.getDefaultValue() + "`." : "") +
+                                            (config != null && config.getPropertyName() != null ? " Property: `" + config.getPropertyName() + "`." : "");
+                                })
                                 .collect(joining("\n\n")) + '\n')) +
                 "\n";
     }
@@ -257,7 +276,6 @@ public class MojoDocumentationGeneration implements Runnable {
 
     @Data
     private static class ParameterConfig {
-        private final String type;
         private final String propertyName;
         private final String defaultValue;
     }
@@ -265,6 +283,7 @@ public class MojoDocumentationGeneration implements Runnable {
     @Data
     private static class Parameter {
         private final String name;
+        private final String type;
         private final boolean required;
         private final String description;
         private final ParameterConfig config;

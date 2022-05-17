@@ -1,0 +1,83 @@
+= yupiik-tools:inject-version
+
+Website encoding.
+
+== Coordinates
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+</plugin>
+----
+
+To call this goal from the command line execute: `mvn yupiik-tools:inject-version`.
+
+To bind this goal in the build you can use:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+  <executions>
+    <execution>
+      <id>my-execution</id>
+      <goals>
+        <goal>inject-version</goal>
+      </goals>
+      <configuration>
+        <!-- execution specific configuration come there -->
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+You can execute this goal particularly with `mvn yupiik-tools:inject-version@my-execution` command.
+
+== Configuration
+
+TIP: `*` means the parameter is required.
+
+replacedString* (`String`)::
+String to locate and replace in the source files, can use a regex if prefixed with {@code regex:}. Property: `${yupiik.inject-version.replacedString}`.
+
+replacingContent* (`String`)::
+String to inject into the output. {@code <!-- generated_versions_select -->} is replaced by a select with one option per version found. Property: `${yupiik.inject-version.replacingContent}`.
+
+source* (`java.io.File`)::
+Source folder with the website to inject version to. Property: `${yupiik.inject-version.source}`.
+
+versionFolderParent* (`java.io.File`)::
+Root folder containing all versions. Property: `${yupiik.inject-version.versionFolderParent}`.
+
+charset (`String`)::
+Website encoding. Default value: `${project.build.sourceEncoding}`. Property: `${yupiik.inject-version.target}`.
+
+excludes (`List`)::
+List of exclusions (for file processing).
+Similar to includes but enables to force an exclusion. Property: `${yupiik.inject-version.excludes}`.
+
+ignoredVersionFolders (`List`)::
+Enables to ignore some matching (to the pattern) version folders. Property: `${yupiik.inject-version.ignoredVersionFolders}`.
+
+inPlace (`boolean`)::
+Should the output be written in source (and target be ignored). Default value: `false`. Property: `${yupiik.inject-version.inPlace}`.
+
+includes (`List`)::
+List of inclusions (for file processing).
+It is a list of file names (not path) or regex if prefixed with {@code regex:}. Default value: `regex:.+\.html`. Property: `${yupiik.inject-version.includes}`.
+
+selectProperties (`Map`)::
+Attributes to inject to the {@code <select>} when {@code <!-- generated_versions_select -->} is used. Property: `${yupiik.inject-version.selectProperties}`.
+
+target (`java.io.File`)::
+Output folder if not inplace. Property: `${yupiik.inject-version.target}`.
+
+versionFoldersPattern (`String`)::
+Pattern to match version folders in versionFolderParent. Default value: `v?\p{Digit}+\.\p{Digit}+(\.\p{Digit}+?(\-[a-zA-Z0-9]+)?)`. Property: `${yupiik.inject-version.versionFoldersPattern}`.
+

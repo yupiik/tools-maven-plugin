@@ -1,0 +1,65 @@
+= yupiik-tools:watch-pdf
+
+Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
+
+== Coordinates
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+</plugin>
+----
+
+To call this goal from the command line execute: `mvn yupiik-tools:watch-pdf`.
+
+To bind this goal in the build you can use:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>1.0.26-SNAPSHOT</version>
+  <executions>
+    <execution>
+      <id>my-execution</id>
+      <goals>
+        <goal>watch-pdf</goal>
+      </goals>
+      <configuration>
+        <!-- execution specific configuration come there -->
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+You can execute this goal particularly with `mvn yupiik-tools:watch-pdf@my-execution` command.
+
+== Configuration
+
+attributes (`Map`)::
+Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
+
+pauseBetweenChecks (`long`)::
+How long to pause between two check to see if sources must be re-rendered. Default value: `1000`. Property: `${yupiik.pdf.pauseBetweenChecks}`.
+
+requires (`List`)::
+Warning: this must be a shared settings by all executions.
+Override defaults require - completely.
+
+sourceDirectory (`java.io.File`)::
+Source directory or file to render, if a directory all files with extension .adoc will be selected. Default value: `${project.basedir}/src/main/pdf`. Property: `${yupiik.pdf.source}`.
+
+targetDirectory (`java.io.File`)::
+Where to render the asciidoc files to. Default value: `${project.build.directory}/yupiik/pdf`. Property: `${yupiik.pdf.target}`.
+
+themeDir (`java.io.File`)::
+Theme directory (name of the theme is yupiik), let it null to inherit from the default theme. Property: `${yupiik.pdf.themeDir}`.
+
+workDir (`java.io.File`)::
+Where to extract files needed for the rendering. Default value: `${project.build.directory}/yupiik-workdir`. Property: `${yupiik.workDir}`.
+

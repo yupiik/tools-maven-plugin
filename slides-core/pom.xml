@@ -26,8 +26,7 @@
 
   <artifactId>slides-core</artifactId>
   <name>Yupiik Tools :: Slides</name>
-  <description>Extracts slides logic in a reusable module. Note that it requires an explicit configuration for now.
-  </description>
+  <description>Extracts slides logic in a reusable module. Note that it requires an explicit configuration for now.</description>
 
   <dependencies>
     <dependency>

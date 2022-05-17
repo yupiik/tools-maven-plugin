@@ -1,0 +1,16 @@
+= Yupiik-tools Maven Plugin
+
+== Goals
+
+- xref:audit.adoc[audit]: Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
+- xref:cucumber2asciidoc.adoc[cucumber2asciidoc]: 
+- xref:git-report.adoc[git-report]: Generates a report from a {@code .git} folder.
+- xref:inject-version.adoc[inject-version]: Website encoding.
+- xref:minisite.adoc[minisite]: Minisite goal. Enables to generate a small website. <p> It needs a "documentation" module, it uses the following default layout: <ul>     <li>src/main/doc/content: contains a set of .adoc (converted to .html)</li>     <li>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</li>     <li>src/main/doc/templates: contains the templates for the layout and pages of the website</li> </ul> <p> TODO: add a way to execute a main before the rendering.
+- xref:pdf.adoc[pdf]: Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
+- xref:script-cli-skeleton.adoc[script-cli-skeleton]: Seed a simple bash CLI.
+- xref:serve-minisite.adoc[serve-minisite]: Minisite goa with HTTP server.
+- xref:serve-slides.adoc[serve-slides]: Custom attributes.
+- xref:slides.adoc[slides]: Custom attributes.
+- xref:synchronize-github-releases.adoc[synchronize-github-releases]: Fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.
+- xref:watch-pdf.adoc[watch-pdf]: Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
