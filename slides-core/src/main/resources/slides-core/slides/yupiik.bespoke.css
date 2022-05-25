@@ -109,7 +109,7 @@
 .bespoke-slide blockquote::before {
 	position: absolute;
 	margin: -16px 0 0 -80px;
-	color: #0075ba;
+	color: #00b2ef;
 	font-size: 8em;
 	line-height: 1;
 	content: "\201c";
@@ -137,7 +137,7 @@
 .bespoke-slide ul li::before {
 	display: inline-block;
 	width: 2em;
-	color: #0075ba;
+	color: #00b2ef;
 	text-align: right
 }
 
@@ -432,7 +432,7 @@ footer>p.author>span.contact>span {
 }
 
 .bespoke-slide h2 {
-	color: #0075ba;
+	color: #00b2ef;
 	text-align: initial;
 }
 
@@ -474,7 +474,7 @@ span.icon {
     color: #00366f;
 }
 .secondary, .fa-secondary {
-    color: #0075ba;
+    color: #00b2ef;
 }
 
 .amber,
@@ -895,7 +895,7 @@ section.bespoke-slide > ul > li > div > pre {
     content: counter(slide);
     text-align: center;
     font-size: .5em;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon fill='%23003667' points='0,0 31,0 31,40 15,31 0,40'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon fill='%23#00b2ef' points='0,0 31,0 31,40 15,31 0,40'/%3E%3C/svg%3E");
     box-sizing: content-box;
 }
 .bespoke-slide.title::after, .bespoke-slide.hide-counter::after {
