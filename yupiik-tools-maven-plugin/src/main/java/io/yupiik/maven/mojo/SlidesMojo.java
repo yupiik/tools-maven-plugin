@@ -22,13 +22,11 @@ import io.yupiik.tools.slides.SlidesConfiguration;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.asciidoctor.Asciidoctor;
 
 import javax.inject.Inject;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 @Setter
 @Mojo(name = "slides", threadSafe = true)

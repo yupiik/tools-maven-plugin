@@ -17,14 +17,14 @@ package io.yupiik.maven.service.action.builtin;
 
 import io.yupiik.maven.service.action.builtin.json.JsonDocExtractor;
 import io.yupiik.maven.service.action.builtin.json.JsonSchema2Adoc;
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.config.PropertyOrderStrategy;
 import lombok.RequiredArgsConstructor;
 import org.apache.johnzon.jsonschema.generator.Schema;
 import org.apache.johnzon.jsonschema.generator.SchemaProcessor;
 
-import javax.json.bind.Jsonb;
-import javax.json.bind.JsonbBuilder;
-import javax.json.bind.JsonbConfig;
-import javax.json.bind.config.PropertyOrderStrategy;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
@@ -59,7 +59,7 @@ public class JsonSchemaGenerator implements Runnable {
             }
 
             private Class<?> doFind(final String name) throws ClassNotFoundException {
-                if (name.startsWith("javax.json") || name.startsWith("org.apache.johnzon.")) {
+                if (name.startsWith("jakarta.json") || name.startsWith("org.apache.johnzon.")) {
                     return actionLoader.loadClass(name);
                 }
                 return oldLoader.loadClass(name);

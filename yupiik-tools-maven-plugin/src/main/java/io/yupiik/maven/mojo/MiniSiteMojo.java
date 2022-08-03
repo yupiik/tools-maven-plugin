@@ -39,6 +39,7 @@ import org.apache.maven.settings.crypto.SettingsDecryptionResult;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -264,6 +265,13 @@ public class MiniSiteMojo extends BaseMojo {
     private List<PreAction> preActions;
 
     /**
+     * Asciidoctor extensions to register in Asciidoctor instance.
+     * Can be in target/classes.
+     */
+    @Parameter
+    protected List<AsciidoctorInstance.AsciidoctorExtension> asciidoctorExtensions;
+
+    /**
      * Skip mojo execution.
      */
     @Parameter(property = "yupiik.minisite.skip", defaultValue = "false")
@@ -292,6 +300,25 @@ public class MiniSiteMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.minisite.skipIndexTitleDocumentationText", defaultValue = "false")
     private boolean skipIndexTitleDocumentationText;
+
+    /**
+     * Should asciidoctor extensions and preactions be loaded with the provided dependencies in the classloader or not.
+     */
+    @Parameter(property = "yupiik.minisite.includeProvidedScope", defaultValue = "true")
+    private boolean includeProvidedScope;
+
+    /**
+     * Artifacts to ignore in the classloader loading asciidoctor extensions and preactions.
+     */
+    @Parameter(property = "yupiik.minisite.excludedArtifacts", defaultValue = "org.asciidoctor:asciidoctorj")
+    private List<String> excludedArtifacts;
+
+    /**
+     * A boolean or auto (= if asciidoctorExtensions is not empty it behaves as true) to use the plugin classloader as parent
+     * for preaction and asciidoctor extension or not.
+     */
+    @Parameter(property = "yupiik.minisite.usePluginAsParentClassLoader", defaultValue = "auto")
+    private String usePluginAsParentClassLoader;
 
     /**
      * Text next to the logo text.
@@ -354,7 +381,11 @@ public class MiniSiteMojo extends BaseMojo {
             return;
         }
         fixConfig();
-        new MiniSite(createMiniSiteConfiguration()).run();
+        try (final var loader = createProjectLoader()) {
+            new MiniSite(createMiniSiteConfiguration(loader)).run();
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
         if (ftp != null && !ftp.isIgnore()) {
             doFtpUpload();
         }
@@ -366,9 +397,18 @@ public class MiniSiteMojo extends BaseMojo {
         }
     }
 
-    protected MiniSiteConfiguration createMiniSiteConfiguration() {
+    private ClassLoader getParentClassLoader() {
+        return "true".equalsIgnoreCase(usePluginAsParentClassLoader) ||
+                ("auto".equalsIgnoreCase(usePluginAsParentClassLoader) && asciidoctorExtensions != null && !asciidoctorExtensions.isEmpty()) ?
+                Thread.currentThread().getContextClassLoader() :
+                getSystemClassLoader();
+    }
+
+    protected MiniSiteConfiguration createMiniSiteConfiguration(final ClassLoader loader) {
         return MiniSiteConfiguration.builder()
-                .actionClassLoader(() -> createProjectLoader(getSystemClassLoader()))
+                .actionClassLoader(() -> new ClassLoader(loader) {
+                    // just to avoid minisite to close it, we do it in the enclosing scope
+                })
                 .source(source.toPath())
                 .target(target.toPath())
                 .templateDirs(templateDirs)
@@ -405,7 +445,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .projectName(project.getName())
                 .projectArtifactId(project.getArtifactId())
                 .asciidoctorConfiguration(this)
-                .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn))
+                .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions))
                 .reverseBlogOrder(reverseBlogOrder)
                 .addIndexRegistrationPerCategory(addIndexRegistrationPerCategory)
                 .blogCategoriesCustomizations(blogCategoriesCustomizations)
@@ -421,10 +461,13 @@ public class MiniSiteMojo extends BaseMojo {
         return "today";
     }
 
-    private URLClassLoader createProjectLoader(final ClassLoader parent) {
+    protected URLClassLoader createProjectLoader() {
         final List<URL> urls = project.getArtifacts().stream()
                 .filter(artifact -> artifact.getFile() != null)
                 .filter(artifact -> !"test".equals(artifact.getScope()))
+                .filter(artifact -> includeProvidedScope || !"provided".equals(artifact.getScope()))
+                .filter(artifact -> excludedArtifacts == null || excludedArtifacts.isEmpty() ||
+                        !excludedArtifacts.contains(artifact.getGroupId() + ':' + artifact.getArtifactId()))
                 .filter(artifact -> "jar".equals(artifact.getType()) || "zip".equals(artifact.getType()))
                 .map(artifact -> {
                     try {
@@ -441,7 +484,17 @@ public class MiniSiteMojo extends BaseMojo {
                 throw new IllegalStateException(e);
             }
         }
-        return new URLClassLoader(urls.toArray(new URL[0]), parent);
+        final var thread = Thread.currentThread();
+        final var originalLoader = thread.getContextClassLoader();
+        final var urlClassLoader = new URLClassLoader(urls.toArray(new URL[0]), getParentClassLoader()) {
+            @Override
+            public void close() throws IOException {
+                super.close();
+                thread.setContextClassLoader(originalLoader);
+            }
+        };
+        thread.setContextClassLoader(urlClassLoader);
+        return urlClassLoader;
     }
 
     private void doGitUpdate() {

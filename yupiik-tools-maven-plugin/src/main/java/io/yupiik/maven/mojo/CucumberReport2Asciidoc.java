@@ -15,6 +15,10 @@
  */
 package io.yupiik.maven.mojo;
 
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.annotation.JsonbProperty;
 import lombok.Data;
 import org.apache.johnzon.mapper.reflection.JohnzonParameterizedType;
 import org.apache.maven.plugin.AbstractMojo;
@@ -23,10 +27,6 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import javax.json.bind.Jsonb;
-import javax.json.bind.JsonbBuilder;
-import javax.json.bind.JsonbConfig;
-import javax.json.bind.annotation.JsonbProperty;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;

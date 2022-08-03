@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -110,13 +111,14 @@ public class MiniSite implements Runnable {
         final var executor = new ActionExecutor();
         final Thread thread = Thread.currentThread();
         final ClassLoader parentLoader = thread.getContextClassLoader();
-        final var classLoader = ofNullable(configuration.getActionClassLoader().get())
+        final var actionClassLoader = configuration.getActionClassLoader();
+        final var classLoader = ofNullable(actionClassLoader.get())
                 .orElseGet(Thread.currentThread()::getContextClassLoader);
         try {
             thread.setContextClassLoader(classLoader);
             configuration.getPreActions().forEach(it -> executor.execute(it, configuration.getSource(), configuration.getTarget()));
         } finally {
-            if (URLClassLoader.class.isInstance(classLoader) && configuration.getActionClassLoader() != null) {
+            if (URLClassLoader.class.isInstance(classLoader) && actionClassLoader != null) {
                 try {
                     URLClassLoader.class.cast(classLoader).close();
                 } catch (final IOException e) {

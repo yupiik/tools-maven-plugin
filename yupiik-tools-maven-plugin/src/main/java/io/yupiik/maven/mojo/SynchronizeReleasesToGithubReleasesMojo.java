@@ -15,6 +15,10 @@
  */
 package io.yupiik.maven.mojo;
 
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.annotation.JsonbProperty;
 import lombok.Data;
 import org.apache.johnzon.mapper.reflection.JohnzonParameterizedType;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -31,10 +35,6 @@ import org.apache.maven.settings.crypto.SettingsDecrypter;
 import org.codehaus.plexus.util.ReaderFactory;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
-import javax.json.bind.Jsonb;
-import javax.json.bind.JsonbBuilder;
-import javax.json.bind.JsonbConfig;
-import javax.json.bind.annotation.JsonbProperty;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -258,11 +258,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                         }
                         if (existing != null) {
                             return httpClient.sendAsync(reqBuilder
-                                            .method("PATCH", HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
-                                            .uri(url)
-                                            .header("accept", "application/vnd.github.v3+json")
-                                            .build(),
-                                    HttpResponse.BodyHandlers.ofString())
+                                                    .method("PATCH", HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
+                                                    .uri(url)
+                                                    .header("accept", "application/vnd.github.v3+json")
+                                                    .build(),
+                                            HttpResponse.BodyHandlers.ofString())
                                     .thenApply(response -> {
                                         if (response.statusCode() != 200) {
                                             throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
@@ -273,11 +273,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                     });
                         }
                         return httpClient.sendAsync(reqBuilder
-                                        .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
-                                        .uri(url)
-                                        .header("accept", "application/vnd.github.v3+json")
-                                        .build(),
-                                HttpResponse.BodyHandlers.ofString())
+                                                .POST(HttpRequest.BodyPublishers.ofString(jsonb.toJson(release), StandardCharsets.UTF_8))
+                                                .uri(url)
+                                                .header("accept", "application/vnd.github.v3+json")
+                                                .build(),
+                                        HttpResponse.BodyHandlers.ofString())
                                 .thenApply(response -> {
                                     if (response.statusCode() != 201) {
                                         throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
@@ -343,11 +343,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                     final var reqBuilder = HttpRequest.newBuilder();
                     findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
                     return httpClient.sendAsync(reqBuilder
-                                    .GET()
-                                    .uri(uri)
-                                    .header("accept", "application/vnd.github.v3+json")
-                                    .build(),
-                            HttpResponse.BodyHandlers.ofString())
+                                            .GET()
+                                            .uri(uri)
+                                            .header("accept", "application/vnd.github.v3+json")
+                                            .build(),
+                                    HttpResponse.BodyHandlers.ofString())
                             .thenApply(response -> {
                                 if (response.statusCode() != 200) {
                                     throw new IllegalArgumentException("Invalid response from " + uri + ": " + response + "\n" + response.body());
@@ -363,11 +363,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
         final var uri = URI.create(githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/git/commits/" + commit.getSha());
         return httpClient.sendAsync(reqBuilder
-                        .GET()
-                        .uri(uri)
-                        .header("accept", "application/vnd.github.v3+json")
-                        .build(),
-                HttpResponse.BodyHandlers.ofString())
+                                .GET()
+                                .uri(uri)
+                                .header("accept", "application/vnd.github.v3+json")
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
                     if (response.statusCode() != 200) {
                         throw new IllegalArgumentException("Invalid response from " + uri + ": " + response + "\n" + response.body());
@@ -463,12 +463,12 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
             try {
                 return httpClient.sendAsync(reqBuilder
-                                .POST(HttpRequest.BodyPublishers.ofFile(file))
-                                .uri(url)
-                                .header("content-type", findContentType(file))
-                                .header("accept", "application/vnd.github.v3+json")
-                                .build(),
-                        HttpResponse.BodyHandlers.ofString())
+                                        .POST(HttpRequest.BodyPublishers.ofFile(file))
+                                        .uri(url)
+                                        .header("content-type", findContentType(file))
+                                        .header("accept", "application/vnd.github.v3+json")
+                                        .build(),
+                                HttpResponse.BodyHandlers.ofString())
                         .thenApply(response -> {
                             if (response.statusCode() != 201) {
                                 throw new IllegalArgumentException("Invalid response from " + url + ": " + response + "\n" + response.body());
@@ -554,11 +554,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         final var reqBuilder = HttpRequest.newBuilder();
         findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
         return httpClient.sendAsync(reqBuilder
-                        .GET()
-                        .uri(url)
-                        .header("accept", "application/vnd.github.v3+json")
-                        .build(),
-                HttpResponse.BodyHandlers.ofString())
+                                .GET()
+                                .uri(url)
+                                .header("accept", "application/vnd.github.v3+json")
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString())
                 .thenCompose(r -> {
                     ensure200(url, r);
                     final List<GithubRelease> releases = jsonb.fromJson(r.body().trim(), new JohnzonParameterizedType(List.class, GithubRelease.class));
@@ -581,11 +581,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         final var reqBuilder = HttpRequest.newBuilder();
         findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
         return httpClient.sendAsync(reqBuilder
-                        .GET()
-                        .uri(url)
-                        .header("accept", "application/vnd.github.v3+json")
-                        .build(),
-                HttpResponse.BodyHandlers.ofString())
+                                .GET()
+                                .uri(url)
+                                .header("accept", "application/vnd.github.v3+json")
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString())
                 .thenCompose(r -> {
                     ensure200(url, r);
                     final List<GithubTag> releases = jsonb.fromJson(r.body().trim(), new JohnzonParameterizedType(List.class, GithubTag.class));

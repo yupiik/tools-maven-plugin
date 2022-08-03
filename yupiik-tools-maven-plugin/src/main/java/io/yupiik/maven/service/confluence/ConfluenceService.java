@@ -16,6 +16,10 @@
 package io.yupiik.maven.service.confluence;
 
 import io.yupiik.tools.minisite.Urlifier;
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbBuilder;
+import jakarta.json.bind.JsonbConfig;
+import jakarta.json.bind.annotation.JsonbProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,10 +27,6 @@ import org.apache.maven.plugin.logging.Log;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
-import javax.json.bind.Jsonb;
-import javax.json.bind.JsonbBuilder;
-import javax.json.bind.JsonbConfig;
-import javax.json.bind.annotation.JsonbProperty;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;

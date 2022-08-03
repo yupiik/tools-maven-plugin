@@ -21,7 +21,7 @@
 
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
-  <version>1.0.27-SNAPSHOT</version>
+  <version>1.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Yupiik Tools</name>
   <description>Yupiik Tools</description>
@@ -31,11 +31,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <mvn.version>3.6.3</mvn.version>
-    <jruby.version>9.3.1.0</jruby.version>
+    <jruby.version>9.3.6.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
     <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
-    <jgit.version>5.10.0.202012080955-r</jgit.version>
-    <johnzon.version>1.2.10</johnzon.version>
+    <jgit.version>6.2.0.202206071550-r</jgit.version>
+    <johnzon.version>1.2.18</johnzon.version>
+    <uship.version>1.0.8</uship.version>
   </properties>
 
   <modules>
@@ -81,19 +82,40 @@
         <version>1.6.0</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.geronimo.specs</groupId>
-        <artifactId>geronimo-jsonb_1.0_spec</artifactId>
-        <version>1.4</version>
+        <groupId>org.apache.johnzon</groupId>
+        <artifactId>johnzon-core</artifactId>
+        <version>${johnzon.version}</version>
+        <classifier>jakarta</classifier>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
-        <groupId>org.apache.geronimo.specs</groupId>
-        <artifactId>geronimo-json_1.1_spec</artifactId>
-        <version>1.5</version>
+        <groupId>org.apache.johnzon</groupId>
+        <artifactId>johnzon-mapper</artifactId>
+        <version>${johnzon.version}</version>
+        <classifier>jakarta</classifier>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.apache.johnzon</groupId>
         <artifactId>johnzon-jsonb</artifactId>
         <version>${johnzon.version}</version>
+        <classifier>jakarta</classifier>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>

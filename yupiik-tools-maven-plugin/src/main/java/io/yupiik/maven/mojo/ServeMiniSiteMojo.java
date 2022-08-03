@@ -22,9 +22,11 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.asciidoctor.Options;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.lang.ClassLoader.getSystemClassLoader;
 import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 /**
@@ -52,24 +54,28 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
         // adjust config
         siteBase = "http://localhost:" + port;
         fixConfig();
-        final var miniSite = new MiniSite(createMiniSiteConfiguration());
-        miniSite.executePreActions();
-        final Options options = miniSite.createOptions();
-        asciidoctor.withAsciidoc(this, adoc -> {
-            final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
-            final Watch watch = new Watch(
-                    getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
-                    List.of(source.toPath()), options, adoc, watchDelay,
-                    (opts, a) -> {
-                        miniSite.doRender(a, opts);
-                        getLog().info("Minisite re-rendered");
-                    }, () -> server.get().open(openBrowser));
-            final StaticHttpServer staticHttpServer = new StaticHttpServer(
-                    getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
-            server.set(staticHttpServer);
-            server.get().run();
-            return null;
-        });
+        try (final var loader = createProjectLoader()) {
+            final var miniSite = new MiniSite(createMiniSiteConfiguration(loader));
+            miniSite.executePreActions();
+            final Options options = miniSite.createOptions();
+            asciidoctor.withAsciidoc(this, adoc -> {
+                final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
+                final Watch watch = new Watch(
+                        getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
+                        List.of(source.toPath()), options, adoc, watchDelay,
+                        (opts, a) -> {
+                            miniSite.doRender(a, opts);
+                            getLog().info("Minisite re-rendered");
+                        }, () -> server.get().open(openBrowser));
+                final StaticHttpServer staticHttpServer = new StaticHttpServer(
+                        getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
+                server.set(staticHttpServer);
+                server.get().run();
+                return null;
+            }, asciidoctorExtensions);
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     protected String getDefaultPublicationDate() {

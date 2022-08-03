@@ -22,8 +22,17 @@ import io.yupiik.maven.service.extension.ExcelTableMacro;
 import io.yupiik.maven.service.extension.JLatexMath;
 import io.yupiik.maven.service.extension.XsltMacro;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import lombok.Data;
 import org.asciidoctor.Asciidoctor;
+import org.asciidoctor.extension.BlockMacroProcessor;
+import org.asciidoctor.extension.BlockProcessor;
+import org.asciidoctor.extension.DocinfoProcessor;
+import org.asciidoctor.extension.IncludeProcessor;
+import org.asciidoctor.extension.InlineMacroProcessor;
 import org.asciidoctor.extension.JavaExtensionRegistry;
+import org.asciidoctor.extension.Postprocessor;
+import org.asciidoctor.extension.Preprocessor;
+import org.asciidoctor.extension.Treeprocessor;
 import org.asciidoctor.jruby.internal.JRubyAsciidoctor;
 
 import javax.annotation.PreDestroy;
@@ -32,8 +41,11 @@ import javax.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -45,27 +57,67 @@ import static java.util.stream.Collectors.toList;
 @Singleton
 public class AsciidoctorInstance {
     // for concurrent builds
-    private final Queue<Asciidoctor> instances = new ConcurrentLinkedQueue<>();
+    private final Map<List<AsciidoctorExtension>, Queue<Asciidoctor>> instances = new ConcurrentHashMap<>();
     private final ThreadLocal<AsciidoctorConfiguration> mojo = new ThreadLocal<>();
 
     public <T> T withAsciidoc(final AsciidoctorConfiguration base, final Function<Asciidoctor, T> task) {
-        Asciidoctor poll = instances.poll();
+        return withAsciidoc(base, task, List.of());
+    }
+
+    public <T> T withAsciidoc(final AsciidoctorConfiguration base, final Function<Asciidoctor, T> task,
+                              final List<AsciidoctorExtension> extensions) {
+        final var map = instances.computeIfAbsent(extensions == null ? List.of() : extensions, k -> new ConcurrentLinkedQueue<>());
+        var poll = map.poll();
         if (poll == null) {
-            poll = newInstance(base, base.gems(), base.customGems(), base.requires());
+            poll = newInstance(base, base.gems(), base.customGems(), base.requires(), extensions);
         }
         mojo.set(base);
         try {
             return task.apply(poll);
         } finally {
             mojo.remove();
-            instances.add(poll);
+            map.add(poll);
         }
     }
 
-    private Asciidoctor newInstance(final AsciidoctorConfiguration log, final Path path, final String customGems, final List<String> requires) {
+    private Asciidoctor newInstance(final AsciidoctorConfiguration log, final Path path, final String customGems,
+                                    final List<String> requires, final List<AsciidoctorExtension> extensions) {
         final Asciidoctor asciidoctor = JRubyAsciidoctor.create(ofNullable(customGems).orElseGet(path::toString));
         Logger.getLogger("asciidoctor").setUseParentHandlers(false);
-        registerExtensions(asciidoctor.javaExtensionRegistry());
+
+        final var registry = asciidoctor.javaExtensionRegistry();
+        registerExtensions(registry);
+        if (extensions != null && !extensions.isEmpty()) {
+            extensions.stream()
+                    .map(this::instantiate)
+                    .forEach(ext -> {
+                        if (BlockProcessor.class.isInstance(ext)) {
+                            registry.block(BlockProcessor.class.cast(ext));
+                        }
+                        if (BlockMacroProcessor.class.isInstance(ext)) {
+                            registry.blockMacro(BlockMacroProcessor.class.cast(ext));
+                        }
+                        if (IncludeProcessor.class.isInstance(ext)) {
+                            registry.includeProcessor(IncludeProcessor.class.cast(ext));
+                        }
+                        if (InlineMacroProcessor.class.isInstance(ext)) {
+                            registry.inlineMacro(InlineMacroProcessor.class.cast(ext));
+                        }
+                        if (DocinfoProcessor.class.isInstance(ext)) {
+                            registry.docinfoProcessor(DocinfoProcessor.class.cast(ext));
+                        }
+                        if (Postprocessor.class.isInstance(ext)) {
+                            registry.postprocessor(Postprocessor.class.cast(ext));
+                        }
+                        if (Preprocessor.class.isInstance(ext)) {
+                            registry.preprocessor(Preprocessor.class.cast(ext));
+                        }
+                        if (Treeprocessor.class.isInstance(ext)) {
+                            registry.treeprocessor(Treeprocessor.class.cast(ext));
+                        }
+                    });
+        }
+
         asciidoctor.registerLogHandler(logRecord -> {
             switch (logRecord.getSeverity()) {
                 case UNKNOWN:
@@ -109,6 +161,21 @@ public class AsciidoctorInstance {
         return asciidoctor;
     }
 
+    private Object instantiate(final AsciidoctorExtension extension) {
+        try {
+            final var name = extension.getType().trim();
+            final var clazz = Thread.currentThread().getContextClassLoader()
+                    .loadClass(name);
+            final var constructor = clazz.getDeclaredConstructor();
+            if (!constructor.isAccessible()) {
+                constructor.setAccessible(true);
+            }
+            return constructor.newInstance();
+        } catch (final Exception e) {
+            throw new IllegalArgumentException("can't create extension " + extension, e);
+        }
+    }
+
     private void slideRequires(final Path path, final Asciidoctor asciidoctor) {
         try {
             asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
@@ -146,6 +213,12 @@ public class AsciidoctorInstance {
 
     @PreDestroy
     public void destroy() {
-        instances.forEach(Asciidoctor::shutdown);
+        instances.values().stream().flatMap(Collection::stream).forEach(Asciidoctor::shutdown);
+    }
+
+    @Data
+    public static class AsciidoctorExtension {
+        private String type;
+        private Map<String, String> configuration;
     }
 }
