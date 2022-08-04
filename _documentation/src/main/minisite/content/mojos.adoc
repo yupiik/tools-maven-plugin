@@ -5,3 +5,479 @@
 :minisite-index-description: Maven Plugin integration.
 
 To learn all goals available in the maven plugin read xref:mojo/yupiik-tools-maven-plugin.adoc[Yupiik Tools Maven Plugin] dedicated page.
+
+image::https://img.shields.io/maven-central/v/io.yupiik.maven/yupiik-tools-maven-plugin-parent?color=00b2ef&label=Last%20Release&logoColor=00b2ef&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAqCAYAAADS4VmSAAAAAXNSR0IArs4c6QAABGdJREFUWEedmF2I3FQUx%2F9nZrYzq7ttMtuK32B90WpFEbtUW2T7UqqbjIgM%2BKQP%2BmAfBUEFP0H7oo%2BiIgg%2BqRUqk%2BwWRXTFj9UWoVIp7UN1H9QitTvJMtpOd3dydDI7k9zk3syd5C25557zO1%2F3I4S8z3xzJzp0MpweBDfioanf86iiPJPCOY7HwlzbzKUr1yQ4XgAgOZdhm4VRHcoLIHrft5ojCqMDiKF%2FGlQkcOfNgecjQowGcKS5ByX6NmUsDrXOe%2FFw9TvdVIwGEDdUNiawn%2F4NDR0%2BP4HKWCtPFPQBXP8EmO9UGonDEf0My7hLJwr6AHEDqjzryCSo9ACEtuM%2FYVevl3rneH8D2LoxptWWugBR2w2r8hGjMBxAaDt6BrbxRmZuHf81gJ%2FXLchsgEbzQRDN6SobyMWhmWdRq86roLMB4ooKVMWs4Q0Uuf4jYP4kfKfONKytxwdjR1vbsL5%2BXgdcDeD6J8G8U6vtukLJ2hDb8hdYxh2yKKgBsorJ9QJwYjMiMKzEZqRRkHKAhrcKwliPmC7ANrYN6A%2Bf2oTKtZelOW1%2FUUK93oml6RKYK%2BE7Yw01c1NyXhpggSto%2BZe0Qh%2FgMQBFFPC%2BlvykMY4Zasch0gBC4RUfx%2BzmDwYT5lem0Ql%2BTBkTWjW4HfbUqVhHvALgRRWgCDDXmkGw%2FpWWN%2BXLE9h%2FdW8z%2BtQzUETUIVkFWSjtw%2BzkQt%2BGCBD3pG2UUKcon43mCRBpbkZYhGXeF9UNj6PiX5Q5FgE4zUWAdmt5n2czEtLEP8Cu3huWeCxX6vVenHwadnWHtAsc7zcAN43iRA9gmAGNftZ05A8A18UBCQtcQstf06JmfhS16kdS7%2FsfHf9ZgA9p6Zs0xkjwngsHUNvyWeTNch0ofKxUpiIRNiO6BzXjp4Fow38OxK9HXZC8YDAfRK36dio1JaOCB0i%2BAiZBjvx1FcbKn8MyxWOZ670MxkviQuR4vwLYnnKG2QeRsfG9A9ssZYY%2Ba9BpXgRoPCVCWOwVoXvhFnDxtFLHsFOQTirS1rfDNpbSS3HD64Agv2JR8VZYm88MKcJ9AH8plWEEqJlFMQVq%2Bq8B3K8Y%2Fga2KY45XrfQ7s6Ea%2F9zBeo3RBud5IIJzPmmePJZ2QUOjuXKf6GzA0FpL8DvqjpJTIG7%2FCq48EIoTPQULOMdwXCyY%2BRU6eO4cDrCDCyzG92eGaUBWeE5%2FlsAH8yMBvMh1KrRqbgvrFhNIwDXOwfGNdJQOZ4PYMtIaWAso2b2LynJHxrHYZvTsQgwwfG7Px16T9f7bi0E3FQbDZ4ECu%2BF490lmuhDpWz%2FIiuJgmQzoiWAox1N1LoK2yyHn5zlJ2IA0dnf9dfArFq0ugeYK%2BOOSgAkfhBcWKYt1osCoC%2Fk%2BsfAvCszbbZJQwCC3bCnojNgXJsqAkmLzsoBIDgqBRkAuP5ZMN88EGqfK6N%2B22omvS5AX8nCUgUtI74IfQ%2Fb3DP8cqqiGBVAoSc%2FQFiIG%2F8K825W%2F%2Bv4D2sg4qMfRFPFAAAAAElFTkSuQmCC[]
+
+== TIPs
+
+== Chain plugins
+
+Mojo can be chained from the command like - without pom declaration.
+
+This is the case of the git report one and PDF one for example:
+
+[source,bash]
+----
+mvn \
+    io.yupiik.maven:yupiik-tools-maven-plugin:$version:git-report \
+    io.yupiik.maven:yupiik-tools-maven-plugin:$version:pdf \
+    -Dyupiik.workDir=work \
+    -Dyupiik.git-report.dotGit=/path/to/project/.git \
+    -Dyupiik.git-report.target=log.adoc
+    -Dyupiik.pdf.source=log.adoc \
+    -Dyupiik.pdf.target=.
+----
+
+== PDF and latex formula
+
+You can enable latex formula support in PDF adding the related dependency:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <configuration>
+    <!-- ... -->
+  </configuration>
+  <dependencies>
+    <dependency>
+      <groupId>org.scilab.forge</groupId>
+      <artifactId>jlatexmath</artifactId>
+      <version>1.0.7</version>
+    </dependency>
+  </dependencies>
+</plugin>
+----
+
+Then usage is as follow:
+
+[source,asciidoc]
+----
+
+[jlatexmath]
+--
+x = a + b
+--
+
+This formula (jmath:_[a + b]) is cool.
+----
+
+== Pom-less PDF rendering
+
+You can render an asciidoctor file without a pom nor pom declaration:
+
+[source,bash]
+----
+mvn \
+  io.yupiik.maven:yupiik-tools-maven-plugin:$version:pdf \
+  -Dyupiik.pdf.source=content.adoc \
+  -Dyupiik.pdf.target=.
+----
+
+== Minisite
+
+xref:mojo/minisite.adoc[minisite] can push the minisite to a remote target (often git backed pages).
+Here is the related documentation.
+
+The configuration supports a `git` entry if you want to upload to a Git branch the generated website (like `gh-pages`):
+
+[options="header",cols="1,m,2"]
+|====
+|Name|Type|Description
+|branch|String|Git branch to update (default to `refs/heads/gh-pages`).
+|username|String|Username if serverId is not set.
+|password|String|Password if serverId is not set.
+|serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.
+|url|String|Git url.
+|ignore|boolean|Should the execution be skipped - enables to set a maven variable.
+|prefix|String|Prefix prepended to file in the git repo (ex: `public/`).
+|noJekyll|boolean|Will force a `.nojekyll` file presence if `true`.
+|envBase64SshKey|String|Environment variable the private key will be read as base64 encoded from - useful on CI. note that `<value>_PH` environment variable must contain the associated passphrase.
+|====
+
+The configuration also supports an experimental Atlassian Confluence export support.
+It only works using the default template and require a configuration similar to `git` or `ftp` exports:
+
+[source,xml]
+----
+<profile> <!--  mvn clean package -Pconfluence  -->
+  <id>confluence</id>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.yupiik.maven</groupId>
+        <artifactId>yupiik-tools-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>confluence</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>minisite</goal>
+            </goals>
+            <configuration>
+              <confluence>
+                <ignore>false</ignore>
+                <url>https://base.atlassian.net/wiki/</url> <!-- for cloud, for an on premise instance the /wiki/ is not always needed -->
+                <authorization>Basic base64_value_of(your mail:your token)></authorization>
+                <space>YOURSPACE</space>
+                <skipIndex>false</skipIndex> <!-- if true, will skip all index.html files -->
+              </confluence>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</profile>
+----
+
+IMPORTANT: the nested support of this exporter is very experimental, and we recommend you to keep only one level of `.adoc` files using it.
+
+=== Confluence Limitations
+
+* Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,
+* It only works with the default theme since we extract metadata from there to enable to update the space,
+* To look nice, you can need to tune the Confluence space CSS to import admonitions, codeblocks, ... styling (can require some admin permissions).
+
+=== Blog
+
+Blog is supported if pages contain at least one block metadata.
+Here is the list of available attributes you can use:
+
+* `:minisite-blog-published-date: yyyy-MM-dd`: when the page will be rendered (if not set it is always rendered).
+* `:minisite-blog-categories: c1,c2`: comma separated list of categories of this post
+* `:minisite-blog-authors: My, Myself`: comma separated list of author names
+* `:minisite-blog-summary: Some short description.`: the summary of this post used on post list pages.
+
+Blog page example:
+
+[source,asciidoc]
+----
+= My Post
+:minisite-blog-published-date: 2021-02-16T16:00
+:minisite-blog-categories: others,simple
+:minisite-blog-authors: Romain Manni-Bucau
+:minisite-blog-summary: Second post.
+
+Bla bla
+----
+
+=== Pre-Action
+
+Pre actions enables to generate some content from the project.
+It is typically used to generate configuration from code or things like that.
+It uses the documentation module classpath.
+Actions must implement `Runnable` and can have some (public) constructor parameters (we use parameter names to match so ensure to enable `-parameters` in maven compiler plugin):
+
+* `configuration` (`Map<String, String>`): the action configuration, it enables to reuse it if needed or write generic actions
+* `sourceBase` (`Path`): the base directory you can generate `.adoc` into (generally where you sources are, tip: use `generated` folder to be able to exclude it in `.gitignore` if desired)
+* `outputBase` (`Path`): the base directory you can generate direct html assets
+
+==== Maven Plugin
+
+Using `type=maven-plugin` (recommended) or `type=io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration` you can get a `plugin.xml` file parsed to generate:
+
+. One file per goal with some usage, the goal description and parameters (named `<goal>.adoc`)
+. One file listing all goals (named `<goal-prefix>-maven-plugin.adoc`)
+
+The configuration of this action is:
+
+. `pluginXml`: file path or resource to find the `plugin.xml` file.
+. `toBase`: where to generate the `adoc`.
+. `description`: a global plugin description for the "listing" page (default is empty and page will just list goals).
+
+==== Copy
+
+Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination:
+It is typically useful for assets (`openapi.json` for example).
+
+. `from`: source file.
+. `to`: destination.
+
+==== JSON-Schema
+
+Using `type=jsonschema` (recommended) or `type=io.yupiik.maven.service.action.builtin.JsonSchemaGenerator` will generate a JSON-Schema from a class:
+
+. `class`: the class to generate the schema from.
+. `to`: destination of the schema.
+. `type`: `JSON` for a raw JSON-Schema (default) or `ADOC` for a textual, asciidoctor output.
+. `setClassAsTitle`: `true` to force object title to be the class name.
+. `useReflectionForDefaults`: `true` to force reflection to try to extract defaults of attributes.
+. `pretty` when type=JSON, should the JSON be prettified or not (default=true).
+. `levelPrefix` when type=ADOC, a title prefix (`==` for example), `=` by default.
+. `title` and `description` enable to set class title/description for its json schema. It is required for type=ADOC.
+. `annotationOnlyProvidesTheDescription` enable to never take the title from an annotation (`@Description(value)` case).
+
+NOTE: the model classes can use a custom `@Description(title,description)` annotation (note that `@Doc` is also supported and `value` method can be used instead of `description`).
+See `JsonDocExtractor` for more details.
+
+==== OpenMetrics renderer
+
+Using `type=openmetrics2adoc` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc` will generate an asciidoctor form from an OpenMetrics export.
+
+. `source`: path of the openmetrics dump.
+. `to`: destination of the asciidoc generated from `source`.
+. `levelPrefix`: a prefix set before the part title (`== ` by default for a second level title).
+. `legend`: should tables have a legend (name of the metric), default to `true`.
+. `header`: prefix the whole rendering (enables to set a title and some options if needed).
+
+==== Yupiik Batch simple-configuration renderer
+
+Using `type=simple-configuration` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator` will generate an asciidoctor from a configuration class passed in `class` `<configuration>` option.
+
+. `class`: root configuration fully qualified name.
+. `output`: where to generate the `.adoc` to.
+
+==== Replace string in file
+
+Using `type=replace-in-file` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile` will rewrite a text file replacing a string by another one.
+
+. `source`: file to rewrite.
+. `token`: text to replace.
+. `replacement`: text replacing `token`.
+
+TIP: using `regex{xxx}` as `token` will use a java regex to do the replacement.
+
+=== Example
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>build-and-deploy-doc</id>
+      <phase>package</phase>
+      <goals>
+        <goal>minisite</goal>
+      </goals>
+      <configuration>
+        <siteBase>https://yupiik.github.io/${project.artifactId}</siteBase>
+        <logoText>My Product</logoText>
+        <indexSubTitle>The top product.</indexSubTitle>
+        <ftp>
+          <serverId>http://mini.yupiik.net</serverId> <!-- default is siteBase -->
+          <url>ftp://ftpupload.net/htdocs</url>
+        </ftp>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+=== Page attributes
+
+Some specific attributes enables to customize the generation. Here is their list:
+
+* `minisite-skip=[true|false]` enables to skip a `.adoc` rendering even if not in `_partials` directory.
+* `minisite-path=<string>` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
+* `minisite-highlightjs-skip` enables to not setup highlight.js for the page (useful with swagger-ui for example).
+
+=== Index generation
+
+To include a page in the index it must contain `minisite-index` attribute.
+Its value is the order of the entry in the index tiles.
+
+TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily insert an item later.
+
+* `minisite-index-title` attribute enables to override link text.
+* `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
+* `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
+
+=== Synchronize Releases Example
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <id>default-cli</id>
+      <phase>none</phase>
+      <goals>
+        <goal>synchronize-github-releases</goal>
+      </goals>
+      <configuration>
+        <!-- defaults so optional -->
+        <githubServerId>github.com</githubServerId>
+        <nexusServerId />
+        <mavenRepositoryBaseUrl>https://repo.maven.apache.org/maven2/</mavenRepositoryBaseUrl>
+        <!-- required configuration -->
+        <githubRepository>yupiik/tools-maven-plugin</githubRepository>
+        <artifacts>
+          <artifact>
+            <groupId>io.yupiik.maven</groupId>
+            <artifactId>yupiik-tools-maven-plugin</artifactId>
+            <artifacts>
+              <artifact>
+                <type>jar</type>
+                <classifier />
+              </artifact>
+              <artifact>
+                <type>pom</type>
+                <classifier />
+              </artifact>
+              <artifact>
+                <type>jar</type>
+                <classifier>sources</classifier>
+              </artifact>
+              <artifact>
+                <type>jar</type>
+                <classifier>javadoc</classifier>
+              </artifact>
+            </artifacts>
+          </artifact>
+        </artifacts>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+Then run `mvn yupiik-tools:synchronize-github-releases`.
+
+== Bash CLI skeleton
+
+xref:mojo/script-cli-skeleton.adoc[script-cli-skeleton] enables to generates a skeleton layout to write a CLI in bash (helper commands for your project).
+
+
+TIP: can be used on a pomless project: `mvn io.yupiik.maven:yupiik-tools-maven-plugin:<version>:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project` (version >= 1.0.26).
+
+=== Usage
+
+To add a command:
+
+. Create an `index.sh` containing the command script in `commands` folder
+. (optional) create a `commands/<your command name>/_cli/help.txt` file containing the help description.
+
+== Maven Asciidoctor Macro
+
+The project adds asciidoc macros to get back some maven build information.
+Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
+
+=== maven_dependencies
+
+Enables to list the project dependencies.
+
+==== Usage
+
+[listing]
+....
+[maven_dependencies,scope=compile]
+--
+--
+....
+
+Scope can be:
+
+- compile
+- runtime
+- compile+runtime
+- runtime+system
+- test
+- provided_only
+- compile_only
+- test_only
+- system_only
+- runtime_only
+
+The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
+
+== Yupiik OSS extension
+
+This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.
+
+It is configured in the root project through maven properties:
+
+[source,xml]
+----
+<properties>
+  <!-- REQUIRED: enable the extension -->
+  <yupiik.oss.enabled>true</yupiik.oss.enabled>
+  <!-- OPTIONAL: defaults -->
+  <yupiik.oss.java.version>11</yupiik.oss.enabled>
+  <yupiik.oss.encoding>UTF-8</yupiik.oss.enabled>
+  <yupiik.oss.javadoc.doclint>none</yupiik.oss.enabled>
+  <yupiik.oss..sign.skip>none</yupiik.oss.enabled>
+</properties>
+----
+
+Just enabling this extension will upgrade a few plugin, enforce the encoding and java version, enforce license check and much more.
+
+See `io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead` for details.
+
+=== Example
+
+[source,xml]
+----
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- ... -->
+
+  <properties>
+    <yupiik.oss.enabled>true</yupiik.oss.enabled>
+  </properties>
+
+  <build>
+    <extensions>
+      <extension>
+        <groupId>io.yupiik.maven</groupId>
+        <artifactId>yupiik-tools-maven-plugin</artifactId>
+        <version>${yupiik-tools.version}</version>
+      </extension>
+    </extensions>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+    </profile>
+  </profiles>
+</project>
+----
+
+== Inline pom contributor extension
+
+It enables to put in each module a `YupiikContributor.java` file which will be compiled and executed in `afterProjectRead(MavenSession)` callback.
+
+Example:
+
+[source,java]
+----
+import org.apache.maven.AbstractMavenLifecycleParticipant;
+import org.apache.maven.execution.MavenSession;
+import org.codehaus.plexus.component.annotations.Component;
+
+@Component(role = AbstractMavenLifecycleParticipant.class, hint = "my-module-customizer")
+public class YupiikContributor extends AbstractMavenLifecycleParticipant {
+    @Override
+    public void afterProjectsRead(final MavenSession session) {
+        System.out.println(">>>> hello: " + session);
+    }
+}
+----
+
+This enables to programmatically handle the pom (mainly intended for plugins since dependencies are not synchronized in maven poms when contributed this way).
+
+To enable it, enable the related extension:
+
+[source,xml]
+----
+<build>
+  <extensions>
+    <extension>
+      <groupId>io.yupiik.maven</groupId>
+      <artifactId>yupiik-tools-maven-plugin</artifactId>
+      <version>${yupiik-tools-maven-plugin.version}</version>
+    </extension>
+  </extensions>
+</build>
+----
+
+TIP: see `io.yupiik.maven.extension.YupiikOSSExtension` for a more complex participant example.
