@@ -19,6 +19,8 @@ import io.yupiik.maven.service.action.builtin.CopyFile;
 import io.yupiik.maven.service.action.builtin.JsonSchemaGenerator;
 import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
 import io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc;
+import io.yupiik.tools.minisite.action.builtin.ReplaceInFile;
+import io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Parameter;
@@ -53,6 +55,10 @@ public class ActionExecutor {
                 return JsonSchemaGenerator.class;
             case "openmetrics2adoc":
                 return OpenMetricsToAsciidoc.class;
+            case "simple-configuration":
+                return SimpleConfigurationGenerator.class;
+            case "replace-in-file":
+                return ReplaceInFile.class;
             default:
                 return Thread.currentThread().getContextClassLoader()
                         .loadClass(name)

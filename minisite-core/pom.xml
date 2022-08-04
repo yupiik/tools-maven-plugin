@@ -65,5 +65,12 @@
       <groupId>org.jruby</groupId>
       <artifactId>jruby-complete</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>io.yupiik.batch</groupId>
+      <artifactId>simple-configuration</artifactId>
+      <version>1.0.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

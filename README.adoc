@@ -491,6 +491,23 @@ Using `type=openmetrics2adoc` (recommended) or `type=io.yupiik.tools.minisite.ac
 . `legend`: should tables have a legend (name of the metric), default to `true`.
 . `header`: prefix the whole rendering (enables to set a title and some options if needed).
 
+====== Yupiik Batch simple-configuration renderer
+
+Using `type=simple-configuration` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator` will generate an asciidoctor from a configuration class passed in `class` `<configuration>` option.
+
+. `class`: root configuration fully qualified name.
+. `output`: where to generate the `.adoc` to.
+
+====== Replace string in file
+
+Using `type=replace-in-file` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile` will rewrite a text file replacing a string by another one.
+
+. `source`: file to rewrite.
+. `token`: text to replace.
+. `replacement`: text replacing `token`.
+
+TIP: using `regex{xxx}` as `token` will use a java regex to do the replacement.
+
 ===== Example
 
 [source,xml]
