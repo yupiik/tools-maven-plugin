@@ -31,7 +31,7 @@
   <description>Documentation about the project.</description>
   <!--
   TO DEPLOY:
-  $ mvn clean process-classes -Dminisite.deploy=true
+  $ mvn clean process-classes -Dminisite.deploy=true -Pdoc
   -->
 
   <properties>
@@ -65,57 +65,62 @@
     </dependency>
   </dependencies>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.github.davidmoten</groupId>
-        <artifactId>decrypt-maven-plugin</artifactId>
-        <version>0.1.3</version>
-        <executions>
-          <execution>
-            <id>minisite</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>decrypt</goal>
-            </goals>
-            <configuration>
-              <serverId>github.com</serverId>
-              <outputFile>${project.build.directory}/password.github.com</outputFile>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin> <!-- for dev: cd target/ && http-server . && open http://localhost:8080/tools-maven-plugin/ -->
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>3.1.0</version>
-        <executions>
-          <execution>
-            <id>minisite</id>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>java</goal>
-            </goals>
-            <configuration>
-              <cleanupDaemonThreads>false</cleanupDaemonThreads>
-              <stopUnresponsiveDaemonThreads>false</stopUnresponsiveDaemonThreads>
-              <includeProjectDependencies>true</includeProjectDependencies>
-              <classpathScope>compile</classpathScope>
-              <mainClass>io.yupiik.tools.doc.Generate</mainClass>
-              <arguments>
-                <argument>${project.basedir}/src/main/minisite</argument>
-                <argument>${project.build.directory}/tools-maven-plugin</argument>
-                <argument>${project.name}</argument>
-                <argument>${project.artifactId}</argument>
-                <argument>${project.version}</argument>
-                <argument>${minisite.deploy}</argument>
-                <argument>${user.name}</argument>
-                <argument>${project.build.directory}/password.github.com</argument>
-              </arguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
+  <profiles>
+    <profile>
+      <id>doc</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.davidmoten</groupId>
+            <artifactId>decrypt-maven-plugin</artifactId>
+            <version>0.1.3</version>
+            <executions>
+              <execution>
+                <id>minisite</id>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>decrypt</goal>
+                </goals>
+                <configuration>
+                  <serverId>github.com</serverId>
+                  <outputFile>${project.build.directory}/password.github.com</outputFile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin> <!-- for dev: cd target/ && http-server . && open http://localhost:8080/tools-maven-plugin/ -->
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>minisite</id>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <cleanupDaemonThreads>false</cleanupDaemonThreads>
+                  <stopUnresponsiveDaemonThreads>false</stopUnresponsiveDaemonThreads>
+                  <includeProjectDependencies>true</includeProjectDependencies>
+                  <classpathScope>compile</classpathScope>
+                  <mainClass>io.yupiik.tools.doc.Generate</mainClass>
+                  <arguments>
+                    <argument>${project.basedir}/src/main/minisite</argument>
+                    <argument>${project.build.directory}/tools-maven-plugin</argument>
+                    <argument>${project.name}</argument>
+                    <argument>${project.artifactId}</argument>
+                    <argument>${project.version}</argument>
+                    <argument>${minisite.deploy}</argument>
+                    <argument>${user.name}</argument>
+                    <argument>${project.build.directory}/password.github.com</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
