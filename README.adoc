@@ -23,6 +23,8 @@ image::https://github.com/yupiik/tools-maven-plugin/workflows/Java%20CI%20with%2
 
 A set of goals at Yupiik colors and easing automotion.
 
+IMPORTANT: documentation is available online at https://yupiik.io/tools-maven-plugin/.
+
 Plugin definition:
 
 [source,xml]

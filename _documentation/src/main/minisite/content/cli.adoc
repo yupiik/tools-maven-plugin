@@ -1,0 +1,9 @@
+= Maven Plugin
+:minisite-index: 300
+:minisite-index-title: CLI
+:minisite-index-icon: terminal
+:minisite-index-description: CLI support.
+
+Most xref:mojo/yupiik-tools-maven-plugin.adoc[Maven] goals are available as CLI commands using `yupiik-tools-cli`.
+
+It is a plain Java application but you can also download the `fatjar` jar which is executable: `java -cp yupiik-tools-cli-$version-fatjar.jar <args>`.

@@ -442,6 +442,8 @@ public class MiniSite implements Runnable {
                         .orElse("");
             case "readingTime":
                 return readingTimeComputer.toReadingTime(page.content);
+            case "xyz": // passthrough
+                return "{{xyz}}";
             default:
                 if (emptyIfMissing) {
                     return "";

@@ -58,7 +58,7 @@ public class YupiikOSSExtension extends AbstractMavenLifecycleParticipant {
 
         // force some versions - todo: use pluginManagement to not force them to be there
         findOrCreatePlugin(root, "org.codehaus.mojo", "build-helper-maven-plugin", "3.2.0", false, null);
-        findOrCreatePlugin(root, "org.codehaus.mojo", "exec-maven-plugin", "3.0.0", false, null);
+        findOrCreatePlugin(root, "org.codehaus.mojo", "exec-maven-plugin", "3.1.0", false, null);
         findOrCreatePlugin(root, "org.apache.maven.plugins", "maven-release-plugin", "3.0.0-M1", true, null);
         findOrCreatePlugin(root, "org.apache.maven.plugins", "maven-surefire-plugin", "3.0.0-M5", true, null);
         findOrCreatePlugin(root, "io.yupiik.maven", "yupiik-tools-maven-plugin", root.getBuildExtensions().stream()

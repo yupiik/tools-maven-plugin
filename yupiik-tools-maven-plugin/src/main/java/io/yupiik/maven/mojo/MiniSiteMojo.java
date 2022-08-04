@@ -190,7 +190,7 @@ public class MiniSiteMojo extends BaseMojo {
 
     /**
      * Custom default theme extension points.
-     * An extension point is a placeholder in a template surrounded by 3 braces: {@code {{{point}}} }.
+     * An extension point is a placeholder in a template surrounded by 3 braces: {@code {{{xyz}}} }.
      */
     @Parameter(property = "yupiik.minisite.templateExtensionPoints")
     private Map<String, String> templateExtensionPoints;

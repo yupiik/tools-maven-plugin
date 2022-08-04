@@ -1,0 +1,7 @@
+= Maven Plugin
+:minisite-index: 200
+:minisite-index-title: Maven
+:minisite-index-icon: building
+:minisite-index-description: Maven Plugin integration.
+
+To learn all goals available in the maven plugin read xref:mojo/yupiik-tools-maven-plugin.adoc[Yupiik Tools Maven Plugin] dedicated page.

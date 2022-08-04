@@ -103,12 +103,12 @@ public class MojoDocumentationGeneration implements Runnable {
                     index,
                     ("= " + Character.toUpperCase(goalPrefix.charAt(0)) + goalPrefix.substring(1) + " Maven Plugin\n" +
                             "\n" +
-                            ofNullable(configuration.get("description")).map(String::trim).map(it -> it + "\n\n").orElse("") +
+                            ofNullable(configuration.get("description")).map(this::sanitizeDescription).map(String::strip).map(it -> it + "\n\n").orElse("") +
                             "== Goals\n" +
                             "\n" +
                             goals.stream()
                                     .sorted(comparing(Goal::getName))
-                                    .map(it -> "- xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + it.getDescription().replace("\n", " ").trim())
+                                    .map(it -> "- xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + sanitizeDescription(it.getDescription()).replace("\n", " ").trim())
                                     .collect(joining("\n")) + "\n")
                             .getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -142,7 +142,7 @@ public class MojoDocumentationGeneration implements Runnable {
                 .orElse(emptyMap());
         return new Goal(
                 getString(element, "goal"),
-                getString(element, "description"),
+                sanitizeDescription(getString(element, "description")),
                 stream(element.getElementsByTagName("parameter"))
                         .filter(it -> it.getNodeType() == Node.ELEMENT_NODE)
                         .map(Element.class::cast)
@@ -156,7 +156,7 @@ public class MojoDocumentationGeneration implements Runnable {
                                             .replace("java.util.", "")
                                             .replace("java.lang.", ""),
                                     Boolean.parseBoolean(getString(e, "required")),
-                                    getString(e, "description"),
+                                    sanitizeDescription(getString(e, "description")),
                                     !requiresDefaults ?
                                             defaultConfig :
                                             requireNonNull(defaultConfig, "no configuration entry for '" + name + "'"));
@@ -175,7 +175,8 @@ public class MojoDocumentationGeneration implements Runnable {
                 ofNullable(goal.getDescription())
                         .map(String::trim)
                         .filter(it -> !it.isEmpty())
-                        .map(String::trim)
+                        .map(this::sanitizeDescription)
+                        .map(String::strip)
                         .orElseGet(() -> {
                             if (requiresDescription) {
                                 throw new IllegalArgumentException("No description for " + goal);
@@ -242,7 +243,8 @@ public class MojoDocumentationGeneration implements Runnable {
                                                     .map(String::trim)
                                                     .filter(it -> !it.isEmpty())
                                                     .map(it -> !it.endsWith(".") ? it + '.' : it)
-                                                    .map(String::trim)
+                                                    .map(this::sanitizeDescription)
+                                                    .map(String::strip)
                                                     .orElseGet(() -> {
                                                         if (requiresDescription) {
                                                             throw new IllegalArgumentException(
@@ -257,6 +259,13 @@ public class MojoDocumentationGeneration implements Runnable {
                 "\n";
     }
 
+    private String sanitizeDescription(final String it) {
+        return it
+                .replace("<p>", "\n").replace("</p>", "")
+                .replace("<ul>", "").replace("</ul>", "")
+                .replace("<li>", "* ").replace("</li>", "\n");
+    }
+
     public Stream<Node> stream(final NodeList element) {
         return IntStream.range(0, element.getLength())
                 .mapToObj(element::item);
@@ -266,12 +275,20 @@ public class MojoDocumentationGeneration implements Runnable {
         final Path path = Paths.get(pluginXmlLocation);
         try (final InputStream stream = Files.exists(path) ?
                 Files.newInputStream(path) :
-                requireNonNull(Thread.currentThread().getContextClassLoader()
-                        .getResourceAsStream(pluginXmlLocation), "Didn't find plugin.xml, check your configuration.")) {
+                requireNonNull(findPluginXml(pluginXmlLocation), "Didn't find plugin.xml, check your configuration.")) {
             return DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(stream);
         } catch (final IOException | SAXException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static InputStream findPluginXml(final String pluginXmlLocation) throws IOException {
+        final var path = Path.of(pluginXmlLocation).toAbsolutePath().normalize();
+        if (Files.exists(path)) {
+            return Files.newInputStream(path);
+        }
+        return Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream(pluginXmlLocation);
     }
 
     @Data

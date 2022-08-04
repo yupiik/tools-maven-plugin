@@ -46,6 +46,7 @@
     <module>slides-core</module>
     <module>yupiik-tools-cli</module>
     <module>html-versioning-injector</module>
+    <module>_documentation</module>
   </modules>
 
   <dependencyManagement>
@@ -199,7 +200,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -339,6 +340,7 @@ under the License.
             <exclude>**/*.slim</exclude>
             <exclude>**/*.xslt</exclude>
             <exclude>**/minisite/**</exclude>
+            <exclude>**/.mvn/jvm.config</exclude>
           </excludes>
         </configuration>
       </plugin>

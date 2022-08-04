@@ -1,6 +1,0 @@
-= Note
-:last-generation: 2022-05-17
-
-This folder was generated (on the {last-generation}) with `io.yupiik.maven.RegenerateDoc` class (`yupiik-tools-maven-plugin/src/test/java/io/yupiik/maven/RegenerateDoc.java`).
-
-IMPORTANT: ensure to regenerate the content and not update it manually if needed.
