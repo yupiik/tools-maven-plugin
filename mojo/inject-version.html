@@ -132,11 +132,11 @@ It can be combined with some javascript to switch between the websites without r
 <dl>
 <dt class="hdlist1">replacedString* (<code>String</code>)</dt>
 <dd>
-<p>String to locate and replace in the source files, can use a regex if prefixed with {@code regex:}. Property: <code>${yupiik.inject-version.replacedString}</code>.</p>
+<p>String to locate and replace in the source files, can use a regex if prefixed with <code>regex:</code>. Property: <code>${yupiik.inject-version.replacedString}</code>.</p>
 </dd>
 <dt class="hdlist1">replacingContent* (<code>String</code>)</dt>
 <dd>
-<p>String to inject into the output. {@code &lt;!-- generated_versions_select -&#8594;} is replaced by a select with one option per version found. Property: <code>${yupiik.inject-version.replacingContent}</code>.</p>
+<p>String to inject into the output. <code>&lt;!-- generated_versions_select -&#8594;</code> is replaced by a select with one option per version found. Property: <code>${yupiik.inject-version.replacingContent}</code>.</p>
 </dd>
 <dt class="hdlist1">source* (<code>java.io.File</code>)</dt>
 <dd>
@@ -166,11 +166,11 @@ Similar to includes but enables to force an exclusion. Property: <code>${yupiik.
 <dt class="hdlist1">includes (<code>List</code>)</dt>
 <dd>
 <p>List of inclusions (for file processing).
-It is a list of file names (not path) or regex if prefixed with {@code regex:}. Default value: <code>regex:.+\.html</code>. Property: <code>${yupiik.inject-version.includes}</code>.</p>
+It is a list of file names (not path) or regex if prefixed with <code>regex:</code>. Default value: <code>regex:.+\.html</code>. Property: <code>${yupiik.inject-version.includes}</code>.</p>
 </dd>
 <dt class="hdlist1">selectProperties (<code>Map</code>)</dt>
 <dd>
-<p>Attributes to inject to the {@code &lt;select&gt;} when {@code &lt;!-- generated_versions_select -&#8594;} is used. Property: <code>${yupiik.inject-version.selectProperties}</code>.</p>
+<p>Attributes to inject to the <code>&lt;select&gt;</code> when <code>&lt;!-- generated_versions_select -&#8594;</code> is used. Property: <code>${yupiik.inject-version.selectProperties}</code>.</p>
 </dd>
 <dt class="hdlist1">target (<code>java.io.File</code>)</dt>
 <dd>
