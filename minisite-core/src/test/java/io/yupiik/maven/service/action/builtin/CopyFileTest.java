@@ -41,4 +41,17 @@ class CopyFileTest {
         new CopyFile(configuration).run();
         assertArrayEquals(Files.readAllBytes(input), Files.readAllBytes(output));
     }
+
+    @Test
+    void copyDir(@TempDir final Path dir) throws IOException {
+        Files.createDirectories(dir);
+        final Path input = dir.resolve("in.txt");
+        Files.write(input, "foo".getBytes(StandardCharsets.UTF_8));
+        final Path output = dir.resolve("out");
+        final Map<String, String> configuration = new HashMap<>();
+        configuration.put("from", dir.toString());
+        configuration.put("to", output.toString());
+        new CopyFile(configuration).run();
+        assertArrayEquals(Files.readAllBytes(input), Files.readAllBytes(output.resolve("in.txt")));
+    }
 }

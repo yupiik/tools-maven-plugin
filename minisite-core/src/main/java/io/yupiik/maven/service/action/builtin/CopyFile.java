@@ -19,10 +19,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.java.Log;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
 
 @Log
@@ -36,19 +39,32 @@ public class CopyFile implements Runnable {
         if (!Files.exists(from)) {
             throw new IllegalArgumentException(from + " does not exist");
         }
+
         final Path to = Paths.get(configuration.get("to"));
-        if (to.getParent() != null) {
-            try {
-                Files.createDirectories(to.getParent());
-            } catch (final IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
+
         try {
-            Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
-            log.info("Copied '" + from + "' to '" + to + "'");
+            if (Files.isDirectory(from)) {
+                Files.walkFileTree(from, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                        final var target = to.resolve(from.relativize(file));
+                        doCopy(file, target);
+                        return super.visitFile(file, attrs);
+                    }
+                });
+            } else {
+                doCopy(from, to);
+            }
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static void doCopy(final Path file, final Path target) throws IOException {
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
+        }
+        Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+        log.info(() -> "Copied '" + file + "' to '" + target + "'");
     }
 }
