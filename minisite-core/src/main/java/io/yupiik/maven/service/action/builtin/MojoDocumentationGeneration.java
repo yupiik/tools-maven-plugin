@@ -36,6 +36,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -50,6 +51,8 @@ import static java.util.stream.Collectors.toMap;
 @Log
 @RequiredArgsConstructor
 public class MojoDocumentationGeneration implements Runnable {
+    private static final Pattern CODE = Pattern.compile("\\{@code[ |\n]+(?<content>[^}]+)}", Pattern.DOTALL);
+
     protected final Path sourceBase;
     protected final Map<String, String> configuration;
 
@@ -73,6 +76,7 @@ public class MojoDocumentationGeneration implements Runnable {
             final String version = findChild(pluginChildren, "version").getTextContent().trim();
             final String goalPrefix = findChild(pluginChildren, "goalPrefix").getTextContent().trim();
 
+            final boolean inlineDescriptionOnGoals = Boolean.parseBoolean(configuration.get("inlineDescriptionOnGoals"));
             final boolean requiresDefaults = Boolean.parseBoolean(configuration.get("requiresDefaults"));
             final boolean requiresDescription = Boolean.parseBoolean(configuration.get("requiresDescription"));
 
@@ -108,7 +112,9 @@ public class MojoDocumentationGeneration implements Runnable {
                             "\n" +
                             goals.stream()
                                     .sorted(comparing(Goal::getName))
-                                    .map(it -> "- xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + sanitizeDescription(it.getDescription()).replace("\n", " ").trim())
+                                    .map(it -> "- xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + decapitalize(
+                                            sanitizeDescription(it.getDescription()).replace("\n", " ").strip()
+                                                    .replace("* ", inlineDescriptionOnGoals ? ", " : "\n* ")))
                                     .collect(joining("\n")) + "\n")
                             .getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -116,6 +122,10 @@ public class MojoDocumentationGeneration implements Runnable {
         } catch (final ParserConfigurationException | IOException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    private String decapitalize(final String replace) {
+        return Character.toLowerCase(replace.charAt(0)) + replace.substring(1);
     }
 
     private Node findChild(final NodeList items, final String tag) {
@@ -260,10 +270,13 @@ public class MojoDocumentationGeneration implements Runnable {
     }
 
     private String sanitizeDescription(final String it) {
-        return it
+        final var text = it
                 .replace("<p>", "\n").replace("</p>", "")
                 .replace("<ul>", "").replace("</ul>", "")
                 .replace("<li>", "* ").replace("</li>", "\n");
+        return text.contains("{@code") ?
+                CODE.matcher(text).replaceAll("`${content}`") :
+                text;
     }
 
     public Stream<Node> stream(final NodeList element) {

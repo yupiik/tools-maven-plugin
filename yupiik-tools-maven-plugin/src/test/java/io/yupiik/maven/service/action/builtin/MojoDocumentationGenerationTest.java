@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -40,14 +39,16 @@ class MojoDocumentationGenerationTest {
                 configuration)
                 .run();
 
-        final Map<String, String> generated = Files.list(output)
-                .collect(toMap(it -> it.getFileName().toString(), it -> {
-                    try {
-                        return String.join("\n", Files.readAllLines(it));
-                    } catch (final IOException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }));
+        final Map<String, String> generated;
+        try (final var list = Files.list(output)) {
+            generated = list.collect(toMap(it -> it.getFileName().toString(), it -> {
+                try {
+                    return String.join("\n", Files.readAllLines(it));
+                } catch (final IOException e) {
+                    throw new IllegalArgumentException(e);
+                }
+            }));
+        }
         assertEquals(2, generated.size());
         assertEquals("" +
                         "= super:foo\n" +
@@ -95,13 +96,13 @@ class MojoDocumentationGenerationTest {
                         "\n" +
                         "dummy (`boolean`)::\n" +
                         "Some param. Default value: `false`. Property: `${super.dummy}`.",
-                new String(Files.readAllBytes(output.resolve("foo.adoc")), StandardCharsets.UTF_8).trim());
+                Files.readString(output.resolve("foo.adoc")).trim());
         assertEquals("" +
                         "= Super Maven Plugin\n" +
                         "\n" +
                         "== Goals\n" +
                         "\n" +
-                        "- xref:foo.adoc[foo]: Open a bar.",
-                new String(Files.readAllBytes(output.resolve("super-maven-plugin.adoc")), StandardCharsets.UTF_8).trim());
+                        "- xref:foo.adoc[foo]: open a bar.",
+                Files.readString(output.resolve("super-maven-plugin.adoc")).trim());
     }
 }

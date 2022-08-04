@@ -49,6 +49,9 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+/**
+ * Convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals.
+ */
 @Mojo(name = "cucumber2asciidoc", threadSafe = true)
 public class CucumberReport2Asciidoc extends AbstractMojo {
     @Parameter(property = "yupiik.cucumber.source", defaultValue = "${project.build.directory/cucumber-reports/")

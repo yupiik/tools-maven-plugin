@@ -64,7 +64,6 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
  *     <li>src/main/doc/templates: contains the templates for the layout and pages of the website</li>
  * </ul>
  * <p>
- * TODO: add a way to execute a main before the rendering.
  */
 @Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class MiniSiteMojo extends BaseMojo {
