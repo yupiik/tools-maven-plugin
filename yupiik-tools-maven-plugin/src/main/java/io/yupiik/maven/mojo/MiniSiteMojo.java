@@ -40,6 +40,7 @@ import org.apache.maven.settings.crypto.SettingsDecryptionResult;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -486,6 +487,21 @@ public class MiniSiteMojo extends BaseMojo {
         final var thread = Thread.currentThread();
         final var originalLoader = thread.getContextClassLoader();
         final var urlClassLoader = new URLClassLoader(urls.toArray(new URL[0]), getParentClassLoader()) {
+            @Override
+            public InputStream getResourceAsStream(final String name) {
+                // if parent is not real one then we wouldn't find our own resources otherwise
+                if (name.startsWith("yupiik-tools-maven-plugin/") || name.startsWith("slides-core/") ||
+                        name.startsWith("ruby/") ||
+                        name.startsWith("META-INF/maven/io.yupiik.maven/")) {
+                    final var res = super.getResourceAsStream(name);
+                    if (res != null) {
+                        return res;
+                    }
+                    return originalLoader.getResourceAsStream(name);
+                }
+                return super.getResourceAsStream(name);
+            }
+
             @Override
             public void close() throws IOException {
                 super.close();
