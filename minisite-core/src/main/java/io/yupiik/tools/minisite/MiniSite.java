@@ -686,7 +686,7 @@ public class MiniSite implements Runnable {
                 "  <channel>\n" +
                 "   <atom:link href=\"" + baseSite + configuration.getRssFeedFile() + "\" rel=\"self\" type=\"application/rss+xml\" />\n" +
                 "   <title>" + escaper.apply(getTitle()) + "</title>\n" +
-                "   <description>" + escaper.apply(getIndexSubTitle()) + "</description>\n" +
+                "   <description>" + escaper.apply(getIndexSubTitle(false)) + "</description>\n" +
                 "   <link>" + baseSite + configuration.getRssFeedFile() + "</link>\n" +
                 "   <lastBuildDate>" + lastDate + "</lastBuildDate>\n" +
                 "   <pubDate>" + lastDate + "</pubDate>\n" +
@@ -1140,7 +1140,7 @@ public class MiniSite implements Runnable {
                         .replace("{{description}}", ofNullable(page.attributes)
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
-                                .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(this::getIndexSubTitle))),
+                                .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(() -> getIndexSubTitle(false)))),
                 page.attributes != null && page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
                 suffix.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
                         "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\" integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
@@ -1186,6 +1186,21 @@ public class MiniSite implements Runnable {
         }
     }
 
+    protected String renderText(final String text) {
+        if (text.startsWith("adoc:")) {
+            return configuration.getAsciidoctorPool().apply(
+                    configuration.getAsciidoctorConfiguration(),
+                    a -> a.convert(text.substring("adoc:".length()), Options.builder()
+                            .safe(SafeMode.UNSAFE)
+                            .backend("html5")
+                            .inPlace(false)
+                            .headerFooter(false)
+                            .build()))
+                    .toString();
+        }
+        return text;
+    }
+
     protected String getLogoText() {
         return ofNullable(configuration.getLogoText())
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
@@ -1200,13 +1215,19 @@ public class MiniSite implements Runnable {
 
     protected String getIndexText() {
         return ofNullable(configuration.getIndexText())
+                .map(this::renderText)
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElseGet(() -> getLogoText() + " Documentation"));
     }
 
     protected String getIndexSubTitle() {
+        return getIndexSubTitle(true);
+    }
+
+    protected String getIndexSubTitle(final boolean render) {
         return ofNullable(configuration.getIndexSubTitle())
+                .map(it -> render ? renderText(it) : it)
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElse(configuration.getProjectArtifactId()));
@@ -1214,6 +1235,7 @@ public class MiniSite implements Runnable {
 
     protected String getTitle() {
         return ofNullable(configuration.getTitle())
+                .map(this::renderText)
                 .orElseGet(() -> "Yupiik " + getLogoText());
     }
 
