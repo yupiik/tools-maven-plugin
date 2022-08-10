@@ -213,7 +213,13 @@ public class AsciidoctorInstance {
 
     @PreDestroy
     public void destroy() {
-        instances.values().stream().flatMap(Collection::stream).forEach(Asciidoctor::shutdown);
+        instances.values().stream().flatMap(Collection::stream).forEach(a -> {
+            try {
+                a.shutdown();
+            } catch (final NoClassDefFoundError e) {
+                // no-op
+            }
+        });
     }
 
     @Data
