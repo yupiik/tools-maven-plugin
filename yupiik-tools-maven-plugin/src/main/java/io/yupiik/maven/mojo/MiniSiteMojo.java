@@ -490,16 +490,11 @@ public class MiniSiteMojo extends BaseMojo {
             @Override
             public InputStream getResourceAsStream(final String name) {
                 // if parent is not real one then we wouldn't find our own resources otherwise
-                if (name.startsWith("yupiik-tools-maven-plugin/") || name.startsWith("slides-core/") ||
-                        name.startsWith("ruby/") ||
-                        name.startsWith("META-INF/maven/io.yupiik.maven/")) {
-                    final var res = super.getResourceAsStream(name);
-                    if (res != null) {
-                        return res;
-                    }
-                    return originalLoader.getResourceAsStream(name);
+                final var res = super.getResourceAsStream(name);
+                if (res != null) {
+                    return res;
                 }
-                return super.getResourceAsStream(name);
+                return originalLoader.getResourceAsStream(name);
             }
 
             @Override

@@ -64,7 +64,7 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
                         getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
                         List.of(source.toPath()), options, adoc, watchDelay,
                         (opts, a) -> {
-                            miniSite.doRender(a, opts);
+                            miniSite.executeInMinisiteClassLoader(() -> miniSite.doRender(a, opts));
                             getLog().info("Minisite re-rendered");
                         }, () -> server.get().open(openBrowser));
                 final StaticHttpServer staticHttpServer = new StaticHttpServer(

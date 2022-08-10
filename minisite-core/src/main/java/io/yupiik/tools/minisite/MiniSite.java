@@ -99,9 +99,20 @@ public class MiniSite implements Runnable {
         }
         final Options options = createOptions();
         configuration.getAsciidoctorPool().apply(configuration.getAsciidoctorConfiguration(), a -> {
-            doRender(a, options);
+            executeInMinisiteClassLoader(() -> doRender(a, options));
             return null;
         });
+    }
+
+    public void executeInMinisiteClassLoader(final Runnable task) {
+        final var thread = Thread.currentThread();
+        final var old = thread.getContextClassLoader();
+        try {
+            thread.setContextClassLoader(MiniSite.class.getClassLoader());
+            task.run();
+        } finally {
+            thread.setContextClassLoader(old);
+        }
     }
 
     public void executePreActions() {
