@@ -56,7 +56,12 @@ public final class Generate {
 
             final var configuration = new MiniSiteConfiguration();
             configuration.setIndexText("Yupiik Tools");
-            configuration.setIndexSubTitle("A set of build utilities.");
+            configuration.setIndexSubTitle("adoc:" +
+                    "A set of build utilities.\n" +
+                    "\n" +
+                    "IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, " +
+                    "it can impact your setup and need customization for minisite generation for example.\n" +
+                    "Last available 1.0.x release is 1.0.26.");
             configuration.setTitle("Yupiik Tools Plugin");
             configuration.setLogoSideText("Docs");
             configuration.setLogo("//www.yupiik.com/img/favicon.png");
