@@ -35,7 +35,7 @@
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
     <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
     <jgit.version>6.2.0.202206071550-r</jgit.version>
-    <johnzon.version>1.2.18</johnzon.version>
+    <johnzon.version>1.2.19</johnzon.version>
     <uship.version>1.0.8</uship.version>
   </properties>
 
