@@ -288,8 +288,10 @@ Here is a sample report:
 
 === Minisite
 
-Minisite enables to render a static website with a generic Yupiik template.
+Minisite enables to render a static website with a generic Yupiik template or a custom one with some configuration.
 It comes with its companion serve goal to have a live preview.
+
+TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 you can use `minisite-core` module with `exec-maven-plugin` since version 1.1.1.
 
 [source,sh]
 ----

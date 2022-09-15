@@ -46,7 +46,7 @@ public class IndexService {
     public Index index(final Path base, final String siteBase, final Predicate<Path> filter) {
         final Index result = new Index(new ArrayList<>());
         try {
-            Files.walkFileTree(base, new SimpleFileVisitor<>() {
+            Files.walkFileTree(base, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     if (file.getFileName().toString().endsWith(".html") && filter.test(file)) {

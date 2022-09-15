@@ -159,7 +159,7 @@ public class MojoDocumentationGeneration implements Runnable {
                         .filter(e -> Boolean.parseBoolean(getString(e, "editable")))
                         .map(e -> {
                             final String name = getString(e, "name");
-                            final var defaultConfig = defaults.get(name);
+                            final ParameterConfig defaultConfig = defaults.get(name);
                             return new Parameter(
                                     name,
                                     getString(e, "type")
@@ -247,7 +247,7 @@ public class MojoDocumentationGeneration implements Runnable {
                                     return p1.getName().compareTo(p2.getName());
                                 })
                                 .map(p -> {
-                                    final var config = p.getConfig();
+                                    final ParameterConfig config = p.getConfig();
                                     return p.getName() + (p.isRequired() ? "*" : "") + " (`" + p.getType() + "`)" + "::\n" +
                                             ofNullable(p.getDescription())
                                                     .map(String::trim)
@@ -270,7 +270,7 @@ public class MojoDocumentationGeneration implements Runnable {
     }
 
     private String sanitizeDescription(final String it) {
-        final var text = it
+        final String text = it
                 .replace("<p>", "\n").replace("</p>", "")
                 .replace("<ul>", "").replace("</ul>", "")
                 .replace("<li>", "* ").replace("</li>", "\n");
@@ -296,7 +296,7 @@ public class MojoDocumentationGeneration implements Runnable {
     }
 
     private static InputStream findPluginXml(final String pluginXmlLocation) throws IOException {
-        final var path = Path.of(pluginXmlLocation).toAbsolutePath().normalize();
+        final Path path = Path.of(pluginXmlLocation).toAbsolutePath().normalize();
         if (Files.exists(path)) {
             return Files.newInputStream(path);
         }

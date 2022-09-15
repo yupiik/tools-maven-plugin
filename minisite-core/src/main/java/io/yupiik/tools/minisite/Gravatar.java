@@ -29,8 +29,8 @@ public class Gravatar {
 
     private String hash(final String mail) {
         try {
-            final var md = MessageDigest.getInstance("MD5");
-            final var array = md.digest(mail.getBytes("CP1252"));
+            final MessageDigest md = MessageDigest.getInstance("MD5");
+            final byte[] array = md.digest(mail.getBytes("CP1252"));
             return IntStream.range(0, array.length)
                     .mapToObj(idx -> Integer.toHexString((array[idx] & 0xFF) | 0x100).substring(1, 3))
                     .collect(joining());

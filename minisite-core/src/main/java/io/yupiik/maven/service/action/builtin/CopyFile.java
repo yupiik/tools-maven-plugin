@@ -44,10 +44,10 @@ public class CopyFile implements Runnable {
 
         try {
             if (Files.isDirectory(from)) {
-                Files.walkFileTree(from, new SimpleFileVisitor<>() {
+                Files.walkFileTree(from, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        final var target = to.resolve(from.relativize(file));
+                        final Path target = to.resolve(from.relativize(file));
                         doCopy(file, target);
                         return super.visitFile(file, attrs);
                     }

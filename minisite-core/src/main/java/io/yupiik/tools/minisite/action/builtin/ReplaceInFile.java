@@ -31,12 +31,12 @@ public class ReplaceInFile implements Runnable {
 
     @Override
     public void run() {
-        final var source = Path.of(requireNonNull(configuration.get("source"), "No source set"));
-        final var token = requireNonNull(configuration.get("token"), "No token set");
-        final var replacement = requireNonNull(configuration.get("replacement"), "No replacement set");
+        final Path source = Path.of(requireNonNull(configuration.get("source"), "No source set"));
+        final String token = requireNonNull(configuration.get("token"), "No token set");
+        final String replacement = requireNonNull(configuration.get("replacement"), "No replacement set");
 
         try {
-            final var content = Files.readString(source);
+            final String content = Files.readString(source);
             String out;
             if (token.startsWith("regex{") && token.endsWith("}")) {
                 out = Pattern.compile(token.substring("regex{".length(), token.length() - 1))

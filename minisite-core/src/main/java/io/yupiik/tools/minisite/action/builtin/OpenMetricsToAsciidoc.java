@@ -50,8 +50,8 @@ public class OpenMetricsToAsciidoc implements Runnable {
     @Override
     public void run() {
         try {
-            final var lines = Files.readAllLines(source);
-            final var rendered = render(lines);
+            final List<String> lines = Files.readAllLines(source);
+            final String rendered = render(lines);
             if (to.getParent() != null) {
                 Files.createDirectories(to.getParent());
             }
@@ -109,20 +109,20 @@ public class OpenMetricsToAsciidoc implements Runnable {
                 "\n|===\n";
     }
 
-    private ArrayList<Metric> parseMetrics(List<String> lines) {
-        final var metrics = new ArrayList<Metric>(1 + lines.size() / 4);
+    private List<Metric> parseMetrics(final List<String> lines) {
+        final List<Metric> metrics = new ArrayList<>(1 + lines.size() / 4);
         Metric current = null;
-        for (final var line : lines) {
+        for (final String line : lines) {
             if (line.startsWith("# HELP ")) {
                 current = newMetricInstanceIfNeeded(metrics, current, line, "# HELP ", " ");
-                final var endOfName = line.indexOf(' ', "# HELP ".length() + 1);
+                final int endOfName = line.indexOf(' ', "# HELP ".length() + 1);
                 current.help = line.substring(endOfName + 1).strip();
                 if (current.name == null) {
                     current.name = line.substring("# HELP ".length(), endOfName).strip();
                 }
             } else if (line.startsWith("# TYPE ")) {
                 current = newMetricInstanceIfNeeded(metrics, current, line, "# TYPE ", " ");
-                final var endOfName = line.indexOf(' ', "# TYPE ".length() + 1);
+                final int endOfName = line.indexOf(' ', "# TYPE ".length() + 1);
                 current.type = line.substring(endOfName + 1).strip();
                 if (current.name == null) {
                     current.name = line.substring("# HELP ".length(), endOfName).strip();
@@ -135,16 +135,16 @@ public class OpenMetricsToAsciidoc implements Runnable {
                     current = new Metric();
                 }
 
-                final var value = new MetricValue();
-                final var space = line.indexOf(' ');
-                final var bracket = line.indexOf('{');
+                final MetricValue value = new MetricValue();
+                final int space = line.indexOf(' ');
+                final int bracket = line.indexOf('{');
                 if (bracket > 0 && bracket < space) {
-                    final var end = line.indexOf('}', bracket);
+                    final int end = line.indexOf('}', bracket);
                     value.tags = Stream.of(line.substring(bracket + 1, end).split(","))
                             .collect(toMap(
                                     t -> t.substring(0, t.indexOf('=')),
                                     t -> {
-                                        final var tagValue = t.substring(t.indexOf('=') + 1);
+                                        final String tagValue = t.substring(t.indexOf('=') + 1);
                                         if (tagValue.startsWith("\"") && tagValue.endsWith("\"")) {
                                             return tagValue.substring(1, tagValue.length() - 1);
                                         }
@@ -152,7 +152,7 @@ public class OpenMetricsToAsciidoc implements Runnable {
                                     },
                                     (a, b) -> a + "," + b, LinkedHashMap::new));
 
-                    final var name = line.substring(0, bracket);
+                    final String name = line.substring(0, bracket);
                     if (current.name == null) {
                         current.name = name;
                     }
@@ -160,7 +160,7 @@ public class OpenMetricsToAsciidoc implements Runnable {
                         value.tags.put("_type_", name.substring(current.name.length() + 1));
                     }
                 } else {
-                    final var name = line.substring(0, space);
+                    final String name = line.substring(0, space);
                     if (current.name == null) {
                         current.name = name;
                     }

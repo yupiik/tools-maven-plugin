@@ -162,7 +162,7 @@ public class MiniSiteConfiguration {
         private Function<String, String> nameToMailMapper = this::defaultMailMappingStrategy;
 
         public String defaultMailMappingStrategy(final String name) {
-            final var segments = name.split(" ");
+            final String[] segments = name.split(" ");
             return Character.toLowerCase(segments[0].charAt(0)) +
                     Stream.of(segments).skip(1).map(it -> it.replace("-", "").toLowerCase(Locale.ROOT)).collect(joining()) + "@yupiik.com";
         }
@@ -179,8 +179,8 @@ public class MiniSiteConfiguration {
                 nameToMailMapper = this::defaultMailMappingStrategy;
                 return;
             }
-            final var props = new Properties();
-            try (final var reader = new StringReader(config)) {
+            final Properties props = new Properties();
+            try (final StringReader reader = new StringReader(config)) {
                 try {
                     props.load(reader);
                 } catch (final IOException e) {
@@ -193,17 +193,17 @@ public class MiniSiteConfiguration {
                     break;
                 case "custom":
                 default:
-                    final var mail = '@' + props.getProperty("mail", "yupiik.com");
-                    final var firstNameFirstLetter = Boolean.parseBoolean(props.getProperty("firstName.firstLetter", "true"));
-                    final var firstNameLowerCase = Boolean.parseBoolean(props.getProperty("firstName.lower", "true"));
-                    final var lastNameConcatenationSep = props.getProperty("lastName.concatenationSeparator", "");
-                    final var lastNameStripNotAlphaChars = Boolean.parseBoolean(props.getProperty("lastName.stripNotAlphaChars", "true"));
-                    final var lastNameLowerCase = Boolean.parseBoolean(props.getProperty("lastName.lower", "true"));
-                    final var firstNameLastNameSeparator = props.getProperty("names.separator", "");
+                    final String mail = '@' + props.getProperty("mail", "yupiik.com");
+                    final boolean firstNameFirstLetter = Boolean.parseBoolean(props.getProperty("firstName.firstLetter", "true"));
+                    final boolean firstNameLowerCase = Boolean.parseBoolean(props.getProperty("firstName.lower", "true"));
+                    final String lastNameConcatenationSep = props.getProperty("lastName.concatenationSeparator", "");
+                    final boolean lastNameStripNotAlphaChars = Boolean.parseBoolean(props.getProperty("lastName.stripNotAlphaChars", "true"));
+                    final boolean lastNameLowerCase = Boolean.parseBoolean(props.getProperty("lastName.lower", "true"));
+                    final String firstNameLastNameSeparator = props.getProperty("names.separator", "");
                     nameToMailMapper = name -> {
-                        final var segments = name.split(" ");
+                        final String[] segments = name.split(" ");
 
-                        var firstname = segments[0];
+                        String firstname = segments[0];
                         if (firstNameFirstLetter) {
                             firstname = firstname.substring(0, 1);
                         }
@@ -211,10 +211,10 @@ public class MiniSiteConfiguration {
                             firstname = firstname.toLowerCase(Locale.ROOT);
                         }
 
-                        final var lastName = Stream.of(segments)
+                        final String lastName = Stream.of(segments)
                                 .skip(1)
                                 .map(it -> {
-                                    var value = it;
+                                    String value = it;
                                     if (lastNameStripNotAlphaChars) {
                                         value = value.replaceAll("[\\W]", "");
                                     }

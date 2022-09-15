@@ -22,8 +22,10 @@ import org.asciidoctor.AttributesBuilder;
 import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.asciidoctor.SafeMode;
+import org.asciidoctor.ast.Document;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +33,7 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -105,8 +108,8 @@ public class MiniSite implements Runnable {
     }
 
     public void executeInMinisiteClassLoader(final Runnable task) {
-        final var thread = Thread.currentThread();
-        final var old = thread.getContextClassLoader();
+        final Thread thread = Thread.currentThread();
+        final ClassLoader old = thread.getContextClassLoader();
         try {
             thread.setContextClassLoader(MiniSite.class.getClassLoader());
             task.run();
@@ -119,11 +122,11 @@ public class MiniSite implements Runnable {
         if (configuration.getPreActions() == null || configuration.getPreActions().isEmpty()) {
             return;
         }
-        final var executor = new ActionExecutor();
+        final ActionExecutor executor = new ActionExecutor();
         final Thread thread = Thread.currentThread();
         final ClassLoader parentLoader = thread.getContextClassLoader();
-        final var actionClassLoader = configuration.getActionClassLoader();
-        final var classLoader = ofNullable(actionClassLoader.get())
+        final Supplier<ClassLoader> actionClassLoader = configuration.getActionClassLoader();
+        final ClassLoader classLoader = ofNullable(actionClassLoader.get())
                 .orElseGet(Thread.currentThread()::getContextClassLoader);
         try {
             thread.setContextClassLoader(classLoader);
@@ -145,14 +148,14 @@ public class MiniSite implements Runnable {
                                                       final boolean withLeftMenuIfConfigured,
                                                       final Function<String, String> postProcessor,
                                                       final Function<String, String> customInterpolations) {
-        final var templates = getTemplatesDir();
-        final var titleTemplate = findPageTemplate(templates, "page-title");
-        final var contentTemplate = findPageTemplate(templates, "page-content");
+        final Path templates = getTemplatesDir();
+        final String titleTemplate = findPageTemplate(templates, "page-title");
+        final String contentTemplate = findPageTemplate(templates, "page-content");
         return template -> {
             try {
                 final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
                 attrs.putAll(page.attributes);
-                final var title = ofNullable(page.title)
+                final String title = ofNullable(page.title)
                         .map(t -> new TemplateSubstitutor(key -> {
                             if ("title".equals(key)) {
                                 return t;
@@ -160,13 +163,13 @@ public class MiniSite implements Runnable {
                             return getDefaultInterpolation(key, page, asciidoctor, options, null);
                         }).replace(titleTemplate))
                         .orElse("");
-                final var body = new TemplateSubstitutor(key -> {
+                final String body = new TemplateSubstitutor(key -> {
                     if ("title".equals(key)) {
                         return title;
                     }
                     return getDefaultInterpolation(key, page, asciidoctor, options, customInterpolations);
                 }).replace(contentTemplate);
-                final var content = template.apply(new Page(
+                final String content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
                         ofNullable(page.title).orElseGet(this::getTitle),
                         attrs, body));
@@ -202,7 +205,7 @@ public class MiniSite implements Runnable {
                 .map(this::parseCsv)
                 .flatMap(cats -> cats
                         .map(c -> {
-                            final var customizations = configuration.getBlogCategoriesCustomizations();
+                            final Map<String, MiniSiteConfiguration.BlogCategoryConfiguration> customizations = configuration.getBlogCategoriesCustomizations();
                             return ofNullable(customizations.get(c))
                                     // for complex names (with slashes or so) we normalize it to make it conf friendly)
                                     .orElseGet(() -> customizations.get(toClassName(c)));
@@ -226,12 +229,12 @@ public class MiniSite implements Runnable {
     }
 
     protected String leftMenu(final Map<Page, Path> files) {
-        final var templatesDir = getTemplatesDir();
-        final var template = findPageTemplate(templatesDir, "left-menu");
+        final Path templatesDir = getTemplatesDir();
+        final String template = findPageTemplate(templatesDir, "left-menu");
         return new TemplateSubstitutor(key -> {
             if ("listItems".equals(key)) {
-                final var itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
-                final var output = configuration.getTarget();
+                final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
+                final Path output = configuration.getTarget();
                 return findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
             }
             throw new IllegalArgumentException("Unknown key '" + key + "'");
@@ -273,22 +276,22 @@ public class MiniSite implements Runnable {
     protected String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
                                    final boolean hasBlog, final List<String> blogCategories) {
         final Path output = configuration.getTarget();
-        final var templatesDir = getTemplatesDir();
-        final var itemTemplate = findPageTemplate(templatesDir, "index-item");
-        final var contentTemplate = findPageTemplate(templatesDir, "index-content");
-        final var indexText = getIndexText();
+        final Path templatesDir = getTemplatesDir();
+        final String itemTemplate = findPageTemplate(templatesDir, "index-item");
+        final String contentTemplate = findPageTemplate(templatesDir, "index-content");
+        final String indexText = getIndexText();
         final String indexContent = (hasBlog ?
                 Stream.concat(
                         findIndexPages(htmls),
                         Stream.concat(
                                 configuration.isAddIndexRegistrationPerCategory() ? blogCategories.stream()
                                         .sorted(Comparator.<String, Integer>comparing(c -> {
-                                            final var configuration = this.configuration.getBlogCategoriesCustomizations().get(toClassName(c));
+                                            final MiniSiteConfiguration.BlogCategoryConfiguration configuration = this.configuration.getBlogCategoriesCustomizations().get(toClassName(c));
                                             return configuration == null ? -1 : configuration.getOrder();
                                         }).thenComparing(identity()))
                                         .map(category -> {
-                                            final var categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toClassName(category));
-                                            final var link = "blog/category/" + toUrlName(category) + "/page-1.html";
+                                            final MiniSiteConfiguration.BlogCategoryConfiguration categoryConf = this.configuration.getBlogCategoriesCustomizations().get(toClassName(category));
+                                            final String link = "blog/category/" + toUrlName(category) + "/page-1.html";
                                             return Map.entry(
                                                     new Page(
                                                             "/" + link,
@@ -326,7 +329,7 @@ public class MiniSite implements Runnable {
                 }).replace(itemTemplate))
                 .collect(joining(""));
 
-        final var content = dropLeftMenu(
+        final String content = dropLeftMenu(
                 template.apply(new Page(
                         "/index.html",
                         ofNullable(configuration.getTitle()).orElse("Index"), Map.of(
@@ -358,10 +361,10 @@ public class MiniSite implements Runnable {
         if (idx < 0) {
             return getDefaultInterpolation(key, page, asciidoctor, options, false, customInterpolations);
         }
-        final var params = Stream.of(key.substring(idx + 1).split("&"))
+        final Map<String, String> params = Stream.of(key.substring(idx + 1).split("&"))
                 .map(it -> it.split("="))
                 .collect(toMap(it -> it[0], it -> it[1]));
-        final var ignoreErrors = Boolean.parseBoolean(params.getOrDefault("ignoreErrors", "false"));
+        final boolean ignoreErrors = Boolean.parseBoolean(params.getOrDefault("ignoreErrors", "false"));
         try {
             return getDefaultInterpolation(
                     key.substring(0, idx), page, asciidoctor, options,
@@ -380,7 +383,7 @@ public class MiniSite implements Runnable {
                                              final boolean emptyIfMissing,
                                              final Function<String, String> customInterpolations) {
         if (customInterpolations != null) {
-            final var value = customInterpolations.apply(key);
+            final String value = customInterpolations.apply(key);
             if (value != null) {
                 return value;
             }
@@ -514,10 +517,10 @@ public class MiniSite implements Runnable {
     }
 
     public void doRender(final Asciidoctor asciidoctor, final Options options) {
-        final var content = configuration.getSource().resolve("content");
+        final Path content = configuration.getSource().resolve("content");
         final Map<Page, Path> files = new HashMap<>();
         final Path output = configuration.getTarget();
-        final var now = configuration.getRuntimeBlogPublicationDate() == null ?
+        final OffsetDateTime now = configuration.getRuntimeBlogPublicationDate() == null ?
                 OffsetDateTime.now() : configuration.getRuntimeBlogPublicationDate();
         if (!Files.exists(output)) {
             try {
@@ -526,17 +529,17 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
-        final var pages = findPages(asciidoctor, options);
+        final Collection<Page> pages = findPages(asciidoctor, options);
         Function<Page, String> template = null;
         boolean hasBlog = false;
         List<String> categories = emptyList();
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
-            final var pageToRender = new ArrayList<Consumer<Function<Page, String>>>();
+            final List<Consumer<Function<Page, String>>> pageToRender = new ArrayList<Consumer<Function<Page, String>>>();
             pages.forEach(page -> pageToRender.add(onVisitedFile(page, asciidoctor, options, files, now, blog)));
             hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
             template = createTemplate(options, asciidoctor, hasBlog);
-            final var tpl = template;
+            final Function<Page, String> tpl = template;
             pageToRender.forEach(it -> it.accept(tpl));
             if (hasBlog) {
                 categories = generateBlog(blog, asciidoctor, options, template);
@@ -564,7 +567,7 @@ public class MiniSite implements Runnable {
         if (configuration.isTemplateAddLeftMenu()) {
             final String leftMenu = leftMenu(files);
             try {
-                Files.walkFileTree(output, new SimpleFileVisitor<>() {
+                Files.walkFileTree(output, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                         if (file.getFileName().toString().endsWith(".html")) {
@@ -621,10 +624,10 @@ public class MiniSite implements Runnable {
         }
 
         if (hasSearch()) {
-            final var indexer = new IndexService();
+            final IndexService indexer = new IndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
-                final var location = configuration.getTarget().relativize(path).toString().replace(File.pathSeparatorChar, '/');
-                final var name = path.getFileName().toString();
+                final String location = configuration.getTarget().relativize(path).toString().replace(File.pathSeparatorChar, '/');
+                final String name = path.getFileName().toString();
                 if (location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) {
                     return false;
                 }
@@ -632,14 +635,14 @@ public class MiniSite implements Runnable {
             }), output.resolve(configuration.getSearchIndexName()));
         }
         if (configuration.getRssFeedFile() != null) {
-            final var out = output.resolve(configuration.getRssFeedFile());
+            final Path out = output.resolve(configuration.getRssFeedFile());
             try {
                 Files.createDirectories(out.getParent());
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
-            try (final var rss = Files.newBufferedWriter(out, UTF_8)) {
-                final var rssContent = generateRssFeed(files);
+            try (final BufferedWriter rss = Files.newBufferedWriter(out, UTF_8)) {
+                final String rssContent = generateRssFeed(files);
                 rss.write(rssContent);
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
@@ -650,26 +653,26 @@ public class MiniSite implements Runnable {
     }
 
     private String generateRssFeed(final Map<Page, Path> files) {
-        final var all = files.keySet().stream()
+        final List<Map.Entry<Page, OffsetDateTime>> all = files.keySet().stream()
                 .filter(it -> {
-                    final var name = files.get(it).getFileName().toString();
+                    final String name = files.get(it).getFileName().toString();
                     return !(name.startsWith("page-") || name.equals("index.html")) && name.endsWith(".html");
                 })
                 .map(it -> entry(it, readPublishedDate(it)))
                 .sorted(Map.Entry.<Page, OffsetDateTime>comparingByValue().reversed())
                 .collect(toList());
 
-        final var escaper = findXmlEscaper().andThen(text -> text
+        final Function<String, String> escaper = findXmlEscaper().andThen(text -> text
                 // https://www.htmlhelp.com/reference/html40/entities/special.html
                 .replace("&", "&#x26;")
                 .replace("<", "&#x3C;")
                 .replace(">", "&#x3E;"));
-        final var formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
-        final var baseSite = configuration.getSiteBase() + (!configuration.getSiteBase().endsWith("/") ? "/" : "");
-        final var items = all.stream()
+        final DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+        final String baseSite = configuration.getSiteBase() + (!configuration.getSiteBase().endsWith("/") ? "/" : "");
+        final String items = all.stream()
                 .map(Map.Entry::getKey)
                 .map(it -> {
-                    final var title = getTitle(it);
+                    final String title = getTitle(it);
                     return "" +
                             "   <item>\n" +
                             "    <title>" + escaper.apply(title) + "</title>\n" +
@@ -680,7 +683,7 @@ public class MiniSite implements Runnable {
                             "   </item>";
                 })
                 .collect(joining("\n", "", "\n"));
-        final var lastDate = all.stream().limit(1).findFirst().map(Map.Entry::getValue).orElseGet(OffsetDateTime::now).format(formatter);
+        final String lastDate = all.stream().limit(1).findFirst().map(Map.Entry::getValue).orElseGet(OffsetDateTime::now).format(formatter);
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
                 "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n" +
                 "  <channel>\n" +
@@ -699,8 +702,8 @@ public class MiniSite implements Runnable {
     private Function<String, String> findXmlEscaper() {
         try { // todo: absorb it there to avoid the need of the dep
             // org.apache.commons.lang3.StringEscapeUtils.escapeXml11
-            final var clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
-            final var escapeXml11 = clazz.getMethod("escapeXml11");
+            final Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
+            final Method escapeXml11 = clazz.getMethod("escapeXml11");
             if (!escapeXml11.isAccessible()) {
                 escapeXml11.setAccessible(true);
             }
@@ -732,7 +735,7 @@ public class MiniSite implements Runnable {
             return t -> {
             };
         }
-        final var out = configuration.getTarget().resolve(page.relativePath.substring(1));
+        final Path out = configuration.getTarget().resolve(page.relativePath.substring(1));
         if (out.getParent() != null && !Files.exists(out.getParent())) {
             try {
                 Files.createDirectories(out.getParent());
@@ -740,10 +743,10 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
-        final var isBlog = isBlogPage(page);
+        final boolean isBlog = isBlogPage(page);
         files.put(page, out);
         if (isBlog) {
-            final var publishedDate = readPublishedDate(page);
+            final OffsetDateTime publishedDate = readPublishedDate(page);
             if (now.isAfter(publishedDate)) {
                 blog.add(new BlogPage(page, publishedDate));
             }
@@ -788,25 +791,25 @@ public class MiniSite implements Runnable {
             pageComparator = pageComparator.reversed();
         }
         blog.sort(pageComparator);
-        final var baseBlog = configuration.getTarget().resolve("blog");
+        final Path baseBlog = configuration.getTarget().resolve("blog");
         try {
             Files.createDirectories(baseBlog);
         } catch (final IOException e) {
             throw new IllegalArgumentException(e);
         }
 
-        final var templateDir = getTemplatesDir();
-        final var blogItemTemplate = findPageTemplate(templateDir, "blog-list-item.adoc");
-        final var blogTemplate = findPageTemplate(templateDir, "blog-list.adoc");
+        final Path templateDir = getTemplatesDir();
+        final String blogItemTemplate = findPageTemplate(templateDir, "blog-list-item.adoc");
+        final String blogTemplate = findPageTemplate(templateDir, "blog-list.adoc");
 
         paginateBlogPages((number, total) -> "Blog Page " + number + "/" + total, "", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate);
-        final var allCategories = new ArrayList<>(paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate));
+        final List<String> allCategories = new ArrayList<>(paginatePer("category", "categories", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate));
         paginatePer("author", "authors", blog, asciidoctor, options, template, baseBlog, blogItemTemplate, blogTemplate);
 
         // render all blog pages
         blog.forEach(bp -> {
-            final var out = configuration.getTarget().resolve(bp.page.relativePath.substring(1));
-            final var idx = blog.indexOf(bp);
+            final Path out = configuration.getTarget().resolve(bp.page.relativePath.substring(1));
+            final int idx = blog.indexOf(bp);
             render(new Page( // add links to other posts
                             bp.page.relativePath,
                             bp.page.title,
@@ -885,7 +888,7 @@ public class MiniSite implements Runnable {
 
     private String injectBlogMeta(final BlogPage bp) {
         final List<String> lines;
-        try (final var reader = new BufferedReader(new StringReader(bp.page.content))) {
+        try (final BufferedReader reader = new BufferedReader(new StringReader(bp.page.content))) {
             lines = reader.lines().collect(toList());
         } catch (final IOException e) {
             throw new IllegalStateException(e);
@@ -927,14 +930,14 @@ public class MiniSite implements Runnable {
                                              final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
                                              final Path baseBlog, final String itemTemplate, final String contentTemplate) {
         // per category pagination /category/<name>/page-<x>.html
-        final var perCriteria = blog.stream()
+        final Map<String, List<BlogPage>> perCriteria = blog.stream()
                 .filter(it -> it.page.attributes.containsKey("minisite-blog-" + plural))
                 .flatMap(it -> parseCsv(String.valueOf(it.page.attributes.get("minisite-blog-" + plural)))
                         .map(c -> new AbstractMap.SimpleImmutableEntry<>(c, it)))
                 .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
         perCriteria.forEach((key, posts) -> {
-            final var humanName = toHumanName(key);
-            final var urlName = toUrlName(key);
+            final String humanName = toHumanName(key);
+            final String urlName = toUrlName(key);
             paginateBlogPages(
                     (current, total) -> "Blog " + humanName + " (page " + current + "/" + total + ")",
                     singular + "/" + urlName + '/',
@@ -962,10 +965,10 @@ public class MiniSite implements Runnable {
 
     protected String toHumanName(final String string) {
         char previousChar = string.charAt(0);
-        final var out = new StringBuilder()
+        final StringBuilder out = new StringBuilder()
                 .append(Character.toUpperCase(previousChar));
         for (int i = 1; i < string.length(); i++) {
-            final var c = string.charAt(i);
+            final char c = string.charAt(i);
             if (Character.isUpperCase(c) && Character.isJavaIdentifierPart(previousChar) && !Character.isUpperCase(previousChar)) {
                 out.append(' ').append(c);
             } else {
@@ -999,9 +1002,9 @@ public class MiniSite implements Runnable {
             }
         }
         final int pageSize = configuration.getBlogPageSize() <= 0 ? 10 : configuration.getBlogPageSize();
-        final var pages = splitByPage(blogPages, pageSize);
+        final List<List<BlogPage>> pages = splitByPage(blogPages, pageSize);
         IntStream.rangeClosed(1, pages.size()).forEach(page -> {
-            final var output = baseBlog.resolve(pageRelativeFolder + "page-" + page + ".html");
+            final Path output = baseBlog.resolve(pageRelativeFolder + "page-" + page + ".html");
             render(
                     new Page(
                             '/' + configuration.getTarget().relativize(output).toString().replace(File.separatorChar, '/'),
@@ -1034,7 +1037,7 @@ public class MiniSite implements Runnable {
                     this::markPageAsBlog, null).accept(template);
         });
 
-        final var indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
+        final Path indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
         if (!Files.exists(indexRedirect)) {
             try {
                 Files.writeString(
@@ -1064,8 +1067,8 @@ public class MiniSite implements Runnable {
 
     public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor,
                                                  final boolean hasBlog) {
-        final var layout = getTemplatesDir();
-        var prefix = readTemplates(layout, configuration.getTemplatePrefixes())
+        final Path layout = getTemplatesDir();
+        String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
                 .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
                         "<a title=\"Blog\" href=\"" + configuration.getSiteBase() + "/blog/\">" +
                         "<i class=\"fa fa-blog fa-fw\"></i></a></li>")
@@ -1153,9 +1156,9 @@ public class MiniSite implements Runnable {
 
     protected Collection<Page> findPages(final Asciidoctor asciidoctor, final Options options) {
         try {
-            final var content = configuration.getSource().resolve("content");
+            final Path content = configuration.getSource().resolve("content");
             final Collection<Page> pages = new ArrayList<>();
-            Files.walkFileTree(content, new SimpleFileVisitor<>() {
+            Files.walkFileTree(content, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     final String filename = file.getFileName().toString();
@@ -1166,7 +1169,7 @@ public class MiniSite implements Runnable {
                         return FileVisitResult.CONTINUE;
                     }
                     final String contentString = Files.readString(file);
-                    final var header = asciidoctor.load(contentString, options);
+                    final Document header = asciidoctor.load(contentString, options);
                     final Path out = ofNullable(header.getAttributes().get("minisite-path"))
                             .map(it -> configuration.getTarget().resolve(it.toString()))
                             .orElseGet(() -> configuration.getTarget().resolve(content.relativize(file)).getParent().resolve(

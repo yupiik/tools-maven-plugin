@@ -17,6 +17,8 @@ package io.yupiik.tools.minisite.action.builtin;
 
 import lombok.RequiredArgsConstructor;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -30,18 +32,18 @@ public class SimpleConfigurationGenerator implements Runnable {
 
     @Override
     public void run() {
-        final var output = Path.of(requireNonNull(configuration.get("output"), "No output configuration"));
+        final Path output = Path.of(requireNonNull(configuration.get("output"), "No output configuration"));
         try {
-            final var clazz = Thread.currentThread().getContextClassLoader()
+            final Class<?> clazz = Thread.currentThread().getContextClassLoader()
                     .loadClass(requireNonNull(configuration.get("class"), "No class configuration").strip());
-            final var generatorClass = loadGenerator();
-            final var generator = generatorClass.getConstructor(Class[].class);
-            final var generatorInstance = generator.newInstance(new Object[]{new Class<?>[]{clazz}});
-            final var toAsciidoc = generatorClass.getMethod("toAsciidoc");
+            final Class<?> generatorClass = loadGenerator();
+            final Constructor<?> generator = generatorClass.getConstructor(Class[].class);
+            final Object generatorInstance = generator.newInstance(new Object[]{new Class<?>[]{clazz}});
+            final Method toAsciidoc = generatorClass.getMethod("toAsciidoc");
             if (!toAsciidoc.canAccess(generatorInstance)) {
                 toAsciidoc.setAccessible(true);
             }
-            final var adoc = toAsciidoc.invoke(generatorInstance).toString();
+            final String adoc = toAsciidoc.invoke(generatorInstance).toString();
             if (output.getParent() != null) {
                 Files.createDirectories(output.getParent());
             }

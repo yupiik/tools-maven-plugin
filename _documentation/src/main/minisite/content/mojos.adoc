@@ -76,6 +76,9 @@ mvn \
 == Minisite
 
 xref:mojo/minisite.adoc[minisite] can push the minisite to a remote target (often git backed pages).
+
+TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 you can use `minisite-core` module with `exec-maven-plugin` since version 1.1.1.
+
 Here is the related documentation.
 
 The configuration supports a `git` entry if you want to upload to a Git branch the generated website (like `gh-pages`):
