@@ -129,6 +129,26 @@ Simplest setup is to define the plugin and create a file `src/main/pdf/index.ado
 
 TIP: `watch-pdf` goal exists and just keeps re-rendering your `adoc` to `pdf` when something changed in the source directories. You can exit it with `Ctrl+C` command.
 
+TIP: some default roles are defined in the theme and can be used to color the icons (`icon:xxx[role=<name>]`).
+Here are the default ones:
+[source,yaml]
+----
+  red:
+    font-color: #ff00ff
+  green:
+    font-color: #00ff00
+  blue:
+    font-color: #0000ff
+  red-darker:
+    font-color: #cc0000
+  green-darker:
+    font-color: #006600
+  yupiik:
+    font-color: #0075bb
+  yupiik_dark:
+    font-color: #054470
+----
+
 ==== Configuration
 
 [options="header",cols="1,m,m,m,1"]

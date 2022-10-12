@@ -243,4 +243,18 @@ footer:
   verso:
     left:
       content: $footer_recto_right_content
-
+role:
+  red:
+    font-color: #ff00ff
+  green:
+    font-color: #00ff00
+  blue:
+    font-color: #0000ff
+  red-darker:
+    font-color: #cc0000
+  green-darker:
+    font-color: #006600
+  yupiik:
+    font-color: #0075bb
+  yupiik_dark:
+    font-color: #054470
