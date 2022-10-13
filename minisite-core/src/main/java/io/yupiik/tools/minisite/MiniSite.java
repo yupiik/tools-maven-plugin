@@ -237,7 +237,11 @@ public class MiniSite implements Runnable {
                 final Path output = configuration.getTarget();
                 return findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
             }
-            throw new IllegalArgumentException("Unknown key '" + key + "'");
+            try {
+                return findPageTemplate(templatesDir, key);
+            } catch (final RuntimeException re) {
+                throw new IllegalArgumentException("Unknown key '" + key + "'");
+            }
         }).replace(template);
     }
 
@@ -346,7 +350,11 @@ public class MiniSite implements Runnable {
                                 case "content":
                                     return indexContent;
                                 default:
-                                    throw new IllegalArgumentException("Unknown key '" + key + "'");
+                                    try {
+                                        return findPageTemplate(templatesDir, key);
+                                    } catch (final RuntimeException re) {
+                                        throw new IllegalArgumentException("Unknown key '" + key + "'");
+                                    }
                             }
                         }).replace(contentTemplate))));
 
@@ -459,10 +467,14 @@ public class MiniSite implements Runnable {
             case "xyz": // passthrough
                 return "{{xyz}}";
             default:
-                if (emptyIfMissing) {
-                    return "";
+                try {
+                    return findPageTemplate(getTemplatesDir(), key);
+                } catch (final RuntimeException re) {
+                    if (emptyIfMissing) {
+                        return "";
+                    }
+                    throw new IllegalArgumentException("Unknown template key '" + key + "'");
                 }
-                throw new IllegalArgumentException("Unknown template key '" + key + "'");
         }
     }
 
