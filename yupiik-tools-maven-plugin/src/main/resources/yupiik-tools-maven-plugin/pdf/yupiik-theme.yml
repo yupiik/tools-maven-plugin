@@ -256,5 +256,13 @@ role:
     font-color: #006600
   yupiik:
     font-color: #0075bb
-  yupiik_dark:
+  yupiik-dark:
     font-color: #054470
+  yupiik-theme-blue-dark:
+    font-color: #1B449B
+  yupiik-theme-blue-light:
+    font-color: #00B2EF
+  yupiik-theme-red:
+    font-color: #FD0B00
+  yupiik-theme-yello-dark:
+    font-color: #FFC806
