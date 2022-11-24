@@ -82,7 +82,15 @@ public class AsciidoctorInstance {
 
     private Asciidoctor newInstance(final AsciidoctorConfiguration log, final Path path, final String customGems,
                                     final List<String> requires, final List<AsciidoctorExtension> extensions) {
-        final Asciidoctor asciidoctor = JRubyAsciidoctor.create(ofNullable(customGems).orElseGet(path::toString));
+        final var thread = Thread.currentThread();
+        final var oldLoader = thread.getContextClassLoader();
+        final Asciidoctor asciidoctor;
+        try {
+            thread.setContextClassLoader(AsciidoctorInstance.class.getClassLoader());
+            asciidoctor = JRubyAsciidoctor.create(ofNullable(customGems).orElseGet(path::toString));
+        } finally {
+            thread.setContextClassLoader(oldLoader);
+        }
         Logger.getLogger("asciidoctor").setUseParentHandlers(false);
 
         final var registry = asciidoctor.javaExtensionRegistry();
