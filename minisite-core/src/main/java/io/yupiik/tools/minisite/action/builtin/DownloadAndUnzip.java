@@ -94,7 +94,7 @@ public class DownloadAndUnzip implements Runnable {
                 try (final ZipInputStream jar = new ZipInputStream(Files.newInputStream(zip))) {
                     ZipEntry entry;
                     while ((entry = jar.getNextEntry()) != null) {
-                        if (!entry.getName().startsWith(subpath) && !entry.isDirectory()) {
+                        if (!entry.getName().startsWith(subpath) || entry.isDirectory()) {
                             continue;
                         }
                         final Path out = baseOutput.resolve(entry.getName().substring(subpath.length()));
