@@ -18,6 +18,7 @@ package io.yupiik.tools.minisite;
 import io.yupiik.maven.service.action.builtin.CopyFile;
 import io.yupiik.maven.service.action.builtin.JsonSchemaGenerator;
 import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
+import io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip;
 import io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc;
 import io.yupiik.tools.minisite.action.builtin.ReplaceInFile;
 import io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator;
@@ -59,6 +60,8 @@ public class ActionExecutor {
                 return SimpleConfigurationGenerator.class;
             case "replace-in-file":
                 return ReplaceInFile.class;
+            case "download-unzip":
+                return DownloadAndUnzip.class;
             default:
                 return Thread.currentThread().getContextClassLoader()
                         .loadClass(name)

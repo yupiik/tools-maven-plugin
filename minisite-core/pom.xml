@@ -81,10 +81,27 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <executions>
           <execution>
+            <id>compile-11</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <source>11</source>
+              <target>11</target>
+              <includes>
+                <include>**/DownloadAndUnzip.java</include>
+              </includes>
+            </configuration>
+          </execution>
+          <execution>
             <id>default-compile</id>
             <configuration>
               <source>8</source>
               <target>8</target>
+              <excludes>
+                <exclude>**/DownloadAndUnzip.java</exclude>
+              </excludes>
             </configuration>
           </execution>
         </executions>

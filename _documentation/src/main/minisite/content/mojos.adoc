@@ -230,6 +230,17 @@ Using `type=simple-configuration` (recommended) or `type=io.yupiik.tools.minisit
 . `class`: root configuration fully qualified name.
 . `output`: where to generate the `.adoc` to.
 
+==== Download and Unzip
+
+Using `type=download-unzip` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip` enables to download a zip from a HTTP url then extract it totally or partially to a particular folder.
+This can be used to download a git repository using Github/Gitlab/Gitea API for example.
+
+. `url`: the zip URL.
+. `subpath`: the subpath to copy in `target`. It filters the zip entries names by prefix.
+. `headers`: in properties format, a set of headers to set.
+. `target`: where to copy the selected files.
+. `workdir`: temporary folder (to download the zip), temporary if not set.
+
 ==== Replace string in file
 
 Using `type=replace-in-file` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile` will rewrite a text file replacing a string by another one.
