@@ -674,11 +674,7 @@ public class MiniSite implements Runnable {
                 .sorted(Map.Entry.<Page, OffsetDateTime>comparingByValue().reversed())
                 .collect(toList());
 
-        final Function<String, String> escaper = findXmlEscaper().andThen(text -> text
-                // https://www.htmlhelp.com/reference/html40/entities/special.html
-                .replace("&", "&#x26;")
-                .replace("<", "&#x3C;")
-                .replace(">", "&#x3E;"));
+        final Function<String, String> escaper = findXmlEscaper();
         final DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
         final String baseSite = configuration.getSiteBase() + (!configuration.getSiteBase().endsWith("/") ? "/" : "");
         final String items = all.stream()
@@ -713,9 +709,8 @@ public class MiniSite implements Runnable {
 
     private Function<String, String> findXmlEscaper() {
         try { // todo: absorb it there to avoid the need of the dep
-            // org.apache.commons.lang3.StringEscapeUtils.escapeXml11
             final Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
-            final Method escapeXml11 = clazz.getMethod("escapeXml11");
+            final Method escapeXml11 = clazz.getMethod("escapeXml11", String.class);
             if (!escapeXml11.isAccessible()) {
                 escapeXml11.setAccessible(true);
             }
@@ -737,7 +732,11 @@ public class MiniSite implements Runnable {
     }
 
     protected String xmlEscape(final String text) {
-        return text;
+        return text
+                // https://www.htmlhelp.com/reference/html40/entities/special.html
+                .replace("&", "&#x26;")
+                .replace("<", "&#x3C;")
+                .replace(">", "&#x3E;");
     }
 
     protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor,
@@ -1204,13 +1203,13 @@ public class MiniSite implements Runnable {
     protected String renderText(final String text) {
         if (text.startsWith("adoc:")) {
             return configuration.getAsciidoctorPool().apply(
-                    configuration.getAsciidoctorConfiguration(),
-                    a -> a.convert(text.substring("adoc:".length()), Options.builder()
-                            .safe(SafeMode.UNSAFE)
-                            .backend("html5")
-                            .inPlace(false)
-                            .headerFooter(false)
-                            .build()))
+                            configuration.getAsciidoctorConfiguration(),
+                            a -> a.convert(text.substring("adoc:".length()), Options.builder()
+                                    .safe(SafeMode.UNSAFE)
+                                    .backend("html5")
+                                    .inPlace(false)
+                                    .headerFooter(false)
+                                    .build()))
                     .toString();
         }
         return text;
