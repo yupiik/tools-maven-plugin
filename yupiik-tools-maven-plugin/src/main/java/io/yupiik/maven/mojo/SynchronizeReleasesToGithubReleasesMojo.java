@@ -246,9 +246,15 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                     .filter(c -> !c.getCommit().getMessage().startsWith("[maven-release-plugin]") &&
                                             !c.getCommit().getMessage().startsWith("skip changelog"))
                                     .sorted(comparing(it -> OffsetDateTime.parse(it.getCommit().getCommitter().getDate())))
-                                    .map(c -> "" +
-                                            "* [" + c.getCommit().getAuthor().getName() + "](" + c.getAuthor().getHtmlUrl() + "): " +
-                                            c.getCommit().getMessage() + (c.getCommit().getMessage().endsWith(".") ? "" : ".") + " [link](" + c.getHtmlUrl() + ").")
+                                    .map(c -> {
+                                        final var author1 = c.getCommit().getAuthor();
+                                        final var author2 = c.getAuthor();
+                                        return "" +
+                                                "* " + (author2 == null ? author1.getName() : ("[" + ofNullable(author1)
+                                                .map(GithubCommitAuthor::getName)
+                                                .orElseGet(author2::getLogin) + "](" + author2.getHtmlUrl() + ")")) + ": " +
+                                                c.getCommit().getMessage() + (c.getCommit().getMessage().endsWith(".") ? "" : ".") + " [link](" + c.getHtmlUrl() + ").";
+                                    })
                                     .collect(joining("\n")))
                             .thenAccept(msg -> release.setBody(release.getBody() + "\n\n" + msg)))
                     .orElseGet(() -> completedFuture(null))
