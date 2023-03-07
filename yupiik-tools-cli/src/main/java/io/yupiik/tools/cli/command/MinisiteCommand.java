@@ -67,6 +67,7 @@ public final class MinisiteCommand {
                                 @Option(value = "reverseBlogOrder", description = "Should blog index pages be sorted by reversed publication date.") @Default("true") final boolean reverseBlogOrder,
                                 @Option(value = "blogPageSize", description = "Site page size when blog is enabled.") @Default("10") final int blogPageSize,
                                 @Option(value = "templateDirs", description = "Asciidoctor template directory.") final List<File> templateDirs,
+                                @Option(value = "notIndexedPages", description = "When search is enabled the files to not index.") final List<String> notIndexedPages,
                                 @Option(value = "attributes", description = "Asciidoctor attributes (using properties syntax).") final Map<String, Object> attributes,
                                 @Option(value = "templateExtensionPoints", description = "Extension point content.") final Map<String, String> templateExtensionPoints,
                                 @Option(value = "version", description = "Version (for projectVersion template).") @Default("latest") final String version,
@@ -111,6 +112,7 @@ public final class MinisiteCommand {
                 .siteBase("/".equals(siteBase) ? "" : siteBase)
                 .useDefaultAssets(useDefaultAssets)
                 .searchIndexName(searchIndexName)
+                .notIndexedPages(notIndexedPages)
                 .generateIndex(generateIndex)
                 .generateSiteMap(generateSiteMap)
                 .templatePrefixes(templatePrefixes)

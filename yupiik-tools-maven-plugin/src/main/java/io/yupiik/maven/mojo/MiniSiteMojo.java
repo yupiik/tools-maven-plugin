@@ -338,6 +338,12 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private Map<String, MiniSiteConfiguration.BlogCategoryConfiguration> blogCategoriesCustomizations;
 
+    /**
+     * List of pages to ignore in search.json when search is enabled, typically useful if you create an all in one page.
+     */
+    @Parameter
+    private List<String> notIndexedPages;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -432,6 +438,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .siteBase(getNormalizedSiteBase())
                 .useDefaultAssets(useDefaultAssets)
                 .searchIndexName(searchIndexName)
+                .notIndexedPages(notIndexedPages)
                 .generateIndex(generateIndex)
                 .generateSiteMap(generateSiteMap)
                 .templatePrefixes(templatePrefixes)

@@ -69,6 +69,7 @@ public class MiniSiteConfiguration {
     private String siteBase;
     private boolean useDefaultAssets;
     private String searchIndexName;
+    private List<String> notIndexedPages;
     private boolean generateBlog;
     private int blogPageSize;
     private boolean generateIndex;

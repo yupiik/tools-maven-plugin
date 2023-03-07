@@ -18,6 +18,7 @@ package io.yupiik.tools.minisite;
 import io.yupiik.tools.minisite.test.MiniSiteConfigurationBuilderProvider;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -35,6 +36,19 @@ class MiniSiteTest {
                 .run();
         asserts.assertNotContains("page.html", "{{{socialLinks}}}");
         asserts.assertContains("page.html", "this is the replacement");
+    }
+
+    @Test
+    void notIndexedPages(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+              final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // ignore blog pages and keep index.html only
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
+                .notIndexedPages(List.of("regex:blog\\p{Digit}.html"))
+                .build()).run();
+        asserts.assertThat(files -> assertEquals("" +
+                "[{\"lang\":\"en\",\"text\":\"\",\"title\":\"Test Site\",\"url\":\"/index.html\"}]" +
+                "", files.get("search.json")));
     }
 
     @Test

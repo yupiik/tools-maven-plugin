@@ -62,6 +62,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
@@ -636,11 +637,25 @@ public class MiniSite implements Runnable {
         }
 
         if (hasSearch()) {
+            final Predicate<String> ignoredPages = configuration.getNotIndexedPages() == null || configuration.getNotIndexedPages().isEmpty() ?
+                    s -> false :
+                    configuration.getNotIndexedPages().stream()
+                            .map(it -> {
+                                if (it.startsWith("regex:")) {
+                                    return Pattern.compile(it.substring("regex:".length())).asMatchPredicate();
+                                }
+                                if (it.startsWith("prefix:")) {
+                                    final String value = it.substring("prefix:".length());
+                                    return (Predicate<String>) s -> s.startsWith(value);
+                                }
+                                return (Predicate<String>) it::equals;
+                            })
+                            .reduce(s -> false, Predicate::or);
             final IndexService indexer = new IndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
                 final String location = configuration.getTarget().relativize(path).toString().replace(File.pathSeparatorChar, '/');
                 final String name = path.getFileName().toString();
-                if (location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) {
+                if ((location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) || ignoredPages.test(name)) {
                     return false;
                 }
                 return true;
