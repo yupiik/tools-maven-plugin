@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>yupiik-tools:script-cli-skeleton</title>
+    <title>yupiik-tools:generate-blog-post-releases</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,15 +60,16 @@ Last available 1.0.x release is 1.0.26.">
             </ul>
         </div>
 
-        <div id="mojo-script-cli-skeleton-html-container" class="container page-content mojo-script-cli-skeleton-html">
+        <div id="mojo-generate-blog-post-releases-html-container" class="container page-content mojo-generate-blog-post-releases-html">
                         <div class="page-header">
-                <h1>yupiik-tools:script-cli-skeleton</h1>
+                <h1>yupiik-tools:generate-blog-post-releases</h1>
             </div>
             <div class="page-content-body">
                 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Seed a simple bash CLI.</p>
+<p>Fetch releases from github repo to generate a blog post.
+The search is between 2 dates.</p>
 </div>
 </div>
 </div>
@@ -85,7 +86,7 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:script-cli-skeleton</code>.</p>
+<p>To call this goal from the command line execute: <code>mvn yupiik-tools:generate-blog-post-releases</code>.</p>
 </div>
 <div class="paragraph">
 <p>To bind this goal in the build you can use:</p>
@@ -100,7 +101,7 @@ Last available 1.0.x release is 1.0.26.">
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
       &lt;goals&gt;
-        &lt;goal&gt;script-cli-skeleton&lt;/goal&gt;
+        &lt;goal&gt;generate-blog-post-releases&lt;/goal&gt;
       &lt;/goals&gt;
       &lt;configuration&gt;
         &lt;!-- execution specific configuration come there --&gt;
@@ -111,34 +112,50 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:script-cli-skeleton@my-execution</code> command.</p>
+<p>You can execute this goal particularly with <code>mvn yupiik-tools:generate-blog-post-releases@my-execution</code> command.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_configuration">Configuration</h2>
 <div class="sectionbody">
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-<code>*</code> means the parameter is required.
-</td>
-</tr>
-</table>
-</div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">directory* (<code>java.io.File</code>)</dt>
+<dt class="hdlist1">forceHttpV1 (<code>boolean</code>)</dt>
 <dd>
-<p>Where to create the bash CLI skeleton. Property: <code>${yupiik.script-cli-skeleton.directory}</code>.</p>
+<p>Default value: <code>true</code>. Property: <code>${yupiik.generate-blog-post-releases.forceHttpV1}</code>.</p>
 </dd>
-<dt class="hdlist1">generateHelloWorldCommand (<code>boolean</code>)</dt>
+<dt class="hdlist1">from (<code>String</code>)</dt>
 <dd>
-<p>Where to create the bash CLI skeleton. Default value: <code>true</code>. Property: <code>${yupiik.script-cli-skeleton.generateHelloWorldCommand}</code>.</p>
+<p>Property: <code>${yupiik.generate-blog-post-releases.from}</code>.</p>
+</dd>
+<dt class="hdlist1">githubBaseApi (<code>String</code>)</dt>
+<dd>
+<p>Default value: <code><a href="https://api.github.com/" class="bare">https://api.github.com/</a></code>. Property: <code>${yupiik.generate-blog-post-releases.githubRepository}</code>.</p>
+</dd>
+<dt class="hdlist1">githubRepositories (<code>List</code>)</dt>
+<dd>
+<p>Property: <code>${yupiik.generate-blog-post-releases.githubRepository}</code>.</p>
+</dd>
+<dt class="hdlist1">githubServerId (<code>String</code>)</dt>
+<dd>
+<p>Default value: <code>github.com</code>. Property: <code>${yupiik.generate-blog-post-releases.githubServerId}</code>.</p>
+</dd>
+<dt class="hdlist1">threads (<code>int</code>)</dt>
+<dd>
+<p>Default value: <code>16</code>. Property: <code>${yupiik.generate-blog-post-releases.threads}</code>.</p>
+</dd>
+<dt class="hdlist1">to (<code>String</code>)</dt>
+<dd>
+<p>Property: <code>${yupiik.generate-blog-post-releases.to}</code>.</p>
+</dd>
+<dt class="hdlist1">useMavenCredentials (<code>boolean</code>)</dt>
+<dd>
+<p>Default value: <code>true</code>. Property: <code>${yupiik.generate-blog-post-releases.useMavenCredentials}</code>.</p>
+</dd>
+<dt class="hdlist1">workdir (<code>String</code>)</dt>
+<dd>
+<p>Default value: <code>${project.build.directory}/generate-blog-post-releases-workdir</code>. Property: <code>${yupiik.generate-blog-post-releases.workdir}</code>.</p>
 </dd>
 </dl>
 </div>

@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>yupiik-tools:script-cli-skeleton</title>
+    <title>yupiik-tools:simple-dependencies</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,15 +60,15 @@ Last available 1.0.x release is 1.0.26.">
             </ul>
         </div>
 
-        <div id="mojo-script-cli-skeleton-html-container" class="container page-content mojo-script-cli-skeleton-html">
+        <div id="mojo-simple-dependencies-html-container" class="container page-content mojo-simple-dependencies-html">
                         <div class="page-header">
-                <h1>yupiik-tools:script-cli-skeleton</h1>
+                <h1>yupiik-tools:simple-dependencies</h1>
             </div>
             <div class="page-content-body">
                 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Seed a simple bash CLI.</p>
+<p>Which format to use to dump them.</p>
 </div>
 </div>
 </div>
@@ -85,7 +85,7 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:script-cli-skeleton</code>.</p>
+<p>To call this goal from the command line execute: <code>mvn yupiik-tools:simple-dependencies</code>.</p>
 </div>
 <div class="paragraph">
 <p>To bind this goal in the build you can use:</p>
@@ -100,7 +100,7 @@ Last available 1.0.x release is 1.0.26.">
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
       &lt;goals&gt;
-        &lt;goal&gt;script-cli-skeleton&lt;/goal&gt;
+        &lt;goal&gt;simple-dependencies&lt;/goal&gt;
       &lt;/goals&gt;
       &lt;configuration&gt;
         &lt;!-- execution specific configuration come there --&gt;
@@ -111,34 +111,26 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:script-cli-skeleton@my-execution</code> command.</p>
+<p>You can execute this goal particularly with <code>mvn yupiik-tools:simple-dependencies@my-execution</code> command.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_configuration">Configuration</h2>
 <div class="sectionbody">
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-<code>*</code> means the parameter is required.
-</td>
-</tr>
-</table>
-</div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">directory* (<code>java.io.File</code>)</dt>
+<dt class="hdlist1">format (<code>io.yupiik.maven.mojo.SimpleDependenciesMojo$Format</code>)</dt>
 <dd>
-<p>Where to create the bash CLI skeleton. Property: <code>${yupiik.script-cli-skeleton.directory}</code>.</p>
+<p>Which format to use to dump them. Default value: <code>JSON</code>. Property: <code>${yupiik.simple-dependencies.format}</code>.</p>
 </dd>
-<dt class="hdlist1">generateHelloWorldCommand (<code>boolean</code>)</dt>
+<dt class="hdlist1">output (<code>String</code>)</dt>
 <dd>
-<p>Where to create the bash CLI skeleton. Default value: <code>true</code>. Property: <code>${yupiik.script-cli-skeleton.generateHelloWorldCommand}</code>.</p>
+<p>Where to dump the dependencies, <code>log</code> to log them, else a file path. Default value: <code>${project.build.directory/dependencies.adoc</code>. Property: <code>${yupiik.simple-dependencies.source}</code>.</p>
+</dd>
+<dt class="hdlist1">scope (<code>String</code>)</dt>
+<dd>
+<p>Which scope to include, use <code>all</code> to include them all. Default value: <code>all</code>. Property: <code>${yupiik.simple-dependencies.scope}</code>.</p>
 </dd>
 </dl>
 </div>
