@@ -92,7 +92,9 @@ public class SimpleDependenciesMojo extends AbstractMojo {
                 try (final var jsonb = JsonbBuilder.create(new JsonbConfig()
                         .withPropertyOrderStrategy(LEXICOGRAPHICAL)
                         .withFormatting(JSON_PRETTY.equals(format)))) {
-                    return jsonb.toJson(new JsonWrapper(dependencies));
+                    return jsonb.toJson(new JsonWrapper(
+                            project.getGroupId(), project.getArtifactId(), project.getArtifactId(),
+                            project.getPackaging(), dependencies));
                 } catch (final Exception e) {
                     throw new MojoFailureException(e.getMessage(), e);
                 }
@@ -108,9 +110,18 @@ public class SimpleDependenciesMojo extends AbstractMojo {
     }
 
     public static class JsonWrapper {
+        public String groupId;
+        public String artifactId;
+        public String version;
+        public String packaging;
         public Collection<DepArtifact> items;
 
-        public JsonWrapper(final Collection<DepArtifact> items) {
+        public JsonWrapper(final String groupId, final String artifactId, final String version, final String packaging,
+                           final Collection<DepArtifact> items) {
+            this.groupId = groupId;
+            this.artifactId = artifactId;
+            this.version = version;
+            this.packaging = packaging;
             this.items = items;
         }
     }

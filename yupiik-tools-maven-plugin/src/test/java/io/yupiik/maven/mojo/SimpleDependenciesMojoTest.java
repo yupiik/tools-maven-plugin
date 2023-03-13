@@ -38,6 +38,9 @@ class SimpleDependenciesMojoTest {
             format = Format.JSON_PRETTY;
             scope = "all";
             project = new MavenProject();
+            project.setGroupId("test.yupiik");
+            project.setArtifactId("test");
+            project.setVersion("1.2.3-SNAPSHOT");
             project.setArtifacts(Set.of(new DefaultArtifact(
                     "the.group", "the.art", "the.version",
                     "the.scope", "the.type", "the.classifier", null)));
@@ -45,6 +48,8 @@ class SimpleDependenciesMojoTest {
         mojo.execute();
         assertEquals("" +
                 "{\n" +
+                "  \"artifactId\":\"test\",\n" +
+                "  \"groupId\":\"test.yupiik\",\n" +
                 "  \"items\":[\n" +
                 "    {\n" +
                 "      \"artifactId\":\"the.art\",\n" +
@@ -54,7 +59,9 @@ class SimpleDependenciesMojoTest {
                 "      \"type\":\"the.type\",\n" +
                 "      \"version\":\"the.version\"\n" +
                 "    }\n" +
-                "  ]\n" +
+                "  ],\n" +
+                "  \"packaging\":\"jar\",\n" +
+                "  \"version\":\"test\"\n" +
                 "}" +
                 "", Files.readString(file));
     }
