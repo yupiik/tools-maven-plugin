@@ -93,7 +93,7 @@ public class SimpleDependenciesMojo extends AbstractMojo {
                         .withPropertyOrderStrategy(LEXICOGRAPHICAL)
                         .withFormatting(JSON_PRETTY.equals(format)))) {
                     return jsonb.toJson(new JsonWrapper(
-                            project.getGroupId(), project.getArtifactId(), project.getArtifactId(),
+                            project.getGroupId(), project.getArtifactId(), project.getVersion(),
                             project.getPackaging(), dependencies));
                 } catch (final Exception e) {
                     throw new MojoFailureException(e.getMessage(), e);

@@ -61,7 +61,7 @@ class SimpleDependenciesMojoTest {
                 "    }\n" +
                 "  ],\n" +
                 "  \"packaging\":\"jar\",\n" +
-                "  \"version\":\"test\"\n" +
+                "  \"version\":\"1.2.3-SNAPSHOT\"\n" +
                 "}" +
                 "", Files.readString(file));
     }
