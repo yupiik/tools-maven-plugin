@@ -398,6 +398,12 @@ Scope can be:
 
 The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
 
+== Simple Dependencies
+
+xref:mojo/simple-dependencies.adoc[simple-dependencies] is a trivial and simple alternative to `maven-dependency-plugin:list` mojo which outputs the data in JSON.
+
+It is convenient with `minisite` mojo to format with a custom action the dependencies according to a custom need.
+
 == Yupiik OSS extension
 
 This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.

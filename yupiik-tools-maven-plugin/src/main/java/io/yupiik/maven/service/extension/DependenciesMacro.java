@@ -16,10 +16,10 @@
 package io.yupiik.maven.service.extension;
 
 import io.yupiik.maven.mojo.BaseMojo;
+import io.yupiik.maven.service.artifact.Filters;
 import lombok.RequiredArgsConstructor;
 import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
-import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.project.MavenProject;
 import org.asciidoctor.ast.ContentModel;
 import org.asciidoctor.ast.Section;
@@ -99,7 +99,7 @@ public class DependenciesMacro extends BaseBlockProcessor {
 
     private ArtifactFilter createFilter(final String scope, final String groupId) {
         return new AndArtifactFilter(Stream.of(
-                singletonList(createScopeFilter(scope)), createGroupFilter(groupId))
+                singletonList(Filters.createScopeFilter(scope)), createGroupFilter(groupId))
                 .filter(Objects::nonNull)
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
@@ -109,28 +109,5 @@ public class DependenciesMacro extends BaseBlockProcessor {
         return groupId == null ? null : Stream.of(groupId.split(","))
                 .map(a -> (ArtifactFilter) artifact -> a.equals(artifact.getGroupId()))
                 .collect(toList());
-    }
-
-    private ArtifactFilter createScopeFilter(final String scope) {
-        switch (scope) {
-            case "compile":
-            case "runtime":
-            case "compile+runtime":
-            case "runtime+system":
-            case "test":
-                return new ScopeArtifactFilter(scope);
-            case "test_only":
-                return artifact -> "test".equals(artifact.getScope());
-            case "compile_only":
-                return artifact -> "compile".equals(artifact.getScope());
-            case "runtime_only":
-                return artifact -> "runtime".equals(artifact.getScope());
-            case "system_only":
-                return artifact -> "system".equals(artifact.getScope());
-            case "provided_only":
-                return artifact -> "provided".equals(artifact.getScope());
-            default:
-                throw new IllegalArgumentException("Unsupported scope: '" + scope + "'");
-        }
     }
 }
