@@ -16,6 +16,7 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.maven.service.action.builtin.CopyFile;
+import io.yupiik.maven.service.action.builtin.JsonSchema2AdocGenerator;
 import io.yupiik.maven.service.action.builtin.JsonSchemaGenerator;
 import io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration;
 import io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip;
@@ -52,6 +53,8 @@ public class ActionExecutor {
                 return MojoDocumentationGeneration.class;
             case "copy":
                 return CopyFile.class;
+            case "jsonschema2adoc":
+                return JsonSchema2AdocGenerator.class;
             case "jsonschema":
                 return JsonSchemaGenerator.class;
             case "openmetrics2adoc":

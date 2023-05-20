@@ -34,10 +34,10 @@ import static java.util.stream.Collectors.toMap;
 @Log
 @RequiredArgsConstructor
 public class JsonSchema2Adoc implements Supplier<StringBuilder> {
-    private final String levelPrefix;
-    private final Schema schema;
-    private final Predicate<Schema> shouldIgnore;
-    private final JsonDocExtractor docExtractor = new JsonDocExtractor();
+    protected final String levelPrefix;
+    protected final Schema schema;
+    protected final Predicate<Schema> shouldIgnore;
+    protected final JsonDocExtractor docExtractor = new JsonDocExtractor();
 
     public void prepare(final Schema in) {
         final Schema schema = ofNullable(in).orElse(this.schema);
@@ -170,8 +170,9 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
                         nestedObjects.entrySet().stream()
                                 .filter(e -> validObjectKeys.contains(e.getKey()))
                                 .forEach(e -> {
-                                    final String anchorBase = toAnchor(e.getValue());
-                                    final StringBuilder content = new JsonSchema2Adoc(getNextLevelPrefix(), e.getValue(), shouldIgnore).get();
+                                    final Schema value = e.getValue();
+                                    final String anchorBase = toAnchor(value);
+                                    final StringBuilder content = nestedJsonSchema2Adoc(value, getNextLevelPrefix()).get();
                                     if (anchorBase != null && content.length() > 0) {
                                         main.append("[#").append(anchorBase).append("]\n").append(content).append("\n\n");
                                     }
@@ -184,7 +185,7 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
                                 .forEach(e -> {
                                     final Schema items = e.getValue().getItems();
                                     final String anchorBase = toAnchor(items);
-                                    final StringBuilder content = new JsonSchema2Adoc(getNextLevelPrefix(), items, shouldIgnore).get();
+                                    final StringBuilder content = nestedJsonSchema2Adoc(items, getNextLevelPrefix()).get();
                                     if (anchorBase != null && content.length() > 0) {
                                         main.append("[#").append(anchorBase).append("]\n").append(content).append("\n\n");
                                     }
@@ -199,6 +200,10 @@ public class JsonSchema2Adoc implements Supplier<StringBuilder> {
         }
 
         return main;
+    }
+
+    protected JsonSchema2Adoc nestedJsonSchema2Adoc(final Schema value, final String nextLevelPrefix) {
+        return new JsonSchema2Adoc(nextLevelPrefix, value, shouldIgnore);
     }
 
     private String extractDefaultValue(final Schema schema) {
