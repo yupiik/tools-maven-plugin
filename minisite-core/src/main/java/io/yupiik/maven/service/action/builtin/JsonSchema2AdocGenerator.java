@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
 
 public class JsonSchema2AdocGenerator implements Runnable {
@@ -89,7 +90,12 @@ public class JsonSchema2AdocGenerator implements Runnable {
         @Override
         public void prepare(final Schema in) {
             if (in.getTitle() == null) {
-                in.setTitle(ofNullable(in.getId()).orElse("Model"));
+                in.setTitle(ofNullable(in.getId())
+                        .or(() -> in.getType() == Schema.SchemaType.array && in.getItems() != null ?
+                                ofNullable(in.getItems().getRef())
+                                        .map(it -> it.replace("#/schemas/", "")) :
+                                empty())
+                        .orElse("Model"));
             }
             if (in.getDescription() == null) {
                 in.setDescription("");

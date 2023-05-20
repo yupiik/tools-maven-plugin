@@ -76,10 +76,10 @@ class JsonSchema2AdocGeneratorTest {
                         "|===\n" +
                         "\n" +
                         "[#io.yupiik.test.MyObject]\n" +
-                        "== Model\n" +
+                        "== io.yupiik.test.MyObject\n" +
                         "\n" +
                         "[cols=\"2,2m,1,5\", options=\"header\"]\n" +
-                        ".Model\n" +
+                        ".io.yupiik.test.MyObject\n" +
                         "|===\n" +
                         "|Name|JSON Name|Type|Description\n" +
                         "|name|name|string|-\n" +
