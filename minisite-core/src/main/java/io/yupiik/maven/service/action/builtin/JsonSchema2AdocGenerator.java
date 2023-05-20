@@ -24,7 +24,10 @@ import org.apache.johnzon.jsonschema.generator.Schema;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
@@ -46,7 +49,8 @@ public class JsonSchema2AdocGenerator implements Runnable {
                 schemas.schemas.get(requireNonNull(configuration.get("root"), "no root (schema) set in configuration")),
                 "root schema not found");
         final String levelPrefix = configuration.getOrDefault("levelPrefix", "=");
-        final Predicate<Schema> schemaPredicate = s -> s.getRef() != null;
+        final Set<String> visited = new HashSet<>();
+        final Predicate<Schema> schemaPredicate = s -> s.getId() != null && !visited.add(s.getId());
         final JsonSchema2Adoc adoc = newAdocRenderer(root, levelPrefix, schemaPredicate, schemas);
         adoc.prepare(root);
         final Path out = Path.of(requireNonNull(configuration.get("output"), "output not set"));
@@ -109,6 +113,19 @@ public class JsonSchema2AdocGenerator implements Runnable {
                 if (ref != null) {
                     super.prepare(ref);
                     return;
+                }
+            }
+            if (in.getProperties() != null) {
+                final Map<String, Schema> props = new TreeMap<>(in.getProperties());
+                in.setProperties(props);
+                for (final String key : new HashSet<>(props.keySet())) {
+                    final Schema propSchema = props.get(key);
+                    if (propSchema.getRef() != null && propSchema.getRef().startsWith("#/schemas/")) {
+                        final Schema ref = schemas.schemas.get(propSchema.getRef().substring("#/schemas/".length()));
+                        if (ref != null) {
+                            props.put(key, ref);
+                        }
+                    }
                 }
             }
             super.prepare(in);
