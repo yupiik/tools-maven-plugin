@@ -22,10 +22,22 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class TemplateSubstitutorTest {
     @Test
-    void ignore() {
+    void openBracket() {
         assertEquals(
-                "code: `{{#json}}{{${.}}}{{/json}}` !",
+                "code: `{{#json}}{{{.}}}{{/json}}` !",
                 new TemplateSubstitutor(k -> fail("there should be no interpolation '" + k + "'"))
-                        .replace("code: `{{#json}}{{${.}}}{{/json}}` !"));
+                        .replace("code: `{{#json}}{$yupiik.minisite.openbracket$}{{.}}}{{/json}}` !"));
+    }
+
+    @Test
+    void noInterpolate() {
+        assertEquals(
+                "this is before\n\ncode: `{{#json}}{{{.}}}{{/json}}` !\n\nthis is after",
+                new TemplateSubstitutor(k -> fail("there should be no interpolation '" + k + "'"))
+                        .replace("this is before\n" +
+                                "yupiik.minisite:no-interpolate:start\n" +
+                                "code: `{{#json}}{{{.}}}{{/json}}` !\n" +
+                                "yupiik.minisite:no-interpolate:end\n" +
+                                "this is after"));
     }
 }

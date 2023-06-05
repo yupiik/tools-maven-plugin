@@ -307,6 +307,11 @@ TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
 * `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
 
+=== Escaping
+
+When you write some documentation in a language close to the minisite interpolation one (mustache for ex), it can be hard to use.
+To ease that, you can surround your snippet with `yupiik.minisite:no-interpolate:start` and `yupiik.minisite:no-interpolate:end`, included text will not support interpolations.
+
 === Synchronize Releases Example
 
 [source,xml]

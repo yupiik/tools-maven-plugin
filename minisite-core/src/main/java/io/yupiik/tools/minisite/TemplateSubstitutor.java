@@ -38,11 +38,26 @@ public class TemplateSubstitutor {
         if (source == null) {
             return null;
         }
+        final int idx = source.indexOf("yupiik.minisite:no-interpolate:start");
+        if (idx >= 0) {
+            final int endIdx = source.indexOf("yupiik.minisite:no-interpolate:end");
+            if (endIdx > 0) {
+                return source.substring(0, idx) +
+                        source.substring(idx + "yupiik.minisite:no-interpolate:start".length(), endIdx) +
+                        replace(source.substring(endIdx + "yupiik.minisite:no-interpolate:end".length()));
+            }
+        }
         final StringBuilder builder = new StringBuilder(source);
         if (substitute(builder, 0, source.length(), null) <= 0) {
-            return source;
+            return placeholders(source);
         }
-        return replace(builder.toString());
+        return placeholders(replace(builder.toString()));
+    }
+
+    private String placeholders(final String content) {
+        return content
+                // enables to use "{{{" and dont break the output using "{$yupiik.minisite.openbracket$}{{" instead
+                .replace("{$yupiik.minisite.openbracket$}", "{");
     }
 
     private int substitute(final StringBuilder buf, final int offset, final int inLength,
