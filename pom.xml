@@ -47,6 +47,7 @@
     <module>yupiik-tools-cli</module>
     <module>html-versioning-injector</module>
     <module>_documentation</module>
+    <module>codec-core</module>
   </modules>
 
   <dependencyManagement>

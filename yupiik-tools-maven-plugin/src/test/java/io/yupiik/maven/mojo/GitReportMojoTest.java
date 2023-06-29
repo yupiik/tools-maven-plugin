@@ -69,7 +69,7 @@ class GitReportMojoTest {
                         "* [<sha>][<year>-<month>-<day>T<hour>:<minutes>:<seconds>] initial import\n" +
                         ""),
                 Files.readString(output, StandardCharsets.UTF_8)
-                        .replaceFirst("\\* \\[`[^`]+`]\\[\\p{Digit}{4}-\\p{Digit}{2}-\\p{Digit}{2}T\\p{Digit}{2}:\\p{Digit}{2}:\\p{Digit}{2}] initial import$",
+                        .replaceFirst("\\* \\[`[^`]+`]\\[\\p{Digit}{4}-\\p{Digit}{2}-\\p{Digit}{2}T\\p{Digit}{2}:\\p{Digit}{2}(:\\p{Digit}{2})?] initial import$",
                                 "* [<sha>][<year>-<month>-<day>T<hour>:<minutes>:<seconds>] initial import"));
     }
 }

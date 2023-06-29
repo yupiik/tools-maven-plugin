@@ -513,3 +513,35 @@ To enable it, enable the related extension:
 ----
 
 TIP: see `io.yupiik.maven.extension.YupiikOSSExtension` for a more complex participant example.
+
+== Crypt mojos
+
+Crypt mojos are intended to encrypt/decrypt (using `AES/CBC/PKCS5Padding` algorithm - like link:https://maven.apache.org/guides/mini/guide-encryption.html[maven default encryption]) values.
+It supports either inline values or properties files.
+
+TIP: it is a neat way to handle secrets in a bundlebee placeholder properties file on CI/CD if you don't have a vault or equivalent mecanism for GitOps.
+
+=== Value based mojo
+
+`yupiik-tools:crypt-value` will enable to encrypt a value (symmetrically, `decrypt-value` will decrypt a value).
+
+Configuration is:
+
+* `value`: the value to crypt (decrypt),
+* `useStdout`: should the value be printed using Maven logger or simply `stdout`,
+* `masterPassword`: the master password for the ciphering.
+
+=== Properties based mojo
+
+`yupiik-tools:crypt-value` will enable to encrypt a value (symmetrically, `decrypt-value` will decrypt a value).
+
+Configuration is:
+
+* `input`: path to the properties file to crypt (decrypt) *values* for (keys are never encrypted),
+* `output`: path to the properties file which will contain encrypted (decrypted) data,
+* `masterPassword`: the master password for the ciphering,
+* `includedKeys`: a list of values (direct key), `start:<some prefix>` prefixes or `regex:<pattern>` regex to filter the values to encrypt (decrypt) based on their keys,
+* `excludedKeys`: a list of values (direct key), `start:<some prefix>` prefixes or `regex:<pattern>` regex to filter the values to *NOT* encrypt (decrypt) based on their keys.
+
+IMPORTANT: `output` always sorts the keys and will ignore comments. An already encoded value will not be re-encoded.
+This last point enables to set `input`=`output` to encrypt in place a file.

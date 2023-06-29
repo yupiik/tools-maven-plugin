@@ -59,6 +59,11 @@
       <artifactId>plexus-utils</artifactId>
       <version>3.3.0</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>codec-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
