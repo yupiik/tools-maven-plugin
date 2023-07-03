@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>Yupiik-tools Maven Plugin</title>
+    <title>yupiik-tools:crypt-properties</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,84 +60,99 @@ Last available 1.0.x release is 1.0.26.">
             </ul>
         </div>
 
-        <div id="mojo-yupiik-tools-maven-plugin-html-container" class="container page-content mojo-yupiik-tools-maven-plugin-html">
+        <div id="mojo-crypt-properties-html-container" class="container page-content mojo-crypt-properties-html">
                         <div class="page-header">
-                <h1>Yupiik-tools Maven Plugin</h1>
+                <h1>yupiik-tools:crypt-properties</h1>
             </div>
             <div class="page-content-body">
-                <div class="sect1">
-<h2 id="_goals">Goals</h2>
+                <div id="preamble">
 <div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p><a href="audit.html">audit</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-<li>
-<p><a href="crypt-properties.html">crypt-properties</a>: enables to crypt a properties file.</p>
-</li>
-<li>
-<p><a href="crypt-value.html">crypt-value</a>: enables to crypt a value and log it.</p>
-</li>
-<li>
-<p><a href="cucumber2asciidoc.html">cucumber2asciidoc</a>: convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals.</p>
-</li>
-<li>
-<p><a href="decrypt-properties.html">decrypt-properties</a>: enables to decrypt an encrypted properties file.</p>
-</li>
-<li>
-<p><a href="decrypt-value.html">decrypt-value</a>: enables to decrypt a value.</p>
-</li>
-<li>
-<p><a href="generate-blog-post-releases.html">generate-blog-post-releases</a>: fetch releases from github repo to generate a blog post. The search is between 2 dates.</p>
-</li>
-<li>
-<p><a href="git-report.html">git-report</a>: generates a report from a <code>.git</code> folder.</p>
-</li>
-<li>
-<p><a href="inject-version.html">inject-version</a>: injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything.</p>
-</li>
-<li>
-<p><a href="minisite.html">minisite</a>: minisite goal. Enables to generate a small website.   It needs a "documentation" module, it uses the following default layout:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>src/main/doc/content: contains a set of .adoc (converted to .html)</p>
-</li>
-<li>
-<p>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</p>
-</li>
-<li>
-<p>src/main/doc/templates: contains the templates for the layout and pages of the website</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>Enables to crypt a properties file.</p>
 </div>
-</li>
-<li>
-<p><a href="pdf.html">pdf</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-<li>
-<p><a href="script-cli-skeleton.html">script-cli-skeleton</a>: seed a simple bash CLI.</p>
-</li>
-<li>
-<p><a href="serve-minisite.html">serve-minisite</a>: minisite goa with HTTP server.</p>
-</li>
-<li>
-<p><a href="serve-slides.html">serve-slides</a>: custom attributes.</p>
-</li>
-<li>
-<p><a href="simple-dependencies.html">simple-dependencies</a>: which format to use to dump them.</p>
-</li>
-<li>
-<p><a href="slides.html">slides</a>: custom attributes.</p>
-</li>
-<li>
-<p><a href="synchronize-github-releases.html">synchronize-github-releases</a>: fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.</p>
-</li>
-<li>
-<p><a href="watch-pdf.html">watch-pdf</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-</ul>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_coordinates">Coordinates</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+  &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
+  &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
+  &lt;version&gt;1.1.5-SNAPSHOT&lt;/version&gt;
+&lt;/plugin&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To call this goal from the command line execute: <code>mvn yupiik-tools:crypt-properties</code>.</p>
+</div>
+<div class="paragraph">
+<p>To bind this goal in the build you can use:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+  &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
+  &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
+  &lt;version&gt;1.1.5-SNAPSHOT&lt;/version&gt;
+  &lt;executions&gt;
+    &lt;execution&gt;
+      &lt;id&gt;my-execution&lt;/id&gt;
+      &lt;goals&gt;
+        &lt;goal&gt;crypt-properties&lt;/goal&gt;
+      &lt;/goals&gt;
+      &lt;configuration&gt;
+        &lt;!-- execution specific configuration come there --&gt;
+      &lt;/configuration&gt;
+    &lt;/execution&gt;
+  &lt;/executions&gt;
+&lt;/plugin&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can execute this goal particularly with <code>mvn yupiik-tools:crypt-properties@my-execution</code> command.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_configuration">Configuration</h2>
+<div class="sectionbody">
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Tip</div>
+</td>
+<td class="content">
+<code>*</code> means the parameter is required.
+</td>
+</tr>
+</table>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">input* (<code>java.io.File</code>)</dt>
+<dd>
+<p>Input properties file path. Property: <code>${yupiik.crypt-properties.input}</code>.</p>
+</dd>
+<dt class="hdlist1">masterPassword* (<code>String</code>)</dt>
+<dd>
+<p>Master password for the enryption (AES/CBC/PKCS5Padding). Property: <code>${yupiik.crypt.masterPassword}</code>.</p>
+</dd>
+<dt class="hdlist1">output* (<code>java.io.File</code>)</dt>
+<dd>
+<p>Target location of the encrypted properties file. Property: <code>${yupiik.crypt-properties.output}</code>.</p>
+</dd>
+<dt class="hdlist1">excludedKeys (<code>List</code>)</dt>
+<dd>
+<p>List of keys to not encrypt the value for. Property: <code>${yupiik.crypt-properties.excludedKeys}</code>.</p>
+</dd>
+<dt class="hdlist1">includedKeys (<code>List</code>)</dt>
+<dd>
+<p>List of keys to encrypt the value for. Property: <code>${yupiik.crypt-properties.includedKeys}</code>.</p>
+</dd>
+</dl>
 </div>
 </div>
 </div>

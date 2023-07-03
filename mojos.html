@@ -463,6 +463,28 @@ See <code>JsonDocExtractor</code> for more details.
 </div>
 </div>
 <div class="sect3">
+<h4 id="_json_schema_to_asciidoc">JSON-Schema to asciidoc</h4>
+<div class="paragraph">
+<p>Using <code>type=jsonschema2adoc</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchema2AdocGenerator</code> will generate an asciidoctor document from a JSON-Schema file (intended to be used with fusion mainly):</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>schema</code>: location of the schema (JSON).</p>
+</li>
+<li>
+<p><code>root</code>: key under <code>schemas</code> map of the root schema to generate a doc for.</p>
+</li>
+<li>
+<p><code>levelPrefix</code>: prefix to set for title (default <code>=</code>).</p>
+</li>
+<li>
+<p><code>output</code>: where to generate the <code>.adoc</code>.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3">
 <h4 id="_openmetrics_renderer">OpenMetrics renderer</h4>
 <div class="paragraph">
 <p>Using <code>type=openmetrics2adoc</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc</code> will generate an asciidoctor form from an OpenMetrics export.</p>
@@ -639,6 +661,13 @@ ensure to not use <code>1</code>, <code>2</code>, <code>3</code>, &#8230;&#8203;
 <p><code>minisite-index-description</code> attribute enables to override the text in the index tile for the page entry.</p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_escaping">Escaping</h3>
+<div class="paragraph">
+<p>When you write some documentation in a language close to the minisite interpolation one (mustache for ex), it can be hard to use.
+To ease that, you can surround your snippet with <code></code> and <code></code>, included text will not support interpolations.</p>
 </div>
 </div>
 <div class="sect2">
@@ -928,6 +957,90 @@ see <code>io.yupiik.maven.extension.YupiikOSSExtension</code> for a more complex
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_crypt_mojos">Crypt mojos</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Crypt mojos are intended to encrypt/decrypt (using <code>AES/CBC/PKCS5Padding</code> algorithm - like <a href="https://maven.apache.org/guides/mini/guide-encryption.html">maven default encryption</a>) values.
+It supports either inline values or properties files.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Tip</div>
+</td>
+<td class="content">
+it is a neat way to handle secrets in a bundlebee placeholder properties file on CI/CD if you don&#8217;t have a vault or equivalent mecanism for GitOps.
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_value_based_mojo">Value based mojo</h3>
+<div class="paragraph">
+<p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
+</div>
+<div class="paragraph">
+<p>Configuration is:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>value</code>: the value to crypt (decrypt),</p>
+</li>
+<li>
+<p><code>useStdout</code>: should the value be printed using Maven logger or simply <code>stdout</code>,</p>
+</li>
+<li>
+<p><code>masterPassword</code>: the master password for the ciphering.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_properties_based_mojo">Properties based mojo</h3>
+<div class="paragraph">
+<p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
+</div>
+<div class="paragraph">
+<p>Configuration is:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>input</code>: path to the properties file to crypt (decrypt) <strong>values</strong> for (keys are never encrypted),</p>
+</li>
+<li>
+<p><code>output</code>: path to the properties file which will contain encrypted (decrypted) data,</p>
+</li>
+<li>
+<p><code>masterPassword</code>: the master password for the ciphering,</p>
+</li>
+<li>
+<p><code>includedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to encrypt (decrypt) based on their keys,</p>
+</li>
+<li>
+<p><code>excludedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to <strong>NOT</strong> encrypt (decrypt) based on their keys.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Important</div>
+</td>
+<td class="content">
+<code>output</code> always sorts the keys and will ignore comments. An already encoded value will not be re-encoded.
+This last point enables to set <code>input</code>=<code>output</code> to encrypt in place a file.
+</td>
+</tr>
+</table>
+</div>
 </div>
 </div>
 </div>
