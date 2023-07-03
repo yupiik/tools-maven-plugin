@@ -125,6 +125,10 @@ public class MojoDocumentationGeneration implements Runnable {
     }
 
     private String decapitalize(final String replace) {
+        if (replace == null || replace.isBlank()) {
+            log.warning("Empty documentation value");
+            return "";
+        }
         return Character.toLowerCase(replace.charAt(0)) + replace.substring(1);
     }
 

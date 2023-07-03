@@ -23,6 +23,9 @@ import java.util.Properties;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
+/**
+ * Enables to crypt a properties file.
+ */
 @Mojo(name = "crypt-properties", threadSafe = true)
 public class CryptPropertiesMojo extends BaseCryptPropertiesMojo {
     @Override

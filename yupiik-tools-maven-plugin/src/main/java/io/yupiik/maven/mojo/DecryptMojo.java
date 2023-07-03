@@ -20,11 +20,20 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+/**
+ * Enables to decrypt a value.
+ */
 @Mojo(name = "decrypt-value", threadSafe = true)
 public class DecryptMojo extends BaseCryptMojo {
+    /**
+     * Value to decrypt.
+     */
     @Parameter(property = "yupiik.decrypt.value", required = true)
     private String value;
 
+    /**
+     * Should the clear value be printed using maven logger or directly in stdout.
+     */
     @Parameter(property = "yupiik.decrypt.useStdout", defaultValue = "false")
     private boolean useStdout;
 

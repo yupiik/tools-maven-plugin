@@ -25,6 +25,9 @@ import org.apache.maven.plugins.annotations.Parameter;
 // and reuseable without maven (codec-core module)
 // so we just wrap codec-core here
 public abstract class BaseCryptMojo extends AbstractMojo {
+    /**
+     * Master password for the enryption (AES/CBC/PKCS5Padding).
+     */
     @Parameter(property = "yupiik.crypt.masterPassword", required = true)
     protected String masterPassword;
 

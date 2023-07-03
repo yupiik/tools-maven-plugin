@@ -20,11 +20,20 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+/**
+ * Enables to crypt a value and log it.
+ */
 @Mojo(name = "crypt-value", threadSafe = true)
 public class CryptMojo extends BaseCryptMojo {
+    /**
+     * Value to crypt.
+     */
     @Parameter(property = "yupiik.crypt.value", required = true)
     private String value;
 
+    /**
+     * Should the encrypted value be printed using stdout or maven logger.
+     */
     @Parameter(property = "yupiik.crypt.useStdout", defaultValue = "false")
     private boolean useStdout;
 

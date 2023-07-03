@@ -46,6 +46,7 @@ class CryptPropertiesTest {
                 this.masterPassword = master;
                 this.input = source.toFile();
                 this.output = target.toFile();
+                this.preserveComments = true;
             }
         }.execute();
 
@@ -61,6 +62,7 @@ class CryptPropertiesTest {
                 this.masterPassword = master;
                 this.input = source.toFile();
                 this.output = decrypted.toFile();
+                this.preserveComments = true;
             }
         }.execute();
 
@@ -100,6 +102,7 @@ class CryptPropertiesTest {
                 this.output = target.toFile();
                 this.includedKeys = includes;
                 this.excludedKeys = excludes;
+                this.preserveComments = true;
             }
         }.execute();
 
