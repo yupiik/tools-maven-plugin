@@ -31,8 +31,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +41,7 @@ import static java.util.Optional.ofNullable;
 // mimic and is compatible with maven password encryption for now
 // todo: support stronger algorithms
 public class SimpleCodec implements Codec {
-    private static final Pattern ENCRYPTED_PATTERN = Pattern.compile(".*?[^\\\\]?\\{(.*?[^\\\\])\\}.*");
+    private static final Pattern ENCRYPTED_PATTERN = Pattern.compile(".*?[^\\\\]?\\{(?<value>.*?[^\\\\])\\}.*", Pattern.DOTALL);
     private static final String CIPHER_ALGORITHM = "AES/CBC/PKCS5Padding";
     private static final String KEY_ALGORITHM = "AES";
     private static final String DIGEST_ALGORITHM = "SHA-256";
@@ -59,7 +59,31 @@ public class SimpleCodec implements Codec {
 
     @Override
     public boolean isEncrypted(final String value) {
-        return ENCRYPTED_PATTERN.matcher(value).matches();
+        final var matcher = ENCRYPTED_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            return false;
+        }
+
+        final var bare = matcher.group("value");
+        if (value.startsWith("${env.") || value.startsWith("${")) {
+            return true;
+        }
+
+        // mime decoder - the RFC behind - ignores unknown chars, this is not bad but means next test can be a false positive
+        if (IntStream.range(0, bare.length())
+                .map(bare::charAt)
+                .anyMatch(i -> !(Character.isAlphabetic(i) || Character.isDigit(i) ||
+                        i == '\r' || i == '\n' ||
+                        i == '/' || i == '+' || i == '='))) {
+            return false;
+        }
+
+        try {
+            Base64.getMimeDecoder().decode(bare);
+            return true;
+        } catch (final RuntimeException re) {
+            return false;
+        }
     }
 
     @Override
@@ -123,17 +147,17 @@ public class SimpleCodec implements Codec {
         allEncryptedBytes[8] = padLen;
 
         System.arraycopy(encryptedBytes, 0, allEncryptedBytes, 8 + 1, len);
-        return '{' + Base64.getEncoder().encodeToString(allEncryptedBytes) + '}';
+        return '{' + Base64.getMimeEncoder().encodeToString(allEncryptedBytes) + '}';
     }
 
     @Override
     public String decrypt(final String value) {
-        final Matcher matcher = ENCRYPTED_PATTERN.matcher(value);
+        final var matcher = ENCRYPTED_PATTERN.matcher(value);
         if (!matcher.matches() && !matcher.find()) {
             return value; // not encrypted, just use it
         }
 
-        final String bare = matcher.group(1);
+        final var bare = matcher.group("value");
         if (value.startsWith("${env.")) {
             final String key = bare.substring("env.".length());
             return ofNullable(System.getenv(key)).orElseGet(() -> System.getProperty(bare));

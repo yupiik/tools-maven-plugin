@@ -22,10 +22,30 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LightPropertiesTest {
+    @Test
+    void unescape() throws IOException {
+        final var props = new LightProperties(new SystemStreamLog());
+        try (final var r = new BufferedReader(new StringReader("" +
+                "escaped = yes\\=true\n" +
+                "split = foo\\\n" +
+                "  bar\\\n" +
+                "  du\\=mmy\n" +
+                "multilines = foo\\n\\\n" +
+                "  bar\\n\\\n" +
+                "  du\\=mmy"))) {
+            props.load(r, false);
+        }
+        final var loaded = props.toWorkProperties();
+        assertEquals("yes=true", loaded.getProperty("escaped"));
+        assertEquals("foobardu=mmy", loaded.getProperty("split"));
+        assertEquals("foo\nbar\ndu=mmy", loaded.getProperty("multilines"));
+    }
+
     @Test
     void rewrite() throws IOException {
         final var props = new LightProperties(new SystemStreamLog());

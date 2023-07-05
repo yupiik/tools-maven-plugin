@@ -21,6 +21,7 @@ import org.apache.maven.plugin.logging.Log;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -52,7 +53,16 @@ public class LightProperties {
     public Properties toWorkProperties() {
         return lines.isEmpty() ? properties : lines.stream()
                 .filter(it -> it.key != null)
-                .collect(Collector.of(Properties::new, (p, l) -> p.setProperty(l.key, l.value), (p1, p2) -> {
+                .collect(Collector.of(Properties::new, (p, l) -> {
+                    final var tmp = new Properties();
+                    try (final var r = new StringReader(l.key + '=' + l.value)) { // unescape
+                        tmp.load(r);
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    final var key = tmp.stringPropertyNames().iterator().next();
+                    p.setProperty(key, tmp.getProperty(key));
+                }, (p1, p2) -> {
                     p1.putAll(p2);
                     return p1;
                 }));
@@ -103,15 +113,15 @@ public class LightProperties {
                             break;
                         case ':':
                         case '=':
-                            var value = line.substring(i + 1);
-                            if (value.endsWith("\\") && iterator.hasNext()) {
-                                value += '\n' + iterator.next();
+                            final var value = new StringBuilder(line.substring(i + 1));
+                            while (value.toString().endsWith("\\") && iterator.hasNext()) {
+                                value.append('\n').append(iterator.next());
                             }
                             lines.add(new Line(
                                     String.join("\n", comments),
                                     line.substring(0, i).strip(),
                                     Character.toString(line.charAt(i)),
-                                    value.strip()));
+                                    value.toString()));
                             comments.clear();
                             found = true;
                             break;

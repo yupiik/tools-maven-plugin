@@ -30,13 +30,12 @@ import static java.util.stream.Collectors.toMap;
 public class CryptPropertiesMojo extends BaseCryptPropertiesMojo {
     @Override
     protected void transform(final Codec codec, final Properties from, final Properties to) {
-        to.putAll(from.stringPropertyNames().stream()
-                .collect(toMap(identity(), e -> {
-                    final var value = from.getProperty(e, "");
-                    if (codec.isEncrypted(value)) {
-                        return value;
-                    }
-                    return codec.encrypt(value);
-                })));
+        to.putAll(from.stringPropertyNames().stream().collect(toMap(identity(), e -> {
+            final var value = from.getProperty(e, "");
+            if (codec.isEncrypted(value)) {
+                return value;
+            }
+            return codec.encrypt(value);
+        })));
     }
 }
