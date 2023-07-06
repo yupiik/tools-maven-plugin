@@ -27,6 +27,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CryptPropertiesTest {
@@ -57,17 +58,34 @@ class CryptPropertiesTest {
         assertTrue(encrypted.contains("key.1={"), encrypted);
         assertTrue(encrypted.contains("key.2={"), encrypted);
 
-        new DecryptPropertiesMojo() {
+        assertDecrypt(source, decrypted, master, "key.1=test 1\nkey.2=test 2\n");
+
+        // now recrypt but taking into account the already existing output changing only properties which changed
+        Files.writeString(source, "key.1 = test 1\nkey.2 = test 22");
+        new CryptPropertiesMojo() {
             {
                 this.masterPassword = master;
                 this.input = source.toFile();
-                this.output = decrypted.toFile();
+                this.output = target.toFile();
                 this.preserveComments = true;
+                this.reduceDiff = true;
             }
         }.execute();
+        final var encrypted2 = Files.readString(target);
+        // key.1 was preserved cause already encrypted in output so we will decrease the diff
+        assertEquals(findValue("key.1", encrypted), findValue("key.1", encrypted2), encrypted2);
+        // key.2 changed so was re-encoded
+        assertTrue(encrypted2.contains("key.2={"), encrypted2);
+        assertNotEquals(findValue("key.2", encrypted), findValue("key.2", encrypted2));
 
-        assertTrue(Files.exists(decrypted));
-        assertEquals("key.1=test 1\nkey.2=test 2\n", Files.readString(decrypted).replace(System.lineSeparator(), "\n"));
+        // re-decrypt to check nothing was broken
+        assertDecrypt(source, decrypted, master, "key.1=test 1\nkey.2=test 22\n");
+    }
+
+    private static String findValue(final String key, final String encrypted) {
+        final var from1 = encrypted.indexOf(key + "={");
+        final var value1 = encrypted.substring(from1, encrypted.indexOf('}', from1));
+        return value1;
     }
 
     @Test
@@ -125,5 +143,18 @@ class CryptPropertiesTest {
 
         assertTrue(Files.exists(decrypted));
         assertEquals("key.1=test 1\nkey.2=test 2\n", Files.readString(decrypted).replace(System.lineSeparator(), "\n"));
+    }
+
+    private void assertDecrypt(final Path source, final Path decrypted, final String master, final String expected) throws MojoExecutionException, MojoFailureException, IOException {
+        new DecryptPropertiesMojo() {
+            {
+                this.masterPassword = master;
+                this.input = source.toFile();
+                this.output = decrypted.toFile();
+                this.preserveComments = true;
+            }
+        }.execute();
+        assertTrue(Files.exists(decrypted));
+        assertEquals(expected, Files.readString(decrypted).replace(System.lineSeparator(), "\n"));
     }
 }
