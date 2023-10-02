@@ -1111,7 +1111,7 @@ public class MiniSite implements Runnable {
                 .replace("{{logoText}}", getLogoText())
                 .replace("{{logoSideText}}", getLogoSideText())
                 .replace("{{base}}", configuration.getSiteBase())
-                .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("//www.yupiik.com/img/favicon.png"))
+                .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("//www.yupiik.io/images/favicon.png"))
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"));
         final String suffix = readTemplates(layout, configuration.getTemplateSuffixes())
