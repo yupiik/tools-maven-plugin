@@ -402,3 +402,14 @@ div.colist.arabic > ol > li > p {
     visibility: inherit !important;
     max-width: inherit;
 }
+.copy-code-button {
+    right: 0;
+    position: absolute;
+    color: white;
+    border: none;
+}
+.listingblock code[data-lang]:before {
+    right: unset;
+    left: 1rem;
+    top: 0.2rem;
+}

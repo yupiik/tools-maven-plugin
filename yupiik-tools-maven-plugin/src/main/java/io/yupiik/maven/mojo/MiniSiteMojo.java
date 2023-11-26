@@ -183,6 +183,12 @@ public class MiniSiteMojo extends BaseMojo {
     private boolean useDefaultAssets;
 
     /**
+     * Adds a copy button to code snippets (highlightjs).
+     */
+    @Parameter(property = "yupiik.minisite.addCodeCopyButton", defaultValue = "true")
+    private boolean addCodeCopyButton;
+
+    /**
      * Use yupiik theme.
      */
     @Parameter(property = "yupiik.minisite.injectYupiikTemplateExtensionPoints", defaultValue = "true")
@@ -415,6 +421,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .actionClassLoader(() -> new ClassLoader(loader) {
                     // just to avoid minisite to close it, we do it in the enclosing scope
                 })
+                .addCodeCopyButton(addCodeCopyButton)
                 .source(source.toPath())
                 .target(target.toPath())
                 .templateDirs(templateDirs)
