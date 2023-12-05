@@ -1,0 +1,38 @@
+Shapes :
+.----------.     .----------.     .----------.
+|[cloud]   |     |[computer]|     |[diamond] |
+|          |  +->|          |<-o->|          |
+|          |  |  |          |  |  |          |
+.----------.  |  .----------.  |  .----------.
+--------------o----------------+
+.----------.  |  .----------.  |  .----------.
+|[document]|  :  |[storage] |  |  |[printer] |
+|          |<-+->|          |  |  | Some txt |
+|          |     |          |<-+->|          |
+.----------.     .----------.     '----------'
+
+.----------.     .----------.     .----------.
+|[cl]      |     |[c]       |     |[yn]      |
+|          |  +->|          |<-o->|          |
+|          |  |  |          |  |  |          |
+.----------.  |  .----------.  |  .----------.
+--------------o----------------+
+.----------.  |  .----------.  |  .----------.
+|[d]       |  :  |[st]      |  |  |[p]       |
+|          |<-+->|          |  |  | Some txt |
+|          |     |          |<-+->|          |
+.----------.     .----------.     '----------'
+
+
+[printer]: {"a2s:type":"printer","fill":"#ff1493"}
+[computer]: {"a2s:type":"computer"}
+[cloud]: {"a2s:type":"cloud"}
+[diamond]: {"a2s:type":"diamond"}
+[document]: {"a2s:type":"document"}
+[storage]: {"a2s:type":"storage"}
+[p]: {"a2s:type":"printer","fill":"#ff1493","a2s:delref":true}
+[c]: {"a2s:type":"computer","a2s:delref":true}
+[cl]: {"a2s:type":"cloud","a2s:delref":true}
+[yn]: {"a2s:type":"diamond","a2s:delref":true}
+[d]: {"a2s:type":"document","a2s:delref":true}
+[st]: {"a2s:type":"storage","a2s:delref":true}
