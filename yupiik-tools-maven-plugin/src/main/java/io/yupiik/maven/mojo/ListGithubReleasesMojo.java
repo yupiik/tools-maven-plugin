@@ -51,7 +51,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static java.time.LocalTime.MIN;
@@ -165,21 +164,7 @@ public class ListGithubReleasesMojo extends AbstractMojo {
                 filterByDate(releases, OffsetDateTime.parse(fromDate), OffsetDateTime.parse(toDate));
             }
 
-            final var listMarker = Pattern.compile("^\\*");
-            final var content = releases.stream()
-                    .map(r -> {
-                        var body = r.getBody().strip();
-                        if (body.startsWith("Release " + r.getName())) {
-                            body = body.substring("Release ".length() + r.getName().length()).strip();
-                        }
-                        return "* " + project(r.getUrl()) + ' ' + r.getName() + " (" + r.getPublisedAt() + ")\n" +
-                                listMarker.matcher(body).replaceAll("**") + "\n";
-                    })
-                    .collect(joining("\n"));
-            getLog().info("" +
-                    "= Total: " + releases.size() + "\n" +
-                    "\n" +
-                    content);
+            onReleases(releases);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new MojoExecutionException(e.getMessage(), e);
@@ -195,6 +180,22 @@ public class ListGithubReleasesMojo extends AbstractMojo {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    protected void onReleases(final List<GithubRelease> releases) {
+        final var content = releases.stream()
+                .map(r -> {
+                    var body = r.getBody().replace("\n*", "\n**").strip();
+                    if (body.startsWith("Release " + r.getName())) {
+                        body = body.substring("Release ".length() + r.getName().length()).strip();
+                    }
+                    return "* " + project(r.getUrl()) + ' ' + r.getName() + " (" + r.getPublisedAt() + ")\n" + body + "\n";
+                })
+                .collect(joining("\n"));
+        getLog().info("" +
+                "= Total: " + releases.size() + "\n" +
+                "\n" +
+                content);
     }
 
     private String project(final String url) {
