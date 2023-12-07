@@ -177,7 +177,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                         }
                                     })))
                     .toCompletableFuture().get();
-        } catch (InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new MojoExecutionException(e.getMessage(), e);
         } catch (final Exception e) {
