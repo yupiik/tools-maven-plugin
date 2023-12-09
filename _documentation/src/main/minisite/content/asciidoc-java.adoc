@@ -25,7 +25,7 @@ renderer.visit(doc); <4>
 final var html = renderer.result(); <5>
 ----
 <.> Create a parser instance, can be a singleton in an application,
-<.> Load the document model, can also be a singletong in an application when the conditions depends on attributes,
+<.> Load the document model, can also be a singleton in an application when the conditions depends on attributes,
 <.> Create a renderer (here a html renderer, optionally you can pass it attributes using the other constructor),
 <.> Visit the document,
 <.> Get back the output of the renderer (html output here).
