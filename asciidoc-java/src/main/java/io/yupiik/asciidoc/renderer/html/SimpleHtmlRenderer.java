@@ -15,18 +15,28 @@
  */
 package io.yupiik.asciidoc.renderer.html;
 
+import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
+import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Document;
+import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
+import io.yupiik.asciidoc.model.LineBreak;
+import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.OrderedList;
+import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Text;
+import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.renderer.Visitor;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static java.util.Locale.ROOT;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -106,6 +116,32 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     }
 
     @Override
+    public void visitAdmonition(final Admonition element) {
+        // todo: here we need to assume we have icons to render it more elegantly
+        builder.append(" <div class=\"admonitionblock ").append(element.level().name().toLowerCase(ROOT)).append("\">\n");
+        builder.append("""
+                          <table>
+                           <tr>
+                            <td class="icon">
+                        """)
+                .append(element.level().name()).append(":").append("\n")
+                .append("     </td>\n")
+                .append("    <td class=\"content\">\n");
+        visitElement(element.content());
+        builder.append("    </td>\n")
+                .append("   </tr>\n")
+                .append("  </table>\n")
+                .append(" </div>\n");
+    }
+
+    @Override
+    public void visitParagraph(final Paragraph element) {
+        builder.append(" <div class=\"paragraph\">");
+        element.children().forEach(this::visitElement);
+        builder.append(" </div>");
+    }
+
+    @Override
     public void visitHeader(final Header header) {
         if (header.attributes().get("notitle") == null && !header.title().isBlank()) {
             builder.append(" <h1>").append(escape(header.title())).append("</h1>\n");
@@ -156,6 +192,79 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         builder.append("</h").append(element.level()).append(">\n");
         Visitor.super.visitSection(element);
         builder.append(" </div>\n");
+    }
+
+    @Override
+    public void visitLineBreak(final LineBreak element) {
+        builder.append(" <br>\n");
+    }
+
+    @Override
+    public void visitLink(final Link element) {
+        builder.append(" <a href=\"").append(element.url()).append("\"");
+
+        final var window = element.options().get("window");
+        if (window != null) {
+            builder.append(" target=\"").append(window).append("\"");
+        }
+
+        final var nofollow = element.options().get("nofollow");
+        final boolean noopener = "_blank".equals(window) || element.options().get("noopener") != null;
+        if (nofollow != null) {
+            builder.append(" rel=\"nofollow");
+            if (noopener) {
+                builder.append(" noopener");
+            }
+            builder.append("\"");
+        } else if (noopener) {
+            builder.append(" rel=\"noopener\"");
+        }
+
+        builder.append(">").append(escape(element.label())).append("</a>\n");
+    }
+
+    @Override
+    public void visitDescriptionList(final DescriptionList element) {
+        if (element.children().isEmpty()) {
+            return;
+        }
+        builder.append(" <dl>\n");
+        for (final var elt : element.children().entrySet()) {
+            builder.append("  <dt>").append(escape(elt.getKey())).append("</dt>\n");
+            builder.append("  <dd>\n");
+            visitElement(elt.getValue());
+            builder.append("</dd>\n");
+        }
+        builder.append(" </dl>\n");
+    }
+
+    @Override
+    public void visitUnOrderedList(final UnOrderedList element) {
+        if (element.children().isEmpty()) {
+            return;
+        }
+        builder.append(" <ul>\n");
+        visitListElements(element.children());
+        builder.append(" </ul>\n");
+    }
+
+
+    @Override
+    public void visitOrderedList(final OrderedList element) {
+        if (element.children().isEmpty()) {
+            return;
+        }
+        builder.append(" <ol>\n");
+        visitListElements(element.children());
+        builder.append(" </ol>\n");
+    }
+
+    private void visitListElements(final List<Element> element) {
+        for (final var elt : element) {
+            builder.append("  <li>\n");
+            visitElement(elt);
+            builder.append("  </li>\n");
+        }
     }
 
     @Override

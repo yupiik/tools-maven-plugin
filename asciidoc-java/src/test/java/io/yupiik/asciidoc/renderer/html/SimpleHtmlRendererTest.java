@@ -16,33 +16,31 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.parser.Parser;
-import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
+import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SimpleHtmlRendererTest {
     @Test
     void renderHtml() {
-        final var doc = new Parser().parse("""
-                = Main title
-                                
-                Some text.
-                                
-                == Second part
-                                
-                This is a snippet:
-                                
-                [source,java]
-                ----
-                public record Foo() {}
-                ----
-                """, new Parser.ParserContext(new LocalContextResolver(Path.of("target/missing"))));
-        final var renderer = new SimpleHtmlRenderer();
-        renderer.visit(doc);
-        assertEquals(
+        assertRendering("""
+                        = Main title
+                                        
+                        Some text.
+                                        
+                        == Second part
+                                        
+                        This is a snippet:
+                                        
+                        [source,java]
+                        ----
+                        public record Foo() {}
+                        ----
+                        """,
                 """
                         <!DOCTYPE html>
                         <html lang="en">
@@ -70,7 +68,114 @@ class SimpleHtmlRendererTest {
                          </div>
                         </body>
                         </html>
-                        """,
-                renderer.result());
+                        """);
+    }
+
+    @Test
+    void ol() {
+        assertRenderingContent("""
+                . first
+                . second
+                . third""", """
+                 <ol>
+                  <li>
+                 <span>
+                first
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                second
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                third
+                 </span>
+                  </li>
+                 </ol>
+                """);
+    }
+
+    @Test
+    void ul() {
+        assertRenderingContent("""
+                * first
+                * second
+                * third""", """
+                 <ul>
+                  <li>
+                 <span>
+                first
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                second
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                third
+                 </span>
+                  </li>
+                 </ul>
+                """);
+    }
+
+    @Test
+    void dl() {
+        assertRenderingContent("""
+                first:: one
+                second:: two""", """
+                 <dl>
+                  <dt>first</dt>
+                  <dd>
+                 <span>
+                one
+                 </span>
+                </dd>
+                  <dt>second</dt>
+                  <dd>
+                 <span>
+                two
+                 </span>
+                </dd>
+                 </dl>
+                """);
+    }
+
+    @Test
+    void admonition() {
+        assertRenderingContent("NOTE: this is an important note.", """
+                 <div class="admonitionblock note">
+                  <table>
+                   <tr>
+                    <td class="icon">
+                NOTE:
+                     </td>
+                    <td class="content">
+                 <span>
+                this is an important note.
+                 </span>
+                    </td>
+                   </tr>
+                  </table>
+                 </div>
+                """);
+    }
+
+    private void assertRendering(final String adoc, final String html) {
+        final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new SimpleHtmlRenderer();
+        renderer.visit(doc);
+        assertEquals(html, renderer.result());
+    }
+
+    private void assertRenderingContent(final String adoc, final String html) {
+        final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new SimpleHtmlRenderer(Map.of("noheader", "true"));
+        renderer.visitBody(doc);
+        assertEquals(html, renderer.result());
     }
 }

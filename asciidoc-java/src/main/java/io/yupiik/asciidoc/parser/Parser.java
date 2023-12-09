@@ -150,6 +150,14 @@ public class Parser {
         return new Header(title, author, revision, attributes);
     }
 
+    public Body parseBody(final String reader, final ParserContext context) {
+        return parseBody(new Reader(List.of(reader.split("\n"))), context.resolver());
+    }
+
+    public Body parseBody(final BufferedReader reader, final ParserContext context) {
+        return parseBody(new Reader(reader.lines().toList()), context.resolver());
+    }
+
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
         return new Body(doParse(reader, line -> true, resolver));
     }
