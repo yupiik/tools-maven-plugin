@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>yupiik-tools:crypt-properties</title>
+    <title>yupiik-tools:list-github-releases</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,15 +68,15 @@ Last available 1.0.x release is 1.0.26.">
             </ul>
         </div>
 
-        <div id="mojo-crypt-properties-html-container" class="container page-content mojo-crypt-properties-html">
+        <div id="mojo-list-github-releases-html-container" class="container page-content mojo-list-github-releases-html">
                         <div class="page-header">
-                <h1>yupiik-tools:crypt-properties</h1>
+                <h1>yupiik-tools:list-github-releases</h1>
             </div>
             <div class="page-content-body">
                 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Enables to crypt a properties file.</p>
+<p>Fetch github releases between two dates.</p>
 </div>
 </div>
 </div>
@@ -93,7 +93,7 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:crypt-properties</code>.</p>
+<p>To call this goal from the command line execute: <code>mvn yupiik-tools:list-github-releases</code>.</p>
 </div>
 <div class="paragraph">
 <p>To bind this goal in the build you can use:</p>
@@ -108,7 +108,7 @@ Last available 1.0.x release is 1.0.26.">
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
       &lt;goals&gt;
-        &lt;goal&gt;crypt-properties&lt;/goal&gt;
+        &lt;goal&gt;list-github-releases&lt;/goal&gt;
       &lt;/goals&gt;
       &lt;configuration&gt;
         &lt;!-- execution specific configuration come there --&gt;
@@ -119,55 +119,42 @@ Last available 1.0.x release is 1.0.26.">
 </div>
 </div>
 <div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:crypt-properties@my-execution</code> command.</p>
+<p>You can execute this goal particularly with <code>mvn yupiik-tools:list-github-releases@my-execution</code> command.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_configuration">Configuration</h2>
 <div class="sectionbody">
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-<code>*</code> means the parameter is required.
-</td>
-</tr>
-</table>
-</div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">input* (<code>java.io.File</code>)</dt>
+<dt class="hdlist1">forceHttpV1 (<code>boolean</code>)</dt>
 <dd>
-<p>Input properties file path. Property: <code>${yupiik.crypt-properties.input}</code>.</p>
+<p>Default value: <code>true</code>. Property: <code>${yupiik.list-github-releases.forceHttpV1}</code>.</p>
 </dd>
-<dt class="hdlist1">masterPassword* (<code>String</code>)</dt>
+<dt class="hdlist1">fromDate (<code>String</code>)</dt>
 <dd>
-<p>Master password for the enryption (AES/CBC/PKCS5Padding). Property: <code>${yupiik.crypt.masterPassword}</code>.</p>
+<p>Default value: <code>auto</code>. Property: <code>${yupiik.list-github-releases.from}</code>.</p>
 </dd>
-<dt class="hdlist1">output* (<code>java.io.File</code>)</dt>
+<dt class="hdlist1">githubBaseApi (<code>String</code>)</dt>
 <dd>
-<p>Target location of the encrypted properties file. Property: <code>${yupiik.crypt-properties.output}</code>.</p>
+<p>Default value: <code><a href="https://api.github.com/" class="bare">https://api.github.com/</a></code>. Property: <code>${yupiik.list-github-releases.githubRepository}</code>.</p>
 </dd>
-<dt class="hdlist1">excludedKeys (<code>List</code>)</dt>
+<dt class="hdlist1">githubServerId (<code>String</code>)</dt>
 <dd>
-<p>List of keys to not encrypt the value for. Property: <code>${yupiik.crypt-properties.excludedKeys}</code>.</p>
+<p>Default value: <code>github.com</code>. Property: <code>${yupiik.list-github-releases.githubServerId}</code>.</p>
 </dd>
-<dt class="hdlist1">includedKeys (<code>List</code>)</dt>
+<dt class="hdlist1">projects (<code>List</code>)</dt>
 <dd>
-<p>List of keys to encrypt the value for. Property: <code>${yupiik.crypt-properties.includedKeys}</code>.</p>
+<p>Property: <code>${yupiik.list-github-releases.artifacts}</code>.</p>
 </dd>
-<dt class="hdlist1">preserveComments (<code>boolean</code>)</dt>
+<dt class="hdlist1">threads (<code>int</code>)</dt>
 <dd>
-<p>Should properties structure be preserved (comments, order) or not.
-This can break properties structure in some rare cases, if so disable this. Default value: <code>true</code>. Property: <code>${yupiik.crypt-properties.preserveComments}</code>.</p>
+<p>Default value: <code>16</code>. Property: <code>${yupiik.list-github-releases.threads}</code>.</p>
 </dd>
-<dt class="hdlist1">reduceDiff (<code>boolean</code>)</dt>
+<dt class="hdlist1">toDate (<code>String</code>)</dt>
 <dd>
-<p>If true and output exists, it will be read to compare the encrypted values and keep them if they didnt change. Default value: <code>true</code>. Property: <code>${yupiik.crypt-properties.reduceDiff}</code>.</p>
+<p>Default value: <code>auto</code>. Property: <code>${yupiik.list-github-releases.to}</code>.</p>
 </dd>
 </dl>
 </div>

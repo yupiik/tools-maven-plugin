@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>yupiik-tools:crypt-properties</title>
+    <title>Asciidoc Java</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,64 +68,28 @@ Last available 1.0.x release is 1.0.26.">
             </ul>
         </div>
 
-        <div id="mojo-crypt-properties-html-container" class="container page-content mojo-crypt-properties-html">
+        <div id="asciidoc-java-html-container" class="container page-content asciidoc-java-html">
                         <div class="page-header">
-                <h1>yupiik-tools:crypt-properties</h1>
+                <h1>Ascii2SVG</h1>
             </div>
             <div class="page-content-body">
-                <div id="preamble">
-<div class="sectionbody">
-<div class="paragraph">
-<p>Enables to crypt a properties file.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_coordinates">Coordinates</h2>
-<div class="sectionbody">
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
-  &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
-  &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
-&lt;/plugin&gt;</code></pre>
-</div>
+                <div class="paragraph">
+<p>The module <code>asciidoc-java</code> implements a light Asciidoc syntax parser in plain Java.
+It aims at making it easier and lighter than using JRuby to embed Asciidoc in any Java based (native or not) application.</p>
 </div>
 <div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:crypt-properties</code>.</p>
+<p>Its usage is pretty simple:</p>
 </div>
-<div class="paragraph">
-<p>To bind this goal in the build you can use:</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>You get a <code>Parser</code> instance to load the model of your document in memory (AST),</p>
+</li>
+<li>
+<p>You visit the model as you want (or reusing provided <code>Visitor&lt;?&gt;</code>) to render the loaded <code>Document</code>.</p>
+</li>
+</ol>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
-  &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
-  &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
-  &lt;executions&gt;
-    &lt;execution&gt;
-      &lt;id&gt;my-execution&lt;/id&gt;
-      &lt;goals&gt;
-        &lt;goal&gt;crypt-properties&lt;/goal&gt;
-      &lt;/goals&gt;
-      &lt;configuration&gt;
-        &lt;!-- execution specific configuration come there --&gt;
-      &lt;/configuration&gt;
-    &lt;/execution&gt;
-  &lt;/executions&gt;
-&lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:crypt-properties@my-execution</code> command.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_configuration">Configuration</h2>
-<div class="sectionbody">
 <div class="admonitionblock tip">
 <table>
 <tr>
@@ -133,45 +97,53 @@ Last available 1.0.x release is 1.0.26.">
 <div class="title">Tip</div>
 </td>
 <td class="content">
-<code>*</code> means the parameter is required.
+the <code>Document</code> instance is thread safe and can safely be reused accross multiple threads. The parser is also thread save but the visitors must be created per rendering instance.
 </td>
 </tr>
 </table>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">input* (<code>java.io.File</code>)</dt>
-<dd>
-<p>Input properties file path. Property: <code>${yupiik.crypt-properties.input}</code>.</p>
-</dd>
-<dt class="hdlist1">masterPassword* (<code>String</code>)</dt>
-<dd>
-<p>Master password for the enryption (AES/CBC/PKCS5Padding). Property: <code>${yupiik.crypt.masterPassword}</code>.</p>
-</dd>
-<dt class="hdlist1">output* (<code>java.io.File</code>)</dt>
-<dd>
-<p>Target location of the encrypted properties file. Property: <code>${yupiik.crypt-properties.output}</code>.</p>
-</dd>
-<dt class="hdlist1">excludedKeys (<code>List</code>)</dt>
-<dd>
-<p>List of keys to not encrypt the value for. Property: <code>${yupiik.crypt-properties.excludedKeys}</code>.</p>
-</dd>
-<dt class="hdlist1">includedKeys (<code>List</code>)</dt>
-<dd>
-<p>List of keys to encrypt the value for. Property: <code>${yupiik.crypt-properties.includedKeys}</code>.</p>
-</dd>
-<dt class="hdlist1">preserveComments (<code>boolean</code>)</dt>
-<dd>
-<p>Should properties structure be preserved (comments, order) or not.
-This can break properties structure in some rare cases, if so disable this. Default value: <code>true</code>. Property: <code>${yupiik.crypt-properties.preserveComments}</code>.</p>
-</dd>
-<dt class="hdlist1">reduceDiff (<code>boolean</code>)</dt>
-<dd>
-<p>If true and output exists, it will be read to compare the encrypted values and keep them if they didnt change. Default value: <code>true</code>. Property: <code>${yupiik.crypt-properties.reduceDiff}</code>.</p>
-</dd>
-</dl>
+<div class="paragraph">
+<p>Here is a basic example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">final var parser = new Parser(); <b class="conum">(1)</b>
+final var doc = parser.parse(myDocContent, new Parser.ParserContext(ContextResolver.of(Path.of("asciidoc/content")))); <b class="conum">(2)</b>
+final var renderer = new SimpleHtmlRenderer(); <b class="conum">(3)</b>
+renderer.visit(doc); <b class="conum">(4)</b>
+final var html = renderer.result(); <b class="conum">(5)</b></code></pre>
 </div>
 </div>
+<div class="colist arabic">
+<ol>
+<li>
+<p>Create a parser instance, can be a singleton in an application,</p>
+</li>
+<li>
+<p>Load the document model, can also be a singletong in an application when the conditions depends on attributes,</p>
+</li>
+<li>
+<p>Create a renderer (here a html renderer, optionally you can pass it attributes using the other constructor),</p>
+</li>
+<li>
+<p>Visit the document,</p>
+</li>
+<li>
+<p>Get back the output of the renderer (html output here).</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Important</div>
+</td>
+<td class="content">
+the asciidoc syntax is not 100% implemented yet, if you encounter anything you miss, feel free to open an issue or pull request on our bugtracker.
+</td>
+</tr>
+</table>
 </div>
                 
             </div>
