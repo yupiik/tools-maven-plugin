@@ -49,6 +49,7 @@
     <module>_documentation</module>
     <module>codec-core</module>
     <module>ascii2svg</module>
+    <module>asciidoc-java</module>
   </modules>
 
   <dependencyManagement>

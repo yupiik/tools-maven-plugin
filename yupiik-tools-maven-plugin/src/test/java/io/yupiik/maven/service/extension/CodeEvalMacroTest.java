@@ -43,7 +43,7 @@ class CodeEvalMacroTest {
                 instance.withAsciidoc(mojo, a -> a.convert("" +
                         "= Title\n" +
                         "\n" +
-                        "[code-eval,result-lang=text,engine=js]\n" +
+                        "[code-eval,result-lang=text,engine=rb]\n" +
                         "--\n" +
                         "[source,java]\n" +
                         "----\n" +
