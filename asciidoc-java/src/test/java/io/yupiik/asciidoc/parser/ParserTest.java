@@ -91,7 +91,7 @@ class ParserTest {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 Mark my words, #automation is essential#.
                                 
-                ##Mark##up refers to text that contains formatting ##mark##s.
+                ##Mark##up refers to value that contains formatting ##mark##s.
                                 
                 Where did all the [.underline]#cores# go?
                                 
@@ -107,7 +107,7 @@ class ParserTest {
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(MARK), "Mark", Map.of()),
-                                new Text(List.of(), "up refers to text that contains formatting ", Map.of()),
+                                new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                 new Text(List.of(MARK), "mark", Map.of()),
                                 new Text(List.of(), "s.", Map.of())
                         ), Map.of()),
@@ -135,7 +135,7 @@ class ParserTest {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 Mark my words, #automation is essential#.
                                 
-                ##Mark##up refers to text that contains formatting ##mark##s.
+                ##Mark##up refers to value that contains formatting ##mark##s.
                 Where did all the [.underline]#cores# go?
                                 
                 end.
@@ -149,7 +149,7 @@ class ParserTest {
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(MARK), "Mark", Map.of()),
-                                new Text(List.of(), "up refers to text that contains formatting ", Map.of()),
+                                new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                 new Text(List.of(MARK), "mark", Map.of()),
                                 new Text(List.of(), "s.", Map.of()),
                                 new Text(List.of(), "Where did all the ", Map.of()),
@@ -181,11 +181,19 @@ class ParserTest {
     }
 
     @Test
+    void linksAttribute() {
+        final var body = new Parser().parseBody(new Reader(List.of(":url: https://yupiik.io", "", "{url}[Yupiik OSS]")), null);
+        assertEquals(
+                List.of(new Link("https://yupiik.io", "Yupiik OSS", Map.of())),
+                body.children());
+    }
+
+    @Test
     void parseParagraphAndSections() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 == Section #1
                                 
-                ##Mark##up refers to text that contains formatting ##mark##s.
+                ##Mark##up refers to value that contains formatting ##mark##s.
                 Where did all the [.underline]#cores# go?
                                 
                 == Section #2
@@ -199,7 +207,7 @@ class ParserTest {
                                 new Text(List.of(), "Section #1", Map.of()),
                                 List.of(new Paragraph(List.of(
                                         new Text(List.of(MARK), "Mark", Map.of()),
-                                        new Text(List.of(), "up refers to text that contains formatting ", Map.of()),
+                                        new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                         new Text(List.of(MARK), "mark", Map.of()),
                                         new Text(List.of(), "s.", Map.of()),
                                         new Text(List.of(), "Where did all the ", Map.of()),
@@ -555,6 +563,26 @@ class ParserTest {
     }
 
     @Test
+    void includeAttributes() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        = My title
+                        include::attributes.adoc[]
+                                        
+                        {url}[Yupiik]
+                        """.split("\n"))),
+                (ref, encoding) -> switch (ref) {
+                    case "attributes.adoc" -> Optional.of(List.of(":url: https://yupiik.io"));
+                    default -> Optional.empty();
+                });
+        assertEquals(
+                List.of(new Section(
+                        1, new Text(List.of(), "My title", Map.of()),
+                        List.of(new Link("https://yupiik.io", "Yupiik", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
     void table() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
@@ -661,6 +689,29 @@ class ParserTest {
     }
 
     @Test
+    void simpleQuoteBlock() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        [quote,Monty Python and the Holy Grail]
+                        ____
+                        Dennis: Come and see the violence inherent in the system. Help! Help! I'm being repressed!
+                                                
+                        King Arthur: Bloody peasant!
+                                                
+                        Dennis: Oh, what a giveaway! Did you hear that? Did you hear that, eh? That's what I'm on about! Did you see him repressing me? You saw him, Didn't you?
+                        ____
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Quote(List.of(
+                        new Text(List.of(), "Dennis: Come and see the violence inherent in the system. Help! Help! I'm being repressed!", Map.of()),
+                        new Text(List.of(), "King Arthur: Bloody peasant!", Map.of()),
+                        new Text(List.of(), "Dennis: Oh, what a giveaway! Did you hear that? Did you hear that, eh? That's what I'm on about! Did you see him repressing me? You saw him, Didn't you?", Map.of())
+                ), Map.of("role", "quoteblock", "attribution", "Monty Python and the Holy Grail"))),
+                body.children());
+    }
+
+    @Test
     void quote() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
@@ -702,7 +753,7 @@ class ParserTest {
                         [sidebar]
                         .Related information
                         --
-                        This is aside text.
+                        This is aside value.
                                                 
                         It is used to present information related to the main content.
                         --
@@ -710,7 +761,7 @@ class ParserTest {
                 null);
         assertEquals(
                 List.of(new OpenBlock(List.of(
-                        new Text(List.of(), "This is aside text.", Map.of()),
+                        new Text(List.of(), "This is aside value.", Map.of()),
                         new Text(List.of(), "It is used to present information related to the main content.", Map.of())
                 ), Map.of("", "sidebar", "title", "Related information"))),
                 body.children());
@@ -721,14 +772,14 @@ class ParserTest {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
                         ifdef::foo[]
-                        This is text.
+                        This is value.
                         endif::[]
                         """.split("\n"))),
                 null);
         assertEquals(
                 List.of(new ConditionalBlock(
                         new ConditionalBlock.Ifdef("foo"),
-                        List.of(new Text(List.of(), "This is text.", Map.of())),
+                        List.of(new Text(List.of(), "This is value.", Map.of())),
                         Map.of())),
                 body.children());
     }
@@ -738,14 +789,14 @@ class ParserTest {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
                         ifndef::foo[]
-                        This is text.
+                        This is value.
                         endif::[]
                         """.split("\n"))),
                 null);
         assertEquals(
                 List.of(new ConditionalBlock(
                         new ConditionalBlock.Ifndef("foo"),
-                        List.of(new Text(List.of(), "This is text.", Map.of())),
+                        List.of(new Text(List.of(), "This is value.", Map.of())),
                         Map.of())),
                 body.children());
     }
@@ -755,11 +806,11 @@ class ParserTest {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
                         ++++
-                        This is text.
+                        This is value.
                         ++++
                         """.split("\n"))),
                 null);
-        assertEquals(List.of(new PassthroughBlock("This is text.", Map.of())), body.children());
+        assertEquals(List.of(new PassthroughBlock("This is value.", Map.of())), body.children());
     }
 
     @Test

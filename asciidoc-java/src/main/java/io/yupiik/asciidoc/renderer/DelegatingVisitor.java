@@ -40,7 +40,7 @@ import io.yupiik.asciidoc.model.UnOrderedList;
 
 /**
  * Simple base class to delegate the visit of a document to a visitor.
- * Enables to override only what you need (ex: text handling).
+ * Enables to override only what you need (ex: value handling).
  *
  * @param <T> the type of result the delegate visitor computes.
  */

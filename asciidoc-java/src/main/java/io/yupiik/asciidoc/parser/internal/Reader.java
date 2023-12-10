@@ -15,6 +15,7 @@
  */
 package io.yupiik.asciidoc.parser.internal;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,7 +26,7 @@ public class Reader {
     private int lineOffset = 0;
 
     public Reader(final List<String> lines) {
-        this.lines = lines;
+        this.lines = new ArrayList<>(lines);
     }
 
     // human indexed
@@ -79,6 +80,10 @@ public class Reader {
 
         // no line
         return null;
+    }
+
+    public void setPreviousValue(final String newValue) {
+        lines.set(lineOffset - 1, newValue);
     }
 
     @Override

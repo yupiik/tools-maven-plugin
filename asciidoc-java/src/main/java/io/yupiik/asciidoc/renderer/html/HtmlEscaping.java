@@ -26,7 +26,7 @@ import static java.util.Map.entry;
 public class HtmlEscaping implements Function<String, String> {
     public static final HtmlEscaping INSTANCE = new HtmlEscaping();
 
-    // taken from commons-text
+    // taken from commons-value
     private final Map<Character, String> escaped = Map.ofEntries(
             entry('"', "&quot;"),
             entry('&', "&amp;"),

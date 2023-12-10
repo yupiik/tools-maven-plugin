@@ -48,10 +48,10 @@ public record ConditionalBlock(Predicate<Context> evaluator,
         }
     }
 
-    public record Ifeval(String todo) implements Predicate<Context> {
+    public record Ifeval(Predicate<Context> evaluator) implements Predicate<Context> {
         @Override
         public boolean test(final Context context) {
-            return context.attribute(todo) == null;
+            return evaluator.test(context);
         }
     }
 }

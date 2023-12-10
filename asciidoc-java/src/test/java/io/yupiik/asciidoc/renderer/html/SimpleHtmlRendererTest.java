@@ -165,6 +165,162 @@ class SimpleHtmlRendererTest {
                 """);
     }
 
+    @Test
+    void table() {
+        assertRenderingContent("""
+                [cols="1,1"]
+                |===
+                |Cell in column 1, header row |Cell in column 2, header row\s
+                                
+                |Cell in column 1, row 2
+                |Cell in column 2, row 2
+                                
+                |Cell in column 1, row 3
+                |Cell in column 2, row 3
+                                
+                |Cell in column 1, row 4
+                |Cell in column 2, row 4
+                |===""", """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col width="1">
+                   <col width="1">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th>
+                 <span>
+                Cell in column 1, header row
+                 </span>
+                    </th>
+                    <th>
+                 <span>
+                Cell in column 2, header row
+                 </span>
+                    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td>
+                 <span>
+                Cell in column 1, row 2
+                 </span>
+                    </td>
+                    <td>
+                 <span>
+                Cell in column 2, row 2
+                 </span>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td>
+                 <span>
+                Cell in column 1, row 3
+                 </span>
+                    </td>
+                    <td>
+                 <span>
+                Cell in column 2, row 3
+                 </span>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td>
+                 <span>
+                Cell in column 1, row 4
+                 </span>
+                    </td>
+                    <td>
+                 <span>
+                Cell in column 2, row 4
+                 </span>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void quote() {
+        assertRenderingContent("""
+                > > What's new?
+                >
+                > I've got Markdown in my AsciiDoc!
+                >
+                > > Like what?
+                >
+                > * Blockquotes
+                > * Headings
+                > * Fenced code blocks
+                >
+                > > Is there more?
+                >
+                > Yep. AsciiDoc and Markdown share a lot of common syntax already.""", """
+                 <div>
+                  <blockquote>
+                 <div>
+                  <blockquote>
+                 <span>
+                What's new?
+                 </span>
+                  </blockquote>
+                 </div> <span>
+                I've got Markdown in my AsciiDoc!
+                 </span>
+                 <div>
+                  <blockquote>
+                 <span>
+                Like what?
+                 </span>
+                  </blockquote>
+                 </div> <ul>
+                  <li>
+                 <span>
+                Blockquotes
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                Headings
+                 </span>
+                  </li>
+                  <li>
+                 <span>
+                Fenced code blocks
+                 </span>
+                  </li>
+                 </ul>
+                 <div>
+                  <blockquote>
+                 <span>
+                Is there more?
+                 </span>
+                  </blockquote>
+                 </div> <span>
+                Yep. AsciiDoc and Markdown share a lot of common syntax already.
+                 </span>
+                  </blockquote>
+                 </div>""");
+    }
+
+    @Test
+    void passthrough() {
+        assertRenderingContent("""
+                ++++
+                <div id="test">Content</div>
+                ++++""", """
+                                
+                <div id="test">Content</div>
+                """);
+    }
+
+    @Test
+    void xref() {
+        assertRenderingContent("xref:foo.adoc[Bar]", " <a href=\"foo.html\">Bar</a>\n");
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new SimpleHtmlRenderer();

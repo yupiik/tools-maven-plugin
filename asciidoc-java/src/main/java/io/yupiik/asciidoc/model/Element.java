@@ -19,7 +19,7 @@ public sealed interface Element permits
         Code, DescriptionList, LineBreak, Link, Macro, OrderedList,
         Paragraph, Section, Text, UnOrderedList, Admonition, Anchor,
         Table, Quote, OpenBlock, PassthroughBlock, ConditionalBlock,
-        Attribute {
+        Attribute, PageBreak {
     ElementType type();
 
     /**
@@ -34,6 +34,7 @@ public sealed interface Element permits
         PARAGRAPH,
         SECTION,
         LINE_BREAK,
+        PAGE_BREAK,
         CODE, // including source blocks
         UNORDERED_LIST,
         ORDERED_LIST,

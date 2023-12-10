@@ -19,7 +19,7 @@ import java.util.Map;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.PASS_BLOCK;
 
-public record PassthroughBlock(String text, Map<String, String> options) implements Element {
+public record PassthroughBlock(String value, Map<String, String> options) implements Element {
     @Override
     public ElementType type() {
         return PASS_BLOCK;

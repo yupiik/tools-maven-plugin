@@ -16,6 +16,7 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.model.Admonition;
+import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -24,9 +25,15 @@ import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Macro;
+import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
+import io.yupiik.asciidoc.model.PageBreak;
 import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.PassthroughBlock;
+import io.yupiik.asciidoc.model.Quote;
 import io.yupiik.asciidoc.model.Section;
+import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.renderer.Visitor;
@@ -35,8 +42,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
+import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -54,10 +64,6 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     public SimpleHtmlRenderer(final Map<String, String> attributes) {
         this.attributes = attributes;
-    }
-
-    private String attr(final String key, final Map<String, String> defaultMap) {
-        return attributes.getOrDefault(key, defaultMap.get(key));
     }
 
     @Override
@@ -137,7 +143,7 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     @Override
     public void visitParagraph(final Paragraph element) {
         builder.append(" <div class=\"paragraph\">");
-        element.children().forEach(this::visitElement);
+        Visitor.super.visitParagraph(element);
         builder.append(" </div>");
     }
 
@@ -200,6 +206,11 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     }
 
     @Override
+    public void visitPageBreak(final PageBreak element) {
+        builder.append(" <div class=\"page-break\"></div>\n");
+    }
+
+    @Override
     public void visitLink(final Link element) {
         builder.append(" <a href=\"").append(element.url()).append("\"");
 
@@ -220,7 +231,11 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             builder.append(" rel=\"noopener\"");
         }
 
-        builder.append(">").append(escape(element.label())).append("</a>\n");
+        var label = element.label();
+        if (label.contains("://") && attr("hide-uri-scheme", element.options()) != null) {
+            label = label.substring(label.indexOf("://") + "://".length());
+        }
+        builder.append(">").append(escape(label)).append("</a>\n");
     }
 
     @Override
@@ -307,6 +322,125 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     }
 
     @Override
+    public void visitTable(final Table element) {
+        final var autowidth = element.options().containsKey("autowidth");
+        final var classes = "tableblock" +
+                " frame-" + attr("frame", "table-frame", "all", element.options()) +
+                " grid-" + attr("grid", "table-grid", "all", element.options()) +
+                ofNullable(attr("stripes", "table-stripes", null, element.options()))
+                        .map(it -> " stripes-" + it)
+                        .orElse("") +
+                (autowidth && !element.options().containsKey("width") ? " fit-content" : "") +
+                ofNullable(element.options().get("tablepcwidth"))
+                        .filter(it -> !"100".equals(it))
+                        .map(it -> " width=\"" + it + "\"")
+                        .orElse(" stretch") +
+                (element.options().containsKey("float") ? " float" : "");
+
+        builder.append(" <table");
+        writeCommonAttributes(element.options(), c -> classes + (c == null ? "" : (' ' + c)));
+        builder.append(">\n");
+
+        final var title = element.options().get("title");
+        if (title != null) {
+            builder.append("  <caption class=\"title\">").append(escape(title)).append("</caption>\n");
+        }
+
+        if (!element.elements().isEmpty()) { // has row(s)
+            final var firstRow = element.elements().get(0);
+            final var cols = ofNullable(element.options().get("cols"))
+                    .map(it -> Stream.of(it.split(",")).map(this::extractNumbers).toList())
+                    .orElse(List.of());
+
+            builder.append("  <colgroup>\n");
+            if (autowidth) {
+                firstRow.forEach(i -> builder.append("   <col>\n"));
+            } else {
+                IntStream.range(0, cols.size()).forEach(i -> builder.append("   <col width=\"").append(cols.get(i)).append("\">\n"));
+            }
+            builder.append("  </colgroup>\n");
+
+            // todo: handle headers+classes without assuming first row is headers - update parser - an options would be better pby?
+            builder.append("  <thead>\n");
+            builder.append("   <tr>\n");
+            firstRow.forEach(it -> {
+                builder.append("    <th>\n");
+                visitElement(it);
+                builder.append("    </th>\n");
+            });
+            builder.append("   </tr>\n");
+            builder.append("  </thead>\n");
+
+            if (element.elements().size() > 1) {
+                builder.append("  <tbody>\n");
+                element.elements().stream().skip(1).forEach(row -> {
+                    builder.append("   <tr>\n");
+                    row.forEach(col -> {
+                        builder.append("    <td>\n");
+                        visitElement(col);
+                        builder.append("    </td>\n");
+                    });
+                    builder.append("   </tr>\n");
+                });
+                builder.append("  </tbody>\n");
+            }
+        }
+
+        builder.append(" </table>\n");
+    }
+
+    @Override
+    public void visitQuote(final Quote element) {
+        builder.append(" <div");
+        writeCommonAttributes(element.options(), null);
+        builder.append(">\n");
+
+        writeBlockTitle(element.options());
+
+        builder.append("  <blockquote>\n");
+        Visitor.super.visitQuote(element);
+        builder.append("  </blockquote>\n");
+
+        final var attribution = ofNullable(element.options().get("attribution"))
+                .orElseGet(() -> element.options().get("citetitle"));
+        if (attribution != null) {
+            builder.append("  <div class=\"attribution\">\n").append(escape(attribution)).append("\n  </div>\n");
+        }
+
+        builder.append(" </div>");
+    }
+
+    @Override
+    public void visitAnchor(final Anchor element) {
+        visitLink(new Link("#" + element.value(), element.label() == null || element.label().isBlank() ? element.value() : element.label(), Map.of()));
+    }
+
+    @Override
+    public void visitPassthroughBlock(final PassthroughBlock element) {
+        builder.append("\n");
+        builder.append(element.value());
+        builder.append("\n");
+    }
+
+    @Override
+    public void visitOpenBlock(final OpenBlock element) {
+        if (element.options().get("abstract") != null) {
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "abstract quoteblock" + (c == null ? "" : (' ' + c)));
+            builder.append(">\n");
+        } else if (element.options().get("partintro") != null) {
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "openblock " + (c == null ? "" : (' ' + c)));
+            builder.append(">\n");
+        }
+        writeBlockTitle(element.options());
+        builder.append("  <div class=\"content\">\n");
+        Visitor.super.visitOpenBlock(element);
+        builder.append("  </div>\n");
+        builder.append(" </div>\n");
+    }
+
+    @Override
     public ConditionalBlock.Context context() {
         return attributes::get;
     }
@@ -314,6 +448,101 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     @Override
     public String result() {
         return builder.toString();
+    }
+
+    @Override
+    public void visitMacro(final Macro element) {
+        switch (element.name()) {
+            case "kbd" -> visitKbd(element);
+            case "btn" -> visitBtn(element);
+            case "stem" -> visitStem(element);
+            case "pass" -> visitPassthroughInline(element);
+            case "icon" -> visitIcon(element);
+            case "image" -> visitImage(element);
+            case "audio" -> visitAudio(element);
+            case "video" -> visitVideo(element);
+            case "xref" -> visitXref(element);
+            // todo: menu, doublefootnote, footnote
+            default -> onMissingMacro(element); // for future extension point
+        }
+    }
+
+    // todo: enhance
+    protected void visitXref(final Macro element) {
+        var target = element.label();
+        final int anchor = target.lastIndexOf('#');
+        if (anchor > 0) {
+            final var page = target.substring(0, anchor);
+            if (page.endsWith(".adoc")) {
+                target = page.substring(0, page.length() - ".adoc".length()) + ".html" + target.substring(anchor);
+            }
+        } else if (target.endsWith(".adoc")) {
+            target = target.substring(0, target.length() - ".adoc".length()) + ".html";
+        }
+        final var label = element.options().get("");
+        builder.append(" <a href=\"").append(target).append("\">").append(label == null ? element.label() : label).append("</a>\n");
+    }
+
+    // todo: enhance
+    protected void visitImage(final Macro element) {
+        builder.append(" <img src=\"").append(element.label())
+                .append("\" alt=\"").append(element.options().getOrDefault("alt", element.label()))
+                .append("\">\n");
+    }
+
+    protected void visitAudio(final Macro element) {
+        builder.append(" <div");
+        writeCommonAttributes(element.options(), c -> "audioblock" + (c == null ? "" : (' ' + c)));
+        builder.append(">\n");
+        writeBlockTitle(element.options());
+        builder.append("  <audio src=\"").append(element.label()).append("\"")
+                .append(element.options().get("autoplay") != null ? " autoplay" : "").
+                append(element.options().get("nocontrols") != null ? " nocontrols" : "")
+                .append(element.options().get("loop") != null ? " loop" : "")
+                .append(">\n");
+        builder.append("  Your browser does not support the audio tag.\n");
+        builder.append("  </audio>\n");
+        builder.append(" </div>\n");
+    }
+
+    // todo: support youtube etc? not sure it makes much sense
+    protected void visitVideo(final Macro element) {
+        builder.append(" <div");
+        writeCommonAttributes(element.options(), c -> "videoblock" + (c == null ? "" : (' ' + c)));
+        builder.append(">\n");
+        writeBlockTitle(element.options());
+        builder.append("  <video src=\"").append(element.label()).append("\"")
+                .append(element.options().get("autoplay") != null ? " autoplay" : "").
+                append(element.options().get("nocontrols") != null ? " nocontrols" : "")
+                .append(element.options().get("loop") != null ? " loop" : "")
+                .append(">\n");
+        builder.append("  Your browser does not support the video tag.\n");
+        builder.append("  </video>\n");
+        builder.append(" </div>\n");
+    }
+
+    protected void visitPassthroughInline(final Macro element) {
+        builder.append(element.label());
+    }
+
+    protected void visitBtn(final Macro element) {
+        builder.append(" <b class=\"button\">").append(escape(element.label())).append("</b>\n");
+    }
+
+    protected void visitKbd(final Macro element) {
+        builder.append(" <kbd>").append(escape(element.label())).append("</kbd>\n");
+    }
+
+    // todo: enhance
+    protected void visitIcon(final Macro element) {
+        builder.append(" <i class=\"")
+                .append(element.label().startsWith("fa") && !element.label().contains(" ") ? "fa " : "")
+                .append(element.label())
+                .append("\"></i>\n");
+    }
+
+    protected void visitStem(final Macro element) {
+        throw new IllegalArgumentException("stem not yet supported");
     }
 
     protected void writeCommonAttributes(final Map<String, String> options, final Function<String, String> classProcessor) {
@@ -331,7 +560,42 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         }
     }
 
+    protected void writeBlockTitle(final Map<String, String> options) {
+        final var title = options.get("title");
+        if (title != null) {
+            builder.append("  <div class=\"title\">").append(escape(title)).append("</div>\n");
+        }
+    }
+
+    protected void onMissingMacro(final Macro element) {
+        Visitor.super.visitMacro(element);
+    }
+
     protected String escape(final String name) {
         return HtmlEscaping.INSTANCE.apply(name);
+    }
+
+    protected String attr(final String key, final String defaultKey, final String defaultValue, final Map<String, String> mainMap) {
+        return mainMap.getOrDefault(key, attributes.getOrDefault(defaultKey, defaultValue));
+    }
+
+    protected String attr(final String key, final Map<String, String> defaultMap) {
+        return attr(key, key, null, defaultMap);
+    }
+
+    private int extractNumbers(final String col) {
+        int i = 0;
+        while (col.length() > i && Character.isDigit(col.charAt(i))) {
+            i++;
+        }
+        i--;
+        try {
+            if (i <= 0) {
+                return 1;
+            }
+            return Integer.parseInt(col.substring(0, i));
+        } catch (final NumberFormatException nfe) {
+            return 1;
+        }
     }
 }

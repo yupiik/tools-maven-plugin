@@ -30,6 +30,7 @@ import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
+import io.yupiik.asciidoc.model.PageBreak;
 import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.PassthroughBlock;
 import io.yupiik.asciidoc.model.Quote;
@@ -84,11 +85,16 @@ public interface Visitor<R> {
             case CODE -> visitCode((Code) element);
             case TEXT -> visitText((Text) element);
             case LINE_BREAK -> visitLineBreak((LineBreak) element);
+            case PAGE_BREAK -> visitPageBreak((PageBreak) element);
             case PARAGRAPH -> visitParagraph((Paragraph) element);
             case SECTION -> visitSection((Section) element);
             case CONDITIONAL_BLOCK -> visitConditionalBlock((ConditionalBlock) element);
             case ATTRIBUTE -> visitAttribute((Attribute) element);
         }
+    }
+
+    default void visitPageBreak(final PageBreak element) {
+        // no-op
     }
 
     default void visitAttribute(final Attribute element) {
