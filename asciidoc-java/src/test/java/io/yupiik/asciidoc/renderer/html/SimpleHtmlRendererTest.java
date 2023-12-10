@@ -51,9 +51,9 @@ class SimpleHtmlRendererTest {
                         <body>
                          <div id="content">
                          <h1>Main title</h1>
-                          <div class="details">
-                           <span id="revnumber">Some text.</span>
-                          </div>
+                         <span>
+                        Some text.
+                         </span>
                          <div>
                           <h2>Second part</h2>
                          <span>
@@ -68,7 +68,7 @@ class SimpleHtmlRendererTest {
                          </div>
                         </body>
                         </html>
-                        """);
+                         """);
     }
 
     @Test

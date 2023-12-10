@@ -133,12 +133,12 @@ public class Parser {
         var revision = NO_REVISION;
 
         final var authorLine = reader.nextLine();
-        if (authorLine != null) {
+        if (authorLine != null && !authorLine.isBlank()) {
             if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches()) { // author line
                 author = parseAuthorLine(authorLine);
 
                 final var revisionLine = reader.nextLine();
-                if (revisionLine != null) {
+                if (revisionLine != null && !revisionLine.isBlank()) {
                     if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches()) { // author line
                         revision = parseRevisionLine(revisionLine);
                     } else {

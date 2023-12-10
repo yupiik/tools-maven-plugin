@@ -62,6 +62,14 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderAndContent() {
+        final var doc = new Parser().parse(List.of("= Title", "", "++++", "pass", "++++"), new Parser.ParserContext(null));
+        assertEquals("Title", doc.header().title());
+        assertEquals(Map.of(), doc.header().attributes());
+        assertEquals(List.of(new PassthroughBlock("pass", Map.of())), doc.body().children());
+    }
+
+    @Test
     void parseMultiLineAttributesHeader() {
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title", ":attr-1: v1", ":attr-2: v2\\", "  and it continues", "", "content")));
