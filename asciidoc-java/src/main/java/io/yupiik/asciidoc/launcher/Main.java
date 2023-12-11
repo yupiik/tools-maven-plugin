@@ -34,6 +34,11 @@ public final class Main {
     }
 
     public static void main(final String... args) throws IOException { // todo: complete impl, this is just an undocumented boostrap main for testing purposes
+        if (args.length== 0) {
+            System.err.println(error());
+            return;
+        }
+
         final var attributes = new HashMap<String, String>();
         Function<Map<String, String>, Visitor<String>> renderer = SimpleHtmlRenderer::new;
         ContentResolver resolver = null;
@@ -54,7 +59,7 @@ public final class Main {
         }
 
         if (input == null) {
-            throw new IllegalArgumentException("No --input argument, ensure to set --input <path>");
+            throw new IllegalArgumentException("No --input argument, ensure to set --input <path>\n" + error());
         }
         if (resolver == null) {
             resolver = ContentResolver.of(input.toAbsolutePath().getParent());
@@ -73,5 +78,9 @@ public final class Main {
         } else {
             System.out.println(html.result());
         }
+    }
+
+    private static String error() {
+        return "Usage:\n\nasciidoctor-java --input file.adoc [--base includeBasePath/] [--output output.html] [--attribute myattribute=myvalue]*";
     }
 }
