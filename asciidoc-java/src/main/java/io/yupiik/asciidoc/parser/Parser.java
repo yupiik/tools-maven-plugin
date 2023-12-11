@@ -579,7 +579,7 @@ public class Parser {
                                             doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes),
                                             macro.options()));
                                     case "ifeval" -> elements.add(new ConditionalBlock(
-                                            new ConditionalBlock.Ifeval(parseCondition(macro.label().strip())),
+                                            new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), currentAttributes)),
                                             doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes),
                                             macro.options()));
                                     default -> elements.add(macro);
@@ -672,7 +672,7 @@ public class Parser {
         return flattenTexts(elements);
     }
 
-    private Predicate<ConditionalBlock.Context> parseCondition(final String condition) {
+    private Predicate<ConditionalBlock.Context> parseCondition(final String condition, final Map<String, String> attributeAtParsingTime) {
         final int sep1 = condition.indexOf(' ');
         if (sep1 < 0) {
             throw new IllegalArgumentException("Unknown expression: '" + condition + "'");
@@ -685,25 +685,37 @@ public class Parser {
         final var leftOperand = stripQuotes(condition.substring(0, sep1).strip());
         final var operator = condition.substring(sep1 + 1, sep2).strip();
         final var rightOperand = stripQuotes(condition.substring(sep2).strip());
+        final var parsingAttributes = !attributeAtParsingTime.isEmpty() ?
+                new HashMap<>(attributeAtParsingTime) :
+                Map.<String, String>of();
+        final Function<ConditionalBlock.Context, Function<String, String>> attributeAccessor = ctx ->
+                // ensure levels and implicit attributes are well evaluated
+                key -> parsingAttributes.getOrDefault(key, ctx.attribute(key));
         return switch (operator) {
-            case "==" -> context -> eval(leftOperand, rightOperand, context, Objects::equals);
-            case "!=" -> context -> !eval(leftOperand, rightOperand, context, Objects::equals);
+            case "==" -> context -> eval(leftOperand, rightOperand, attributeAccessor.apply(context), Objects::equals);
+            case "!=" -> context -> !eval(leftOperand, rightOperand, attributeAccessor.apply(context), Objects::equals);
             case "<" -> context -> evalNumbers(leftOperand, rightOperand, context, (a, b) -> a < b);
-            case "<=" -> context ->
-                    Double.parseDouble(earlyAttributeReplacement(leftOperand, context::attribute)) <=
-                            Double.parseDouble(earlyAttributeReplacement(rightOperand, context::attribute));
-            case ">" -> context ->
-                    Double.parseDouble(earlyAttributeReplacement(leftOperand, context::attribute)) >
-                            Double.parseDouble(earlyAttributeReplacement(rightOperand, context::attribute));
-            case ">=" -> context ->
-                    Double.parseDouble(earlyAttributeReplacement(leftOperand, context::attribute)) >=
-                            Double.parseDouble(earlyAttributeReplacement(rightOperand, context::attribute));
+            case "<=" -> context -> {
+                final var attributes = attributeAccessor.apply(context);
+                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) <=
+                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
+            };
+            case ">" -> context -> {
+                final var attributes = attributeAccessor.apply(context);
+                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) >
+                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
+            };
+            case ">=" -> context -> {
+                final var attributes = attributeAccessor.apply(context);
+                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) >=
+                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
+            };
             default -> throw new IllegalArgumentException("Unknown operator '" + operator + "'");
         };
     }
 
-    private boolean eval(final String leftOperand, final String rightOperand, final ConditionalBlock.Context context, final BiPredicate<String, String> test) {
-        return test.test(earlyAttributeReplacement(leftOperand, context::attribute), earlyAttributeReplacement(rightOperand, context::attribute));
+    private boolean eval(final String leftOperand, final String rightOperand, final Function<String, String> context, final BiPredicate<String, String> test) {
+        return test.test(earlyAttributeReplacement(leftOperand, context), earlyAttributeReplacement(rightOperand, context));
     }
 
     private boolean evalNumbers(final String leftOperand, final String rightOperand, final ConditionalBlock.Context context, final BiPredicate<Double, Double> test) {
