@@ -37,10 +37,14 @@ import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.renderer.Visitor;
+import io.yupiik.asciidoc.renderer.uri.DataResolver;
 
+import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -48,6 +52,7 @@ import java.util.stream.Stream;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Important: as of today it is a highly incomplete implementation but it gives a starting point.
@@ -56,19 +61,27 @@ import static java.util.stream.Collectors.joining;
  */
 public class SimpleHtmlRenderer implements Visitor<String> {
     private final StringBuilder builder = new StringBuilder();
-    private final Map<String, String> attributes;
+    private final Configuration configuration;
+    private final boolean dataUri;
+    private final DataResolver resolver;
 
     public SimpleHtmlRenderer() {
-        this(Map.of());
+        this(new Configuration().setAttributes(Map.of()));
     }
 
-    public SimpleHtmlRenderer(final Map<String, String> attributes) {
-        this.attributes = attributes;
+    public SimpleHtmlRenderer(final Configuration configuration) {
+        this.configuration = configuration;
+
+        final var dataUriValue = configuration.getAttributes().getOrDefault("data-uri", "false");
+        this.dataUri = Boolean.parseBoolean(dataUriValue) || dataUriValue.isBlank();
+        this.resolver = dataUri ?
+                (configuration.getResolver() == null ? new DataResolver(configuration.getAssetsBase()) : configuration.getResolver()) :
+                null;
     }
 
     @Override
     public void visit(final Document document) {
-        final boolean contentOnly = Boolean.parseBoolean(attributes.getOrDefault("noheader", "false"));
+        final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
         if (!contentOnly) {
             builder.append("<!DOCTYPE html>\n");
             builder.append("<html");
@@ -190,7 +203,7 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         builder.append("  <h").append(element.level());
         writeCommonAttributes(element.options(), null);
         builder.append(">");
-        final var titleRenderer = new SimpleHtmlRenderer(attributes);
+        final var titleRenderer = new SimpleHtmlRenderer(configuration);
         titleRenderer.visitElement(element.title() instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                 new Text(t.style(), t.value(), Map.of("nowrap", "")) :
                 element);
@@ -442,11 +455,14 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public ConditionalBlock.Context context() {
-        return attributes::get;
+        return configuration.getAttributes()::get;
     }
 
     @Override
     public String result() {
+        if (resolver != null) {
+            resolver.close();
+        }
         return builder.toString();
     }
 
@@ -485,8 +501,19 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitImage(final Macro element) {
+        if (dataUri && !element.label().startsWith("data:")) {
+            visitImage(new Macro(
+                    element.name(), resolver.apply(element.label()).base64(),
+                    Stream.of(element.options(), Map.of("", element.label()))
+                            .filter(Objects::nonNull)
+                            .map(Map::entrySet)
+                            .flatMap(Collection::stream)
+                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)),
+                    element.inline()));
+            return;
+        }
         builder.append(" <img src=\"").append(element.label())
-                .append("\" alt=\"").append(element.options().getOrDefault("alt", element.label()))
+                .append("\" alt=\"").append(element.options().getOrDefault("", element.label()))
                 .append("\">\n");
     }
 
@@ -576,7 +603,7 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     }
 
     protected String attr(final String key, final String defaultKey, final String defaultValue, final Map<String, String> mainMap) {
-        return mainMap.getOrDefault(key, attributes.getOrDefault(defaultKey, defaultValue));
+        return mainMap.getOrDefault(key, configuration.getAttributes().getOrDefault(defaultKey, defaultValue));
     }
 
     protected String attr(final String key, final Map<String, String> defaultMap) {
@@ -596,6 +623,39 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             return Integer.parseInt(col.substring(0, i));
         } catch (final NumberFormatException nfe) {
             return 1;
+        }
+    }
+
+    public static class Configuration {
+        private DataResolver resolver;
+        private Path assetsBase;
+        private Map<String, String> attributes = Map.of();
+
+        public DataResolver getResolver() {
+            return resolver;
+        }
+
+        public Configuration setResolver(final DataResolver resolver) {
+            this.resolver = resolver;
+            return this;
+        }
+
+        public Path getAssetsBase() {
+            return assetsBase;
+        }
+
+        public Configuration setAssetsBase(final Path assetsBase) {
+            this.assetsBase = assetsBase;
+            return this;
+        }
+
+        public Map<String, String> getAttributes() {
+            return attributes;
+        }
+
+        public Configuration setAttributes(final Map<String, String> attributes) {
+            this.attributes = attributes;
+            return this;
         }
     }
 }

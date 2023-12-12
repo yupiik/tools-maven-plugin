@@ -18,15 +18,12 @@ package io.yupiik.asciidoc.launcher;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
-import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.html.SimpleHtmlRenderer;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
 
 public final class Main {
     private Main() {
@@ -34,14 +31,14 @@ public final class Main {
     }
 
     public static void main(final String... args) throws IOException { // todo: complete impl, this is just an undocumented boostrap main for testing purposes
-        if (args.length== 0) {
+        if (args.length == 0) {
             System.err.println(error());
             return;
         }
 
         final var attributes = new HashMap<String, String>();
-        Function<Map<String, String>, Visitor<String>> renderer = SimpleHtmlRenderer::new;
         ContentResolver resolver = null;
+        SimpleHtmlRenderer.Configuration configuration = new SimpleHtmlRenderer.Configuration();
         Path input = null;
         Path output = null;
 
@@ -54,7 +51,9 @@ public final class Main {
             } else if ("-o".equals(args[i]) || "--output".equals(args[i])) {
                 output = !"-".equals(args[i + 1]) ? Path.of(args[i + 1]) : null /* means stdout */;
             } else if ("-b".equals(args[i]) || "--base".equals(args[i])) {
-                resolver = ContentResolver.of(Path.of(args[i + 1]));
+                final var base = Path.of(args[i + 1]);
+                configuration.setAssetsBase(base);
+                resolver = ContentResolver.of(base);
             }
         }
 
@@ -62,7 +61,9 @@ public final class Main {
             throw new IllegalArgumentException("No --input argument, ensure to set --input <path>\n" + error());
         }
         if (resolver == null) {
-            resolver = ContentResolver.of(input.toAbsolutePath().getParent());
+            final var parent = input.toAbsolutePath().getParent().normalize();
+            resolver = ContentResolver.of(parent);
+            configuration.setAssetsBase(parent);
         }
 
         final var parser = new Parser();
@@ -71,7 +72,7 @@ public final class Main {
             document = parser.parse(reader, new Parser.ParserContext(resolver));
         }
 
-        final var html = renderer.apply(attributes);
+        final var html = new SimpleHtmlRenderer(configuration.setAttributes(attributes));
         html.visit(document);
         if (output != null) {
             Files.writeString(output, html.result());
