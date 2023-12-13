@@ -39,6 +39,7 @@ import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
 
+import java.net.URLEncoder;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Comparator;
@@ -49,6 +50,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
@@ -323,6 +325,15 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitCode(final Code element) {
+        final var carbonNowBaseUrl = element.options().get("carbonNowBaseUrl");
+        if (carbonNowBaseUrl != null) { // consider the code block as an image
+            visitImage(new Macro("image", (carbonNowBaseUrl.isBlank() || "auto".equals(carbonNowBaseUrl) ?
+                    // todo: this needs to be tuned
+                    "https://carbon.now.sh/embed?bg=rgba%28171%2C184%2C195%2C100%29&t=vscode&wt=none&l=text%2Fx-java&width=680&ds=true&dsyoff=20px&dsblur=68px&wc=true&wa=true&pv=48px&ph=32px&ln=true&fl=1&fm=Droid+Sans+Mono&fs=13px&lh=133%25&si=false&es=2x&wm=false&code=" :
+                    carbonNowBaseUrl) + URLEncoder.encode(element.value(), UTF_8), element.options(), false));
+            return;
+        }
+
         builder.append("<pre");
         final var lang = element.options().getOrDefault("lang", element.options().get("language"));
         if (lang != null) {
@@ -513,7 +524,7 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             return;
         }
         builder.append(" <img src=\"").append(element.label())
-                .append("\" alt=\"").append(element.options().getOrDefault("", element.label()))
+                .append("\" alt=\"").append(element.options().getOrDefault("", element.options().getOrDefault("alt", element.label())))
                 .append("\">\n");
     }
 
