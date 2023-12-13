@@ -363,7 +363,12 @@ class SimpleHtmlRendererTest {
         assertEquals("""
                  <div>
                   <h1>Test</h1>
-                 <img src="https://carbon.now.sh/embed?bg=rgba%28171%2C184%2C195%2C100%29&t=vscode&wt=none&l=text%2Fx-java&width=680&ds=true&dsyoff=20px&dsblur=68px&wc=true&wa=true&pv=48px&ph=32px&ln=true&fl=1&fm=Droid+Sans+Mono&fs=13px&lh=133%25&si=false&es=2x&wm=false&code=public+record+UserId%28String+name%29+%7B%7D%0A" alt="image">
+                                
+                  <iframe
+                    src="https://carbon.now.sh/embed?bg=rgba%28171%2C184%2C195%2C100%29&t=vscode&wt=none&l=text%2Fx-java&width=680&ds=true&dsyoff=20px&dsblur=68px&wc=true&wa=true&pv=48px&ph=32px&ln=true&fl=1&fm=Droid+Sans+Mono&fs=13px&lh=133%25&si=false&es=2x&wm=false&code=public+record+UserId%28String+name%29+%7B%7D%0A"
+                    style="width: 1024px; height: 473px; border:0; transform: scale(1); overflow:hidden;"
+                    sandbox="allow-scripts allow-same-origin">
+                  </iframe>
                  </div>
                 """, renderer.result());
     }

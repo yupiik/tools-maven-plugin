@@ -1085,7 +1085,7 @@ public class Parser {
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
             final var matcher = ATTRIBUTE_DEFINITION.matcher(line);
             if (matcher.matches()) {
-                var value = matcher.groupCount() == 3 ? matcher.group("value").strip() : "";
+                var value = matcher.groupCount() == 3 ? ofNullable(matcher.group("value")).orElse("").strip() : "";
                 while (value.endsWith("\\")) {
                     value = value.substring(0, value.length() - 1).strip() +
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");

@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -85,40 +86,51 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     public void visit(final Document document) {
         final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
         if (!contentOnly) {
+            final var attributes = document.header().attributes();
+
             builder.append("<!DOCTYPE html>\n");
             builder.append("<html");
-            if (attr("nolang", document.header().attributes()) == null) {
-                final var lang = attr("lang", document.header().attributes());
+            if (attr("nolang", attributes) == null) {
+                final var lang = attr("lang", attributes);
                 builder.append(" lang=\"").append(lang == null ? "en" : lang).append('"');
             }
             builder.append(">\n");
             builder.append("<head>\n");
 
-            final var encoding = attr("encoding", document.header().attributes());
+            final var encoding = attr("encoding", attributes);
             builder.append(" <meta charset=\"").append(encoding == null ? "UTF-8" : encoding).append("\">\n");
 
             builder.append(" <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n");
 
-            final var appName = attr("app-name", document.header().attributes());
+            final var appName = attr("app-name", attributes);
             if (appName != null) {
                 builder.append(" <meta name=\"application-name\" content=\"").append(appName).append("\">\n");
             }
-            final var description = attr("description", document.header().attributes());
+            final var description = attr("description", attributes);
             if (description != null) {
                 builder.append(" <meta name=\"description\" content=\"").append(description).append("\">\n");
             }
-            final var keywords = attr("keywords", document.header().attributes());
+            final var keywords = attr("keywords", attributes);
             if (keywords != null) {
                 builder.append(" <meta name=\"keywords\" content=\"").append(keywords).append("\">\n");
             }
-            final var author = attr("author", document.header().attributes());
+            final var author = attr("author", attributes);
             if (author != null) {
                 builder.append(" <meta name=\"author\" content=\"").append(author).append("\">\n");
             }
-            final var copyright = attr("copyright", document.header().attributes());
+            final var copyright = attr("copyright", attributes);
             if (copyright != null) {
                 builder.append(" <meta name=\"copyright\" content=\"").append(copyright).append("\">\n");
             }
+
+            if (attributes.containsKey("asciidoctor-css")) {
+                builder.append(" <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.9/css/asciidoctor.min.css\" integrity=\"sha512-lb4ZuGfCVoGO2zu/TMakNlBgRA6mPXZ0RamTYgluFxULAwOoNnBIZaNjsdfhnlKlIbENaQbEAYEWxtzjkB8wsQ==\" crossorigin=\"anonymous\" referrerpolicy=\"no-referrer\" />\n");
+            }
+            Stream.of(attributes.getOrDefault("custom-css", "").split(","))
+                    .map(String::strip)
+                    .filter(Predicate.not(String::isBlank))
+                    .map(i -> " " + i + '\n')
+                    .forEach(builder::append);
 
             // todo: favicon, highlighter, toc support etc...
             builder.append("</head>\n");
@@ -132,6 +144,13 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             builder.append(" </div>\n");
 
             builder.append("</body>\n");
+
+            Stream.of(document.header().attributes().getOrDefault("custom-js", "").split(","))
+                    .map(String::strip)
+                    .filter(Predicate.not(String::isBlank))
+                    .map(i -> " " + i + '\n')
+                    .forEach(builder::append);
+
             builder.append("</html>\n");
         }
     }
@@ -327,10 +346,15 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     public void visitCode(final Code element) {
         final var carbonNowBaseUrl = element.options().get("carbonNowBaseUrl");
         if (carbonNowBaseUrl != null) { // consider the code block as an image
-            visitImage(new Macro("image", (carbonNowBaseUrl.isBlank() || "auto".equals(carbonNowBaseUrl) ?
-                    // todo: this needs to be tuned
+            final var frame = "  <iframe\n" +
+                    "    src=\"" + (carbonNowBaseUrl.isBlank() || "auto".equals(carbonNowBaseUrl) ?
+                    // todo: this needs to be tuned/tunable
                     "https://carbon.now.sh/embed?bg=rgba%28171%2C184%2C195%2C100%29&t=vscode&wt=none&l=text%2Fx-java&width=680&ds=true&dsyoff=20px&dsblur=68px&wc=true&wa=true&pv=48px&ph=32px&ln=true&fl=1&fm=Droid+Sans+Mono&fs=13px&lh=133%25&si=false&es=2x&wm=false&code=" :
-                    carbonNowBaseUrl) + URLEncoder.encode(element.value(), UTF_8), element.options(), false));
+                    carbonNowBaseUrl) + URLEncoder.encode(element.value(), UTF_8) + "\"\n" +
+                    "    style=\"width: 1024px; height: 473px; border:0; transform: scale(1); overflow:hidden;\"\n" +
+                    "    sandbox=\"allow-scripts allow-same-origin\">\n" +
+                    "  </iframe>";
+            visitPassthroughBlock(new PassthroughBlock(frame, element.options()));
             return;
         }
 
