@@ -115,8 +115,17 @@ public class StaticHttpServer implements Runnable {
         }
         try {
             java.awt.Desktop.getDesktop().browse(uri);
-        } catch (final IOException e) {
-            logError.accept("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")", e);
+        } catch (final IOException | RuntimeException e) { // seems broken on recent linux version and java is a bit late to fix it
+            try {
+                final var xdgOpen = Path.of("/usr/bin/xdg-open");
+                if (Files.exists(xdgOpen)) {
+                    new ProcessBuilder(xdgOpen.toString(), uri.toString()).start().waitFor();
+                } // else todo
+            } catch (final InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } catch (final RuntimeException | IOException re) {
+                logError.accept("Desktop is not supported on this JVM, go to " + uri + " in your browser (" + e.getMessage() + ")", e);
+            }
         }
     }
 }
