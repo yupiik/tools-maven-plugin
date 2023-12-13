@@ -27,6 +27,7 @@ import io.yupiik.tools.minisite.IndexService;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -459,7 +460,8 @@ public class MiniSiteMojo extends BaseMojo {
                 .projectName(ofNullable(attributes).map(a -> a.get("projectName")).map(Object::toString).orElseGet(() -> project.getName()))
                 .projectArtifactId(ofNullable(attributes).map(a -> a.get("projectArtifactId")).map(Object::toString).orElseGet(() -> project.getArtifactId()))
                 .asciidoctorConfiguration(this)
-                .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions))
+                // todo: enable to use yupiik impl
+                .asciidoc(new AsciidoctorAsciidoc((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions)))
                 .reverseBlogOrder(reverseBlogOrder)
                 .addIndexRegistrationPerCategory(addIndexRegistrationPerCategory)
                 .blogCategoriesCustomizations(blogCategoriesCustomizations)

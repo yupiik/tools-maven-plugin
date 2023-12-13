@@ -18,6 +18,7 @@ package io.yupiik.tools.cli.command;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import lombok.extern.java.Log;
 import org.asciidoctor.Asciidoctor;
 import org.junit.jupiter.api.AfterAll;
@@ -154,7 +155,7 @@ class VersionInjectorCommandTest {
                         .projectVersion("1.0.0")
                         .projectName("test project")
                         .projectArtifactId("test-artifact")
-                        .asciidoctorPool((conf, fn) -> fn.apply(ASCIIDOCTOR))
+                        .asciidoc(new AsciidoctorAsciidoc((conf, fn) -> fn.apply(ASCIIDOCTOR)))
                         .asciidoctorConfiguration(new AsciidoctorConfiguration() {
                             @Override
                             public Path gems() {

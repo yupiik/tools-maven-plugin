@@ -18,6 +18,7 @@ package io.yupiik.tools.minisite.test;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import org.asciidoctor.Asciidoctor;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -126,7 +127,7 @@ public @interface MiniSiteConfigurationBuilderProvider {
                         .projectVersion("1.0.0")
                         .projectName("test project")
                         .projectArtifactId("test-artifact")
-                        .asciidoctorPool((conf, fn) -> fn.apply(ASCIIDOCTOR))
+                        .asciidoc(new AsciidoctorAsciidoc((c, a) -> a.apply(ASCIIDOCTOR)))
                         .asciidoctorConfiguration(new AsciidoctorConfiguration() {
                             @Override
                             public Path gems() {

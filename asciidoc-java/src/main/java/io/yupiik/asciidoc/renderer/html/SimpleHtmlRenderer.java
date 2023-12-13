@@ -78,8 +78,17 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         final var dataUriValue = configuration.getAttributes().getOrDefault("data-uri", "false");
         this.dataUri = Boolean.parseBoolean(dataUriValue) || dataUriValue.isBlank();
         this.resolver = dataUri ?
-                (configuration.getResolver() == null ? new DataResolver(configuration.getAssetsBase()) : configuration.getResolver()) :
+                (configuration.getResolver() == null ? new DataResolver(assetsDir(configuration, "imagesdir")) : configuration.getResolver()) :
                 null;
+    }
+
+    private Path assetsDir(final Configuration configuration, final String attribute) {
+        final var assetsBase = configuration.getAssetsBase();
+        final var attrValue = configuration.getAttributes().get(attribute);
+        if (attrValue != null && !attrValue.isBlank()) {
+            return assetsBase.resolve(attrValue);
+        }
+        return assetsBase;
     }
 
     @Override

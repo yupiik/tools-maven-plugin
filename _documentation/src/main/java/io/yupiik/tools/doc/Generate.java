@@ -21,6 +21,7 @@ import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import lombok.NoArgsConstructor;
 import lombok.extern.java.Log;
 import org.asciidoctor.Asciidoctor;
@@ -91,7 +92,7 @@ public final class Generate {
             configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
                 // avoid it to be closed too early by wrapping it in a not URLCLassLoader
             });
-            configuration.setAsciidoctorPool((conf, fn) -> fn.apply(asciidoctor));
+            configuration.setAsciidoc(new AsciidoctorAsciidoc((conf, fn) -> fn.apply(asciidoctor)));
             configuration.setAsciidoctorConfiguration(new AsciidoctorConfiguration() {
                 @Override
                 public Path gems() {

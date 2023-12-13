@@ -16,11 +16,11 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import io.yupiik.tools.minisite.language.Asciidoc;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,7 +85,7 @@ public class MiniSiteConfiguration {
     private String projectArtifactId;
     private List<String> requires;
     private AsciidoctorConfiguration asciidoctorConfiguration;
-    private BiFunction<AsciidoctorConfiguration, Function<Asciidoctor, Object>, Object> asciidoctorPool;
+    private Asciidoc asciidoc;
     private boolean reverseBlogOrder;
     private boolean addIndexRegistrationPerCategory;
     private boolean skipIndexTitleDocumentationText;

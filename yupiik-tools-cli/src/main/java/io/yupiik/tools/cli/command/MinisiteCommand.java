@@ -20,6 +20,7 @@ import io.yupiik.tools.cli.service.AsciidoctorProvider;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import org.tomitribe.crest.api.Command;
 import org.tomitribe.crest.api.Default;
 import org.tomitribe.crest.api.Err;
@@ -86,11 +87,11 @@ public final class MinisiteCommand {
                 .projectVersion(version)
                 .projectName(name == null ? artifactId : name)
                 .projectArtifactId(artifactId == null ? name : artifactId)
-                .asciidoctorPool((conf, fn) -> {
+                .asciidoc(new AsciidoctorAsciidoc((conf, fn) -> { // todo: enable to use yupiik impl
                     final var asciidoctor = asciidoctorProvider.get(conf, stdout, stderr, workdir, false);
                     fn.apply(asciidoctor);
                     return asciidoctor;
-                })
+                }))
                 .actionClassLoader(() -> Thread.currentThread().getContextClassLoader())
                 .source(source)
                 .target(target)

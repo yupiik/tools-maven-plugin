@@ -33,7 +33,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -59,7 +58,6 @@ public class Watch implements Runnable {
     }
 
     private void watch(final Options options, final Asciidoctor adoc) {
-        final AtomicBoolean toggle = new AtomicBoolean(true);
         final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(final Runnable worker) {
@@ -91,7 +89,6 @@ public class Watch implements Runnable {
             }
         }, watchDelay, watchDelay, TimeUnit.MILLISECONDS);
         launchCli(options, adoc);
-        toggle.set(false);
         try {
             service.shutdownNow();
             service.awaitTermination(2, SECONDS);
