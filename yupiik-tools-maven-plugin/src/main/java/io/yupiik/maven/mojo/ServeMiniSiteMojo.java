@@ -18,10 +18,9 @@ package io.yupiik.maven.mojo;
 import io.yupiik.tools.common.http.StaticHttpServer;
 import io.yupiik.tools.common.watch.Watch;
 import io.yupiik.tools.minisite.MiniSite;
-import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
+import io.yupiik.tools.minisite.language.Asciidoc;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.asciidoctor.Options;
 
 import java.io.IOException;
 import java.util.List;
@@ -50,43 +49,42 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
     private int watchDelay;
 
     @Override
-    public void doExecute() { // todo: rework to use minisite asciidoc abstraction and not asciidoctor - less useful since native rendering is fast
+    public void doExecute() {
         // adjust config
         siteBase = "http://localhost:" + port;
         fixConfig();
         try (final var loader = createProjectLoader()) {
             final var miniSite = new MiniSite(createMiniSiteConfiguration(loader));
             miniSite.executePreActions();
-            final Options options = (Options) miniSite.createOptions();
-            final var asciidoctorAsciidoc = new AsciidoctorAsciidoc(asciidoctor::withAsciidoc);
-            asciidoctor.withAsciidoc(this, adoc -> {
-                final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
-                final Watch watch = new Watch(
-                        getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
-                        List.of(source.toPath()), options, adoc, watchDelay,
-                        (opts, a) -> {
-                            miniSite.executeInMinisiteClassLoader(() -> asciidoctorAsciidoc.withInstance(this, instance -> {
-                                miniSite.doRender(instance, opts);
-                                return null;
-                            }));
-                            getLog().info("Minisite re-rendered");
-                        },
-                        () -> {
-                            try {
-                                server.get().open(openBrowser);
-                            } catch (final RuntimeException re) {
-                                getLog().error("Can't open browser, ignoring", re);
-                            }
-                        });
-                final StaticHttpServer staticHttpServer = new StaticHttpServer(
-                        getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
-                server.set(staticHttpServer);
-                server.get().run();
-                return null;
-            }, asciidoctorExtensions);
+            doWatch(createAsciidoc(preferYupiikAsciidoc), miniSite.createOptions(), miniSite);
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private void doWatch(final Asciidoc adoc, final Object options, final MiniSite miniSite) {
+        final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
+        final Watch<Object, Asciidoc> watch = new Watch<>(
+                getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
+                List.of(source.toPath()), options, adoc, watchDelay,
+                (opts, a) -> {
+                    miniSite.executeInMinisiteClassLoader(() -> adoc.withInstance(this, instance -> {
+                        miniSite.doRender(instance, opts);
+                        return null;
+                    }));
+                    getLog().info("Minisite re-rendered");
+                },
+                () -> {
+                    try {
+                        server.get().open(openBrowser);
+                    } catch (final RuntimeException re) {
+                        getLog().error("Can't open browser, ignoring", re);
+                    }
+                });
+        final StaticHttpServer staticHttpServer = new StaticHttpServer(
+                getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
+        server.set(staticHttpServer);
+        server.get().run();
     }
 
     protected String getDefaultPublicationDate() {

@@ -78,7 +78,9 @@ public class AsciidoctorAsciidoc implements Asciidoc {
 
         @Override
         public String convert(final String content, final Object options) {
-            return instance.convert(content, Options.builder().safe(UNSAFE).backend("html5").inPlace(false).headerFooter(false).build());
+            return instance.convert(content, options == null ?
+                    Options.builder().safe(UNSAFE).backend("html5").inPlace(false).headerFooter(false).build() :
+                    (Options) options);
         }
     }
 }

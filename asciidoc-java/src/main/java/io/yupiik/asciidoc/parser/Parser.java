@@ -199,8 +199,8 @@ public class Parser {
             } else if (Objects.equals("--", stripped)) {
                 elements.add(parseOpenBlock(reader, options, resolver, attributes));
                 options = null;
-            } else if (Objects.equals("|===", stripped)) {
-                elements.add(parseTable(reader, options, resolver, attributes));
+            } else if (stripped.startsWith("|===")) {
+                elements.add(parseTable(reader, options, resolver, attributes, stripped));
                 options = null;
             } else if (Objects.equals("++++", stripped)) {
                 elements.add(parsePassthrough(reader, options));
@@ -286,7 +286,8 @@ public class Parser {
     private Table parseTable(final Reader reader,
                              final Map<String, String> options,
                              final ContentResolver resolver,
-                             final Map<String, String> currentAttributes) {
+                             final Map<String, String> currentAttributes,
+                             final String token) {
         final var cellParser = ofNullable(options)
                 .map(o -> o.get("cols"))
                 .map(String::strip)
@@ -328,7 +329,7 @@ public class Parser {
 
         final var rows = new ArrayList<List<Element>>(4);
         String next;
-        while (!Objects.equals("|===", next = reader.skipCommentsAndEmptyLines()) && next != null) {
+        while (!Objects.equals(token, next = reader.skipCommentsAndEmptyLines()) && next != null) {
             next = next.strip();
             final var cells = new ArrayList<Element>();
             if (next.indexOf("|", 2) > 0) { // single line row

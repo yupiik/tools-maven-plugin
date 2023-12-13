@@ -21,10 +21,9 @@ import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
-import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
+import io.yupiik.tools.minisite.language.YupiikAsciidoc;
 import lombok.NoArgsConstructor;
 import lombok.extern.java.Log;
-import org.asciidoctor.Asciidoctor;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,90 +47,88 @@ public final class Generate {
         final var username = args.length >= 7 ? args[6] : System.getProperty("user.name", "user");
         final var password = args.length >= 8 && Files.exists(Path.of(args[7])) ? Files.readString(Path.of(args[7])).strip() : null;
 
-        try (final var asciidoctor = Asciidoctor.Factory.create()) {
-            final var mojoAction = new PreAction();
-            mojoAction.setType("maven-plugin");
-            mojoAction.setConfiguration(Map.of(
-                    "toBase", doc.resolve("content/mojo").toString(),
-                    "pluginXml", doc.resolve("../../../../yupiik-tools-maven-plugin/target/classes/META-INF/maven/plugin.xml").toString()));
+        final var mojoAction = new PreAction();
+        mojoAction.setType("maven-plugin");
+        mojoAction.setConfiguration(Map.of(
+                "toBase", doc.resolve("content/mojo").toString(),
+                "pluginXml", doc.resolve("../../../../yupiik-tools-maven-plugin/target/classes/META-INF/maven/plugin.xml").toString()));
 
-            final var configuration = new MiniSiteConfiguration();
-            configuration.setIndexText("Yupiik Tools");
-            configuration.setIndexSubTitle("adoc:" +
-                    "A set of build utilities.\n" +
-                    "\n" +
-                    "IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, " +
-                    "it can impact your setup and need customization for minisite generation for example.\n" +
-                    "Last available 1.0.x release is 1.0.26.");
-            configuration.setTitle("Yupiik Tools Plugin");
-            configuration.setLogoSideText("Docs");
-            configuration.setLogo("//www.yupiik.io/images/favicon.png");
-            configuration.setLinkedInCompany("yupiik");
-            configuration.setUseDefaultAssets(true);
-            configuration.setInjectYupiikTemplateExtensionPoints(true);
-            configuration.setSearchIndexName("search.json");
-            configuration.setGenerateBlog(true);
-            configuration.setBlogPageSize(10);
-            configuration.setBlogPublicationDate("today");
-            configuration.setReverseBlogOrder(true);
-            configuration.setAddIndexRegistrationPerCategory(true);
-            configuration.setInjectBlogMeta(true);
-            configuration.setSource(doc);
-            configuration.setTarget(out);
-            configuration.setSiteBase("/tools-maven-plugin");
-            configuration.setPreActions(List.of(mojoAction));
-            configuration.setGenerateSiteMap(true);
-            configuration.setGenerateIndex(true);
-            configuration.setProjectName(projectName);
-            configuration.setProjectArtifactId(projectArtifact);
-            configuration.setProjectVersion(projectVersion);
-            configuration.setTemplateExtensionPoints(Map.of("point", "{{point}}"));
-            configuration.setTemplatePrefixes(List.of("header.html", "menu.html"));
-            configuration.setTemplateSuffixes(List.of("footer-top.html", "footer-end.html"));
-            configuration.setTemplateAddLeftMenu(true);
-            configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
-                // avoid it to be closed too early by wrapping it in a not URLCLassLoader
-            });
-            configuration.setAsciidoc(new AsciidoctorAsciidoc((conf, fn) -> fn.apply(asciidoctor)));
-            configuration.setAsciidoctorConfiguration(new AsciidoctorConfiguration() {
-                @Override
-                public Path gems() {
-                    return null;
-                }
+        final var configuration = new MiniSiteConfiguration();
+        configuration.setIndexText("Yupiik Tools");
+        configuration.setIndexSubTitle("adoc:" +
+                "A set of build utilities.\n" +
+                "\n" +
+                "IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, " +
+                "it can impact your setup and need customization for minisite generation for example.\n" +
+                "Last available 1.0.x release is 1.0.26.");
+        configuration.setTitle("Yupiik Tools Plugin");
+        configuration.setLogoSideText("Docs");
+        configuration.setLogo("//www.yupiik.io/images/favicon.png");
+        configuration.setLinkedInCompany("yupiik");
+        configuration.setUseDefaultAssets(true);
+        configuration.setInjectYupiikTemplateExtensionPoints(true);
+        configuration.setSearchIndexName("search.json");
+        configuration.setGenerateBlog(true);
+        configuration.setBlogPageSize(10);
+        configuration.setBlogPublicationDate("today");
+        configuration.setReverseBlogOrder(true);
+        configuration.setAddIndexRegistrationPerCategory(true);
+        configuration.setInjectBlogMeta(true);
+        configuration.setSource(doc);
+        configuration.setTarget(out);
+        configuration.setSiteBase("/tools-maven-plugin");
+        configuration.setPreActions(List.of(mojoAction));
+        configuration.setGenerateSiteMap(true);
+        configuration.setGenerateIndex(true);
+        configuration.setProjectName(projectName);
+        configuration.setProjectArtifactId(projectArtifact);
+        configuration.setProjectVersion(projectVersion);
+        configuration.setTemplateExtensionPoints(Map.of("point", "{{point}}"));
+        configuration.setTemplatePrefixes(List.of("header.html", "menu.html"));
+        configuration.setTemplateSuffixes(List.of("footer-top.html", "footer-end.html"));
+        configuration.setTemplateAddLeftMenu(true);
+        configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
+            // avoid it to be closed too early by wrapping it in a not URLCLassLoader
+        });
+        configuration.setAsciidoc(new YupiikAsciidoc());
+        configuration.setAsciidoctorConfiguration(new AsciidoctorConfiguration() {
+            @Override
+            public Path gems() {
+                return null;
+            }
 
-                @Override
-                public String customGems() {
-                    return null;
-                }
+            @Override
+            public String customGems() {
+                return null;
+            }
 
-                @Override
-                public List<String> requires() {
-                    return null;
-                }
+            @Override
+            public List<String> requires() {
+                return List.of();
+            }
 
-                @Override
-                public Consumer<String> info() {
-                    return log::info;
-                }
+            @Override
+            public Consumer<String> info() {
+                return log::info;
+            }
 
-                @Override
-                public Consumer<String> debug() {
-                    return log::finest;
-                }
+            @Override
+            public Consumer<String> debug() {
+                return log::finest;
+            }
 
-                @Override
-                public Consumer<String> warn() {
-                    return log::warning;
-                }
+            @Override
+            public Consumer<String> warn() {
+                return log::warning;
+            }
 
-                @Override
-                public Consumer<String> error() {
-                    return log::severe;
-                }
-            });
+            @Override
+            public Consumer<String> error() {
+                return log::severe;
+            }
+        });
 
-            new MiniSite(configuration).run();
-        }
+        new MiniSite(configuration).run();
 
         if (deploy) {
             final var git = new Git();

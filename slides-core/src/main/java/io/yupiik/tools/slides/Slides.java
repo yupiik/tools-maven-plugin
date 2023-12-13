@@ -62,7 +62,7 @@ public class Slides implements Runnable {
                 break;
             case SERVE:
                 final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
-                final Watch watch = new Watch(
+                final Watch<Options, Asciidoctor> watch = new Watch<>(
                         configuration.getLogInfo(), configuration.getLogDebug(), configuration.getLogDebugWithException(), configuration.getLogError(),
                         getWatchedPath(), options, adoc, configuration.getWatchDelay(),
                         (o, a) -> render(o, a, slider), () -> onFirstRender(server.get()));
@@ -75,7 +75,7 @@ public class Slides implements Runnable {
                 server.get().run();
                 break;
             case WATCH:
-                new Watch(
+                new Watch<>(
                         configuration.getLogInfo(), configuration.getLogDebug(), configuration.getLogDebugWithException(), configuration.getLogError(),
                         getWatchedPath(), options, adoc, configuration.getWatchDelay(),
                         (o, a) -> render(o, a, slider), () -> onFirstRender(null))

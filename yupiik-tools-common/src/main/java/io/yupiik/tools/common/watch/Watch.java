@@ -16,8 +16,6 @@
 package io.yupiik.tools.common.watch;
 
 import lombok.RequiredArgsConstructor;
-import org.asciidoctor.Asciidoctor;
-import org.asciidoctor.Options;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -40,16 +38,16 @@ import java.util.function.Consumer;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @RequiredArgsConstructor
-public class Watch implements Runnable {
+public class Watch<O, A> implements Runnable {
     private final Consumer<String> logInfo;
     private final Consumer<String> logDebug;
     private final BiConsumer<String, Throwable> logDebugWithException;
     private final Consumer<String> logError;
     private final List<Path> sources;
-    private final Options options;
-    private final Asciidoctor asciidoctor;
+    private final O options;
+    private final A asciidoctor;
     private final long watchDelay;
-    private final BiConsumer<Options, Asciidoctor> renderer;
+    private final BiConsumer<O, A> renderer;
     private final Runnable onFirstRender;
 
     @Override
@@ -57,7 +55,7 @@ public class Watch implements Runnable {
         watch(options, asciidoctor);
     }
 
-    private void watch(final Options options, final Asciidoctor adoc) {
+    private void watch(final O options, final A adoc) {
         final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(final Runnable worker) {
@@ -97,7 +95,7 @@ public class Watch implements Runnable {
         }
     }
 
-    private void launchCli(final Options options, final Asciidoctor adoc) {
+    private void launchCli(final O options, final A adoc) {
         renderer.accept(options, adoc);
         onFirstRender.run();
 

@@ -68,7 +68,7 @@ public class YupiikAsciidoc implements Asciidoc {
 
         @Override
         public Header header(final String content, final Object options) {
-            final io.yupiik.asciidoc.model.Header header = parser.parseHeader(new Reader(List.of(content.split(","))));
+            final io.yupiik.asciidoc.model.Header header = parser.parseHeader(new Reader(List.of(content.split("\n")/*no Pattern - see fast-path branch in the impl*/)));
             return new Header(header.title(), header.attributes());
         }
 

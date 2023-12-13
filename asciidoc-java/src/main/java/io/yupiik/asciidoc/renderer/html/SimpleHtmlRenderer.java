@@ -41,6 +41,7 @@ import io.yupiik.asciidoc.renderer.uri.DataResolver;
 
 import java.net.URLEncoder;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -51,6 +52,8 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
+import static io.yupiik.asciidoc.model.Element.ElementType.SECTION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
@@ -67,6 +70,10 @@ public class SimpleHtmlRenderer implements Visitor<String> {
     private final Configuration configuration;
     private final boolean dataUri;
     private final DataResolver resolver;
+
+    // state tracking
+    private boolean sawPreamble = false;
+    private final List<Element> lastElement = new ArrayList<>(4);
 
     public SimpleHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -89,6 +96,16 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             return assetsBase.resolve(attrValue);
         }
         return assetsBase;
+    }
+
+    @Override
+    public void visitElement(final Element element) {
+        lastElement.add(element);
+        try {
+            Visitor.super.visitElement(element);
+        } finally {
+            lastElement.remove(lastElement.size() - 1);
+        }
     }
 
     @Override
@@ -166,33 +183,49 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitAdmonition(final Admonition element) {
-        // todo: here we need to assume we have icons to render it more elegantly
+        // todo: here we need to impl icons to render it more elegantly
         builder.append(" <div class=\"admonitionblock ").append(element.level().name().toLowerCase(ROOT)).append("\">\n");
         builder.append("""
                           <table>
-                           <tr>
-                            <td class="icon">
+                            <tbody>
+                             <tr>
+                              <td class="icon">
                         """)
-                .append(element.level().name()).append(":").append("\n")
-                .append("     </td>\n")
-                .append("    <td class=\"content\">\n");
+                .append("     <div class=\"title\">").append(element.level().name()).append("</div>\n")
+                .append("       </td>\n")
+                .append("      <td class=\"content\">\n");
         visitElement(element.content());
         builder.append("    </td>\n")
                 .append("   </tr>\n")
+                .append("      </tbody>\n")
                 .append("  </table>\n")
                 .append(" </div>\n");
     }
 
     @Override
     public void visitParagraph(final Paragraph element) {
-        builder.append(" <div class=\"paragraph\">");
-        Visitor.super.visitParagraph(element);
-        builder.append(" </div>");
+        final boolean preambleWasHandled = false;
+        handlePreamble(true, element, () -> {
+            builder.append(" <div class=\"paragraph\">\n");
+
+            final boolean addP = !preambleWasHandled && sawPreamble;
+            if (addP) {
+                builder.append(" <p>\n");
+            }
+            Visitor.super.visitParagraph(element);
+            if (addP) {
+                builder.append(" </p>\n");
+            }
+
+            builder.append(" </div>\n");
+        });
     }
 
     @Override
     public void visitHeader(final Header header) {
-        if (header.attributes().get("notitle") == null && !header.title().isBlank()) {
+        if (header.attributes().get("notitle") == null &&
+                !Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false")) &&
+                !header.title().isBlank()) {
             builder.append(" <h1>").append(escape(header.title())).append("</h1>\n");
         }
 
@@ -229,7 +262,9 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitSection(final Section element) {
-        builder.append(" <div>\n");
+        builder.append(" <div");
+        writeCommonAttributes(element.options(), c -> "sect" + (element.level() - 1) + (c == null ? "" : (' ' + c)));
+        builder.append(">\n");
         builder.append("  <h").append(element.level());
         writeCommonAttributes(element.options(), null);
         builder.append(">");
@@ -239,7 +274,9 @@ public class SimpleHtmlRenderer implements Visitor<String> {
                 element);
         builder.append(titleRenderer.result());
         builder.append("</h").append(element.level()).append(">\n");
+        builder.append(" <div class=\"sectionbody\">\n");
         Visitor.super.visitSection(element);
+        builder.append(" </div>\n");
         builder.append(" </div>\n");
     }
 
@@ -327,32 +364,50 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitText(final Text element) {
-        final var wrap = element.options().get("nowrap") == null && element.style().size() != 1;
-        if (wrap) {
-            builder.append(" <span");
-            writeCommonAttributes(element.options(), null);
-            builder.append(">\n");
-        }
-        final var styleTags = element.style().stream()
-                .map(s -> switch (s) {
-                    case BOLD -> "b";
-                    case ITALIC -> "i";
-                    case EMPHASIS -> "em";
-                    case SUB -> "sub";
-                    case SUP -> "sup";
-                    case MARK -> "mark";
-                })
-                .toList();
-        builder.append(styleTags.stream().map(s -> '<' + s + '>').collect(joining()));
-        builder.append(escape(element.value().strip()));
-        builder.append(styleTags.stream().sorted(Comparator.reverseOrder()).map(s -> "</" + s + '>').collect(joining()));
-        if (wrap) {
-            builder.append("\n </span>\n");
-        }
+        final var useWrappers = element.options().get("nowrap") == null;
+
+        handlePreamble(useWrappers, element, () -> {
+            final boolean isParagraph = useWrappers && (lastElement.size() <= 1 || lastElement.get(lastElement.size() - 2).type() == SECTION);
+            if (isParagraph) {
+                builder.append(" <div class=\"paragraph\">\n");
+            }
+
+            final boolean wrap = useWrappers && element.style().size() != 1;
+            if (wrap) {
+                builder.append(" <").append(isParagraph ? "p" : "span");
+                writeCommonAttributes(element.options(), null);
+                builder.append(">\n");
+            }
+            final var styleTags = element.style().stream()
+                    .map(s -> switch (s) {
+                        case BOLD -> "b";
+                        case ITALIC -> "i";
+                        case EMPHASIS -> "em";
+                        case SUB -> "sub";
+                        case SUP -> "sup";
+                        case MARK -> "mark";
+                    })
+                    .toList();
+            builder.append(styleTags.stream().map(s -> '<' + s + '>').collect(joining()));
+            builder.append(escape(element.value().strip()));
+            builder.append(styleTags.stream().sorted(Comparator.reverseOrder()).map(s -> "</" + s + '>').collect(joining()));
+            if (wrap) {
+                builder.append("\n </").append(isParagraph ? "p" : "span").append(">\n");
+            }
+
+            if (isParagraph) {
+                builder.append(" </div>\n");
+            }
+        });
     }
 
     @Override
     public void visitCode(final Code element) {
+        if (element.inline()) {
+            builder.append(" <code>").append(escape(element.value().strip())).append("</code> ");
+            return;
+        }
+
         final var carbonNowBaseUrl = element.options().get("carbonNowBaseUrl");
         if (carbonNowBaseUrl != null) { // consider the code block as an image
             final var frame = "  <iframe\n" +
@@ -367,15 +422,18 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        builder.append("<pre");
         final var lang = element.options().getOrDefault("lang", element.options().get("language"));
+
+        builder.append(" <div class=\"listingblock\">\n <div class=\"content\">\n");
+        builder.append(" <pre class=\"highlightjs highlight\">");
+        builder.append("<code");
+        writeCommonAttributes(element.options(), c -> (lang != null ? "language-" + lang + (c != null ? ' ' + c : "") : c) + " hljs");
         if (lang != null) {
             builder.append(" data-lang=\"").append(lang).append("\"");
         }
-        writeCommonAttributes(element.options(), c -> lang != null ? "language-" + lang + (c != null ? ' ' + c : "") : c);
-        builder.append(">\n  <code>\n");
-        builder.append(element.value()); // todo: handle callouts - but by default it should render not that bad
-        builder.append("  </code>\n </pre>\n");
+        builder.append(">");
+        builder.append(escape(element.value().strip())); // todo: handle callouts - but by default it should render not that bad
+        builder.append("</code></pre>\n </div>\n </div>\n");
     }
 
     @Override
@@ -411,9 +469,11 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
             builder.append("  <colgroup>\n");
             if (autowidth) {
-                firstRow.forEach(i -> builder.append("   <col>\n"));
+                IntStream.range(0, firstRow.size()).forEach(i -> builder.append("   <col>\n"));
             } else {
-                IntStream.range(0, cols.size()).forEach(i -> builder.append("   <col width=\"").append(cols.get(i)).append("\">\n"));
+                final int totalWeight = cols.stream().mapToInt(Integer::intValue).sum();
+                final int pc = (int) (100. / Math.max(1, totalWeight));
+                IntStream.range(0, cols.size()).forEach(i -> builder.append("   <col width=\"").append(cols.get(i) * pc).append("%\">\n"));
             }
             builder.append("  </colgroup>\n");
 
@@ -481,6 +541,7 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitOpenBlock(final OpenBlock element) {
+        boolean skipDiv = false;
         if (element.options().get("abstract") != null) {
             builder.append(" <div");
             writeCommonAttributes(element.options(), c -> "abstract quoteblock" + (c == null ? "" : (' ' + c)));
@@ -489,12 +550,16 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             builder.append(" <div");
             writeCommonAttributes(element.options(), c -> "openblock " + (c == null ? "" : (' ' + c)));
             builder.append(">\n");
+        } else {
+            skipDiv = true;
         }
         writeBlockTitle(element.options());
         builder.append("  <div class=\"content\">\n");
         Visitor.super.visitOpenBlock(element);
         builder.append("  </div>\n");
-        builder.append(" </div>\n");
+        if (!skipDiv) {
+            builder.append(" </div>\n");
+        }
     }
 
     @Override
@@ -512,6 +577,9 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitMacro(final Macro element) {
+        if (!element.inline()) {
+            builder.append(" <div class=\"").append(element.name()).append("block\">\n <div class=\"content\">\n");
+        }
         switch (element.name()) {
             case "kbd" -> visitKbd(element);
             case "btn" -> visitBtn(element);
@@ -524,6 +592,9 @@ public class SimpleHtmlRenderer implements Visitor<String> {
             case "xref" -> visitXref(element);
             // todo: menu, doublefootnote, footnote
             default -> onMissingMacro(element); // for future extension point
+        }
+        if (!element.inline()) {
+            builder.append(" </div>\n </div>\n");
         }
     }
 
@@ -545,17 +616,20 @@ public class SimpleHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitImage(final Macro element) {
-        if (dataUri && !element.label().startsWith("data:")) {
+        if (dataUri && !element.label().startsWith("data:") && !element.options().containsKey("skip-data-uri")) {
             visitImage(new Macro(
                     element.name(), resolver.apply(element.label()).base64(),
-                    Stream.of(element.options(), Map.of("", element.label()))
-                            .filter(Objects::nonNull)
-                            .map(Map::entrySet)
-                            .flatMap(Collection::stream)
-                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)),
+                    !element.options().containsKey("") ?
+                            Stream.of(element.options(), Map.of("", element.label()))
+                                    .filter(Objects::nonNull)
+                                    .map(Map::entrySet)
+                                    .flatMap(Collection::stream)
+                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)) :
+                            element.options(),
                     element.inline()));
             return;
         }
+
         builder.append(" <img src=\"").append(element.label())
                 .append("\" alt=\"").append(element.options().getOrDefault("", element.options().getOrDefault("alt", element.label())))
                 .append("\">\n");
@@ -631,6 +705,32 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         }
     }
 
+    protected void handlePreamble(final boolean enableWrappers, final Element next, final Runnable child) {
+        if (sawPreamble) {
+            child.run();
+            return;
+        }
+
+        final boolean isPreamble = enableWrappers && lastElement.size() == 1;
+        if (!isPreamble) {
+            child.run();
+            return;
+        }
+
+        sawPreamble = true;
+        builder.append(" <div id=\"preamble\">\n <div class=\"sectionbody\">\n");
+
+        final boolean needsP = next == null || next.type() != PARAGRAPH;
+        if (needsP) {
+            builder.append(" <p>\n");
+        }
+        child.run();
+        if (needsP) {
+            builder.append(" </p>\n");
+        }
+        builder.append(" </div>\n </div>\n");
+    }
+
     protected void writeBlockTitle(final Map<String, String> options) {
         final var title = options.get("title");
         if (title != null) {
@@ -659,9 +759,8 @@ public class SimpleHtmlRenderer implements Visitor<String> {
         while (col.length() > i && Character.isDigit(col.charAt(i))) {
             i++;
         }
-        i--;
         try {
-            if (i <= 0) {
+            if (i == 0) {
                 return 1;
             }
             return Integer.parseInt(col.substring(0, i));

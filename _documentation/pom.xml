@@ -42,6 +42,24 @@
       <artifactId>yupiik-tools-maven-plugin</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.asciidoctor</groupId>
+          <artifactId>asciidoctorj</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.asciidoctor</groupId>
+          <artifactId>asciidoctorj-diagram</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.asciidoctor</groupId>
+          <artifactId>asciidoctorj-pdf</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jruby</groupId>
+          <artifactId>jruby-complete</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>

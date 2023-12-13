@@ -55,24 +55,36 @@ class SimpleHtmlRendererTest {
                         <body>
                          <div id="content">
                          <h1>Main title</h1>
-                         <span>
+                         <div id="preamble">
+                         <div class="sectionbody">
+                         <p>
+                         <div class="paragraph">
+                         <p>
                         Some text.
-                         </span>
-                         <div>
+                         </p>
+                         </div>
+                         </p>
+                         </div>
+                         </div>
+                         <div class="sect1">
                           <h2>Second part</h2>
-                         <span>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>
                         This is a snippet:
-                         </span>
-                        <pre data-lang="java" class="language-java">
-                          <code>
-                        public record Foo() {}
-                          </code>
-                         </pre>
+                         </p>
+                         </div>
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public record Foo() {}</code></pre>
+                         </div>
+                         </div>
+                         </div>
                          </div>
                          </div>
                         </body>
                         </html>
-                         """);
+                        """);
     }
 
     @Test
@@ -154,16 +166,18 @@ class SimpleHtmlRendererTest {
         assertRenderingContent("NOTE: this is an important note.", """
                  <div class="admonitionblock note">
                   <table>
-                   <tr>
-                    <td class="icon">
-                NOTE:
-                     </td>
-                    <td class="content">
+                    <tbody>
+                     <tr>
+                      <td class="icon">
+                     <div class="title">NOTE</div>
+                       </td>
+                      <td class="content">
                  <span>
                 this is an important note.
                  </span>
                     </td>
                    </tr>
+                      </tbody>
                   </table>
                  </div>
                 """);
@@ -187,8 +201,8 @@ class SimpleHtmlRendererTest {
                 |===""", """
                  <table class="tableblock frame-all grid-all stretch">
                   <colgroup>
-                   <col width="1">
-                   <col width="1">
+                   <col width="50%">
+                   <col width="50%">
                   </colgroup>
                   <thead>
                    <tr>
@@ -340,9 +354,15 @@ class SimpleHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true", "data-uri", "")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div>
+                 <div class="sect0">
                   <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
                  <img src="data:image/png;base64,$base64" alt="logo">
+                 </div>
+                 </div>
+                 </div>
                  </div>
                 """.replace("$base64", base64), renderer.result());
     }
@@ -361,14 +381,16 @@ class SimpleHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true", "data-uri", "false"/*true would mean we depend on the http url at test time, we don't want that*/)));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div>
+                 <div class="sect0">
                   <h1>Test</h1>
+                 <div class="sectionbody">
                                 
                   <iframe
                     src="https://carbon.now.sh/embed?bg=rgba%28171%2C184%2C195%2C100%29&t=vscode&wt=none&l=text%2Fx-java&width=680&ds=true&dsyoff=20px&dsblur=68px&wc=true&wa=true&pv=48px&ph=32px&ln=true&fl=1&fm=Droid+Sans+Mono&fs=13px&lh=133%25&si=false&es=2x&wm=false&code=public+record+UserId%28String+name%29+%7B%7D%0A"
                     style="width: 1024px; height: 473px; border:0; transform: scale(1); overflow:hidden;"
                     sandbox="allow-scripts allow-same-origin">
                   </iframe>
+                 </div>
                  </div>
                 """, renderer.result());
     }
