@@ -140,11 +140,12 @@ public class Parser {
             return NO_HEADER;
         }
 
-        String title = "";
+        final String title;
         if (firstLine.startsWith("= ") || firstLine.startsWith("# ")) {
             title = firstLine.substring(2).strip();
         } else {
-            reader.rewind();
+            reader.reset();
+            return NO_HEADER;
         }
 
         var author = NO_AUTHOR;
@@ -210,7 +211,11 @@ public class Parser {
 
             final var stripped = next.strip();
             if (stripped.startsWith("[") && stripped.endsWith("]")) {
-                options = merge(options, parseOptions(next.substring(1, next.length() - 1)));
+                if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
+                    options = merge(options, Map.of("role", "abstract"));
+                } else {
+                    options = merge(options, parseOptions(next.substring(1, next.length() - 1)));
+                }
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(reader, options, "....").value(), options));
                 options = null;
@@ -519,7 +524,7 @@ public class Parser {
                 reader.rewind();
                 break;
             }
-            elements.addAll(parseLine(reader, line, resolver, currentAttributes));
+            elements.addAll(parseLine(reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes));
         }
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
@@ -838,7 +843,7 @@ public class Parser {
         return earlyAttributeReplacement(value, attributes::get);
     }
 
-    private String earlyAttributeReplacement(final String value, final Function<String, String> attributes) {
+    private String earlyAttributeReplacement(final String value, final Function<String, String> attributes) { // todo: handle escaping
         if (!value.contains("{")) {
             return value;
         }
@@ -846,13 +851,15 @@ public class Parser {
         final var matcher = ATTRIBUTE_VALUE.matcher(value);
         while (matcher.find()) {
             final var name = matcher.group("name");
-            if (attributes.apply(name) != null) {
+            if (attributes.apply(name) != null || globalAttributes.containsKey(name)) {
                 keys.add(name);
             }
         }
         var out = value;
         for (final var key : keys) {
-            out = out.replace('{' + key + '}', attributes.apply(key));
+            final var placeholder = '{' + key + '}';
+            final var replacement = attributes.apply(key);
+            out = out.replace(placeholder, replacement == null ? globalAttributes.getOrDefault(key, placeholder) : replacement);
         }
         return out;
     }
@@ -876,7 +883,7 @@ public class Parser {
                                     final ContentResolver resolver,
                                     final Map<String, String> currentAttributes) {
         var content = resolver.resolve(
-                        earlyAttributeReplacement(macro.label(), k -> currentAttributes.getOrDefault(k, globalAttributes.get(k))),
+                        macro.label(),
                         ofNullable(macro.options().get("encoding"))
                                 .map(Charset::forName)
                                 .orElse(UTF_8))
@@ -1023,7 +1030,7 @@ public class Parser {
         if (next != null) {
             reader.rewind();
         }
-        return new DescriptionList(children);
+        return new DescriptionList(children, currentAttributes == null ? Map.of() : currentAttributes);
     }
 
     private UnOrderedList parseUnorderedList(final Reader reader, final String options, final String prefix,
@@ -1094,9 +1101,12 @@ public class Parser {
                     style == null ? t.style() : Stream.concat(Stream.of(style), t.style().stream()).toList(),
                     t.value(), opts));
         } else {
-            collector.add(newText(
-                    style == null ? List.of() : List.of(style),
-                    content, opts));
+            collector.addAll(sub.stream()
+                    // todo: for now we loose the style for what is not pure text, should we handle it as an element or role maybe?
+                    .map(it -> it instanceof Text t ?
+                            newText(style == null ? List.of() : List.of(style), t.value(), opts) :
+                            it)
+                    .toList());
         }
     }
 
@@ -1253,14 +1263,14 @@ public class Parser {
         if (first instanceof LineBreak l) {
             return l;
         }
+        if (first instanceof DescriptionList d && element.options().isEmpty()) {
+            return new DescriptionList(d.children(), merge(d.options(), element.options()));
+        }
         if (first instanceof ConditionalBlock c) {
             return new ConditionalBlock(c.evaluator(), c.children(), merge(c.options(), element.options()));
         }
         if (first instanceof Admonition a && element.options().isEmpty()) {
             return a;
-        }
-        if (first instanceof DescriptionList d && element.options().isEmpty()) {
-            return d;
         }
 
         return element;

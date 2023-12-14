@@ -61,9 +61,11 @@ import java.util.stream.Stream;
 import static io.yupiik.asciidoc.model.Element.ElementType.ANCHOR;
 import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
 import static io.yupiik.asciidoc.model.Element.ElementType.LINK;
+import static io.yupiik.asciidoc.model.Element.ElementType.ORDERED_LIST;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
 import static io.yupiik.asciidoc.model.Element.ElementType.SECTION;
 import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
+import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
@@ -250,7 +252,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         state.stackChain(element.children(), () -> {
             final boolean preambleWasHandled = false;
             handlePreamble(true, element, () -> {
-                builder.append(" <div class=\"paragraph\">\n");
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "paragraph" + (c != null ? ' ' + c : ""));
+                builder.append(">\n");
 
                 final boolean addP = !preambleWasHandled && state.sawPreamble && element.children().stream()
                         .allMatch(e -> e.type() == TEXT ||
@@ -377,7 +381,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
         state.stackChain(new ArrayList<>(element.children().values()), () -> {
-            builder.append(" <dl>\n");
+            builder.append(" <dl");
+            writeCommonAttributes(element.options(), null);
+            builder.append(">\n");
             for (final var elt : element.children().entrySet()) {
                 builder.append("  <dt>").append(escape(elt.getKey())).append("</dt>\n");
                 builder.append("  <dd>\n");
@@ -394,9 +400,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
         state.stackChain(element.children(), () -> {
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "ulist" + (c != null ? ' ' + c : ""));
+            builder.append(">\n");
             builder.append(" <ul>\n");
             visitListElements(element.children());
             builder.append(" </ul>\n");
+            builder.append(" </div>\n");
         });
     }
 
@@ -407,7 +417,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
         state.stackChain(element.children(), () -> {
-            builder.append(" <ol>\n");
+            builder.append(" <ol");
+            writeCommonAttributes(element.options(), null);
+            builder.append(">\n");
             visitListElements(element.children());
             builder.append(" </ol>\n");
         });
@@ -425,15 +437,37 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     public void visitText(final Text element) {
         final var useWrappers = element.options().get("nowrap") == null;
 
+        final boolean preambleSaw = state.sawPreamble;
         handlePreamble(useWrappers, element, () -> {
-            final boolean isParagraph = !state.inCallOut && useWrappers && (state.lastElement.size() <= 1 || state.lastElement.get(state.lastElement.size() - 2).type() == SECTION);
-            if (isParagraph) {
-                builder.append(" <div class=\"paragraph\">\n");
+            if (Objects.equals("abstract", element.options().get("role"))) { // we unwrapped the paragraph in some cases so add it back
+                if (preambleSaw) {
+                    builder.append(" <div class=\"sect1\">\n");
+                }
+                // not 100% sure of why asciidoctor does it sometimes (open blocks) but trying to behave the same to keep existing theme
+                visitQuote(new Quote(List.of(new Text(element.style(), element.value(), Map.of())), Map.of("role", "quoteblock abstract")));
+                if (preambleSaw) {
+                    builder.append(" </div>\n");
+                }
+                return;
             }
 
-            final boolean wrap = useWrappers && element.style().size() != 1 && (isParagraph || state.inCallOut || !element.options().isEmpty());
+            final boolean isParagraph = !state.inCallOut && useWrappers && (state.lastElement.size() <= 1 || state.lastElement.get(state.lastElement.size() - 2).type() == SECTION);
+            if (isParagraph) {
+                // not writeCommonAttributes to not add twice the id for ex
+                final var customRole = element.options().get("role");
+                builder.append(" <div class=\"paragraph");
+                if (customRole != null) {
+                    builder.append(' ').append(customRole);
+                }
+                builder.append("\">\n");
+            }
+
+            final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());
+            final boolean wrap = useWrappers &&
+                    (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut || !element.options().isEmpty())));
+            final boolean useP = parentNeedsP || isParagraph || state.inCallOut;
             if (wrap) {
-                builder.append(" <").append(isParagraph || state.inCallOut ? "p" : "span");
+                builder.append(" <").append(useP ? "p" : "span");
                 writeCommonAttributes(element.options(), null);
                 builder.append(">\n");
             }
@@ -451,7 +485,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(escape(element.value()));
             builder.append(styleTags.stream().sorted(Comparator.reverseOrder()).map(s -> "</" + s + '>').collect(joining()));
             if (wrap) {
-                builder.append("\n </").append(isParagraph ? "p" : "span").append(">\n");
+                builder.append("\n </").append(useP ? "p" : "span").append(">\n");
             }
 
             if (isParagraph) {
@@ -677,6 +711,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             case "audio" -> visitAudio(element);
             case "video" -> visitVideo(element);
             case "xref" -> visitXref(element);
+            case "link" ->
+                    visitLink(new Link(element.label(), element.options().getOrDefault("", element.label()), element.options()));
             // todo: menu, doublefootnote, footnote
             default -> onMissingMacro(element); // for future extension point
         }
@@ -881,6 +917,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     protected String attr(final String key, final Map<String, String> defaultMap) {
         return attr(key, key, null, defaultMap);
+    }
+
+    protected boolean isList(final Element.ElementType type) {
+        return type == UNORDERED_LIST || type == ORDERED_LIST;
     }
 
     private void release() {

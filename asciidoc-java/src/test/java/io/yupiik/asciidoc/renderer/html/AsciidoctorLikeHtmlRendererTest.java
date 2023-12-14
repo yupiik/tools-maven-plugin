@@ -30,6 +30,75 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AsciidoctorLikeHtmlRendererTest {
     @Test
+    void metaInPreamble() {
+        // this is not a strict preamble as of today but this concept should likely be revisited since
+        // it fakes rendering too much in style and enforces an undesired id in several cases
+        assertRendering("""
+                = Yupiik Fusion 1.0.8 Released
+                                
+                [.metadata]
+                [.mr-2.category-release]#icon:fas fa-gift[]#, [.metadata-authors]#link:http://localhost:4200/blog/author/francois-papon/page-1.html[Francois Papon]#, [.metadata-published]#2023-09-26#, [.metadata-readingtime]#49 sec read#
+                                
+                [abstract]
+                Blabla.
+                                
+                == What's new?
+                                
+                * [dependencies] Upgrade to Apache Tomcat 10.1.13.
+                """, """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                 <meta charset="UTF-8">
+                 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                </head>
+                <body>
+                 <div id="content">
+                 <h1>Yupiik Fusion 1.0.8 Released</h1>
+                 <div id="preamble">
+                 <div class="sectionbody">
+                 <div class="paragraph metadata">
+                 <p> <span class="mr-2.category-release">
+                icon:fas\s
+                 </span>
+                 <a href="fa-gift">fa-gift</a>
+                ,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html">Francois Papon</a>
+                ,  <span class="metadata-published">
+                2023-09-26
+                 </span>
+                ,  <span class="metadata-readingtime">
+                49 sec read
+                 </span>
+                </p>
+                 </div>
+                 </div>
+                 </div>
+                 <div class="sect1">
+                 <div class="quoteblock abstract">
+                  <blockquote>
+                Blabla.  </blockquote>
+                 </div> </div>
+                 <div class="sect1">
+                  <h2>What's new?</h2>
+                 <div class="sectionbody">
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <p>
+                [dependencies] Upgrade to Apache Tomcat 10.1.13.
+                 </p>
+                  </li>
+                 </ul>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                </body>
+                </html>
+                """);
+    }
+
+    @Test
     void renderHtml() {
         assertRendering("""
                         = Main title
@@ -94,11 +163,20 @@ class AsciidoctorLikeHtmlRendererTest {
                 . third""", """
                  <ol>
                   <li>
-                first  </li>
+                 <p>
+                first
+                 </p>
+                  </li>
                   <li>
-                second  </li>
+                 <p>
+                second
+                 </p>
+                  </li>
                   <li>
-                third  </li>
+                 <p>
+                third
+                 </p>
+                  </li>
                  </ol>
                 """);
     }
@@ -109,14 +187,45 @@ class AsciidoctorLikeHtmlRendererTest {
                 * first
                 * second
                 * third""", """
+                 <div class="ulist">
                  <ul>
                   <li>
-                first  </li>
+                 <p>
+                first
+                 </p>
+                  </li>
                   <li>
-                second  </li>
+                 <p>
+                second
+                 </p>
+                  </li>
                   <li>
-                third  </li>
+                 <p>
+                third
+                 </p>
+                  </li>
                  </ul>
+                 </div>
+                """);
+    }
+
+    @Test
+    void ulWithOptions() {
+        assertRenderingContent("""
+                [role="blog-links blog-links-page"]
+                * link:http://localhost:4200/blog/index.html[All posts,role="blog-link-all"]
+                * link:http://localhost:4200/blog/page-2.html[Next,role="blog-link-next"]
+                """, """
+                 <div class="ulist blog-links blog-links-page">
+                 <ul>
+                  <li>
+                 <a href="http://localhost:4200/blog/index.html">All posts</a>
+                  </li>
+                  <li>
+                 <a href="http://localhost:4200/blog/page-2.html">Next</a>
+                  </li>
+                 </ul>
+                 </div>
                 """);
     }
 
@@ -232,14 +341,25 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>I've got Markdown in my AsciiDoc! <div>
                   <blockquote>
                 Like what?  </blockquote>
-                 </div> <ul>
+                 </div> <div class="ulist">
+                 <ul>
                   <li>
-                Blockquotes  </li>
+                 <p>
+                Blockquotes
+                 </p>
+                  </li>
                   <li>
-                Headings  </li>
+                 <p>
+                Headings
+                 </p>
+                  </li>
                   <li>
-                Fenced code blocks  </li>
+                 <p>
+                Fenced code blocks
+                 </p>
+                  </li>
                  </ul>
+                 </div>
                  <div>
                   <blockquote>
                 Is there more?  </blockquote>
