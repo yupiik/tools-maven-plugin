@@ -31,6 +31,13 @@
   <description>Simple library to convert an asciidoc content to something else (mainly html).</description>
 
   <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>ascii2svg</artifactId>
+      <version>${project.version}</version>
+      <optional>true</optional>
+    </dependency>
+
     <!-- are you sure? probably think one more time -->
   </dependencies>
 

@@ -27,6 +27,7 @@ import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
@@ -39,8 +40,11 @@ import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.renderer.Visitor;
+import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
+import io.yupiik.asciidoc.renderer.uri.DataUri;
 
+import java.io.ByteArrayInputStream;
 import java.net.URLEncoder;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -639,6 +643,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     public ConditionalBlock.Context context() {
         return configuration.getAttributes()::get;
     }
+
+    @Override
+    public void visitListing(final Listing element) {
+        switch (element.options().getOrDefault("", "")) {
+            case "a2s" -> visitImage(new Macro(
+                    "image",
+                    new DataUri(() -> new ByteArrayInputStream(YupiikA2s.svg(element.value(), element.options()).getBytes(UTF_8)), "image/svg+xml").base64(),
+                    element.options(), false));
+            default -> visitCode(new Code(element.value(), List.of(), element.options(), false));
+        }
+    }
+
 
     @Override
     public String result() {

@@ -29,6 +29,7 @@ import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
@@ -176,7 +177,7 @@ public class Parser {
         String next;
 
         Map<String, String> options = null;
-        Matcher attributeMatcher = null;
+        Matcher attributeMatcher;
         while ((next = reader.skipCommentsAndEmptyLines()) != null) {
             if (!continueTest.test(next)) {
                 reader.rewind();
@@ -191,6 +192,9 @@ public class Parser {
             final var stripped = next.strip();
             if (stripped.startsWith("[") && stripped.endsWith("]")) {
                 options = merge(options, parseOptions(next.substring(1, next.length() - 1)));
+            } else if (Objects.equals("....", stripped)) {
+                elements.add(new Listing(parsePassthrough(reader, options, "....").value(), options));
+                options = null;
             } else if (next.startsWith(".") && !next.startsWith(". ")) {
                 options = merge(options, Map.of("title", next.substring(1).strip()));
             } else if (next.startsWith("=")) {
@@ -198,7 +202,10 @@ public class Parser {
                 elements.add(parseSection(reader, options, resolver, attributes));
                 options = null;
             } else if (Objects.equals("----", stripped)) {
-                elements.add(parseCodeBlock(reader, options, resolver, attributes));
+                elements.add(parseCodeBlock(reader, options, resolver, attributes, "----"));
+                options = null;
+            } else if (Objects.equals("```", stripped)) {
+                elements.add(parseCodeBlock(reader, options, resolver, attributes, "```"));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
                 elements.add(parseOpenBlock(reader, options, resolver, attributes));
@@ -207,7 +214,7 @@ public class Parser {
                 elements.add(parseTable(reader, options, resolver, attributes, stripped));
                 options = null;
             } else if (Objects.equals("++++", stripped)) {
-                elements.add(parsePassthrough(reader, options));
+                elements.add(parsePassthrough(reader, options, "++++"));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options));
@@ -246,16 +253,16 @@ public class Parser {
                 .toList();
     }
 
-    private PassthroughBlock parsePassthrough(final Reader reader, final Map<String, String> options) {
+    private PassthroughBlock parsePassthrough(final Reader reader, final Map<String, String> options, final String marker) {
         final var content = new StringBuilder();
         String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals("++++", next.strip())) {
+        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
             if (!content.isEmpty()) {
                 content.append('\n');
             }
             content.append(next);
         }
-        if (next != null && !next.startsWith("++++")) {
+        if (next != null && !next.startsWith(marker)) {
             reader.rewind();
         }
         return new PassthroughBlock(content.toString(), options == null ? Map.of() : options);
@@ -380,10 +387,11 @@ public class Parser {
     }
 
     private Code parseCodeBlock(final Reader reader, final Map<String, String> options,
-                                final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                                final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                final String marker) {
         final var builder = new StringBuilder();
         String next;
-        while (!Objects.equals("----", next = reader.nextLine())) {
+        while (!Objects.equals(marker, next = reader.nextLine())) {
             builder.append(next).append('\n');
         }
 
