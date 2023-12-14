@@ -82,6 +82,10 @@ public class Reader {
         return null;
     }
 
+    public boolean isComment(final String line) {
+        return line.startsWith("//") || line.startsWith("////");
+    }
+
     public void setPreviousValue(final String newValue) {
         lines.set(lineOffset - 1, newValue);
     }

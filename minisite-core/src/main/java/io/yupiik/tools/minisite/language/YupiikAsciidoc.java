@@ -19,13 +19,13 @@ import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 
 public class YupiikAsciidoc implements Asciidoc {
-    private final Parser parser = new Parser();
-
     @Override
     public Object createOptions(final MiniSiteConfiguration configuration) {
+        /* ignore since minisite uses it itself
         if (configuration.getTemplateDirs() != null && !configuration.getTemplateDirs().isEmpty()) {
             throw new IllegalArgumentException("template dir not yet supported");
         }
+        */
 
         final Map<String, String> implicitOptions = Map.of(
                 "noheader", "true", // only the content
@@ -50,7 +50,7 @@ public class YupiikAsciidoc implements Asciidoc {
 
     @Override
     public <T> T withInstance(final AsciidoctorConfiguration ignoredConfiguration, final Function<AsciidocInstance, T> options) {
-        return options.apply(new Instance(parser));
+        return options.apply(new Instance());
     }
 
     @RequiredArgsConstructor
@@ -60,26 +60,27 @@ public class YupiikAsciidoc implements Asciidoc {
     }
 
     private static class Instance implements AsciidocInstance {
-        private final Parser parser;
-
-        private Instance(final Parser parser) {
-            this.parser = parser;
-        }
-
         @Override
         public Header header(final String content, final Object options) {
-            final io.yupiik.asciidoc.model.Header header = parser.parseHeader(new Reader(List.of(content.split("\n")/*no Pattern - see fast-path branch in the impl*/)));
+            final var attributes = ((Options) options).attributes;
+            final io.yupiik.asciidoc.model.Header header = getOrCreateParser(attributes)
+                    .parseHeader(new Reader(List.of(content.split("\n")/*no Pattern - see fast-path branch in the impl*/)));
             return new Header(header.title(), header.attributes());
         }
 
         @Override
         public String convert(final String content, final Object options) {
             final Options opts = (Options) options;
+            final var attributes = ((Options) options).attributes;
             final AsciidoctorLikeHtmlRenderer renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
                     .setAttributes(opts.attributes)
                     .setAssetsBase(opts.base));
-            renderer.visit(parser.parse(content, new Parser.ParserContext(ContentResolver.of(opts.base))));
+            renderer.visit(getOrCreateParser(attributes).parse(content, new Parser.ParserContext(ContentResolver.of(opts.base))));
             return renderer.result();
+        }
+
+        private Parser getOrCreateParser(final Map<String, String> attributes) { // this is a lightweight instance so no need to cache it normally even if we could
+            return new Parser(attributes == null ? Map.of() : attributes);
         }
     }
 }

@@ -99,6 +99,19 @@ public class Parser {
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
 
+    private final Map<String, String> globalAttributes;
+
+    /**
+     * @param globalAttributes attributes, mainly used for include paths for now.
+     */
+    public Parser(final Map<String, String> globalAttributes) {
+        this.globalAttributes = globalAttributes;
+    }
+
+    public Parser() {
+        this(Map.of());
+    }
+
     public Document parse(final String content, final ParserContext context) {
         try (final var reader = new BufferedReader(new StringReader(content))) {
             return parse(reader, context);
@@ -138,12 +151,12 @@ public class Parser {
         var revision = NO_REVISION;
 
         final var authorLine = reader.nextLine();
-        if (authorLine != null && !authorLine.isBlank()) {
+        if (authorLine != null && !authorLine.isBlank() && !reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
             if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches()) { // author line
                 author = parseAuthorLine(authorLine);
 
                 final var revisionLine = reader.nextLine();
-                if (revisionLine != null && !revisionLine.isBlank()) {
+                if (revisionLine != null && !revisionLine.isBlank() && !reader.isComment(revisionLine) && canBeHeaderLine(revisionLine)) {
                     if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches()) { // author line
                         revision = parseRevisionLine(revisionLine);
                     } else {
@@ -169,6 +182,12 @@ public class Parser {
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
         return new Body(doParse(reader, line -> true, resolver, new HashMap<>()));
+    }
+
+    private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
+        return !(line.startsWith("* ") || line.startsWith("=") || line.startsWith("[") || line.startsWith(".") ||
+                line.startsWith("<<") || line.startsWith("--") || line.startsWith("``") || line.startsWith("..") ||
+                line.startsWith("++") || line.startsWith("|==") || line.startsWith("> ") || line.startsWith("__"));
     }
 
     private List<Element> doParse(final Reader reader, final Predicate<String> continueTest,
@@ -856,9 +875,11 @@ public class Parser {
     private List<Element> doInclude(final Macro macro,
                                     final ContentResolver resolver,
                                     final Map<String, String> currentAttributes) {
-        var content = resolver.resolve(macro.label(), ofNullable(macro.options().get("encoding"))
-                        .map(Charset::forName)
-                        .orElse(UTF_8))
+        var content = resolver.resolve(
+                        earlyAttributeReplacement(macro.label(), k -> currentAttributes.getOrDefault(k, globalAttributes.get(k))),
+                        ofNullable(macro.options().get("encoding"))
+                                .map(Charset::forName)
+                                .orElse(UTF_8))
                 .orElse(null);
         if (content == null) {
             if (macro.options().containsKey("optional")) {
