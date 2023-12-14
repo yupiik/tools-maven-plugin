@@ -484,14 +484,22 @@ public class MiniSiteMojo extends BaseMojo {
     protected Asciidoc createAsciidoc(final boolean tryYupiikImpl) {
         if (tryYupiikImpl) {
             try {
-                return Thread.currentThread()
-                        .getContextClassLoader()
+                return MiniSiteMojo.class.getClassLoader()
                         .loadClass("io.yupiik.tools.minisite.language.YupiikAsciidoc")
                         .asSubclass(Asciidoc.class)
                         .getConstructor()
                         .newInstance();
             } catch (final Error | Exception cnfe) {
-                getLog().warn("Can't use asciidoctor-java, switching to asciidoctorj over JRuby");
+                getLog().warn("Can't use asciidoctor-java, switching to asciidoctorj over JRuby,\n" +
+                        "if you want this behavior add as yupiik-tools-maven-plugin the following dependency and ensure to run on java >= 17:\n" +
+                        "\n" +
+                        " <dependencies>\n" +
+                        "   <dependency>\n" +
+                        "     <groupId>io.yupiik.maven</groupId>\n" +
+                        "     <artifactId>asciidoc-java</artifactId>\n" +
+                        "     <version>${yupiik-tools.version}</version>\n" +
+                        "   </dependency>\n" +
+                        " </dependencies>");
             }
         }
         return new AsciidoctorAsciidoc((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions));
