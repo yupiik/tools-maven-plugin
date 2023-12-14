@@ -18,7 +18,7 @@ package io.yupiik.asciidoc.launcher;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
-import io.yupiik.asciidoc.renderer.html.SimpleHtmlRenderer;
+import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,7 +38,7 @@ public final class Main {
 
         final var attributes = new HashMap<String, String>();
         ContentResolver resolver = null;
-        SimpleHtmlRenderer.Configuration configuration = new SimpleHtmlRenderer.Configuration();
+        AsciidoctorLikeHtmlRenderer.Configuration configuration = new AsciidoctorLikeHtmlRenderer.Configuration();
         Path input = null;
         Path output = null;
 
@@ -72,7 +72,7 @@ public final class Main {
             document = parser.parse(reader, new Parser.ParserContext(resolver));
         }
 
-        final var html = new SimpleHtmlRenderer(configuration.setAttributes(attributes));
+        final var html = new AsciidoctorLikeHtmlRenderer(configuration.setAttributes(attributes).setAssetsBase(input.getParent()));
         html.visit(document);
         if (output != null) {
             Files.writeString(output, html.result());
@@ -82,6 +82,6 @@ public final class Main {
     }
 
     private static String error() {
-        return "Usage:\n\nasciidoctor-java --input file.adoc [--base includeBasePath/] [--output output.html] [--attribute myattribute=myvalue]*";
+        return "Usage:\n\nasciidoc-java --input file.adoc [--base includeBasePath/] [--output output.html] [--attribute myattribute=myvalue]*";
     }
 }

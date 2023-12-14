@@ -19,6 +19,7 @@ import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
 import io.yupiik.asciidoc.model.Author;
+import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -159,8 +160,7 @@ class ParserTest {
                                 new Text(List.of(MARK), "Mark", Map.of()),
                                 new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                 new Text(List.of(MARK), "mark", Map.of()),
-                                new Text(List.of(), "s.", Map.of()),
-                                new Text(List.of(), "Where did all the ", Map.of()),
+                                new Text(List.of(), "s. Where did all the ", Map.of()),
                                 new Text(List.of(), "cores", Map.of("role", "underline")),
                                 new Text(List.of(), " go?", Map.of())
                         ), Map.of()),
@@ -217,8 +217,7 @@ class ParserTest {
                                         new Text(List.of(MARK), "Mark", Map.of()),
                                         new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                         new Text(List.of(MARK), "mark", Map.of()),
-                                        new Text(List.of(), "s.", Map.of()),
-                                        new Text(List.of(), "Where did all the ", Map.of()),
+                                        new Text(List.of(), "s. Where did all the ", Map.of()),
                                         new Text(List.of(), "cores", Map.of("role", "underline")),
                                         new Text(List.of(), " go?", Map.of())), Map.of())), Map.of()),
                         new Section(
@@ -317,7 +316,36 @@ class ParserTest {
                 ----
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Code("public record Foo() {\n}\n", Map.of("language", "java", "role", "hljs"), false)),
+                List.of(new Code("public record Foo() {\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)),
+                body.children());
+    }
+
+    @Test
+    void codeWithCallout() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,java,.hljs]
+                ----
+                import anything;
+                public record Foo( <1>
+                  String name <2>
+                ) {
+                }
+                ----
+                <1> Defines a record,
+                <.> Defines an attribute of the record.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("""
+                        import anything;
+                        public record Foo( (1)
+                          String name (2)
+                        ) {
+                        }
+                        """,
+                        List.of(
+                                new CallOut(1, new Text(List.of(), "Defines a record,", Map.of())),
+                                new CallOut(2, new Text(List.of(), "Defines an attribute of the record.", Map.of()))),
+                        Map.of("language", "java", "role", "hljs"), false)),
                 body.children());
     }
 
@@ -516,15 +544,10 @@ class ParserTest {
                 Enter at your own risk.
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Admonition(WARNING, new Paragraph(List.of(
-                        new Text(
-                                List.of(),
-                                "Wolpertingers are known to nest in server racks.",
-                                Map.of()),
-                        new Text(
-                                List.of(),
-                                "Enter at your own risk.",
-                                Map.of())), Map.of()))),
+                List.of(new Admonition(WARNING, new Text(
+                        List.of(),
+                        "Wolpertingers are known to nest in server racks. Enter at your own risk.",
+                        Map.of()))),
                 body.children());
     }
 
@@ -562,11 +585,8 @@ class ParserTest {
         assertEquals(
                 List.of(new Section(2, new Text(List.of(), "My title", Map.of()), List.of(
                         new Text(List.of(), "This is foo.", Map.of()),
-                        new Paragraph(List.of(
-                                new Text(List.of(), "First included line.", Map.of()),
-                                new Text(List.of(), "Last included line.", Map.of())
-                        ), Map.of())
-                ), Map.of())),
+                        new Text(List.of(), "First included line. Last included line.", Map.of())),
+                        Map.of())),
                 body.children());
     }
 
@@ -647,7 +667,7 @@ class ParserTest {
                         List.of(
                                 new Paragraph(List.of(
                                         new Text(List.of(), "Cell in column 1, row 1", Map.of()),
-                                        new Code("public class Foo {\n}\n", Map.of("language", "java"), false)
+                                        new Code("public class Foo {\n}\n", List.of(), Map.of("language", "java"), false)
                                 ), Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 1", Map.of())),
                         List.of(

@@ -20,6 +20,7 @@ import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
 import io.yupiik.asciidoc.model.Author;
 import io.yupiik.asciidoc.model.Body;
+import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -88,6 +90,8 @@ public class Parser {
     private static final Revision NO_REVISION = new Revision("", "", "");
     private static final Header NO_HEADER = new Header("", NO_AUTHOR, NO_REVISION, Map.of());
 
+    private static final Pattern CALLOUT_REF = Pattern.compile("<(?<number>\\d+)>");
+    private static final Pattern CALLOUT = Pattern.compile("^<(?<number>[\\d+.]+)> (?<description>.+)$");
     private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>[^:]+)(?<marker>::+)(?<content>.*)");
     private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^[0-9]*(?<dots>\\.+) .+");
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
@@ -314,7 +318,7 @@ public class Parser {
                             }
                             if (i.contains("l") || i.contains("m")) { // literal or monospace
                                 return (Function<List<String>, Element>) c ->
-                                        new Code(handleIncludes(String.join("\n", c), resolver, currentAttributes), Map.of(), true);
+                                        new Code(handleIncludes(String.join("\n", c), resolver, currentAttributes), List.of(), Map.of(), true);
                             }
                             if (i.contains("h")) { // header
                                 return (Function<List<String>, Element>) c ->
@@ -340,7 +344,7 @@ public class Parser {
                     final var content = next.substring(last, nextSep);
                     cells.add(cellParser.size() > cellIdx ?
                             cellParser.get(cellIdx++).apply(List.of(content)) :
-                            new Text(List.of(), content, Map.of()));
+                            new Text(List.of(), content.strip(), Map.of()));
                     last = nextSep + 1;
                     nextSep = next.indexOf('|', last);
                 }
@@ -348,7 +352,7 @@ public class Parser {
                     final var end = next.substring(last);
                     cells.add(cellParser.size() > cellIdx ?
                             cellParser.get(cellIdx).apply(List.of(end)) :
-                            new Text(List.of(), end, Map.of()));
+                            new Text(List.of(), end.strip(), Map.of()));
                 }
             } else { // one cell per row
                 int cellIdx = 0;
@@ -364,7 +368,7 @@ public class Parser {
 
                     cells.add(cellParser.size() > cellIdx ?
                             cellParser.get(cellIdx++).apply(content) :
-                            new Text(List.of(), String.join("\n", content), Map.of()));
+                            new Text(List.of(), String.join("\n", content).strip(), Map.of()));
                 } while ((next = reader.nextLine()) != null && !next.isBlank() && !next.startsWith("|==="));
                 if (next != null && next.startsWith("|")) {
                     reader.rewind();
@@ -385,7 +389,74 @@ public class Parser {
 
         // todo: better support of the code features/syntax config
         final var content = builder.toString();
-        return new Code(handleIncludes(content, resolver, currentAttributes), options == null ? Map.of() : options, false);
+        final var snippet = handleIncludes(content, resolver, currentAttributes);
+        final var codeOptions = options == null ? Map.<String, String>of() : options;
+
+        final var contentWithCallouts = parseWithCallouts(snippet);
+        if (contentWithCallouts.callOutReferences().isEmpty()) {
+            return new Code(snippet, List.of(), codeOptions, false);
+        }
+
+        final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
+        Matcher matcher;
+        while ((next = reader.nextLine()) != null && (matcher = CALLOUT.matcher(next)).matches()) {
+            int number;
+            try {
+                final var numberRef = matcher.group("number");
+                number = ".".equals(numberRef) ? callOuts.size() + 1 : Integer.parseInt(numberRef);
+            } catch (final NumberFormatException nfe) {
+                throw new IllegalArgumentException("Invalid callout: '" + next + "'");
+            }
+
+            var text = matcher.group("description");
+            while ((next = reader.nextLine()) != null && !next.startsWith("<") && !next.isBlank()) {
+                text += '\n' + next;
+            }
+            if (next != null && !next.isBlank() && next.startsWith("<")) {
+                reader.rewind();
+            }
+
+            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes);
+            callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
+        }
+        if (next != null && !next.isBlank()) {
+            reader.rewind();
+        }
+
+        if (callOuts.size() != contentWithCallouts.callOutReferences().size()) { // todo: enhance
+            throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
+        }
+
+        return new Code(contentWithCallouts.content(), callOuts, codeOptions, false);
+    }
+
+    private ContentWithCalloutIndices parseWithCallouts(final String snippet) {
+        StringBuilder out = null;
+        Set<Integer> callOuts = null;
+        final var lines = snippet.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            final var line = lines[i];
+            final var matcher = CALLOUT_REF.matcher(line);
+            if (matcher.find()) {
+                if (out == null) {
+                    out = new StringBuilder();
+                    callOuts = new HashSet<>(2);
+                    if (i > 0) {
+                        Stream.of(lines).limit(i).map(l -> l + '\n').forEach(out::append);
+                    }
+                }
+                try {
+                    final var number = Integer.parseInt(matcher.group("number"));
+                    callOuts.add(number);
+                    out.append(matcher.replaceAll("(" + number + ')')).append('\n');
+                } catch (final NumberFormatException nfe) {
+                    throw new IllegalArgumentException("Can't parse a callout on line '" + line + "' in\n" + snippet);
+                }
+            } else if (out != null) {
+                out.append(line).append('\n');
+            }
+        }
+        return out == null ? new ContentWithCalloutIndices(snippet.stripTrailing(), List.of()) : new ContentWithCalloutIndices(out.toString(), callOuts);
     }
 
     private String handleIncludes(final String content,
@@ -426,7 +497,7 @@ public class Parser {
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
         }
-        return new Paragraph(elements, options == null ? Map.of() : options);
+        return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
     }
 
     private Collection<Element> parseLine(final Reader reader, final String line,
@@ -639,7 +710,7 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        elements.add(new Code(line.substring(i + 1, end), Map.of(), true));
+                        elements.add(new Code(line.substring(i + 1, end), List.of(), Map.of(), true));
                         i = end;
                         start = end + 1;
                     }
@@ -863,6 +934,9 @@ public class Parser {
                     String next;
                     while ((next = reader.nextLine()) != null && !next.isBlank()) {
                         buffer.add(next);
+                    }
+                    if (next != null) {
+                        reader.rewind();
                     }
                     return new Admonition(level, unwrapElementIfPossible(parseParagraph(new Reader(buffer), null, resolver, currentAttributes)));
                 });
@@ -1121,7 +1195,7 @@ public class Parser {
             return new Text(t.style(), t.value(), merge(t.options(), element.options()));
         }
         if (first instanceof Code c) {
-            return new Code(c.value(), merge(c.options(), element.options()), c.inline());
+            return new Code(c.value(), c.callOuts(), merge(c.options(), element.options()), c.inline());
         }
         if (first instanceof Link l) {
             return new Link(l.url(), l.label(), merge(l.options(), element.options()));
@@ -1237,10 +1311,11 @@ public class Parser {
         }
     }
 
-    private Collection<Element> flattenTexts(final Collection<Element> elements) {
+    private List<Element> flattenTexts(final List<Element> elements) {
         if (elements.size() <= 1) {
             return elements;
         }
+
         final var out = new ArrayList<Element>(elements.size() + 1);
         final var buffer = new ArrayList<Text>(2);
         for (final var elt : elements) {
@@ -1277,5 +1352,8 @@ public class Parser {
     }
 
     public record ParserContext(ContentResolver resolver) {
+    }
+
+    private record ContentWithCalloutIndices(String content, Collection<Integer> callOutReferences) {
     }
 }

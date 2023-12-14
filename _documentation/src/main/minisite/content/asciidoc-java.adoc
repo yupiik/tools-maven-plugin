@@ -20,7 +20,7 @@ Here is a basic example:
 ----
 final var parser = new Parser(); <1>
 final var doc = parser.parse(myDocContent, new Parser.ParserContext(ContextResolver.of(Path.of("asciidoc/content")))); <2>
-final var renderer = new SimpleHtmlRenderer(); <3>
+final var renderer = new AsciidoctorLikeHtmlRenderer(); <3>
 renderer.visit(doc); <4>
 final var html = renderer.result(); <5>
 ----

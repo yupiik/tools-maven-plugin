@@ -15,12 +15,5 @@
  */
 package io.yupiik.asciidoc.model;
 
-import java.util.List;
-import java.util.Map;
-
-public record Code(String value, List<CallOut> callOuts, Map<String, String> options, boolean inline) implements Element {
-    @Override
-    public ElementType type() {
-        return ElementType.CODE;
-    }
+public record CallOut(int number, Element text) {
 }

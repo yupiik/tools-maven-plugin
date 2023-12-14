@@ -3,7 +3,7 @@ package io.yupiik.tools.minisite.language;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
-import io.yupiik.asciidoc.renderer.html.SimpleHtmlRenderer;
+import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import lombok.RequiredArgsConstructor;
@@ -75,7 +75,7 @@ public class YupiikAsciidoc implements Asciidoc {
         @Override
         public String convert(final String content, final Object options) {
             final Options opts = (Options) options;
-            final SimpleHtmlRenderer renderer = new SimpleHtmlRenderer(new SimpleHtmlRenderer.Configuration()
+            final AsciidoctorLikeHtmlRenderer renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
                     .setAttributes(opts.attributes)
                     .setAssetsBase(opts.base));
             renderer.visit(parser.parse(content, new Parser.ParserContext(ContentResolver.of(opts.base))));

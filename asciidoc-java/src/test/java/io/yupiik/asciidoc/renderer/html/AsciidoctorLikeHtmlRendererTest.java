@@ -28,7 +28,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class SimpleHtmlRendererTest {
+class AsciidoctorLikeHtmlRendererTest {
     @Test
     void renderHtml() {
         assertRendering("""
@@ -57,13 +57,12 @@ class SimpleHtmlRendererTest {
                          <h1>Main title</h1>
                          <div id="preamble">
                          <div class="sectionbody">
-                         <p>
-                         <div class="paragraph">
+                         <p> <div class="paragraph">
                          <p>
                         Some text.
                          </p>
                          </div>
-                         </p>
+                        </p>
                          </div>
                          </div>
                          <div class="sect1">
@@ -95,20 +94,11 @@ class SimpleHtmlRendererTest {
                 . third""", """
                  <ol>
                   <li>
-                 <span>
-                first
-                 </span>
-                  </li>
+                first  </li>
                   <li>
-                 <span>
-                second
-                 </span>
-                  </li>
+                second  </li>
                   <li>
-                 <span>
-                third
-                 </span>
-                  </li>
+                third  </li>
                  </ol>
                 """);
     }
@@ -121,20 +111,11 @@ class SimpleHtmlRendererTest {
                 * third""", """
                  <ul>
                   <li>
-                 <span>
-                first
-                 </span>
-                  </li>
+                first  </li>
                   <li>
-                 <span>
-                second
-                 </span>
-                  </li>
+                second  </li>
                   <li>
-                 <span>
-                third
-                 </span>
-                  </li>
+                third  </li>
                  </ul>
                 """);
     }
@@ -147,16 +128,10 @@ class SimpleHtmlRendererTest {
                  <dl>
                   <dt>first</dt>
                   <dd>
-                 <span>
-                one
-                 </span>
-                </dd>
+                one</dd>
                   <dt>second</dt>
                   <dd>
-                 <span>
-                two
-                 </span>
-                </dd>
+                two</dd>
                  </dl>
                 """);
     }
@@ -172,10 +147,7 @@ class SimpleHtmlRendererTest {
                      <div class="title">NOTE</div>
                        </td>
                       <td class="content">
-                 <span>
-                this is an important note.
-                 </span>
-                    </td>
+                this is an important note.    </td>
                    </tr>
                       </tbody>
                   </table>
@@ -207,53 +179,29 @@ class SimpleHtmlRendererTest {
                   <thead>
                    <tr>
                     <th>
-                 <span>
-                Cell in column 1, header row
-                 </span>
-                    </th>
+                Cell in column 1, header row     </th>
                     <th>
-                 <span>
-                Cell in column 2, header row
-                 </span>
-                    </th>
+                Cell in column 2, header row    </th>
                    </tr>
                   </thead>
                   <tbody>
                    <tr>
                     <td>
-                 <span>
-                Cell in column 1, row 2
-                 </span>
-                    </td>
+                Cell in column 1, row 2    </td>
                     <td>
-                 <span>
-                Cell in column 2, row 2
-                 </span>
-                    </td>
+                Cell in column 2, row 2    </td>
                    </tr>
                    <tr>
                     <td>
-                 <span>
-                Cell in column 1, row 3
-                 </span>
-                    </td>
+                Cell in column 1, row 3    </td>
                     <td>
-                 <span>
-                Cell in column 2, row 3
-                 </span>
-                    </td>
+                Cell in column 2, row 3    </td>
                    </tr>
                    <tr>
                     <td>
-                 <span>
-                Cell in column 1, row 4
-                 </span>
-                    </td>
+                Cell in column 1, row 4    </td>
                     <td>
-                 <span>
-                Cell in column 2, row 4
-                 </span>
-                    </td>
+                Cell in column 2, row 4    </td>
                    </tr>
                   </tbody>
                  </table>
@@ -280,46 +228,22 @@ class SimpleHtmlRendererTest {
                   <blockquote>
                  <div>
                   <blockquote>
-                 <span>
-                What's new?
-                 </span>
-                  </blockquote>
-                 </div> <span>
-                I've got Markdown in my AsciiDoc!
-                 </span>
-                 <div>
+                What's new?  </blockquote>
+                 </div>I've got Markdown in my AsciiDoc! <div>
                   <blockquote>
-                 <span>
-                Like what?
-                 </span>
-                  </blockquote>
+                Like what?  </blockquote>
                  </div> <ul>
                   <li>
-                 <span>
-                Blockquotes
-                 </span>
-                  </li>
+                Blockquotes  </li>
                   <li>
-                 <span>
-                Headings
-                 </span>
-                  </li>
+                Headings  </li>
                   <li>
-                 <span>
-                Fenced code blocks
-                 </span>
-                  </li>
+                Fenced code blocks  </li>
                  </ul>
                  <div>
                   <blockquote>
-                 <span>
-                Is there more?
-                 </span>
-                  </blockquote>
-                 </div> <span>
-                Yep. AsciiDoc and Markdown share a lot of common syntax already.
-                 </span>
-                  </blockquote>
+                Is there more?  </blockquote>
+                 </div>Yep. AsciiDoc and Markdown share a lot of common syntax already.  </blockquote>
                  </div>""");
     }
 
@@ -349,7 +273,7 @@ class SimpleHtmlRendererTest {
                                 
                 image::img.png[logo]
                 """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
-        final var renderer = new SimpleHtmlRenderer(new SimpleHtmlRenderer.Configuration()
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setAssetsBase(work)
                 .setAttributes(Map.of("noheader", "true", "data-uri", "")));
         renderer.visitBody(doc);
@@ -377,7 +301,7 @@ class SimpleHtmlRendererTest {
                 public record UserId(String name) {}
                 ----
                 """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
-        final var renderer = new SimpleHtmlRenderer(new SimpleHtmlRenderer.Configuration()
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setAttributes(Map.of("noheader", "true", "data-uri", "false"/*true would mean we depend on the http url at test time, we don't want that*/)));
         renderer.visitBody(doc);
         assertEquals("""
@@ -397,14 +321,14 @@ class SimpleHtmlRendererTest {
 
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
-        final var renderer = new SimpleHtmlRenderer();
+        final var renderer = new AsciidoctorLikeHtmlRenderer();
         renderer.visit(doc);
         assertEquals(html, renderer.result());
     }
 
     private void assertRenderingContent(final String adoc, final String html) {
         final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
-        final var renderer = new SimpleHtmlRenderer(new SimpleHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals(html, renderer.result());
     }
