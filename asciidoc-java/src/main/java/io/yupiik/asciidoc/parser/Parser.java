@@ -619,7 +619,13 @@ public class Parser {
                     }
                 }
                 case '[' -> {
-                    final int end = line.indexOf(']', i + 1);
+                    int end = line.indexOf(']', i + 1);
+                    while (end > 0) {
+                        if (line.charAt(end - 1) != '\\') {
+                            break;
+                        }
+                        end = line.indexOf(']', end + 1);
+                    }
                     if (end > 0) {
                         // check it is a link
                         int backward = i;
@@ -635,11 +641,14 @@ public class Parser {
 
                             final int macroMarker = optionsPrefix.indexOf(":");
                             if (macroMarker > 0 && !isLink(optionsPrefix)) {
-                                final boolean inlined = optionsPrefix.charAt(macroMarker + 1) != ':';
+                                final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
+                                final var type = optionsPrefix.substring(0, macroMarker);
                                 final var macro = new Macro(
-                                        optionsPrefix.substring(0, macroMarker),
-                                        optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)),
-                                        options, inlined);
+                                        type,
+                                        "stem".equals(type) ?
+                                                line.substring(i + 1, end) :
+                                                optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)),
+                                        "stem".equals(type) ? Map.of() : options, inlined);
                                 switch (macro.name()) {
                                     case "include" -> elements.addAll(doInclude(macro, resolver, currentAttributes));
                                     case "ifdef" -> elements.add(new ConditionalBlock(

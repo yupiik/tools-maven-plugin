@@ -259,6 +259,33 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void stem() {
+        assertRenderingContent("""
+                = Some formulas
+                                
+                [stem]
+                ++++
+                sqrt(4) = 2
+                ++++
+                                
+                And inline stem:[[[a,b\\],[c,d\\]\\]((n),(k))] too.
+                """, """
+                 <div class="sect0">
+                  <h1>Some formulas</h1>
+                 <div class="sectionbody">
+                 <div class="stemblock">
+                  <div class="content">
+                 \\$sqrt(4) = 2\\$   </div>
+                 </div>
+                 <div class="paragraph">
+                 <p>And inline  \\$[[a,b\\],[c,d\\]\\]((n),(k))\\$  too.</p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void xref() {
         assertRenderingContent("xref:foo.adoc[Bar]", " <a href=\"foo.html\">Bar</a>\n");
     }

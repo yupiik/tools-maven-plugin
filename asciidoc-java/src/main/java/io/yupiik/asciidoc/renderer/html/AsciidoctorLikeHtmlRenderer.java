@@ -186,6 +186,28 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (!contentOnly) {
             builder.append(" </div>\n");
 
+            if (state.hasStem && attr("skip-stem-js", document.header().attributes()) == null) {
+                builder.append("""
+                        <script type="text/x-mathjax-config">
+                        MathJax.Hub.Config({
+                          messageStyle: "none",
+                          tex2jax: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]], ignoreClass: "nostem|nolatexmath" },
+                          asciimath2jax: { delimiters: [["\\\\$", "\\\\$"]], ignoreClass: "nostem|noasciimath" },
+                          TeX: { equationNumbers: { autoNumber: "none" } }
+                        })
+                        MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
+                          MathJax.InputJax.AsciiMath.postfilterHooks.Add(function (data, node) {
+                            if ((node = data.script.parentNode) && (node = node.parentNode) && node.classList.contains("stemblock")) {
+                              data.math.root.display = "block"
+                            }
+                            return data
+                          })
+                        })
+                        </script>
+                        <script src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>
+                        """);
+            }
+
             builder.append("</body>\n");
 
             Stream.of(document.header().attributes().getOrDefault("custom-js", "").split(","))
@@ -582,9 +604,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitPassthroughBlock(final PassthroughBlock element) {
-        builder.append("\n");
-        builder.append(element.value());
-        builder.append("\n");
+        switch (element.options().getOrDefault("", "")) {
+            case "stem" -> visitStem(new Macro("stem", element.value(), element.options(), false));
+            default -> builder.append("\n").append(element.value()).append("\n");
+        }
     }
 
     @Override
@@ -735,7 +758,30 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitStem(final Macro element) {
-        throw new IllegalArgumentException("stem not yet supported");
+        state.hasStem = true;
+        if (!element.inline()) {
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "stemblock" + (c == null ? "" : (' ' + c)));
+            builder.append(">\n");
+            writeBlockTitle(element.options());
+            builder.append("  <div class=\"content\">\n");
+        }
+
+        final boolean latex = "latexmath".equals(attr("stem", state.document == null ? Map.of() : state.document.header().attributes()));
+        if (latex) {
+            if (element.inline()) {
+                builder.append(" \\(").append(element.label()).append("\\) ");
+            } else {
+                builder.append(" \\[").append(element.label()).append("\\] ");
+            }
+        } else {
+            builder.append(" \\$").append(element.label()).append("\\$ ");
+        }
+
+        if (!element.inline()) {
+            builder.append("  </div>\n");
+            builder.append(" </div>\n");
+        }
     }
 
     protected void writeCommonAttributes(final Map<String, String> options, final Function<String, String> classProcessor) {
@@ -879,6 +925,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     private static class State implements AutoCloseable {
         private Document document;
         private List<Element> currentChain = null;
+        private boolean hasStem = false;
         private boolean sawPreamble = false;
         private boolean inCallOut = false;
         private final List<Element> lastElement = new ArrayList<>(4);
