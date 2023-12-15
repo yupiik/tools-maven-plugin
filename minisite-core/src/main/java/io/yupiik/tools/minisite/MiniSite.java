@@ -15,14 +15,8 @@
  */
 package io.yupiik.tools.minisite;
 
+import io.yupiik.tools.minisite.language.Asciidoc;
 import lombok.RequiredArgsConstructor;
-import org.asciidoctor.Asciidoctor;
-import org.asciidoctor.Attributes;
-import org.asciidoctor.AttributesBuilder;
-import org.asciidoctor.Options;
-import org.asciidoctor.OptionsBuilder;
-import org.asciidoctor.SafeMode;
-import org.asciidoctor.ast.Document;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -31,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
@@ -101,8 +94,8 @@ public class MiniSite implements Runnable {
             configuration.getAsciidoctorConfiguration().info().accept("Rendering (and upload) skipped");
             return;
         }
-        final Options options = createOptions();
-        configuration.getAsciidoctorPool().apply(configuration.getAsciidoctorConfiguration(), a -> {
+        final Object options = createOptions();
+        configuration.getAsciidoc().withInstance(configuration.getAsciidoctorConfiguration(), a -> {
             executeInMinisiteClassLoader(() -> doRender(a, options));
             return null;
         });
@@ -145,7 +138,7 @@ public class MiniSite implements Runnable {
     }
 
     protected Consumer<Function<Page, String>> render(final Page page, final Path html,
-                                                      final Asciidoctor asciidoctor, final Options options,
+                                                      final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                       final boolean withLeftMenuIfConfigured,
                                                       final Function<String, String> postProcessor,
                                                       final Function<String, String> customInterpolations) {
@@ -154,7 +147,7 @@ public class MiniSite implements Runnable {
         final String contentTemplate = findPageTemplate(templates, "page-content");
         return template -> {
             try {
-                final Map<String, Object> attrs = new HashMap<>(Map.of("minisite-passthrough", true));
+                final Map<String, String> attrs = new HashMap<>(Map.of("minisite-passthrough", "true"));
                 attrs.putAll(page.attributes);
                 final String title = ofNullable(page.title)
                         .map(t -> new TemplateSubstitutor(key -> {
@@ -172,7 +165,7 @@ public class MiniSite implements Runnable {
                 }).replace(contentTemplate);
                 final String content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
-                        ofNullable(page.title).orElseGet(this::getTitle),
+                        ofNullable(page.title).orElseGet(() -> getTitle(options)),
                         attrs, body));
                 Files.writeString(html, postProcessor.apply(withLeftMenuIfConfigured || !configuration.isTemplateAddLeftMenu() ? content : dropLeftMenu(content)));
             } catch (final IOException e) {
@@ -276,15 +269,16 @@ public class MiniSite implements Runnable {
      * @param htmls          pages.
      * @param template       mapper from a page meta to html.
      * @param blogCategories available categories for blog part.
+     * @param options
      * @return the index.html content.
      */
     protected String generateIndex(final Map<Page, Path> htmls, final Function<Page, String> template,
-                                   final boolean hasBlog, final List<String> blogCategories) {
+                                   final boolean hasBlog, final List<String> blogCategories, final Object options) {
         final Path output = configuration.getTarget();
         final Path templatesDir = getTemplatesDir();
         final String itemTemplate = findPageTemplate(templatesDir, "index-item");
         final String contentTemplate = findPageTemplate(templatesDir, "index-content");
-        final String indexText = getIndexText();
+        final String indexText = getIndexText(options);
         final String indexContent = (hasBlog ?
                 Stream.concat(
                         findIndexPages(htmls),
@@ -339,7 +333,7 @@ public class MiniSite implements Runnable {
                         "/index.html",
                         ofNullable(configuration.getTitle()).orElse("Index"), Map.of(
                         "minisite-keywords", indexText,
-                        "minisite-passthrough", true),
+                        "minisite-passthrough", "true"),
                         new TemplateSubstitutor(key -> {
                             switch (key) {
                                 case "title":
@@ -347,7 +341,7 @@ public class MiniSite implements Runnable {
                                             (!indexText.toLowerCase(Locale.ROOT).endsWith("documentation") && !configuration.isSkipIndexTitleDocumentationText() ?
                                                     " Documentation" : "");
                                 case "subTitle":
-                                    return getIndexSubTitle();
+                                    return getIndexSubTitle(options);
                                 case "content":
                                     return indexContent;
                                 default:
@@ -364,7 +358,7 @@ public class MiniSite implements Runnable {
     }
 
     protected String getDefaultInterpolation(final String key, final Page page,
-                                             final Asciidoctor asciidoctor, final Options options,
+                                             final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                              final Function<String, String> customInterpolations) {
         final int idx = key.lastIndexOf('?');
         if (idx < 0) {
@@ -388,7 +382,7 @@ public class MiniSite implements Runnable {
     }
 
     protected String getDefaultInterpolation(final String key, final Page page,
-                                             final Asciidoctor asciidoctor, final Options options,
+                                             final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                              final boolean emptyIfMissing,
                                              final Function<String, String> customInterpolations) {
         if (customInterpolations != null) {
@@ -529,7 +523,7 @@ public class MiniSite implements Runnable {
                         "</urlset>\n"));
     }
 
-    public void doRender(final Asciidoctor asciidoctor, final Options options) {
+    public void doRender(final Asciidoc.AsciidocInstance asciidoctor, final Object options) {
         final Path content = configuration.getSource().resolve("content");
         final Map<Page, Path> files = new HashMap<>();
         final Path output = configuration.getTarget();
@@ -563,7 +557,7 @@ public class MiniSite implements Runnable {
                 template = createTemplate(options, asciidoctor, false);
             }
             try {
-                Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog, categories).getBytes(StandardCharsets.UTF_8));
+                Files.write(output.resolve("index.html"), generateIndex(files, template, hasBlog, categories, options).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated index.html");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
@@ -669,7 +663,7 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
             try (final BufferedWriter rss = Files.newBufferedWriter(out, UTF_8)) {
-                final String rssContent = generateRssFeed(files);
+                final String rssContent = generateRssFeed(files, options);
                 rss.write(rssContent);
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
@@ -679,7 +673,7 @@ public class MiniSite implements Runnable {
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }
 
-    private String generateRssFeed(final Map<Page, Path> files) {
+    private String generateRssFeed(final Map<Page, Path> files, final Object options) {
         final List<Map.Entry<Page, OffsetDateTime>> all = files.keySet().stream()
                 .filter(it -> {
                     final String name = files.get(it).getFileName().toString();
@@ -711,7 +705,7 @@ public class MiniSite implements Runnable {
                 "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n" +
                 "  <channel>\n" +
                 "   <atom:link href=\"" + baseSite + configuration.getRssFeedFile() + "\" rel=\"self\" type=\"application/rss+xml\" />\n" +
-                "   <title>" + escaper.apply(getTitle()) + "</title>\n" +
+                "   <title>" + escaper.apply(getTitle(options)) + "</title>\n" +
                 "   <description>" + escaper.apply(getIndexSubTitle(false)) + "</description>\n" +
                 "   <link>" + baseSite + configuration.getRssFeedFile() + "</link>\n" +
                 "   <lastBuildDate>" + lastDate + "</lastBuildDate>\n" +
@@ -754,8 +748,7 @@ public class MiniSite implements Runnable {
                 .replace(">", "&#x3E;");
     }
 
-    protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoctor asciidoctor,
-                                                             final Options options,
+    protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                              final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog) {
         if (page.attributes.containsKey("minisite-skip")) {
             return t -> {
@@ -809,8 +802,7 @@ public class MiniSite implements Runnable {
                 .orElseGet(OffsetDateTime::now);
     }
 
-    protected List<String> generateBlog(final List<BlogPage> blog, final Asciidoctor asciidoctor,
-                                        final Options options,
+    protected List<String> generateBlog(final List<BlogPage> blog, final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                         final Function<Page, String> template) {
         Comparator<BlogPage> pageComparator = comparing(p -> p.publishedDate);
         if (configuration.isReverseBlogOrder()) {
@@ -934,9 +926,7 @@ public class MiniSite implements Runnable {
                                         .map(icon -> "[.mr-2." + getCategoryClass(getPageCategories(bp.page)) + "]#icon:" + icon + "[]#")
                                         .orElse(""),
                                 ofNullable(bp.page.attributes.get("minisite-blog-authors"))
-                                        .map(value -> (List.class.isInstance(value) ?
-                                                ((List<String>) value).stream() :
-                                                Stream.of(String.valueOf(value).split(",")))
+                                        .map(value -> Stream.of(value.split(","))
                                                 .map(String::strip)
                                                 .filter(it -> !it.isBlank())
                                                 .map(it -> "link:" + configuration.getSiteBase() + "/blog/author/" + toUrlName(it) + "/page-1.html[" + toHumanName(it) + "]")
@@ -953,7 +943,8 @@ public class MiniSite implements Runnable {
 
     protected Collection<String> paginatePer(final String singular, final String plural,
                                              final List<BlogPage> blog,
-                                             final Asciidoctor asciidoctor, final Options options, final Function<Page, String> template,
+                                             final Asciidoc.AsciidocInstance asciidoctor, final Object options,
+                                             final Function<Page, String> template,
                                              final Path baseBlog, final String itemTemplate, final String contentTemplate) {
         // per category pagination /category/<name>/page-<x>.html
         final Map<String, List<BlogPage>> perCriteria = blog.stream()
@@ -1012,8 +1003,8 @@ public class MiniSite implements Runnable {
     protected void paginateBlogPages(final BiFunction<Integer, Integer, String> prefix,
                                      final String pageRelativeFolder,
                                      final List<BlogPage> blogPages,
-                                     final Asciidoctor asciidoctor,
-                                     final Options options,
+                                     final Asciidoc.AsciidocInstance asciidoctor,
+                                     final Object options,
                                      final Function<Page, String> template,
                                      final Path baseBlog,
                                      final String itemTemplate, final String contentTemplate) {
@@ -1091,7 +1082,8 @@ public class MiniSite implements Runnable {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
     }
 
-    public Function<Page, String> createTemplate(final Options options, final Asciidoctor asciidoctor,
+    public Function<Page, String> createTemplate(final Object options,
+                                                 final Asciidoc.AsciidocInstance asciidoctor,
                                                  final boolean hasBlog) {
         final Path layout = getTemplatesDir();
         String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
@@ -1169,7 +1161,13 @@ public class MiniSite implements Runnable {
                         .replace("{{description}}", ofNullable(page.attributes)
                                 .map(a -> a.get("minisite-description"))
                                 .map(String::valueOf)
-                                .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(() -> getIndexSubTitle(false)))),
+                                .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(() -> {
+                                    final String content = getIndexSubTitle(false, options).replace('\n', ' ');
+                                    if (content.startsWith("adoc:")) {
+                                        return content.substring("adoc:".length());
+                                    }
+                                    return content;
+                                }))),
                 page.attributes != null && page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
                 suffix.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
                         "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\" integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
@@ -1212,7 +1210,7 @@ public class MiniSite implements Runnable {
                         " }</script>")));
     }
 
-    protected Collection<Page> findPages(final Asciidoctor asciidoctor, final Options options) {
+    protected Collection<Page> findPages(final Asciidoc.AsciidocInstance asciidoctor, final Object options) {
         try {
             final Path content = configuration.getSource().resolve("content");
             final Collection<Page> pages = new ArrayList<>();
@@ -1227,9 +1225,9 @@ public class MiniSite implements Runnable {
                         return FileVisitResult.CONTINUE;
                     }
                     final String contentString = Files.readString(file);
-                    final Document header = asciidoctor.load(contentString, options);
+                    final Asciidoc.AsciidocInstance.Header header = asciidoctor.header(contentString, options);
                     final Path out = ofNullable(header.getAttributes().get("minisite-path"))
-                            .map(it -> configuration.getTarget().resolve(it.toString()))
+                            .map(it -> configuration.getTarget().resolve(it))
                             .orElseGet(() -> configuration.getTarget().resolve(content.relativize(file)).getParent().resolve(
                                     filename.substring(0, filename.length() - ".adoc".length()) + ".html"));
                     final Page page = new Page(
@@ -1247,17 +1245,11 @@ public class MiniSite implements Runnable {
         }
     }
 
-    protected String renderText(final String text) {
+    protected String renderText(final String text, final Object options) {
         if (text.startsWith("adoc:")) {
-            return configuration.getAsciidoctorPool().apply(
-                            configuration.getAsciidoctorConfiguration(),
-                            a -> a.convert(text.substring("adoc:".length()), Options.builder()
-                                    .safe(SafeMode.UNSAFE)
-                                    .backend("html5")
-                                    .inPlace(false)
-                                    .headerFooter(false)
-                                    .build()))
-                    .toString();
+            return configuration.getAsciidoc().withInstance(
+                    configuration.getAsciidoctorConfiguration(),
+                    a -> a.convert(text.substring("adoc:".length()), options));
         }
         return text;
     }
@@ -1274,40 +1266,34 @@ public class MiniSite implements Runnable {
                 .orElse("Docs");
     }
 
-    protected String getIndexText() {
+    protected String getIndexText(final Object options) {
         return ofNullable(configuration.getIndexText())
-                .map(this::renderText)
+                .map(it -> renderText(it, options))
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElseGet(() -> getLogoText() + " Documentation"));
     }
 
-    protected String getIndexSubTitle() {
-        return getIndexSubTitle(true);
+    protected String getIndexSubTitle(final Object options) {
+        return getIndexSubTitle(true, options);
     }
 
-    protected String getIndexSubTitle(final boolean render) {
+    protected String getIndexSubTitle(final boolean render, final Object options) {
         return ofNullable(configuration.getIndexSubTitle())
-                .map(it -> render ? renderText(it) : it)
+                .map(it -> render ? renderText(it, options) : it)
                 .orElseGet(() -> ofNullable(configuration.getProjectName())
                         .map(it -> it.replace("Yupiik ", ""))
                         .orElse(configuration.getProjectArtifactId()));
     }
 
-    protected String getTitle() {
+    protected String getTitle(final Object options) {
         return ofNullable(configuration.getTitle())
-                .map(this::renderText)
+                .map(it -> renderText(it, options))
                 .orElseGet(() -> "Yupiik " + getLogoText());
     }
 
-    protected String renderAdoc(final Page page, final Asciidoctor asciidoctor, final Options options) {
-        final StringWriter writer = new StringWriter();
-        try (final StringReader reader = new StringReader(page.content)) {
-            asciidoctor.convert(reader, writer, options);
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
-        }
-        return writer.toString();
+    protected String renderAdoc(final Page page, final Asciidoc.AsciidocInstance asciidoctor, final Object options) {
+        return asciidoctor.convert(page.content, options);
     }
 
     protected String readTemplates(final Path layout, final List<String> templatePrefixes) {
@@ -1347,30 +1333,8 @@ public class MiniSite implements Runnable {
                 .orElse(null));
     }
 
-    public Options createOptions() {
-        final AttributesBuilder attributes = Attributes.builder()
-                .linkCss(false)
-                .dataUri(true)
-                .attribute("stem")
-                .attribute("source-highlighter", "highlightjs")
-                .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1")
-                .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css")
-                .attribute("imagesdir", "images")
-                .attributes(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
-        if (configuration.getProjectVersion() != null && (configuration.getAttributes() == null || !configuration.getAttributes().containsKey("projectVersion"))) {
-            attributes.attribute("projectVersion", configuration.getProjectVersion());
-        }
-        final OptionsBuilder options = Options.builder()
-                .safe(SafeMode.UNSAFE)
-                .backend("html5")
-                .inPlace(false)
-                .headerFooter(false)
-                .baseDir(configuration.getSource().resolve("content").getParent().toAbsolutePath().normalize().toFile())
-                .attributes(attributes.build());
-        if (configuration.getTemplateDirs() != null && !configuration.getTemplateDirs().isEmpty()) {
-            options.templateDirs(configuration.getTemplateDirs().toArray(new File[0]));
-        }
-        return options.build();
+    public Object createOptions() {
+        return configuration.getAsciidoc().createOptions(configuration);
     }
 
     @RequiredArgsConstructor
@@ -1383,7 +1347,7 @@ public class MiniSite implements Runnable {
     public static class Page {
         private final String relativePath;
         private final String title;
-        private final Map<String, Object> attributes;
+        private final Map<String, String> attributes;
         private final String content;
     }
 }

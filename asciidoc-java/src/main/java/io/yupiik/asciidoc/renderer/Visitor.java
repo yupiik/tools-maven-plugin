@@ -27,6 +27,7 @@ import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
@@ -90,7 +91,12 @@ public interface Visitor<R> {
             case SECTION -> visitSection((Section) element);
             case CONDITIONAL_BLOCK -> visitConditionalBlock((ConditionalBlock) element);
             case ATTRIBUTE -> visitAttribute((Attribute) element);
+            case LISTING -> visitListing((Listing) element);
         }
+    }
+
+    default void visitListing(Listing element) {
+        // no-op
     }
 
     default void visitPageBreak(final PageBreak element) {

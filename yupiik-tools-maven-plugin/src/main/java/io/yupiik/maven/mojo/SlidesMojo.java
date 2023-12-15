@@ -32,6 +32,14 @@ import java.util.Map;
 @Mojo(name = "slides", threadSafe = true)
 public class SlidesMojo extends BaseMojo {
     /**
+     * Should Yupiik asciidoctor-java be used instead of asciidoctorj (over jruby).
+     * While this is likely faster to bootstrap and render it is not as complete as asciidoctor as of today
+     * and requires to run at least on Java 17.
+     */
+    @Parameter(property = "yupiik.minisite.preferYupiikAsciidoc", defaultValue = "false")
+    private boolean preferYupiikAsciidoc;
+
+    /**
      * Slide deck source file.
      */
     @Parameter(property = "yupiik.slides.source", defaultValue = "${project.basedir}/src/main/slides/index.adoc")

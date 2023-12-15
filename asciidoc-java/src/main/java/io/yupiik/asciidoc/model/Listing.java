@@ -15,12 +15,13 @@
  */
 package io.yupiik.asciidoc.model;
 
-import java.util.List;
 import java.util.Map;
 
-public record Code(String value, List<CallOut> callOuts, Map<String, String> options, boolean inline) implements Element {
+import static io.yupiik.asciidoc.model.Element.ElementType.LISTING;
+
+public record Listing(String value, Map<String, String> options) implements Element {
     @Override
     public ElementType type() {
-        return ElementType.CODE;
+        return LISTING;
     }
 }

@@ -27,6 +27,8 @@ import io.yupiik.tools.minisite.IndexService;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
+import io.yupiik.tools.minisite.language.Asciidoc;
+import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -68,6 +70,14 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
  */
 @Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class MiniSiteMojo extends BaseMojo {
+    /**
+     * Should Yupiik asciidoctor-java be used instead of asciidoctorj (over jruby).
+     * While this is likely faster to bootstrap and render it is not as complete as asciidoctor as of today
+     * and requires to run at least on Java 17.
+     */
+    @Parameter(property = "yupiik.minisite.preferYupiikAsciidoc", defaultValue = "false")
+    protected boolean preferYupiikAsciidoc;
+
     /**
      * Where to read content (layout root) from.
      */
@@ -459,7 +469,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .projectName(ofNullable(attributes).map(a -> a.get("projectName")).map(Object::toString).orElseGet(() -> project.getName()))
                 .projectArtifactId(ofNullable(attributes).map(a -> a.get("projectArtifactId")).map(Object::toString).orElseGet(() -> project.getArtifactId()))
                 .asciidoctorConfiguration(this)
-                .asciidoctorPool((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions))
+                .asciidoc(createAsciidoc(preferYupiikAsciidoc))
                 .reverseBlogOrder(reverseBlogOrder)
                 .addIndexRegistrationPerCategory(addIndexRegistrationPerCategory)
                 .blogCategoriesCustomizations(blogCategoriesCustomizations)
@@ -469,6 +479,30 @@ public class MiniSiteMojo extends BaseMojo {
                 .templateExtensionPoints(templateExtensionPoints)
                 .gravatar(gravatar == null ? new MiniSiteConfiguration.GravatarConfiguration() : gravatar)
                 .build();
+    }
+
+    protected Asciidoc createAsciidoc(final boolean tryYupiikImpl) {
+        if (tryYupiikImpl) {
+            try {
+                return MiniSiteMojo.class.getClassLoader()
+                        .loadClass("io.yupiik.tools.minisite.language.YupiikAsciidoc")
+                        .asSubclass(Asciidoc.class)
+                        .getConstructor()
+                        .newInstance();
+            } catch (final Error | Exception cnfe) {
+                getLog().warn("Can't use asciidoctor-java, switching to asciidoctorj over JRuby,\n" +
+                        "if you want this behavior add as yupiik-tools-maven-plugin the following dependency and ensure to run on java >= 17:\n" +
+                        "\n" +
+                        " <dependencies>\n" +
+                        "   <dependency>\n" +
+                        "     <groupId>io.yupiik.maven</groupId>\n" +
+                        "     <artifactId>asciidoc-java</artifactId>\n" +
+                        "     <version>${yupiik-tools.version}</version>\n" +
+                        "   </dependency>\n" +
+                        " </dependencies>");
+            }
+        }
+        return new AsciidoctorAsciidoc((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions));
     }
 
     protected String getDefaultPublicationDate() {

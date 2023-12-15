@@ -19,6 +19,7 @@ import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
 import io.yupiik.asciidoc.model.Author;
+import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -121,17 +122,17 @@ class ParserTest {
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "Where did all the ", Map.of()),
-                                new Text(List.of(), "cores", Map.of("role", "underline")),
+                                new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                 new Text(List.of(), " go?", Map.of())
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "We need ", Map.of()),
-                                new Text(List.of(), "ten", Map.of("role", "line-through")),
+                                new Text(List.of(MARK), "ten", Map.of("role", "line-through")),
                                 new Text(List.of(), " twenty VMs.", Map.of())
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "A ", Map.of()),
-                                new Text(List.of(), "custom role", Map.of("role", "myrole")),
+                                new Text(List.of(MARK), "custom role", Map.of("role", "myrole")),
                                 new Text(List.of(), " must be fulfilled by the theme.", Map.of())
                         ), Map.of())
                 ),
@@ -159,9 +160,8 @@ class ParserTest {
                                 new Text(List.of(MARK), "Mark", Map.of()),
                                 new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                 new Text(List.of(MARK), "mark", Map.of()),
-                                new Text(List.of(), "s.", Map.of()),
-                                new Text(List.of(), "Where did all the ", Map.of()),
-                                new Text(List.of(), "cores", Map.of("role", "underline")),
+                                new Text(List.of(), "s. Where did all the ", Map.of()),
+                                new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                 new Text(List.of(), " go?", Map.of())
                         ), Map.of()),
                         new Text(List.of(), "end.", Map.of())
@@ -186,6 +186,13 @@ class ParserTest {
                         ), Map.of())
                 ),
                 body.children());
+    }
+
+    @Test
+    void linkMacroWithRole() {
+        assertEquals(
+                List.of(new Macro("link", "foo", Map.of("role", "test"), true)),
+                new Parser().parseBody(new Reader(List.of("link:foo[role=\"test\"]")), null).children());
     }
 
     @Test
@@ -217,9 +224,8 @@ class ParserTest {
                                         new Text(List.of(MARK), "Mark", Map.of()),
                                         new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                         new Text(List.of(MARK), "mark", Map.of()),
-                                        new Text(List.of(), "s.", Map.of()),
-                                        new Text(List.of(), "Where did all the ", Map.of()),
-                                        new Text(List.of(), "cores", Map.of("role", "underline")),
+                                        new Text(List.of(), "s. Where did all the ", Map.of()),
+                                        new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                         new Text(List.of(), " go?", Map.of())), Map.of())), Map.of()),
                         new Section(
                                 2,
@@ -317,7 +323,36 @@ class ParserTest {
                 ----
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Code("public record Foo() {\n}\n", Map.of("language", "java", "role", "hljs"), false)),
+                List.of(new Code("public record Foo() {\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)),
+                body.children());
+    }
+
+    @Test
+    void codeWithCallout() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,java,.hljs]
+                ----
+                import anything;
+                public record Foo( <1>
+                  String name <2>
+                ) {
+                }
+                ----
+                <1> Defines a record,
+                <.> Defines an attribute of the record.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("""
+                        import anything;
+                        public record Foo( (1)
+                          String name (2)
+                        ) {
+                        }
+                        """,
+                        List.of(
+                                new CallOut(1, new Text(List.of(), "Defines a record,", Map.of())),
+                                new CallOut(2, new Text(List.of(), "Defines an attribute of the record.", Map.of()))),
+                        Map.of("language", "java", "role", "hljs"), false)),
                 body.children());
     }
 
@@ -458,7 +493,8 @@ class ParserTest {
                                         entry("CPU", new Text(List.of(), "The brain of the computer.", Map.of())),
                                         entry("Hard drive", new Text(List.of(), "Permanent storage for operating system and/or user files.", Map.of())),
                                         entry("RAM", new Text(List.of(), "Temporarily stores information the CPU uses during operation.", Map.of())))
-                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)))),
+                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
+                                Map.of())),
                 body.children());
     }
 
@@ -485,7 +521,8 @@ class ParserTest {
                                         new Text(List.of(), "Bananas", Map.of())),
                                         Map.of()
                                 )))
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)))),
+                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
+                        Map.of())),
                 body.children());
     }
 
@@ -516,15 +553,10 @@ class ParserTest {
                 Enter at your own risk.
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Admonition(WARNING, new Paragraph(List.of(
-                        new Text(
-                                List.of(),
-                                "Wolpertingers are known to nest in server racks.",
-                                Map.of()),
-                        new Text(
-                                List.of(),
-                                "Enter at your own risk.",
-                                Map.of())), Map.of()))),
+                List.of(new Admonition(WARNING, new Text(
+                        List.of(),
+                        "Wolpertingers are known to nest in server racks. Enter at your own risk.",
+                        Map.of()))),
                 body.children());
     }
 
@@ -562,11 +594,8 @@ class ParserTest {
         assertEquals(
                 List.of(new Section(2, new Text(List.of(), "My title", Map.of()), List.of(
                         new Text(List.of(), "This is foo.", Map.of()),
-                        new Paragraph(List.of(
-                                new Text(List.of(), "First included line.", Map.of()),
-                                new Text(List.of(), "Last included line.", Map.of())
-                        ), Map.of())
-                ), Map.of())),
+                        new Text(List.of(), "First included line. Last included line.", Map.of())),
+                        Map.of())),
                 body.children());
     }
 
@@ -647,7 +676,7 @@ class ParserTest {
                         List.of(
                                 new Paragraph(List.of(
                                         new Text(List.of(), "Cell in column 1, row 1", Map.of()),
-                                        new Code("public class Foo {\n}\n", Map.of("language", "java"), false)
+                                        new Code("public class Foo {\n}\n", List.of(), Map.of("language", "java"), false)
                                 ), Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 1", Map.of())),
                         List.of(
@@ -832,5 +861,18 @@ class ParserTest {
             assertEquals("replaced", ((Attribute) p.children().get(1)).attribute(), children::toString);
             assertEquals(" and not this {value}.", ((Text) p.children().get(2)).value(), children::toString);
         }
+    }
+
+    @Test
+    void icon() {
+        // more "complex" since it has a space in the label
+        assertEquals(
+                List.of(new Macro("icon", "fas fa-foo", Map.of("size", "2x"), true)),
+                new Parser().parseBody(new Reader(List.of("icon:fas fa-foo[size=2x]")), null).children());
+
+        // no space
+        assertEquals(
+                List.of(new Macro("icon", "heart", Map.of("size", "2x"), true)),
+                new Parser().parseBody(new Reader(List.of("icon:heart[size=2x]")), null).children());
     }
 }

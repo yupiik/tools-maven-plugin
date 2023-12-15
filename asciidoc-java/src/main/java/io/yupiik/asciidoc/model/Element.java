@@ -19,7 +19,7 @@ public sealed interface Element permits
         Code, DescriptionList, LineBreak, Link, Macro, OrderedList,
         Paragraph, Section, Text, UnOrderedList, Admonition, Anchor,
         Table, Quote, OpenBlock, PassthroughBlock, ConditionalBlock,
-        Attribute, PageBreak {
+        Attribute, PageBreak, Listing {
     ElementType type();
 
     /**
@@ -41,6 +41,7 @@ public sealed interface Element permits
         DESCRIPTION_LIST,
         LINK,
         TEXT,
+        LISTING,
         MACRO, // icon, image, audio, video, kbd, btn, menu, doublefootnote, footnote, stem, xref, pass
         ADMONITION,
         ANCHOR,
