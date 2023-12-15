@@ -349,7 +349,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitLink(final Link element) {
+        final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());
+        if (parentNeedsP) { // really to mimic asciidoctor
+            builder.append(" <p>");
+        }
+
         builder.append(" <a href=\"").append(element.url()).append("\"");
+        writeCommonAttributes(element.options(), null);
 
         final var window = element.options().get("window");
         if (window != null) {
@@ -373,6 +379,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             label = label.substring(label.indexOf("://") + "://".length());
         }
         builder.append(">").append(escape(label)).append("</a>\n");
+
+        if (parentNeedsP) {
+            builder.append("</p>");
+        }
     }
 
     @Override
@@ -478,10 +488,19 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                         case EMPHASIS -> "em";
                         case SUB -> "sub";
                         case SUP -> "sup";
-                        case MARK -> "mark";
+                        case MARK -> "span";
                     })
                     .toList();
-            builder.append(styleTags.stream().map(s -> '<' + s + '>').collect(joining()));
+            if (!styleTags.isEmpty()) {
+                builder.append('<').append(styleTags.get(0));
+                if (!wrap) {
+                    writeCommonAttributes(element.options(), null);
+                }
+                builder.append('>');
+                if (styleTags.size() > 1) {
+                    builder.append(styleTags.stream().skip(1).map(s -> '<' + s + '>').collect(joining()));
+                }
+            }
             builder.append(escape(element.value()));
             builder.append(styleTags.stream().sorted(Comparator.reverseOrder()).map(s -> "</" + s + '>').collect(joining()));
             if (wrap) {
@@ -801,12 +820,29 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(" <kbd>").append(escape(element.label())).append("</kbd>\n");
     }
 
-    // todo: enhance
     protected void visitIcon(final Macro element) {
-        builder.append(" <i class=\"")
-                .append(element.label().startsWith("fa") && !element.label().contains(" ") ? "fa " : "")
+        if (!element.inline()) {
+            builder.append(' ');
+        }
+        final var hasRole = element.options().containsKey("role");
+        if (hasRole) {
+            builder.append("<span");
+            writeCommonAttributes(element.options(), null);
+            builder.append(">");
+        }
+        builder.append("<span class=\"icon\"><i class=\"");
+        builder.append(element.label().startsWith("fa") && !element.label().contains(" ") ? "fa " : "")
                 .append(element.label())
-                .append("\"></i>\n");
+                .append(ofNullable(element.options().getOrDefault("", element.options().get("size")))
+                        .map(size -> " fa-" + size)
+                        .orElse(""));
+        builder.append("\"></i></span>");
+        if (hasRole) {
+            builder.append("</span>");
+        }
+        if (!element.inline()) {
+            builder.append('\n');
+        }
     }
 
     protected void visitStem(final Macro element) {
@@ -838,6 +874,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     protected void writeCommonAttributes(final Map<String, String> options, final Function<String, String> classProcessor) {
         var classes = options.get("role");
+        if (classes != null) {
+            classes = classes.replace('.', ' ');
+        }
         if (classProcessor != null) {
             classes = classProcessor.apply(classes);
         }
@@ -863,7 +902,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        final boolean hasSingleSection = state.document.body().children().stream()
+        final boolean hasSingleSection = state.document != null && state.document.body().children().stream()
                 .noneMatch(it -> it instanceof Section s && s.level() > 0);
         if (hasSingleSection) {
             state.sawPreamble = true; // there will be no preamble

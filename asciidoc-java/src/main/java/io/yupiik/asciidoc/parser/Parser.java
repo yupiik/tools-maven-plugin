@@ -532,8 +532,8 @@ public class Parser {
         return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
     }
 
-    private Collection<Element> parseLine(final Reader reader, final String line,
-                                          final ContentResolver resolver, final Map<String, String> currentAttributes) {
+    private List<Element> parseLine(final Reader reader, final String line,
+                                    final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var elements = new ArrayList<Element>();
         int start = 0;
         for (int i = 0; i < line.length(); i++) {
@@ -658,13 +658,17 @@ public class Parser {
                         }
                         end = line.indexOf(']', end + 1);
                     }
-                    if (end > 0) {
-                        // check it is a link
-                        int backward = i;
-                        while ((backward - 1) >= 0 && line.charAt(backward - 1) != ' ') {
-                            backward--;
+                    if (end > 0 && (end == (line.length() - 1) || !isInlineOptionContentMarker(line.charAt(end + 1)))) { // check it is maybe a link
+                        final int backward;
+                        final int previousSemicolon = line.lastIndexOf(':', i);
+                        if (previousSemicolon > 0) {
+                            final int antepenultimateSemicolon = line.lastIndexOf(':', previousSemicolon - 1);
+                            backward = line.lastIndexOf(' ', antepenultimateSemicolon > 0 ? antepenultimateSemicolon : previousSemicolon) + 1;
+                        } else {
+                            backward = -1;
                         }
-                        if (backward < i) { // assume a link
+
+                        if (backward >= 0 && backward < i) { // start by assuming it a link then fallback on a macro
                             final var optionsPrefix = line.substring(backward, i);
                             final var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
@@ -737,10 +741,24 @@ public class Parser {
                     final var endString = j == 0 ? "#" : IntStream.rangeClosed(0, j).mapToObj(idx -> "#").collect(joining(""));
                     final int end = line.indexOf(endString, i + endString.length());
                     if (end > 0) {
-                        if (start != i) {
+                        // override options if set inline (todo: do it for all inline markers)
+                        String options = null;
+                        if (i > 0 && ']' == line.charAt(i - 1)) {
+                            final int optionsStart = line.lastIndexOf('[', i - 1);
+                            if (optionsStart >= 0) {
+                                options = line.substring(optionsStart + 1, i - 1);
+                                // adjust indices to skip options
+                                if (start < optionsStart) {
+                                    flushText(elements, line.substring(start, optionsStart));
+                                }
+                            } else if (start < i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                        } else if (start < i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(line, i + endString.length() - 1, end, elements, MARK, null, resolver, currentAttributes);
+
+                        addTextElements(line, i + endString.length() - 1, end, elements, MARK, options, resolver, currentAttributes);
                         start = end + endString.length();
                         i = start - 1;
                     }
@@ -783,6 +801,11 @@ public class Parser {
             flushText(elements, line.substring(start));
         }
         return flattenTexts(elements);
+    }
+
+    // todo: we should add others like '_' etc but right now this is used to extract inline options and it is not wired everywhere
+    private boolean isInlineOptionContentMarker(final char c) {
+        return c == '#';
     }
 
     private Predicate<ConditionalBlock.Context> parseCondition(final String condition, final Map<String, String> attributeAtParsingTime) {
@@ -1096,10 +1119,16 @@ public class Parser {
         final var content = line.substring(i + 1, end);
         final var sub = parseLine(null, content, resolver, currentAttributes);
         final var opts = options != null ? parseOptions(options) : Map.<String, String>of();
-        if (sub.size() == 1 && sub.iterator().next() instanceof Text t && !t.style().isEmpty()) {
-            collector.add(newText(
-                    style == null ? t.style() : Stream.concat(Stream.of(style), t.style().stream()).toList(),
-                    t.value(), opts));
+        if (sub.size() == 1 && sub.get(0) instanceof Text t) {
+            if (!t.style().isEmpty()) {
+                collector.add(newText(
+                        style == null ? t.style() : Stream.concat(Stream.of(style), t.style().stream()).toList(),
+                        t.value(), opts));
+            } else {
+                collector.add(newText(style == null ? List.of() : List.of(style), t.value(), opts));
+            }
+        } else if (sub.size() == 1 && !opts.isEmpty()) { // quick way to fusion parseLine options and provided options
+            collector.add(unwrapElementIfPossible(new Paragraph(sub, opts)));
         } else {
             collector.addAll(sub.stream()
                     // todo: for now we loose the style for what is not pure text, should we handle it as an element or role maybe?

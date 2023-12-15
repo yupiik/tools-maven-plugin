@@ -122,17 +122,17 @@ class ParserTest {
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "Where did all the ", Map.of()),
-                                new Text(List.of(), "cores", Map.of("role", "underline")),
+                                new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                 new Text(List.of(), " go?", Map.of())
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "We need ", Map.of()),
-                                new Text(List.of(), "ten", Map.of("role", "line-through")),
+                                new Text(List.of(MARK), "ten", Map.of("role", "line-through")),
                                 new Text(List.of(), " twenty VMs.", Map.of())
                         ), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "A ", Map.of()),
-                                new Text(List.of(), "custom role", Map.of("role", "myrole")),
+                                new Text(List.of(MARK), "custom role", Map.of("role", "myrole")),
                                 new Text(List.of(), " must be fulfilled by the theme.", Map.of())
                         ), Map.of())
                 ),
@@ -161,7 +161,7 @@ class ParserTest {
                                 new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                 new Text(List.of(MARK), "mark", Map.of()),
                                 new Text(List.of(), "s. Where did all the ", Map.of()),
-                                new Text(List.of(), "cores", Map.of("role", "underline")),
+                                new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                 new Text(List.of(), " go?", Map.of())
                         ), Map.of()),
                         new Text(List.of(), "end.", Map.of())
@@ -186,6 +186,13 @@ class ParserTest {
                         ), Map.of())
                 ),
                 body.children());
+    }
+
+    @Test
+    void linkMacroWithRole() {
+        assertEquals(
+                List.of(new Macro("link", "foo", Map.of("role", "test"), true)),
+                new Parser().parseBody(new Reader(List.of("link:foo[role=\"test\"]")), null).children());
     }
 
     @Test
@@ -218,7 +225,7 @@ class ParserTest {
                                         new Text(List.of(), "up refers to value that contains formatting ", Map.of()),
                                         new Text(List.of(MARK), "mark", Map.of()),
                                         new Text(List.of(), "s. Where did all the ", Map.of()),
-                                        new Text(List.of(), "cores", Map.of("role", "underline")),
+                                        new Text(List.of(MARK), "cores", Map.of("role", "underline")),
                                         new Text(List.of(), " go?", Map.of())), Map.of())), Map.of()),
                         new Section(
                                 2,
@@ -854,5 +861,18 @@ class ParserTest {
             assertEquals("replaced", ((Attribute) p.children().get(1)).attribute(), children::toString);
             assertEquals(" and not this {value}.", ((Text) p.children().get(2)).value(), children::toString);
         }
+    }
+
+    @Test
+    void icon() {
+        // more "complex" since it has a space in the label
+        assertEquals(
+                List.of(new Macro("icon", "fas fa-foo", Map.of("size", "2x"), true)),
+                new Parser().parseBody(new Reader(List.of("icon:fas fa-foo[size=2x]")), null).children());
+
+        // no space
+        assertEquals(
+                List.of(new Macro("icon", "heart", Map.of("size", "2x"), true)),
+                new Parser().parseBody(new Reader(List.of("icon:heart[size=2x]")), null).children());
     }
 }

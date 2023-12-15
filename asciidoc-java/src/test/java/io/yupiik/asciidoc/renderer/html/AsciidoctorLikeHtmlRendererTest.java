@@ -58,18 +58,8 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div id="preamble">
                  <div class="sectionbody">
                  <div class="paragraph metadata">
-                 <p> <span class="mr-2.category-release">
-                icon:fas\s
-                 </span>
-                 <a href="fa-gift">fa-gift</a>
-                ,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html">Francois Papon</a>
-                ,  <span class="metadata-published">
-                2023-09-26
-                 </span>
-                ,  <span class="metadata-readingtime">
-                49 sec read
-                 </span>
-                </p>
+                 <p><span class="mr-2 category-release"><span class="icon"><i class="fas fa-gift"></i></span></span>,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html" class="metadata-authors">Francois Papon</a>
+                , <span class="metadata-published">2023-09-26</span>, <span class="metadata-readingtime">49 sec read</span></p>
                  </div>
                  </div>
                  </div>
@@ -219,11 +209,11 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="ulist blog-links blog-links-page">
                  <ul>
                   <li>
-                 <a href="http://localhost:4200/blog/index.html">All posts</a>
-                  </li>
+                 <p> <a href="http://localhost:4200/blog/index.html" class="blog-link-all">All posts</a>
+                </p>  </li>
                   <li>
-                 <a href="http://localhost:4200/blog/page-2.html">Next</a>
-                  </li>
+                 <p> <a href="http://localhost:4200/blog/page-2.html" class="blog-link-next">Next</a>
+                </p>  </li>
                  </ul>
                  </div>
                 """);
@@ -491,6 +481,11 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  </div>
                 """);
+    }
+
+    @Test
+    void icon() {
+        assertRenderingContent("icon:fas fa-gift[]", "<span class=\"icon\"><i class=\"fas fa-gift\"></i></span>");
     }
 
     private void assertRendering(final String adoc, final String html) {
