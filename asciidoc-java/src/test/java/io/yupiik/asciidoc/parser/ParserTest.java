@@ -460,7 +460,7 @@ class ParserTest {
         assertEquals(List.of(
                         new OrderedList(
                                 List.of(
-                                        new Text(List.of(), "item 1\nwith continuation", Map.of()),
+                                        new Text(List.of(), "item 1 with continuation", Map.of()),
                                         new Text(List.of(), "item 2", Map.of())),
                                 Map.of())),
                 body.children());

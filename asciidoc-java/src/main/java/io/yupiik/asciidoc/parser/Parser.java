@@ -1096,7 +1096,7 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                children.add(unwrapElementIfPossible(parseParagraph(new Reader(List.of(buffer.toString())), Map.of(), resolver, currentAttributes)));
+                children.add(unwrapElementIfPossible(parseParagraph(new Reader(List.of(buffer.toString().split("\n"))), Map.of(), resolver, currentAttributes)));
             } else { // nested
                 reader.rewind();
                 final var nestedList = parseList(
