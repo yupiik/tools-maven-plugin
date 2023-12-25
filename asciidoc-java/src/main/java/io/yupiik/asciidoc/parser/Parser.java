@@ -431,7 +431,7 @@ public class Parser {
 
         final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
         Matcher matcher;
-        while ((next = reader.nextLine()) != null && (matcher = CALLOUT.matcher(next)).matches()) {
+        while ((next = reader.skipCommentsAndEmptyLines()) != null && (matcher = CALLOUT.matcher(next)).matches()) {
             int number;
             try {
                 final var numberRef = matcher.group("number");

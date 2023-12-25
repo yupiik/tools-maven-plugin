@@ -338,6 +338,7 @@ class ParserTest {
                 ) {
                 }
                 ----
+                
                 <1> Defines a record,
                 <.> Defines an attribute of the record.
                 """.split("\n"))), null);

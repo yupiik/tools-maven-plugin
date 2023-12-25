@@ -499,7 +499,7 @@ public class MiniSiteMojo extends BaseMojo {
                         "     <artifactId>asciidoc-java</artifactId>\n" +
                         "     <version>${yupiik-tools.version}</version>\n" +
                         "   </dependency>\n" +
-                        " </dependencies>");
+                        " </dependencies>", cnfe);
             }
         }
         return new AsciidoctorAsciidoc((conf, fn) -> asciidoctor.withAsciidoc(conf, fn, asciidoctorExtensions));
