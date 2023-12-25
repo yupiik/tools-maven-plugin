@@ -29,6 +29,6 @@
   <description>Simple codec logic to encrypt/decrypt properties.</description>
 
   <dependencies>
-
+    <!-- none indeed -->
   </dependencies>
 </project>

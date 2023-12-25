@@ -21,6 +21,7 @@ import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
 import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
+import io.yupiik.tools.minisite.language.YupiikAsciidoc;
 import org.tomitribe.crest.api.Command;
 import org.tomitribe.crest.api.Default;
 import org.tomitribe.crest.api.Err;
@@ -77,6 +78,7 @@ public final class MinisiteCommand {
                                 @Option(value = "customGems", description = "Custom JRuby gems path.") final String customGems,
                                 @Option(value = "requires", description = "Custom ruby requires (asciidoctor dependencies).") @Default("auto") final List<String> requires,
                                 @Option(value = "preActions", description = "PreAction to execute in properties format (type and configuration as keys, configuration value being properties again).") final List<PreAction> preActions,
+                                @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one.") final boolean useYupiikAsciidoc,
                                 @Out final PrintStream stdout,
                                 @Err final PrintStream stderr,
                                 final AsciidoctorProvider asciidoctorProvider) {
@@ -87,7 +89,7 @@ public final class MinisiteCommand {
                 .projectVersion(version)
                 .projectName(name == null ? artifactId : name)
                 .projectArtifactId(artifactId == null ? name : artifactId)
-                .asciidoc(new AsciidoctorAsciidoc((conf, fn) -> { // todo: enable to use yupiik impl
+                .asciidoc(useYupiikAsciidoc ? new YupiikAsciidoc() : new AsciidoctorAsciidoc((conf, fn) -> {
                     final var asciidoctor = asciidoctorProvider.get(conf, stdout, stderr, workdir, false);
                     fn.apply(asciidoctor);
                     return asciidoctor;
