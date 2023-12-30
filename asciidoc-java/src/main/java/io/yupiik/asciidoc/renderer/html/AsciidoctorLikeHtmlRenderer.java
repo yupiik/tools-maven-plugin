@@ -109,6 +109,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitBody(final Body body) {
+        if (!"none".equals(attr("toc", "toc", "none", state.document.header().attributes()))) {
+            visitToc(body);
+        }
+
         state.stackChain(body.children(), () -> Visitor.super.visitBody(body));
     }
 
@@ -318,17 +322,22 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitSection(final Section element) {
         state.stackChain(element.children(), () -> {
-            builder.append(" <div");
-            writeCommonAttributes(element.options(), c -> "sect" + (element.level() - 1) + (c == null ? "" : (' ' + c)));
-            builder.append(">\n");
-            builder.append("  <h").append(element.level());
-            writeCommonAttributes(element.options(), null);
-            builder.append(">");
             final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
             titleRenderer.visitElement(element.title() instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                     new Text(t.style(), t.value(), Map.of("nowrap", "")) :
                     element);
-            builder.append(titleRenderer.result());
+            final var title = titleRenderer.result();
+
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "sect" + (element.level() - 1) + (c == null ? "" : (' ' + c)));
+            if (!element.options().containsKey("id")) {
+                builder.append(" id=\"").append(IdGenerator.forTitle(title)).append("\"");
+            }
+            builder.append(">\n");
+            builder.append("  <h").append(element.level());
+            writeCommonAttributes(element.options(), null);
+            builder.append(">");
+            builder.append(title);
             builder.append("</h").append(element.level()).append(">\n");
             builder.append(" <div class=\"sectionbody\">\n");
             Visitor.super.visitSection(element);
@@ -748,6 +757,22 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    protected void visitToc(final Body body) {
+        final int toclevels = Integer.parseInt(attr("toclevels", "toclevels", "2", state.document.header().attributes()));
+        if (toclevels < 1) {
+            return;
+        }
+
+        builder.append(" <div id=\"toc\" class=\"").append(attr("toc-class", "toc-class", "toc", state.document.header().attributes())).append("\">\n");
+        if (state.document.header().title() != null && !state.document.header().title().isBlank()) {
+            builder.append("  <div id=\"toctitle\">").append(state.document.header().title()).append("</div>\n");
+        }
+        final var toc = new TocVisitor(toclevels, 1);
+        toc.visitBody(body);
+        builder.append(toc.result());
+        builder.append(" </div>\n");
+    }
+
     // todo: enhance
     protected void visitXref(final Macro element) {
         var target = element.label();
@@ -1026,7 +1051,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private static class State implements AutoCloseable {
-        private Document document;
+        private static final Document EMPTY_DOC = new Document(new Header("", null, null, Map.of()), new Body(List.of()));
+
+        private Document document = EMPTY_DOC;
         private List<Element> currentChain = null;
         private boolean hasStem = false;
         private boolean sawPreamble = false;
@@ -1035,7 +1062,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         @Override
         public void close() {
-            document = null;
+            document = EMPTY_DOC;
             currentChain = null;
             sawPreamble = false;
             inCallOut = false;
