@@ -75,11 +75,13 @@ import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static io.yupiik.asciidoc.model.Text.Style.SUB;
 import static io.yupiik.asciidoc.model.Text.Style.SUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Map.entry;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 /**
@@ -769,7 +771,22 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        elements.add(new Code(line.substring(i + 1, end), List.of(), Map.of(), true));
+                        final var content = line.substring(i + 1, end);
+                        if (isLink(content)) { // this looks like a bad practise but can happen
+                            final var link = unwrapElementIfPossible(parseParagraph(new Reader(List.of(content)), Map.of(), resolver, Map.of()));
+                            if (link instanceof Link l) {
+                                elements.add(l.options().getOrDefault("role", "").contains("inline-code") ?
+                                        l :
+                                        new Link(l.url(), l.label(),
+                                                // inject role inline-code
+                                                Stream.concat(
+                                                        l.options().entrySet().stream().filter(it -> !"role".equals(it.getKey())),
+                                                        Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
+                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
+                            }
+                        } else {
+                            elements.add(new Code(content, List.of(), Map.of(), true));
+                        }
                         i = end;
                         start = end + 1;
                     }

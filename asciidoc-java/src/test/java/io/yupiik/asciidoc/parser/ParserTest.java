@@ -224,6 +224,14 @@ class ParserTest {
     }
 
     @Test
+    void linkInCode() {
+        final var body = new Parser().parseBody(new Reader(List.of("`https://yupiik.io[Yupiik OSS]`")), null);
+        assertEquals(
+                List.of(new Link("https://yupiik.io", "Yupiik OSS", Map.of("role", "inline-code"))),
+                body.children());
+    }
+
+    @Test
     void linkMacroWithRole() {
         assertEquals(
                 List.of(new Macro("link", "foo", Map.of("role", "test"), true)),

@@ -354,6 +354,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" <p>");
         }
 
+        final boolean code = element.options().getOrDefault("role", "").contains("inline-code");
+        if (code) {
+            builder.append("<code>");
+        }
+
         builder.append(" <a href=\"").append(element.url()).append("\"");
         writeCommonAttributes(element.options(), null);
 
@@ -380,6 +385,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
         builder.append(">").append(escape(label)).append("</a>\n");
 
+        if (code) {
+            builder.append("</code>");
+        }
         if (parentNeedsP) {
             builder.append("</p>");
         }
