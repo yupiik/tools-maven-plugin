@@ -63,6 +63,41 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithConditionalBlocks() {
+        final var content = List.of("""
+                = Title
+                :idprefix:
+                :idseparator: -
+                ifndef::env-github[]
+                :toc: left
+                :icons: font
+                endif::[]
+                ifdef::env-github[]
+                :toc: macro
+                :caution-caption: :fire:
+                :important-caption: :exclamation:
+                :note-caption: :paperclip:
+                :tip-caption: :bulb:
+                :warning-caption: :warning:
+                endif::[]
+                """.split("\n"));
+        {
+            final var header = new Parser().parseHeader(new Reader(content));
+            assertEquals("Title", header.title());
+            assertEquals(Map.of("idprefix", "", "idseparator", "-", "toc", "left", "icons", "font"), header.attributes());
+        }
+        {
+            final var header = new Parser(Map.of("env-github", "true")).parseHeader(new Reader(content));
+            assertEquals("Title", header.title());
+            assertEquals(Map.of(
+                    "idprefix", "", "idseparator", "-",
+                    "toc", "macro",
+                    "caution-caption", ":fire:", "important-caption", ":exclamation:",
+                    "note-caption", ":paperclip:", "tip-caption", ":bulb:", "warning-caption", ":warning:"), header.attributes());
+        }
+    }
+
+    @Test
     void parseHeaderAndContent() {
         final var doc = new Parser().parse(List.of("= Title", "", "++++", "pass", "++++"), new Parser.ParserContext(null));
         assertEquals("Title", doc.header().title());

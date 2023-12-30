@@ -38,6 +38,10 @@ public class Reader {
         lineOffset = 0;
     }
 
+    public void insert(final List<String> lines) {
+        this.lines.addAll(lineOffset, lines);
+    }
+
     public void rewind() {
         if (lineOffset > 0) {
             lineOffset--;

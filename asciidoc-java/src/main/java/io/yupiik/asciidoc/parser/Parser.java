@@ -1243,11 +1243,45 @@ public class Parser {
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
                 attributes.put(matcher.group("name"), value);
-            } else if (!attributes.isEmpty()) { // missing empty line separator
-                throw new IllegalArgumentException("Unknown line: '" + line + "'");
-            } else {
+            } else if (attributes.isEmpty()) {
                 reader.rewind();
                 break;
+            } else {
+                // simplistic macro handling, mainly for conditional blocks since we still are in headers
+                final var stripped = line.strip();
+                final int options = stripped.indexOf("[]");
+                if (stripped.length() - "[]".length() == options) { // endsWith
+                    final int sep = stripped.indexOf("::");
+                    if (sep > 0) {
+                        final var macro = new Macro(
+                                stripped.substring(0, sep),
+                                stripped.substring(sep + "::".length(), options),
+                                Map.of(), false);
+                        if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
+                            final var block = readIfBlock(reader);
+
+                            final var ctx = new ConditionalBlock.Context() {
+                                @Override
+                                public String attribute(final String key) {
+                                    return attributes.getOrDefault(key, globalAttributes.get(key));
+                                }
+                            };
+                            if (switch (macro.name()) {
+                                case "ifdef" -> new ConditionalBlock.Ifdef(macro.label()).test(ctx);
+                                case "ifndef" -> new ConditionalBlock.Ifndef(macro.label()).test(ctx);
+                                case "ifeval" ->
+                                        new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), attributes)).test(ctx);
+                                default -> false; // not possible
+                            }) {
+                                reader.insert(block);
+                            }
+                            continue;
+                        }
+                    }
+                }
+
+                // missing empty line separator
+                throw new IllegalArgumentException("Unknown line: '" + line + "'");
             }
         }
         return attributes;
