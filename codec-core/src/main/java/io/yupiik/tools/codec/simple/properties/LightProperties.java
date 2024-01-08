@@ -13,10 +13,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.properties;
+package io.yupiik.tools.codec.simple.properties;
 
 import lombok.Data;
-import org.apache.maven.plugin.logging.Log;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -24,9 +23,12 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.stream.Collector;
 
 /**
@@ -34,12 +36,12 @@ import java.util.stream.Collector;
  * and rewrite it with the comments in place.
  */
 public class LightProperties {
-    private final Log log;
+    private final Consumer<String> warn;
     private final List<Line> lines = new ArrayList<>();
     private final Properties properties = new Properties();
 
-    public LightProperties(final Log log) {
-        this.log = log;
+    public LightProperties(final Consumer<String> warn) {
+        this.warn = warn;
     }
 
     public void load(final BufferedReader reader, final boolean usePlainProperties) throws IOException {
@@ -75,7 +77,7 @@ public class LightProperties {
             } else {
                 final var newValue = transformed.getProperty(line.key);
                 if (newValue == null) {
-                    log.warn("Missing value for '" + line.key + "'");
+                    warn.accept("Missing value for '" + line.key + "'");
                     continue; // ignore
                 }
 
@@ -139,6 +141,13 @@ public class LightProperties {
         if (!comments.isEmpty()) {
             lines.add(new Line(String.join("\n", comments), null, null, null));
         }
+    }
+
+    public LightProperties load(final Path from, final boolean skipComments) throws IOException {
+        try (final var read = Files.newBufferedReader(from)) {
+            load(read, skipComments);
+        }
+        return this;
     }
 
     @Data

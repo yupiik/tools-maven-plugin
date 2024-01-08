@@ -16,16 +16,13 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.tools.codec.Codec;
+import io.yupiik.tools.codec.simple.properties.PropertiesCodec;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Objects;
 import java.util.Properties;
-
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 /**
  * Enables to crypt a properties file.
@@ -49,25 +46,6 @@ public class CryptPropertiesMojo extends BaseCryptPropertiesMojo {
                 throw new IllegalStateException(e);
             }
         }
-        to.putAll(from.stringPropertyNames().stream().collect(toMap(identity(), e -> {
-            final var value = from.getProperty(e, "");
-            if (codec.isEncrypted(value)) {
-                return value;
-            }
-
-            final var existingValue = existing.getProperty(e);
-            if (existingValue != null && codec.isEncrypted(existingValue) && equals(codec, existingValue, value)) {
-                return existingValue;
-            }
-            return codec.encrypt(value);
-        })));
-    }
-
-    private boolean equals(final Codec codec, final String existingValue, final String value) {
-        try {
-            return Objects.equals(value, codec.decrypt(existingValue));
-        } catch (final RuntimeException re) {
-            return false;
-        }
+        to.putAll(new PropertiesCodec(codec).crypt(from.stringPropertyNames(), from, existing));
     }
 }

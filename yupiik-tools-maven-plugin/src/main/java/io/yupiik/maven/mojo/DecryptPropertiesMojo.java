@@ -16,6 +16,7 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.tools.codec.Codec;
+import io.yupiik.tools.codec.simple.properties.PropertiesCodec;
 import org.apache.maven.plugins.annotations.Mojo;
 
 import java.util.Properties;
@@ -30,12 +31,6 @@ import static java.util.stream.Collectors.toMap;
 public class DecryptPropertiesMojo extends BaseCryptPropertiesMojo {
     @Override
     protected void transform(final Codec codec, final Properties from, final Properties to) {
-        to.putAll(from.stringPropertyNames().stream().collect(toMap(identity(), e -> {
-            final var property = from.getProperty(e, "");
-            if (codec.isEncrypted(property)) {
-                return codec.decrypt(property);
-            }
-            return property;
-        })));
+        to.putAll(new PropertiesCodec(codec).decrypt(from));
     }
 }

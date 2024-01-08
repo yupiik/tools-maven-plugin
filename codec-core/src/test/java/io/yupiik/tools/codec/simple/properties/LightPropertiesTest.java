@@ -13,23 +13,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.maven.properties;
+package io.yupiik.tools.codec.simple.properties;
 
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LightPropertiesTest {
     @Test
     void unescape() throws IOException {
-        final var props = new LightProperties(new SystemStreamLog());
+        final var props = new LightProperties(m -> {
+            throw new IllegalStateException(m);
+        });
         try (final var r = new BufferedReader(new StringReader("" +
                 "escaped = yes\\=true\n" +
                 "split = foo\\\n" +
@@ -48,7 +48,9 @@ class LightPropertiesTest {
 
     @Test
     void rewrite() throws IOException {
-        final var props = new LightProperties(new SystemStreamLog());
+        final var props = new LightProperties(m -> {
+            throw new IllegalStateException(m);
+        });
         try (final var r = new BufferedReader(new StringReader("" +
                 "# this is a comment\n" +
                 "\n" +

@@ -15,32 +15,23 @@
  */
 package io.yupiik.maven.mojo;
 
-import io.yupiik.maven.properties.LightProperties;
 import io.yupiik.tools.codec.Codec;
+import io.yupiik.tools.codec.simple.properties.LightProperties;
+import io.yupiik.tools.codec.simple.properties.SortedProperties;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static java.util.Collections.enumeration;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public abstract class BaseCryptPropertiesMojo extends BaseCryptMojo {
@@ -83,10 +74,7 @@ public abstract class BaseCryptPropertiesMojo extends BaseCryptMojo {
         }
 
         try {
-            final var input = new LightProperties(getLog());
-            try (final var read = Files.newBufferedReader(from)) {
-                input.load(read, !preserveComments);
-            }
+            final var input = new LightProperties(getLog()::warn).load(from, !preserveComments);
             final var inputProps = input.toWorkProperties();
 
             final var keyFilter = createKeyFilter();
@@ -101,26 +89,7 @@ public abstract class BaseCryptPropertiesMojo extends BaseCryptMojo {
                     .filter(keyFilter)
                     .collect(toMap(identity(), inputProps::getProperty)));
 
-            final var transformed = new Properties() { // sorted...depends jvm version so override most of them
-                @Override
-                public Set<String> stringPropertyNames() {
-                    return super.stringPropertyNames().stream().sorted().collect(toCollection(LinkedHashSet::new));
-                }
-
-                @Override
-                public Enumeration<Object> keys() {
-                    return enumeration(Collections.list(super.keys()).stream()
-                            .sorted(Comparator.comparing(Object::toString))
-                            .collect(toList()));
-                }
-
-                @Override
-                public Set<Map.Entry<Object, Object>> entrySet() {
-                    return super.entrySet().stream()
-                            .sorted(Comparator.comparing(a -> a.getKey().toString()))
-                            .collect(toCollection(LinkedHashSet::new));
-                }
-            };
+            final var transformed = new SortedProperties();
             transform(codec(), transformedSource, transformed);
             if (!untouched.isEmpty()) {
                 transformed.putAll(untouched);
