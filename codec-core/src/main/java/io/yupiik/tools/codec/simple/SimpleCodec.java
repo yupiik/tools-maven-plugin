@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Optional.ofNullable;
 
 // mimic and is compatible with maven password encryption for now
-// todo: support stronger algorithms
+// IMPORTANT: if you can choose prefer AES256GCMCodec.
 public class SimpleCodec implements Codec {
     private static final Pattern ENCRYPTED_PATTERN = Pattern.compile(".*?[^\\\\]?\\{(?<value>.*?[^\\\\])\\}.*", Pattern.DOTALL);
     private static final String CIPHER_ALGORITHM = "AES/CBC/PKCS5Padding";

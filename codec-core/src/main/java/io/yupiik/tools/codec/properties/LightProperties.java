@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.tools.codec.simple.properties;
+package io.yupiik.tools.codec.properties;
 
 import lombok.Data;
 

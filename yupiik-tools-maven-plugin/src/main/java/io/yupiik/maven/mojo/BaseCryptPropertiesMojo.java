@@ -16,8 +16,8 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.tools.codec.Codec;
-import io.yupiik.tools.codec.simple.properties.LightProperties;
-import io.yupiik.tools.codec.simple.properties.SortedProperties;
+import io.yupiik.tools.codec.properties.LightProperties;
+import io.yupiik.tools.codec.properties.SortedProperties;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;

@@ -13,8 +13,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.tools.codec.simple.properties;
+package io.yupiik.tools.codec.properties;
 
+import io.yupiik.tools.codec.properties.LightProperties;
+import io.yupiik.tools.codec.properties.PropertiesCodec;
 import io.yupiik.tools.codec.simple.SimpleCodec;
 import io.yupiik.tools.codec.simple.SimpleCodecConfiguration;
 import org.junit.jupiter.api.Test;

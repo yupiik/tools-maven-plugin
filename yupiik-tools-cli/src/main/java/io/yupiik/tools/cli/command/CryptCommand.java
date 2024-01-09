@@ -15,6 +15,7 @@
  */
 package io.yupiik.tools.cli.command;
 
+import io.yupiik.tools.codec.AES256GCMCodec;
 import io.yupiik.tools.codec.simple.SimpleCodec;
 import io.yupiik.tools.codec.simple.SimpleCodecConfiguration;
 import org.tomitribe.crest.api.Command;
@@ -24,13 +25,17 @@ import org.tomitribe.crest.api.Required;
 public final class CryptCommand {
     @Command(usage = "Encrypt a value.")
     public static String crypt(@Option(value = "masterPassword", description = "Master encryption password.") @Required final String masterPassword,
-                               @Option(value = "value", description = "Value to encrypt.") @Required final String value) {
-        return new SimpleCodec(SimpleCodecConfiguration.builder().masterPassword(masterPassword).build()).encrypt(value);
+                               @Option(value = "value", description = "Value to encrypt.") @Required final String value,
+                               @Option(value = "use-AES256GCM", description = "Should AES256GCM algorithm be used else AES/CBC/PKCS5Padding is used.") final Boolean useAes256Gcm) {
+        final var conf = SimpleCodecConfiguration.builder().masterPassword(masterPassword).build();
+        return (useAes256Gcm != null && useAes256Gcm ? new AES256GCMCodec(conf) : new SimpleCodec(conf)).encrypt(value);
     }
 
     @Command(usage = "Dencrypt a value.")
     public static String decrypt(@Option(value = "masterPassword", description = "Master encryption password.") @Required final String masterPassword,
-                                 @Option(value = "value", description = "Value to decrypt.") @Required final String value) {
-        return new SimpleCodec(SimpleCodecConfiguration.builder().masterPassword(masterPassword).build()).decrypt(value);
+                                 @Option(value = "value", description = "Value to decrypt.") @Required final String value,
+                                 @Option(value = "use-AES256GCM", description = "Should AES256GCM algorithm be used else AES/CBC/PKCS5Padding is used.") final Boolean useAes256Gcm) {
+        final var conf = SimpleCodecConfiguration.builder().masterPassword(masterPassword).build();
+        return (useAes256Gcm != null && useAes256Gcm ? new AES256GCMCodec(conf) : new SimpleCodec(conf)).decrypt(value);
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.yupiik.maven.mojo;
 
+import io.yupiik.tools.codec.AES256GCMCodec;
 import io.yupiik.tools.codec.Codec;
 import io.yupiik.tools.codec.simple.SimpleCodec;
 import io.yupiik.tools.codec.simple.SimpleCodecConfiguration;
@@ -31,9 +32,19 @@ public abstract class BaseCryptMojo extends AbstractMojo {
     @Parameter(property = "yupiik.crypt.masterPassword", required = true)
     protected String masterPassword;
 
+    /**
+     * Should AES256 GCM be used else AES/CBC/PKCS5Padding is used.
+     */
+    @Parameter(property = "yupiik.crypt.useAES256GCM", defaultValue = "fase")
+    protected boolean useAES256GCM;
+
     protected Codec codec() {
-        return new SimpleCodec(SimpleCodecConfiguration.builder()
+        final var conf = SimpleCodecConfiguration.builder()
                 .masterPassword(masterPassword)
-                .build());
+                .build();
+        if (useAES256GCM) {
+            return new AES256GCMCodec(conf);
+        }
+        return new SimpleCodec(conf);
     }
 }

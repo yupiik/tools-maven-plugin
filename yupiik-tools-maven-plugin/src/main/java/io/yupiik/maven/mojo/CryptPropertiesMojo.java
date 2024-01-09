@@ -16,7 +16,7 @@
 package io.yupiik.maven.mojo;
 
 import io.yupiik.tools.codec.Codec;
-import io.yupiik.tools.codec.simple.properties.PropertiesCodec;
+import io.yupiik.tools.codec.properties.PropertiesCodec;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 

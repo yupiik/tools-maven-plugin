@@ -15,23 +15,25 @@
  */
 package io.yupiik.tools.codec;
 
-import io.yupiik.tools.codec.simple.SimpleCodec;
 import io.yupiik.tools.codec.simple.SimpleCodecConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class SimpleCodecTest {
+class AES256GCMCodecTest {
     @Test
     void roundTrip() {
-        final var codec = new SimpleCodec(SimpleCodecConfiguration.builder()
+        final var codec = new AES256GCMCodec(SimpleCodecConfiguration.builder()
                 .masterPassword("123456")
                 .build());
         final var encrypted = codec.encrypt("foo");
         assertNotEquals("foo", encrypted);
-        assertTrue(encrypted.startsWith("{") && encrypted.endsWith("}"), encrypted);
+        assertTrue(codec.isEncrypted(encrypted));
+        assertTrue(encrypted.startsWith("ENC[AES256_GCM,data:") && encrypted.endsWith(",type:str]"), encrypted);
+        assertFalse(codec.isEncrypted("foo"));
         assertEquals("foo", codec.decrypt(encrypted));
     }
 }

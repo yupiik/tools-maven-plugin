@@ -13,8 +13,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.tools.codec.simple.properties;
+package io.yupiik.tools.codec.properties;
 
+import io.yupiik.tools.codec.properties.LightProperties;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
