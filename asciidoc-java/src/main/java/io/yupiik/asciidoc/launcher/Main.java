@@ -82,14 +82,15 @@ public final class Main {
 
         final var logger = Logger.getLogger(Main.class.getName());
         final var parser = new Parser();
+        configuration.setAttributes(attributes).setAssetsBase(input.getParent());
         if (watch <= 0) {
-            doRender(input, parser, resolver, configuration.setAttributes(attributes).setAssetsBase(input.getParent()), output, logger);
+            doRender(input, parser, resolver, configuration, output, logger);
         } else {
             FileTime lastModified = null;
             while (true) {
                 final var newLastModified = Files.getLastModifiedTime(input);
                 if (lastModified == null || !Objects.equals(lastModified, newLastModified)) {
-                    doRender(input, parser, resolver, configuration.setAttributes(attributes).setAssetsBase(input.getParent()), output, logger);
+                    doRender(input, parser, resolver, configuration, output, logger);
                     lastModified = newLastModified;
                 } else if (output != null) {
                     logger.finest(() -> "No change detected");
