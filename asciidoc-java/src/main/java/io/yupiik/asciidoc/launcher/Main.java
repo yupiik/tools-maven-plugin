@@ -23,7 +23,10 @@ import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
+import java.util.Objects;
+import java.util.logging.Logger;
 
 public final class Main {
     private Main() {
@@ -42,6 +45,7 @@ public final class Main {
         Path input = null;
         Path output = null;
 
+        long watch = -1;
         for (int i = 0; i < args.length; i++) {
             if ("-a".equals(args[i]) || "--attribute".equals(args[i])) {
                 final int sep = args[i + 1].indexOf('=');
@@ -61,6 +65,9 @@ public final class Main {
             } else if ("--data-attribute".equals(args[i])) {
                 configuration.setSupportDataAttributes(Boolean.parseBoolean(args[i + 1]));
                 i++;
+            } else if ("--watch".equals(args[i])) {
+                watch = Long.parseLong(args[i + 1]);
+                i++;
             }
         }
 
@@ -73,16 +80,44 @@ public final class Main {
             configuration.setAssetsBase(parent);
         }
 
+        final var logger = Logger.getLogger(Main.class.getName());
         final var parser = new Parser();
+        if (watch <= 0) {
+            doRender(input, parser, resolver, configuration.setAttributes(attributes).setAssetsBase(input.getParent()), output, logger);
+        } else {
+            FileTime lastModified = null;
+            while (true) {
+                final var newLastModified = Files.getLastModifiedTime(input);
+                if (lastModified == null || !Objects.equals(lastModified, newLastModified)) {
+                    doRender(input, parser, resolver, configuration.setAttributes(attributes).setAssetsBase(input.getParent()), output, logger);
+                    lastModified = newLastModified;
+                } else if (output != null) {
+                    logger.finest(() -> "No change detected");
+                }
+                try {
+                    Thread.sleep(watch);
+                } catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+
+    private static void doRender(final Path input, final Parser parser, final ContentResolver resolver,
+                                 final AsciidoctorLikeHtmlRenderer.Configuration configuration,
+                                 final Path output, final Logger logger) throws IOException {
         final Document document;
         try (final var reader = Files.newBufferedReader(input)) {
             document = parser.parse(reader, new Parser.ParserContext(resolver));
         }
 
-        final var html = new AsciidoctorLikeHtmlRenderer(configuration.setAttributes(attributes).setAssetsBase(input.getParent()));
+        final var html = new AsciidoctorLikeHtmlRenderer(configuration);
         html.visit(document);
         if (output != null) {
             Files.writeString(output, html.result());
+            logger.info(() -> "Rendered '" + input + "'");
+
         } else {
             System.out.println(html.result());
         }
