@@ -46,14 +46,21 @@ public final class Main {
             if ("-a".equals(args[i]) || "--attribute".equals(args[i])) {
                 final int sep = args[i + 1].indexOf('=');
                 attributes.put(args[i + 1].substring(0, sep), args[i + 1].substring(sep + 1));
+                i++;
             } else if ("-i".equals(args[i]) || "--input".equals(args[i])) {
                 input = Path.of(args[i + 1]);
+                i++;
             } else if ("-o".equals(args[i]) || "--output".equals(args[i])) {
                 output = !"-".equals(args[i + 1]) ? Path.of(args[i + 1]) : null /* means stdout */;
+                i++;
             } else if ("-b".equals(args[i]) || "--base".equals(args[i])) {
                 final var base = Path.of(args[i + 1]);
                 configuration.setAssetsBase(base);
                 resolver = ContentResolver.of(base);
+                i++;
+            } else if ("--data-attribute".equals(args[i])) {
+                configuration.setSupportDataAttributes(Boolean.parseBoolean(args[i + 1]));
+                i++;
             }
         }
 

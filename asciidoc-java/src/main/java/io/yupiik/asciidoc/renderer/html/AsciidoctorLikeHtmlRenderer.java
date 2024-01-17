@@ -921,6 +921,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (id != null && !id.isBlank()) {
             builder.append(" id=\"").append(id).append("\"");
         }
+
+        if (configuration.isSupportDataAttributes()) {
+            final var data = options.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("data-") && e.getValue() != null)
+                    .map(e -> e.getKey() + "=\"" + e.getValue() + "\"")
+                    .toList();
+            if (!data.isEmpty()) {
+                builder.append(data.stream()
+                        .collect(joining(" ", " ", "")));
+            }
+        }
     }
 
     protected void handlePreamble(final boolean enableWrappers, final Element next, final Runnable child) {
@@ -1018,9 +1029,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     public static class Configuration {
+        private boolean supportDataAttributes = true;
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+
+        public boolean isSupportDataAttributes() {
+            return supportDataAttributes;
+        }
+
+        /**
+         * @param supportDataAttributes should {@code data-xxx} attributes be forwarded on div level.
+         * @return this.
+         */
+        public Configuration setSupportDataAttributes(final boolean supportDataAttributes) {
+            this.supportDataAttributes = supportDataAttributes;
+            return this;
+        }
 
         public DataResolver getResolver() {
             return resolver;

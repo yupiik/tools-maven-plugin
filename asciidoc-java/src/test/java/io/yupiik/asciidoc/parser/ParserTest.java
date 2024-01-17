@@ -304,6 +304,37 @@ class ParserTest {
     }
 
     @Test
+    void dataAttributes() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [.step,data-foo=bar,data-dummy="true"]
+                == Section #1
+                                
+                first
+                
+                [.step,data-foo=bar2,data-dummy="true"]
+                == Section #2
+                                
+                === Nested section
+                                
+                Something key.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Section(
+                                2, new Text(List.of(), "Section #1", Map.of()),
+                                List.of(new Text(List.of(), "first", Map.of())),
+                                Map.of("data-dummy", "true", "data-foo", "bar", "role", "step")),
+                        new Section(
+                                2, new Text(List.of(), "Section #2", Map.of()),
+                                List.of(new Section(
+                                        3, new Text(List.of(), "Nested section", Map.of()),
+                                        List.of(new Text(List.of(), "Something key.", Map.of())),
+                                        Map.of())),
+                                Map.of("role", "step", "data-dummy", "true", "data-foo", "bar2"))),
+                body.children());
+    }
+
+    @Test
     void parseParagraphAndSectionsAndSubsections() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 == Section #1

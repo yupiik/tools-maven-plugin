@@ -198,11 +198,15 @@ public class Parser {
         final var elements = new ArrayList<Element>(8);
         String next;
 
+        int lastOptions = -1;
         Map<String, String> options = null;
         Matcher attributeMatcher;
         while ((next = reader.skipCommentsAndEmptyLines()) != null) {
             if (!continueTest.test(next)) {
                 reader.rewind();
+                if (lastOptions == reader.getLineNumber()) {
+                    reader.rewind();
+                }
                 break;
             }
 
@@ -217,6 +221,7 @@ public class Parser {
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
                     options = merge(options, parseOptions(next.substring(1, next.length() - 1)));
+                    lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(reader, options, "....").value(), options));

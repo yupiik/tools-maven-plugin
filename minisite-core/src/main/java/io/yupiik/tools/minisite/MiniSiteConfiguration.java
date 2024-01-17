@@ -138,10 +138,10 @@ public class MiniSiteConfiguration {
         // note that for static ones, they can be put in resources
         templateExtensionPoints.putIfAbsent("socialLinks", (injectYupiikTemplateExtensionPoints ? "" +
                 // add github
-                "<li class=\"list-inline-item\"><a href=\"https://www.github.com/{{linkedInCompany}}/\"><i class=\"fab fa-github fa-fw\"></i></a></li>" +
+                "<li class=\"list-inline-item\"><a title=\"Github\" href=\"https://www.github.com/{{linkedInCompany}}/\"><i class=\"fab fa-github fa-fw\"></i></a></li>" +
                 "" : "") +
                 // always linkedin
-                "<li class=\"list-inline-item\"><a href=\"https://www.linkedin.com/company/{{linkedInCompany}}/\"><i class=\"fab fa-linkedin fa-fw\"></i></a></li>");
+                "<li class=\"list-inline-item\"><a title=\"LinkedIn\" href=\"https://www.linkedin.com/company/{{linkedInCompany}}/\"><i class=\"fab fa-linkedin fa-fw\"></i></a></li>");
         templateExtensionPoints.putIfAbsent("copyrightLine", "" +
                 "<small class=\"copyright\">{{copyright}}</small>" + (injectYupiikTemplateExtensionPoints ? "" +
                 // add terms of service and privacy policy
