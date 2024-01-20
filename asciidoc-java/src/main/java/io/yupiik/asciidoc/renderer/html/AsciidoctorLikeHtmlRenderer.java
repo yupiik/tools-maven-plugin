@@ -337,9 +337,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("  <h").append(element.level()).append(">");
             builder.append(title);
             builder.append("</h").append(element.level()).append(">\n");
-            builder.append(" <div class=\"sectionbody\">\n");
+            if (!configuration.isSkipSectionBody()) {
+                builder.append(" <div class=\"sectionbody\">\n");
+            }
             Visitor.super.visitSection(element);
-            builder.append(" </div>\n");
+            if (!configuration.isSkipSectionBody()) {
+                builder.append(" </div>\n");
+            }
             builder.append(" </div>\n");
         });
     }
@@ -1027,10 +1031,20 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     public static class Configuration {
+        private boolean skipSectionBody = false;
         private boolean supportDataAttributes = true;
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+
+        public boolean isSkipSectionBody() {
+            return skipSectionBody;
+        }
+
+        public Configuration setSkipSectionBody(final boolean skipSectionBody) {
+            this.skipSectionBody = skipSectionBody;
+            return this;
+        }
 
         public boolean isSupportDataAttributes() {
             return supportDataAttributes;

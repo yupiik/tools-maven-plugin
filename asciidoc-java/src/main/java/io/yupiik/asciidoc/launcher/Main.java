@@ -65,6 +65,9 @@ public final class Main {
             } else if ("--data-attribute".equals(args[i])) {
                 configuration.setSupportDataAttributes(Boolean.parseBoolean(args[i + 1]));
                 i++;
+            } else if ("--skip-section-body".equals(args[i])) {
+                configuration.setSkipSectionBody(Boolean.parseBoolean(args[i + 1]));
+                i++;
             } else if ("--watch".equals(args[i])) {
                 watch = Long.parseLong(args[i + 1]);
                 i++;

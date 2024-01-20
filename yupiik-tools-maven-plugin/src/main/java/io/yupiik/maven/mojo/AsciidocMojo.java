@@ -68,6 +68,12 @@ public class AsciidocMojo extends AbstractMojo {
     private boolean supportsDataAttributes;
 
     /**
+     * should section body div wrappers be skipped (can be useful for some theming).
+     */
+    @Parameter(property = "yupiik.asciidoc.skipSectionBody", defaultValue = "false")
+    private boolean skipSectionBody;
+
+    /**
      * attributes.
      */
     @Parameter(property = "yupiik.asciidoc.attributes")
@@ -95,7 +101,8 @@ public class AsciidocMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         final var configuration = new AsciidoctorLikeHtmlRenderer.Configuration()
-                .setSupportDataAttributes(true)
+                .setSupportDataAttributes(supportsDataAttributes)
+                .setSkipSectionBody(skipSectionBody)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
         final var output = Path.of(this.output);
@@ -164,6 +171,7 @@ public class AsciidocMojo extends AbstractMojo {
                 .setAssetsBase(configuration.getAssetsBase())
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())
                 .setResolver(configuration.getResolver())
+                .setSkipSectionBody(configuration.isSkipSectionBody())
                 .setAttributes(Stream.of(attributes == null ? Map.<String, String>of() : attributes, document.header().attributes())
                         .flatMap(e -> e.entrySet().stream())
                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
