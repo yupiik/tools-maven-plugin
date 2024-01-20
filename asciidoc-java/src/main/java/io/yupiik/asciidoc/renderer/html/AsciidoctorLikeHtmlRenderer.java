@@ -188,7 +188,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             // todo: favicon, highlighter, etc...
             builder.append("</head>\n");
 
-            builder.append("<body>\n");
+            builder.append("<body");
+            ofNullable(attr("body-classes", "body-classes", null, attributes))
+                    .ifPresent(c -> builder.append(" class=\"").append(c).append("\""));
+            builder.append(">\n");
 
             builder.append(" <div id=\"content\">\n");
         }
