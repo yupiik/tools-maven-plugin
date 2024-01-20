@@ -68,6 +68,9 @@ public final class Main {
             } else if ("--skip-section-body".equals(args[i])) {
                 configuration.setSkipSectionBody(Boolean.parseBoolean(args[i + 1]));
                 i++;
+            } else if ("--skip-global-content-wrapper".equals(args[i])) {
+                configuration.setSkipGlobalContentWrapper(Boolean.parseBoolean(args[i + 1]));
+                i++;
             } else if ("--watch".equals(args[i])) {
                 watch = Long.parseLong(args[i + 1]);
                 i++;

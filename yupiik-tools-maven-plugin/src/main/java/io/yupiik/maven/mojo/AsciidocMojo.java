@@ -74,6 +74,12 @@ public class AsciidocMojo extends AbstractMojo {
     private boolean skipSectionBody;
 
     /**
+     * should the div.content wrapper for the whole rendering be skipped.
+     */
+    @Parameter(property = "yupiik.asciidoc.skipGlobalContentWrapper", defaultValue = "false")
+    private boolean skipGlobalContentWrapper;
+
+    /**
      * attributes.
      */
     @Parameter(property = "yupiik.asciidoc.attributes")
@@ -103,6 +109,7 @@ public class AsciidocMojo extends AbstractMojo {
         final var configuration = new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setSupportDataAttributes(supportsDataAttributes)
                 .setSkipSectionBody(skipSectionBody)
+                .setSkipGlobalContentWrapper(skipGlobalContentWrapper)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
         final var output = Path.of(this.output);
@@ -172,6 +179,7 @@ public class AsciidocMojo extends AbstractMojo {
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())
                 .setResolver(configuration.getResolver())
                 .setSkipSectionBody(configuration.isSkipSectionBody())
+                .setSkipGlobalContentWrapper(configuration.isSkipGlobalContentWrapper())
                 .setAttributes(Stream.of(attributes == null ? Map.<String, String>of() : attributes, document.header().attributes())
                         .flatMap(e -> e.entrySet().stream())
                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));

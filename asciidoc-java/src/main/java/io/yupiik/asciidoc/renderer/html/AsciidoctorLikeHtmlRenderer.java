@@ -193,11 +193,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     .ifPresent(c -> builder.append(" class=\"").append(c).append("\""));
             builder.append(">\n");
 
-            builder.append(" <div id=\"content\">\n");
+            if (!configuration.isSkipGlobalContentWrapper()) {
+                builder.append(" <div id=\"content\">\n");
+            }
         }
         Visitor.super.visit(document);
         if (!contentOnly) {
-            builder.append(" </div>\n");
+            if (!configuration.isSkipGlobalContentWrapper()) {
+                builder.append(" </div>\n");
+            }
 
             if (state.hasStem && attr("skip-stem-js", document.header().attributes()) == null) {
                 builder.append("""
@@ -1033,10 +1037,20 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     public static class Configuration {
         private boolean skipSectionBody = false;
+        private boolean skipGlobalContentWrapper = false;
         private boolean supportDataAttributes = true;
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+
+        public boolean isSkipGlobalContentWrapper() {
+            return skipGlobalContentWrapper;
+        }
+
+        public Configuration setSkipGlobalContentWrapper(final boolean skipGlobalContentWrapper) {
+            this.skipGlobalContentWrapper = skipGlobalContentWrapper;
+            return this;
+        }
 
         public boolean isSkipSectionBody() {
             return skipSectionBody;
