@@ -19,6 +19,8 @@ import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
+import io.yupiik.tools.common.http.StaticHttpServer;
+import io.yupiik.tools.common.watch.Watch;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -28,10 +30,10 @@ import org.apache.maven.plugins.annotations.Parameter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
@@ -77,9 +79,21 @@ public class AsciidocMojo extends AbstractMojo {
     @Parameter(property = "yupiik.asciidoc.watch", defaultValue = "-1")
     private long watch;
 
+    /**
+     * Should the browser be opened after the rendering in watch mode (ignored otherwise).
+     * Can be {@code true}/{@code false}.
+     */
+    @Parameter(property = "yupiik.asciidoc.openBrowser", defaultValue = "true")
+    private boolean openBrowser;
+
+    /**
+     * Port to launch the server when opening the browser in watch mode.
+     */
+    @Parameter(property = "yupiik.asciidoc.port", defaultValue = "4200")
+    private int port;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final var attributes = new HashMap<String, String>();
         final var configuration = new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setSupportDataAttributes(true)
                 .setAttributes(attributes == null ? Map.of() : attributes);
@@ -98,27 +112,40 @@ public class AsciidocMojo extends AbstractMojo {
 
         try {
             final var parser = new Parser();
+            doRender(input, parser, resolver, output, configuration);
+
             if (watch < 0) {
-                doRender(input, parser, resolver, output, configuration);
                 return;
             }
 
-            getLog().info("Entering into watch mode, Ctrl+C to exit");
-            FileTime lastModified = null;
-            while (true) {
-                final var newLastModified = Files.getLastModifiedTime(input);
-                if (lastModified == null || !Objects.equals(lastModified, newLastModified)) {
-                    doRender(input, parser, resolver, output, configuration);
-                    lastModified = newLastModified;
-                } else {
-                    getLog().debug("No change detected");
-                }
-                try {
-                    Thread.sleep(watch);
-                } catch (final InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+            final var server = new AtomicReference<StaticHttpServer>();
+            final var watch = new Watch<>(
+                    getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
+                    List.of(input), null, null, this.watch,
+                    (opts, a) -> {
+                        try {
+                            doRender(input, parser, resolver, output, configuration);
+                        } catch (final IOException e) {
+                            getLog().error(e);
+                        }
+                    },
+                    () -> {
+                        if (port < 0 || !openBrowser) {
+                            return;
+                        }
+                        try {
+                            server.get().open(true);
+                        } catch (final RuntimeException re) {
+                            getLog().error("Can't open browser, ignoring", re);
+                        }
+                    });
+            if (port > 0) {
+                final var staticHttpServer = new StaticHttpServer(
+                        getLog()::info, getLog()::error, port, output.toAbsolutePath().getParent().normalize(), output.getFileName().toString(), watch);
+                server.set(staticHttpServer);
+                staticHttpServer.run();
+            } else {
+                watch.run();
             }
         } catch (final IOException ioe) {
             throw new MojoExecutionException(ioe.getMessage(), ioe);
@@ -126,7 +153,8 @@ public class AsciidocMojo extends AbstractMojo {
 
     }
 
-    private void doRender(final Path input, final Parser parser, final ContentResolver resolver, final Path output, final AsciidoctorLikeHtmlRenderer.Configuration configuration) throws IOException {
+    private void doRender(final Path input, final Parser parser, final ContentResolver resolver,
+                          final Path output, final AsciidoctorLikeHtmlRenderer.Configuration configuration) throws IOException {
         final Document document;
         try (final var reader = Files.newBufferedReader(input)) {
             document = parser.parse(reader, new Parser.ParserContext(resolver));

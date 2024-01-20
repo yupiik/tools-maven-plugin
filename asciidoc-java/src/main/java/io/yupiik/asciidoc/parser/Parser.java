@@ -262,7 +262,7 @@ public class Parser {
                 elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes), options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
-                final var value = attributeMatcher.groupCount() == 3 ? attributeMatcher.group("value") : "";
+                final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
                 final var name = attributeMatcher.group("name");
                 if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(name)) { // offset
                     try {

@@ -63,8 +63,8 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
     }
 
     private void doWatch(final Asciidoc adoc, final Object options, final MiniSite miniSite) {
-        final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
-        final Watch<Object, Asciidoc> watch = new Watch<>(
+        final var server = new AtomicReference<StaticHttpServer>();
+        final var watch = new Watch<>(
                 getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
                 List.of(source.toPath()), options, adoc, watchDelay,
                 (opts, a) -> {
@@ -81,10 +81,10 @@ public class ServeMiniSiteMojo extends MiniSiteMojo {
                         getLog().error("Can't open browser, ignoring", re);
                     }
                 });
-        final StaticHttpServer staticHttpServer = new StaticHttpServer(
+        final var staticHttpServer = new StaticHttpServer(
                 getLog()::info, getLog()::error, port, target.toPath(), "index.html", watch);
         server.set(staticHttpServer);
-        server.get().run();
+        staticHttpServer.run();
     }
 
     protected String getDefaultPublicationDate() {

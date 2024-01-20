@@ -334,9 +334,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(" id=\"").append(IdGenerator.forTitle(title)).append("\"");
             }
             builder.append(">\n");
-            builder.append("  <h").append(element.level());
-            writeCommonAttributes(element.options(), null);
-            builder.append(">");
+            builder.append("  <h").append(element.level()).append(">");
             builder.append(title);
             builder.append("</h").append(element.level()).append(">\n");
             builder.append(" <div class=\"sectionbody\">\n");
