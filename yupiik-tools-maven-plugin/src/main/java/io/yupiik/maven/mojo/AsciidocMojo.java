@@ -32,6 +32,9 @@ import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Uses the Yupiik asciidoc implementation to render an asciidoc file in HTML.
@@ -96,7 +99,7 @@ public class AsciidocMojo extends AbstractMojo {
         try {
             final var parser = new Parser();
             if (watch < 0) {
-                doRender(input, parser, resolver, output);
+                doRender(input, parser, resolver, output, configuration);
                 return;
             }
 
@@ -105,7 +108,7 @@ public class AsciidocMojo extends AbstractMojo {
             while (true) {
                 final var newLastModified = Files.getLastModifiedTime(input);
                 if (lastModified == null || !Objects.equals(lastModified, newLastModified)) {
-                    doRender(input, parser, resolver, output);
+                    doRender(input, parser, resolver, output, configuration);
                     lastModified = newLastModified;
                 } else {
                     getLog().debug("No change detected");
@@ -123,13 +126,19 @@ public class AsciidocMojo extends AbstractMojo {
 
     }
 
-    private void doRender(final Path input, final Parser parser, final ContentResolver resolver, final Path output) throws IOException {
+    private void doRender(final Path input, final Parser parser, final ContentResolver resolver, final Path output, final AsciidoctorLikeHtmlRenderer.Configuration configuration) throws IOException {
         final Document document;
         try (final var reader = Files.newBufferedReader(input)) {
             document = parser.parse(reader, new Parser.ParserContext(resolver));
         }
 
-        final var html = new AsciidoctorLikeHtmlRenderer();
+        final var html = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAssetsBase(configuration.getAssetsBase())
+                .setSupportDataAttributes(configuration.isSupportDataAttributes())
+                .setResolver(configuration.getResolver())
+                .setAttributes(Stream.of(attributes == null ? Map.<String, String>of() : attributes, document.header().attributes())
+                        .flatMap(e -> e.entrySet().stream())
+                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
         html.visit(document);
         if (output.getParent() != null) {
             Files.createDirectories(output.getParent());
