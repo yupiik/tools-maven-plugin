@@ -179,13 +179,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             if (attributes.containsKey("asciidoctor-css")) {
                 builder.append(" <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.9/css/asciidoctor.min.css\" integrity=\"sha512-lb4ZuGfCVoGO2zu/TMakNlBgRA6mPXZ0RamTYgluFxULAwOoNnBIZaNjsdfhnlKlIbENaQbEAYEWxtzjkB8wsQ==\" crossorigin=\"anonymous\" referrerpolicy=\"no-referrer\" />\n");
             }
-            Stream.of(attributes.getOrDefault("custom-css", "").split(","))
+            Stream.of(attr("custom-css", "custom-css", "", attributes).split(","))
                     .map(String::strip)
                     .filter(Predicate.not(String::isBlank))
                     .map(i -> " " + i + '\n')
                     .forEach(builder::append);
 
-            // todo: favicon, highlighter, toc support etc...
+            // todo: favicon, highlighter, etc...
             builder.append("</head>\n");
 
             builder.append("<body>\n");
@@ -220,7 +220,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
             builder.append("</body>\n");
 
-            Stream.of(document.header().attributes().getOrDefault("custom-js", "").split(","))
+            Stream.of(attr("custom-js", "custom-js", "", document.header().attributes()).split(","))
                     .map(String::strip)
                     .filter(Predicate.not(String::isBlank))
                     .map(i -> " " + i + '\n')
