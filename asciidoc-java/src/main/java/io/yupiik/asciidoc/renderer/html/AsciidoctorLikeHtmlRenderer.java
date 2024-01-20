@@ -218,14 +218,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                         """);
             }
 
-            builder.append("</body>\n");
-
             Stream.of(attr("custom-js", "custom-js", "", document.header().attributes()).split(","))
                     .map(String::strip)
                     .filter(Predicate.not(String::isBlank))
                     .map(i -> " " + i + '\n')
                     .forEach(builder::append);
-
+            builder.append("</body>\n");
             builder.append("</html>\n");
         }
     }
