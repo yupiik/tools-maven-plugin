@@ -131,6 +131,9 @@ public class AsciidocMojo extends AbstractMojo {
 
         final var html = new AsciidoctorLikeHtmlRenderer();
         html.visit(document);
+        if (output.getParent() != null) {
+            Files.createDirectories(output.getParent());
+        }
         Files.writeString(output, html.result());
         getLog().info("Rendered '" + input + "'");
     }
