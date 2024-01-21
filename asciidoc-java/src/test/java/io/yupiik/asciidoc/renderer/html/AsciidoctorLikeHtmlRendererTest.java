@@ -427,6 +427,29 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                 """.replace("$base64", base64), renderer.result());
     }
+    @Test
+    void imageRole() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                image::img.png[logo,.center.w80]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
+                 <img src="img.png" alt="logo" class="center w80">
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
 
     @Test
     void carbonNowImage() {

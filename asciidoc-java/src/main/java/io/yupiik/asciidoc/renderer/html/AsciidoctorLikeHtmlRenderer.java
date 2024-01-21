@@ -70,6 +70,7 @@ import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
@@ -827,7 +828,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         builder.append(" <img src=\"").append(element.label())
                 .append("\" alt=\"").append(element.options().getOrDefault("", element.options().getOrDefault("alt", element.label())))
-                .append("\">\n");
+                .append('"');
+        writeCommonAttributes(element.options(), null);
+        builder.append(">\n");
     }
 
     protected void visitAudio(final Macro element) {
