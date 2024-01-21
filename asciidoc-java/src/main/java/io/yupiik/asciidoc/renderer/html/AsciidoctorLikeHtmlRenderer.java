@@ -43,6 +43,7 @@ import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
 import io.yupiik.asciidoc.renderer.uri.DataUri;
+import lombok.Getter;
 
 import java.io.ByteArrayInputStream;
 import java.net.URLEncoder;
@@ -78,11 +79,11 @@ import static java.util.stream.Collectors.toMap;
  * Trivial document renderer as HTML.
  */
 public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
-    private final StringBuilder builder = new StringBuilder();
-    private final Configuration configuration;
-    private final boolean dataUri;
-    private final DataResolver resolver;
-    private final State state = new State(); // this is why we are not thread safe
+    protected final StringBuilder builder = new StringBuilder();
+    protected final Configuration configuration;
+    protected final boolean dataUri;
+    protected final DataResolver resolver;
+    protected final State state = new State(); // this is why we are not thread safe
 
     public AsciidoctorLikeHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -176,7 +177,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(" <meta name=\"copyright\" content=\"").append(copyright).append("\">\n");
             }
 
-            if (attributes.containsKey("asciidoctor-css")) {
+            if (attr("asciidoctor-css", "asciidoctor-css", null, attributes) != null) {
                 builder.append(" <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.9/css/asciidoctor.min.css\" integrity=\"sha512-lb4ZuGfCVoGO2zu/TMakNlBgRA6mPXZ0RamTYgluFxULAwOoNnBIZaNjsdfhnlKlIbENaQbEAYEWxtzjkB8wsQ==\" crossorigin=\"anonymous\" referrerpolicy=\"no-referrer\" />\n");
             }
             Stream.of(attr("custom-css", "custom-css", "", attributes).split(","))
@@ -186,12 +187,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     .forEach(builder::append);
 
             // todo: favicon, highlighter, etc...
+            beforeHeadEnd();
             builder.append("</head>\n");
 
             builder.append("<body");
             ofNullable(attr("body-classes", "body-classes", null, attributes))
                     .ifPresent(c -> builder.append(" class=\"").append(c).append("\""));
             builder.append(">\n");
+            builder.append(attr("header-html", "header-html", "", document.header().attributes()));
+            afterBodyStart();
 
             if (!configuration.isSkipGlobalContentWrapper()) {
                 builder.append(" <div id=\"content\">\n");
@@ -230,6 +234,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     .filter(Predicate.not(String::isBlank))
                     .map(i -> " " + i + '\n')
                     .forEach(builder::append);
+            beforeBodyEnd();
             builder.append("</body>\n");
             builder.append("</html>\n");
         }
@@ -333,7 +338,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     element);
             final var title = titleRenderer.result();
 
-            builder.append(" <div");
+            builder.append(" <").append(configuration.getSectionTag());
             writeCommonAttributes(element.options(), c -> "sect" + (element.level() - 1) + (c == null ? "" : (' ' + c)));
             if (!element.options().containsKey("id")) {
                 builder.append(" id=\"").append(IdGenerator.forTitle(title)).append("\"");
@@ -349,7 +354,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             if (!configuration.isSkipSectionBody()) {
                 builder.append(" </div>\n");
             }
-            builder.append(" </div>\n");
+            builder.append(" </").append(configuration.getSectionTag()).append(">\n");
         });
     }
 
@@ -764,6 +769,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    protected void afterBodyStart() {
+        // no-op
+    }
+
+    protected void beforeBodyEnd() {
+        // no-op
+    }
+
+    protected void beforeHeadEnd() {
+        // no-op
+    }
+
     protected void visitToc(final Body body) {
         final int toclevels = Integer.parseInt(attr("toclevels", "toclevels", "2", state.document.header().attributes()));
         if (toclevels < 1) {
@@ -1035,7 +1052,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    @Getter
     public static class Configuration {
+        private String sectionTag = "div";
         private boolean skipSectionBody = false;
         private boolean skipGlobalContentWrapper = false;
         private boolean supportDataAttributes = true;
@@ -1043,8 +1062,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
 
-        public boolean isSkipGlobalContentWrapper() {
-            return skipGlobalContentWrapper;
+        public Configuration setSectionTag(final String sectionTag) {
+            this.sectionTag = sectionTag;
+            return this;
         }
 
         public Configuration setSkipGlobalContentWrapper(final boolean skipGlobalContentWrapper) {
@@ -1052,17 +1072,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return this;
         }
 
-        public boolean isSkipSectionBody() {
-            return skipSectionBody;
-        }
-
         public Configuration setSkipSectionBody(final boolean skipSectionBody) {
             this.skipSectionBody = skipSectionBody;
             return this;
-        }
-
-        public boolean isSupportDataAttributes() {
-            return supportDataAttributes;
         }
 
         /**
@@ -1074,26 +1086,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return this;
         }
 
-        public DataResolver getResolver() {
-            return resolver;
-        }
-
         public Configuration setResolver(final DataResolver resolver) {
             this.resolver = resolver;
             return this;
         }
 
-        public Path getAssetsBase() {
-            return assetsBase;
-        }
-
         public Configuration setAssetsBase(final Path assetsBase) {
             this.assetsBase = assetsBase;
             return this;
-        }
-
-        public Map<String, String> getAttributes() {
-            return attributes;
         }
 
         public Configuration setAttributes(final Map<String, String> attributes) {
@@ -1102,15 +1102,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
-    private static class State implements AutoCloseable {
-        private static final Document EMPTY_DOC = new Document(new Header("", null, null, Map.of()), new Body(List.of()));
+    protected static class State implements AutoCloseable {
+        protected static final Document EMPTY_DOC = new Document(new Header("", null, null, Map.of()), new Body(List.of()));
 
-        private Document document = EMPTY_DOC;
-        private List<Element> currentChain = null;
-        private boolean hasStem = false;
-        private boolean sawPreamble = false;
-        private boolean inCallOut = false;
-        private final List<Element> lastElement = new ArrayList<>(4);
+        protected Document document = EMPTY_DOC;
+        protected List<Element> currentChain = null;
+        protected boolean hasStem = false;
+        protected boolean sawPreamble = false;
+        protected boolean inCallOut = false;
+        protected final List<Element> lastElement = new ArrayList<>(4);
 
         @Override
         public void close() {

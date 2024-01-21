@@ -18,7 +18,9 @@ package io.yupiik.maven.mojo;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
+import io.yupiik.asciidoc.renderer.html.ShowerRenderer;
 import io.yupiik.tools.common.http.StaticHttpServer;
 import io.yupiik.tools.common.watch.Watch;
 import org.apache.maven.plugin.AbstractMojo;
@@ -28,11 +30,12 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -60,6 +63,12 @@ public class AsciidocMojo extends AbstractMojo {
      */
     @Parameter(property = "yupiik.asciidoc.base")
     private String base;
+
+    /**
+     * section tag for default asciidoctor like renderer.
+     */
+    @Parameter(property = "yupiik.asciidoc.sectionTag", defaultValue = "div")
+    private String sectionTag;
 
     /**
      * should html data attributes be supported.
@@ -104,12 +113,20 @@ public class AsciidocMojo extends AbstractMojo {
     @Parameter(property = "yupiik.asciidoc.port", defaultValue = "4200")
     private int port;
 
+    /**
+     * Renderer to use, can be {@code io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer},
+     * {@code io.yupiik.asciidoc.renderer.html.ShowerRenderer} or any fully qualified name of a visitor.
+     */
+    @Parameter(property = "yupiik.asciidoc.renderer", defaultValue = "io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer")
+    private String renderer;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         final var configuration = new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setSupportDataAttributes(supportsDataAttributes)
                 .setSkipSectionBody(skipSectionBody)
                 .setSkipGlobalContentWrapper(skipGlobalContentWrapper)
+                .setSectionTag(sectionTag)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
         final var output = Path.of(this.output);
@@ -174,20 +191,52 @@ public class AsciidocMojo extends AbstractMojo {
             document = parser.parse(reader, new Parser.ParserContext(resolver));
         }
 
-        final var html = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
-                .setAssetsBase(configuration.getAssetsBase())
-                .setSupportDataAttributes(configuration.isSupportDataAttributes())
-                .setResolver(configuration.getResolver())
-                .setSkipSectionBody(configuration.isSkipSectionBody())
-                .setSkipGlobalContentWrapper(configuration.isSkipGlobalContentWrapper())
-                .setAttributes(Stream.of(attributes == null ? Map.<String, String>of() : attributes, document.header().attributes())
-                        .flatMap(e -> e.entrySet().stream())
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
+        final var html = newRenderer(configuration, document);
         html.visit(document);
         if (output.getParent() != null) {
             Files.createDirectories(output.getParent());
         }
         Files.writeString(output, html.result());
         getLog().info("Rendered '" + input + "'");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Visitor<String> newRenderer(final AsciidoctorLikeHtmlRenderer.Configuration configuration, final Document document) {
+        if ("io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer".equals(renderer) || "asciidoctor".equals(renderer)) {
+            return new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                    .setAssetsBase(configuration.getAssetsBase())
+                    .setSupportDataAttributes(configuration.isSupportDataAttributes())
+                    .setResolver(configuration.getResolver())
+                    .setSkipSectionBody(configuration.isSkipSectionBody())
+                    .setSkipGlobalContentWrapper(configuration.isSkipGlobalContentWrapper())
+                    .setSectionTag(configuration.getSectionTag())
+                    .setAttributes(rendererAttributes(document)));
+        }
+        if ("io.yupiik.asciidoc.renderer.html.ShowerRenderer".equals(renderer) || "shower".equals(renderer)) {
+            return new ShowerRenderer(new ShowerRenderer.Configuration()
+                    .setAssetsBase(configuration.getAssetsBase())
+                    .setSupportDataAttributes(configuration.isSupportDataAttributes())
+                    .setResolver(configuration.getResolver())
+                    .setAttributes(rendererAttributes(document)));
+        }
+        try {
+            return (Visitor<String>) Thread.currentThread().getContextClassLoader()
+                    .loadClass(renderer.strip())
+                    .asSubclass(Visitor.class)
+                    .getConstructor()
+                    .newInstance();
+        } catch (final InstantiationException | ClassNotFoundException | NoSuchMethodException |
+                       IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        } catch (final InvocationTargetException e) {
+            throw new IllegalStateException(e.getTargetException());
+        }
+    }
+
+    private Map<String, String> rendererAttributes(final Document document) {
+        return Stream.of(attributes, document.header().attributes())
+                .filter(Objects::nonNull)
+                .flatMap(e -> e.entrySet().stream())
+                .collect(toMap(Map.Entry::getKey, e -> e.getValue() == null ? "" : e.getValue(), (a, b) -> b));
     }
 }
