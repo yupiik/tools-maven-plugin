@@ -99,7 +99,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
     }
 
     private void append(final Map<String, String> copy, final String key, final String suffix) {
-        copy.merge(key, suffix, (a, b) -> a + "\n" + b);
+        copy.merge(key, suffix, (a, b) -> b + "\n" + a);
     }
 
     @Getter

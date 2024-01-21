@@ -29,16 +29,22 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 /**
@@ -120,6 +126,13 @@ public class AsciidocMojo extends AbstractMojo {
     @Parameter(property = "yupiik.asciidoc.renderer", defaultValue = "io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer")
     private String renderer;
 
+    /**
+     * Assets folder to copy before the rendering next to the output.
+     * Can host js, css etc...
+     */
+    @Parameter
+    private List<File> assets;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         final var configuration = new AsciidoctorLikeHtmlRenderer.Configuration()
@@ -152,7 +165,8 @@ public class AsciidocMojo extends AbstractMojo {
             final var server = new AtomicReference<StaticHttpServer>();
             final var watch = new Watch<>(
                     getLog()::info, getLog()::debug, getLog()::debug, getLog()::error,
-                    List.of(input), null, null, this.watch,
+                    assets == null || assets.isEmpty() ? List.of(input) : Stream.concat(assets.stream().map(File::toPath), Stream.of(input)).collect(toList()),
+                    null, null, this.watch,
                     (opts, a) -> {
                         try {
                             doRender(input, parser, resolver, output, configuration);
@@ -172,7 +186,9 @@ public class AsciidocMojo extends AbstractMojo {
                     });
             if (port > 0) {
                 final var staticHttpServer = new StaticHttpServer(
-                        getLog()::info, getLog()::error, port, output.toAbsolutePath().getParent().normalize(), output.getFileName().toString(), watch);
+                        getLog()::info, getLog()::error, port,
+                        output.toAbsolutePath().getParent().normalize(),
+                        output.getFileName().toString(), watch);
                 server.set(staticHttpServer);
                 staticHttpServer.run();
             } else {
@@ -184,8 +200,34 @@ public class AsciidocMojo extends AbstractMojo {
 
     }
 
+    private void copy(final Path src, final Path target) throws IOException {
+        if (Files.isDirectory(src)) {
+            Files.walkFileTree(src, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                    final var out = target.resolve(src.relativize(file));
+                    Files.createDirectories(out.getParent());
+                    Files.copy(file, out, StandardCopyOption.REPLACE_EXISTING);
+                    return super.visitFile(file, attrs);
+                }
+            });
+        } else {
+            Files.copy(src, target.resolve(src.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
     private void doRender(final Path input, final Parser parser, final ContentResolver resolver,
                           final Path output, final AsciidoctorLikeHtmlRenderer.Configuration configuration) throws IOException {
+        if (assets != null && !assets.isEmpty()) {
+            try {
+                for (final var src : assets) {
+                    copy(src.toPath(), output.toAbsolutePath().getParent());
+                }
+            } catch (final IOException ioe) {
+                throw new IllegalStateException(ioe);
+            }
+        }
+
         final Document document;
         try (final var reader = Files.newBufferedReader(input)) {
             document = parser.parse(reader, new Parser.ParserContext(resolver));

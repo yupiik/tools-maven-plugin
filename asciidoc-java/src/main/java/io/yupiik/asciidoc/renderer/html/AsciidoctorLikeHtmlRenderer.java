@@ -180,11 +180,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             if (attr("asciidoctor-css", "asciidoctor-css", null, attributes) != null) {
                 builder.append(" <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.9/css/asciidoctor.min.css\" integrity=\"sha512-lb4ZuGfCVoGO2zu/TMakNlBgRA6mPXZ0RamTYgluFxULAwOoNnBIZaNjsdfhnlKlIbENaQbEAYEWxtzjkB8wsQ==\" crossorigin=\"anonymous\" referrerpolicy=\"no-referrer\" />\n");
             }
-            Stream.of(attr("custom-css", "custom-css", "", attributes).split(","))
-                    .map(String::strip)
-                    .filter(Predicate.not(String::isBlank))
-                    .map(i -> " " + i + '\n')
-                    .forEach(builder::append);
+            builder.append(attr("custom-css", "custom-css", "", attributes));
 
             // todo: favicon, highlighter, etc...
             beforeHeadEnd();
