@@ -427,6 +427,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                 """.replace("$base64", base64), renderer.result());
     }
+
     @Test
     void imageRole() {
         final var doc = new Parser().parseBody("""
@@ -445,6 +446,36 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="content">
                  <img src="img.png" alt="logo" class="center w80">
                  </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void imageUnderscores() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                * image:Apache_Feather_Logo.png[romain_asf,role="w32"] link:https://home.apache.org/committer-index.html#rmannibucau[ASF Member]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <div class="paragraph">
+                 <p> <img src="Apache_Feather_Logo.png" alt="romain_asf" class="w32">
+                  <a href="https://home.apache.org/committer-index.html#rmannibucau">ASF Member</a>
+                </p>
+                 </div>
+                  </li>
+                 </ul>
                  </div>
                  </div>
                  </div>

@@ -543,6 +543,7 @@ public class Parser {
                                     final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var elements = new ArrayList<Element>();
         int start = 0;
+        boolean inMacro = false;
         for (int i = 0; i < line.length(); i++) {
             final char c = line.charAt(i);
             if (i == line.length() - 1 && c == '+') {
@@ -593,7 +594,12 @@ public class Parser {
                 }
             }
 
+            if (inMacro && c != '[') {
+                continue;
+            }
+
             switch (c) {
+                case ':' -> inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ';
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
@@ -658,6 +664,7 @@ public class Parser {
                     }
                 }
                 case '[' -> {
+                    inMacro = false; // we'll parse it so all good, no more need to escape anything
                     int end = line.indexOf(']', i + 1);
                     while (end > 0) {
                         if (line.charAt(end - 1) != '\\') {
@@ -785,9 +792,9 @@ public class Parser {
                                         new Link(l.url(), l.label(),
                                                 // inject role inline-code
                                                 Stream.concat(
-                                                        l.options().entrySet().stream().filter(it -> !"role".equals(it.getKey())),
-                                                        Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
-                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
+                                                                l.options().entrySet().stream().filter(it -> !"role".equals(it.getKey())),
+                                                                Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
+                                                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
                             }
                         } else {
                             elements.add(new Code(content, List.of(), Map.of(), true));
