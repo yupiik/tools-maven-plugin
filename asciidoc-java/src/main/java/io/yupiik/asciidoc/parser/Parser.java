@@ -226,7 +226,7 @@ public class Parser {
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(reader, options, "....").value(), options));
                 options = null;
-            } else if (next.startsWith(".") && !next.startsWith(". ")) {
+            } else if (next.startsWith(".") && !next.startsWith("..") && !next.startsWith(". ")) {
                 options = merge(options, Map.of("title", next.substring(1).strip()));
             } else if (next.startsWith("=")) {
                 reader.rewind();

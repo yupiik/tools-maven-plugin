@@ -312,6 +312,14 @@ class ParserTest {
     }
 
     @Test
+    void leadingDots() {
+        final var body = new Parser().parseBody(new Reader(List.of("... foobar")), null);
+        assertEquals(
+                List.of(new Text(List.of(), "... foobar", Map.of())),
+                body.children());
+    }
+
+    @Test
     void dataAttributes() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 [.step,data-foo=bar,data-dummy="true"]
