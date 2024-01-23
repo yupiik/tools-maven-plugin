@@ -304,13 +304,21 @@ class ParserTest {
     }
 
     @Test
+    void colonInTitle() {
+        final var body = new Parser().parseBody(new Reader(List.of("== foo :: bar")), null);
+        assertEquals(
+                List.of(new Section(2, new Text(List.of(), "foo :: bar", Map.of()), List.of(), Map.of())),
+                body.children());
+    }
+
+    @Test
     void dataAttributes() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 [.step,data-foo=bar,data-dummy="true"]
                 == Section #1
                                 
                 first
-                
+                                
                 [.step,data-foo=bar2,data-dummy="true"]
                 == Section #2
                                 
@@ -412,7 +420,7 @@ class ParserTest {
                 ) {
                 }
                 ----
-                
+                                
                 <1> Defines a record,
                 <.> Defines an attribute of the record.
                 """.split("\n"))), null);

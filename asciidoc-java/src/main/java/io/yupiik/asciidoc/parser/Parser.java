@@ -275,7 +275,7 @@ public class Parser {
                 }
             } else {
                 reader.rewind();
-                elements.add(unwrapElementIfPossible(parseParagraph(reader, options, resolver, attributes)));
+                elements.add(unwrapElementIfPossible(parseParagraph(reader, options, resolver, attributes, true)));
                 options = null;
             }
         }
@@ -522,7 +522,8 @@ public class Parser {
     }
 
     private Paragraph parseParagraph(final Reader reader, final Map<String, String> options,
-                                     final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                                     final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                     final boolean supportComplexStructures /* title case for ex */) {
         final var elements = new ArrayList<Element>();
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
@@ -531,7 +532,7 @@ public class Parser {
                 reader.rewind();
                 break;
             }
-            elements.addAll(parseLine(reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes));
+            elements.addAll(parseLine(reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures));
         }
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
@@ -540,57 +541,60 @@ public class Parser {
     }
 
     private List<Element> parseLine(final Reader reader, final String line,
-                                    final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                                    final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                    final boolean supportComplexStructures) {
         final var elements = new ArrayList<Element>();
         int start = 0;
         boolean inMacro = false;
         for (int i = 0; i < line.length(); i++) {
             final char c = line.charAt(i);
-            if (i == line.length() - 1 && c == '+') {
-                elements.add(new LineBreak());
-                break;
-            }
+            if (supportComplexStructures) {
+                if (i == line.length() - 1 && c == '+') {
+                    elements.add(new LineBreak());
+                    break;
+                }
 
-            final var admonition = parseAdmonition(reader, line, resolver, currentAttributes);
-            if (admonition.isPresent()) {
-                elements.add(admonition.orElseThrow());
-                i = line.length();
-                start = i;
-                break;
-            }
-
-            {
-                final var matcher = ORDERED_LIST_PREFIX.matcher(line);
-                if (matcher.matches() && matcher.group("dots").length() == 1) {
-                    reader.rewind();
-                    elements.add(parseOrderedList(reader, null, ". ", resolver, currentAttributes));
+                final var admonition = parseAdmonition(reader, line, resolver, currentAttributes);
+                if (admonition.isPresent()) {
+                    elements.add(admonition.orElseThrow());
                     i = line.length();
                     start = i;
                     break;
                 }
-            }
 
-            {
-                final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
-                if (matcher.matches() && matcher.group("wildcard").length() == 1) {
-                    reader.rewind();
-                    elements.add(parseUnorderedList(reader, null, "* ", resolver, currentAttributes));
-                    i = line.length();
-                    start = i;
-                    break;
+                {
+                    final var matcher = ORDERED_LIST_PREFIX.matcher(line);
+                    if (matcher.matches() && matcher.group("dots").length() == 1) {
+                        reader.rewind();
+                        elements.add(parseOrderedList(reader, null, ". ", resolver, currentAttributes));
+                        i = line.length();
+                        start = i;
+                        break;
+                    }
                 }
-            }
 
-            {
-                final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
-                if (matcher.matches() && matcher.group("marker").length() == 2 &&
-                        // and is not a macro
-                        (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
-                    reader.rewind();
-                    elements.add(parseDescriptionList(reader, ":: ", resolver, currentAttributes));
-                    i = line.length();
-                    start = i;
-                    break;
+                {
+                    final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
+                    if (matcher.matches() && matcher.group("wildcard").length() == 1) {
+                        reader.rewind();
+                        elements.add(parseUnorderedList(reader, null, "* ", resolver, currentAttributes));
+                        i = line.length();
+                        start = i;
+                        break;
+                    }
+                }
+
+                {
+                    final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
+                    if (matcher.matches() && matcher.group("marker").length() == 2 &&
+                            // and is not a macro
+                            (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
+                        reader.rewind();
+                        elements.add(parseDescriptionList(reader, ":: ", resolver, currentAttributes));
+                        i = line.length();
+                        start = i;
+                        break;
+                    }
                 }
             }
 
@@ -785,7 +789,7 @@ public class Parser {
                         }
                         final var content = line.substring(i + 1, end);
                         if (isLink(content)) { // this looks like a bad practise but can happen
-                            final var link = unwrapElementIfPossible(parseParagraph(new Reader(List.of(content)), Map.of(), resolver, Map.of()));
+                            final var link = unwrapElementIfPossible(parseParagraph(new Reader(List.of(content)), Map.of(), resolver, Map.of(), false));
                             if (link instanceof Link l) {
                                 elements.add(l.options().getOrDefault("role", "").contains("inline-code") ?
                                         l :
@@ -1035,7 +1039,7 @@ public class Parser {
                     if (next != null) {
                         reader.rewind();
                     }
-                    return new Admonition(level, unwrapElementIfPossible(parseParagraph(new Reader(buffer), null, resolver, currentAttributes)));
+                    return new Admonition(level, unwrapElementIfPossible(parseParagraph(new Reader(buffer), null, resolver, currentAttributes, true)));
                 });
     }
 
@@ -1067,7 +1071,7 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                final var element = parseParagraph(new Reader(buffer), Map.of(), resolver, currentAttributes);
+                final var element = parseParagraph(new Reader(buffer), Map.of(), resolver, currentAttributes, true);
                 final var unwrapped = unwrapElementIfPossible(element);
                 children.put(matcher.group("name"), unwrapped);
                 last = unwrapped;
@@ -1125,7 +1129,7 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                children.add(unwrapElementIfPossible(parseParagraph(new Reader(List.of(buffer.toString().split("\n"))), Map.of(), resolver, currentAttributes)));
+                children.add(unwrapElementIfPossible(parseParagraph(new Reader(List.of(buffer.toString().split("\n"))), Map.of(), resolver, currentAttributes, true)));
             } else { // nested
                 reader.rewind();
                 final var nestedList = parseList(
@@ -1146,7 +1150,7 @@ public class Parser {
                                  final List<Element> collector, final Text.Style style, final String options,
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = line.substring(i + 1, end);
-        final var sub = parseLine(null, content, resolver, currentAttributes);
+        final var sub = parseLine(null, content, resolver, currentAttributes, true);
         final var opts = options != null ? parseOptions(options) : Map.<String, String>of();
         if (sub.size() == 1 && sub.get(0) instanceof Text t) {
             if (!t.style().isEmpty()) {
@@ -1230,7 +1234,7 @@ public class Parser {
         final var prefix = IntStream.rangeClosed(0, i).mapToObj(idx -> "=").collect(joining());
         return new Section(
                 i,
-                unwrapElementIfPossible(parseParagraph(new Reader(List.of(title.substring(i).strip())), Map.of(), resolver, currentAttributes)),
+                unwrapElementIfPossible(parseParagraph(new Reader(List.of(title.substring(i).strip())), Map.of(), resolver, currentAttributes, false)),
                 doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes),
                 options == null ? Map.of() : options);
     }
