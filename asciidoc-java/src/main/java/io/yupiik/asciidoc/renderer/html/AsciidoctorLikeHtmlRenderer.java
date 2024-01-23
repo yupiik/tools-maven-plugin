@@ -332,7 +332,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
             titleRenderer.visitElement(element.title() instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                     new Text(t.style(), t.value(), Map.of("nowrap", "")) :
-                    element);
+                    element.title());
             final var title = titleRenderer.result();
 
             builder.append(" <").append(configuration.getSectionTag());
