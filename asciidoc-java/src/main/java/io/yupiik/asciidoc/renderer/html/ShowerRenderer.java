@@ -64,6 +64,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
                 .setSkipGlobalContentWrapper(true)
                 .setSkipSectionBody(true)
                 .setSectionTag("section")
+                .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                 .setAttributes(configuration.getAttributes())
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())
                 .setAssetsBase(configuration.getAssetsBase())
@@ -104,10 +105,16 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
 
     @Getter
     public static class Configuration {
+        private boolean dataUriForAscii2Svg = true;
         private boolean supportDataAttributes = true;
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+
+        public Configuration setDataUriForAscii2Svg(final boolean dataUriForAscii2Svg) {
+            this.dataUriForAscii2Svg = dataUriForAscii2Svg;
+            return this;
+        }
 
         public Configuration setSupportDataAttributes(final boolean supportDataAttributes) {
             this.supportDataAttributes = supportDataAttributes;

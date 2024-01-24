@@ -70,7 +70,6 @@ import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
@@ -726,10 +725,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitListing(final Listing element) {
         switch (element.options().getOrDefault("", "")) {
-            case "a2s" -> visitImage(new Macro(
-                    "image",
-                    new DataUri(() -> new ByteArrayInputStream(YupiikA2s.svg(element.value(), element.options()).getBytes(UTF_8)), "image/svg+xml").base64(),
-                    element.options(), false));
+            case "a2s" -> {
+                if (configuration.isDataUriForAscii2Svg()) {
+                    visitImage(new Macro(
+                            "image",
+                            new DataUri(() -> new ByteArrayInputStream(YupiikA2s.svg(element.value(), element.options()).getBytes(UTF_8)), "image/svg+xml").base64(),
+                            element.options(), false));
+                } else {
+                    final var clazz = element.options().get("role");
+                    if (clazz != null) {
+                        builder.append(" <div class=\"").append(clazz.replace('.', ' ').strip()).append("\">\n");
+                    }
+                    visitPassthroughBlock(new PassthroughBlock(YupiikA2s.svg(element.value(), element.options()), Map.of()));
+                    if (clazz != null) {
+                        builder.append(" </div>\n");
+                    }
+                }
+            }
             default -> visitCode(new Code(element.value(), List.of(), element.options(), false));
         }
     }
@@ -1054,12 +1066,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Getter
     public static class Configuration {
         private String sectionTag = "div";
+        private boolean dataUriForAscii2Svg = true;
         private boolean skipSectionBody = false;
         private boolean skipGlobalContentWrapper = false;
         private boolean supportDataAttributes = true;
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+
+        public Configuration setDataUriForAscii2Svg(final boolean dataUriForAscii2Svg) {
+            this.dataUriForAscii2Svg = dataUriForAscii2Svg;
+            return this;
+        }
 
         public Configuration setSectionTag(final String sectionTag) {
             this.sectionTag = sectionTag;

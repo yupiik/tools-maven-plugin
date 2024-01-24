@@ -77,6 +77,12 @@ public class AsciidocMojo extends AbstractMojo {
     private String sectionTag;
 
     /**
+     * should ascii2svg diagram be rendered as {@code svg} or {@code img} tag.
+     */
+    @Parameter(property = "yupiik.asciidoc.dataUriForAscii2Svg", defaultValue = "true")
+    private boolean dataUriForAscii2Svg;
+
+    /**
      * should html data attributes be supported.
      */
     @Parameter(property = "yupiik.asciidoc.supportsDataAttributes", defaultValue = "true")
@@ -140,6 +146,7 @@ public class AsciidocMojo extends AbstractMojo {
                 .setSkipSectionBody(skipSectionBody)
                 .setSkipGlobalContentWrapper(skipGlobalContentWrapper)
                 .setSectionTag(sectionTag)
+                .setDataUriForAscii2Svg(dataUriForAscii2Svg)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
         final var output = Path.of(this.output);
@@ -251,6 +258,7 @@ public class AsciidocMojo extends AbstractMojo {
                     .setResolver(configuration.getResolver())
                     .setSkipSectionBody(configuration.isSkipSectionBody())
                     .setSkipGlobalContentWrapper(configuration.isSkipGlobalContentWrapper())
+                    .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                     .setSectionTag(configuration.getSectionTag())
                     .setAttributes(rendererAttributes(document)));
         }
@@ -258,6 +266,7 @@ public class AsciidocMojo extends AbstractMojo {
             return new ShowerRenderer(new ShowerRenderer.Configuration()
                     .setAssetsBase(configuration.getAssetsBase())
                     .setSupportDataAttributes(configuration.isSupportDataAttributes())
+                    .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                     .setResolver(configuration.getResolver())
                     .setAttributes(rendererAttributes(document)));
         }
