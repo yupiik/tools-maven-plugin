@@ -708,7 +708,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 skipDiv = true;
             }
             writeBlockTitle(element.options());
-            builder.append("  <div class=\"content\">\n");
+            builder.append("  <div");
+            if (skipDiv) {
+                writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+            }
+            builder.append(">\n");
             Visitor.super.visitOpenBlock(element);
             builder.append("  </div>\n");
             if (!skipDiv) {
