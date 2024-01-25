@@ -547,9 +547,8 @@ public class Parser {
         int start = 0;
         boolean inMacro = false;
         for (int i = 0; i < line.length(); i++) {
-            final char c = line.charAt(i);
             if (supportComplexStructures) {
-                if (i == line.length() - 1 && c == '+') {
+                if (i == line.length() - 2 && line.endsWith(" +")) {
                     elements.add(new LineBreak());
                     break;
                 }
@@ -598,6 +597,7 @@ public class Parser {
                 }
             }
 
+            final char c = line.charAt(i);
             if (inMacro && c != '[') {
                 continue;
             }

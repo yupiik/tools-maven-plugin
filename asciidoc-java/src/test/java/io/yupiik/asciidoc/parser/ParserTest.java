@@ -312,6 +312,14 @@ class ParserTest {
     }
 
     @Test
+    void plusInList() {
+        final var body = new Parser().parseBody(new Reader(List.of("* foo++")), null);
+        assertEquals(
+                List.of(new UnOrderedList(List.of(new Text(List.of(), "foo++", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
     void leadingDots() {
         final var body = new Parser().parseBody(new Reader(List.of("... foobar")), null);
         assertEquals(
