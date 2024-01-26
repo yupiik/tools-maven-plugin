@@ -39,6 +39,9 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
+import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
@@ -69,6 +72,7 @@ import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
 import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
+import static java.util.Map.entry;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -396,11 +400,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" rel=\"noopener\"");
         }
 
-        var label = element.label();
-        if (label.contains("://") && attr("hide-uri-scheme", element.options()) != null) {
-            label = label.substring(label.indexOf("://") + "://".length());
+        builder.append(">");
+        if (element.options().containsKey("unsafeHtml")) {
+            builder.append(element.label());
+        } else {
+            var label = element.label();
+            if (label.contains("://") && attr("hide-uri-scheme", element.options()) != null) {
+                label = label.substring(label.indexOf("://") + "://".length());
+            }
+            builder.append(escape(label));
         }
-        builder.append(">").append(escape(label)).append("</a>\n");
+        builder.append("</a>\n");
 
         if (code) {
             builder.append("</code>");
@@ -772,8 +782,39 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             case "audio" -> visitAudio(element);
             case "video" -> visitVideo(element);
             case "xref" -> visitXref(element);
-            case "link" ->
-                    visitLink(new Link(element.label(), element.options().getOrDefault("", element.label()), element.options()));
+            case "link" -> {
+                final var label = element.options().getOrDefault("", element.label());
+                if (label.contains("image:")) { // FIXME: ...we don't want options to be parsed but this looks required
+                    try {
+                        final var parser = new Parser(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
+                        final var body = parser.parseBody(new Reader(List.of(label)), new LocalContextResolver(configuration.getAssetsBase()));
+                        if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
+                            visitLink(new Link(element.label(), t.value(), element.options()));
+                        } else {
+                            final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
+                            nested.state.sawPreamble = true;
+                            (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
+                                    p.children() :
+                                    body.children()).stream()
+                                    .map(e -> e instanceof Text t ?
+                                            new Text(t.style(), t.value(), Stream.concat(
+                                                            t.options().entrySet().stream(),
+                                                            Stream.of(entry("nowrap", "true")))
+                                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))) :
+                                            e)
+                                    .forEach(nested::visitElement);
+
+                            final var html = nested.result();
+                            visitLink(new Link(element.label(), html, Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
+                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
+                        }
+                    } catch (final RuntimeException re) {
+                        visitLink(new Link(element.label(), label, element.options()));
+                    }
+                } else {
+                    visitLink(new Link(element.label(), label, element.options()));
+                }
+            }
             // todo: menu, doublefootnote, footnote
             default -> onMissingMacro(element); // for future extension point
         }

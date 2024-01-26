@@ -688,7 +688,7 @@ public class Parser {
 
                         if (backward >= 0 && backward < i) { // start by assuming it a link then fallback on a macro
                             final var optionsPrefix = line.substring(backward, i);
-                            final var options = parseOptions(line.substring(i + 1, end).strip());
+                            var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
                                 flushText(elements, line.substring(start, backward));
                             }
@@ -697,12 +697,21 @@ public class Parser {
                             if (macroMarker > 0 && !isLink(optionsPrefix)) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
-                                final var macro = new Macro(
-                                        type,
-                                        "stem".equals(type) ?
-                                                line.substring(i + 1, end) :
-                                                optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)),
-                                        "stem".equals(type) ? Map.of() : options, inlined);
+                                final var label = "stem".equals(type) ?
+                                        line.substring(i + 1, end) :
+                                        optionsPrefix.substring(macroMarker + (inlined ? 1 : 2));
+
+                                if ("link".equals(type) && options.containsKey("")) {
+                                    var linkName = options.get("");
+                                    int from = linkName.indexOf('[');
+                                    while (from > 0) { // if label has some opening bracket we must slice what we computed (images in link)
+                                        end = line.indexOf(']', end + 1);
+                                        from = label.indexOf('[', from + 1);
+                                        options = parseOptions(line.substring(i + 1, end).strip());
+                                    }
+                                }
+
+                                final var macro = new Macro(type, label, "stem".equals(type) ? Map.of() : options, inlined);
                                 switch (macro.name()) {
                                     case "include" -> elements.addAll(doInclude(macro, resolver, currentAttributes));
                                     case "ifdef" -> elements.add(new ConditionalBlock(

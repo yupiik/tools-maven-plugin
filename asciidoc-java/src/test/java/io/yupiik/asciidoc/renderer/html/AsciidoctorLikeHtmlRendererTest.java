@@ -542,6 +542,14 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("icon:fas fa-gift[]", "<span class=\"icon\"><i class=\"fas fa-gift\"></i></span>");
     }
 
+    @Test
+    void linkWithImage() {
+        assertRenderingContent(
+                "link:http://foo.bar[this is image:foo.png[alt]]",
+                " <a href=\"http://foo.bar\">this is  <img src=\"foo.png\" alt=\"alt\">\n" +
+                        "</a>\n");
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
