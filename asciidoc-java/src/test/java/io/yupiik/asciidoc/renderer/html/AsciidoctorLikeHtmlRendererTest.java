@@ -543,6 +543,17 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void codeInSectionTitle() {
+        assertRenderingContent("== Section `#1`", """
+                 <div class="sect1" id="_section_1">
+                  <h2>Section <code>#1</code></h2>
+                 <div class="sectionbody">
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void linkWithImage() {
         assertRenderingContent(
                 "link:http://foo.bar[this is image:foo.png[alt]]",

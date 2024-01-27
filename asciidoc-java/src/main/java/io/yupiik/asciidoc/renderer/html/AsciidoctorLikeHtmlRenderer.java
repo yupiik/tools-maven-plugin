@@ -266,11 +266,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         state.stackChain(element.children(), () -> {
             final boolean preambleWasHandled = false;
             handlePreamble(true, element, () -> {
-                builder.append(" <div");
-                writeCommonAttributes(element.options(), c -> "paragraph" + (c != null ? ' ' + c : ""));
-                builder.append(">\n");
+                if (!state.nowrap) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "paragraph" + (c != null ? ' ' + c : ""));
+                    builder.append(">\n");
+                }
 
-                final boolean addP = !preambleWasHandled && state.sawPreamble && element.children().stream()
+                final boolean addP = !state.nowrap && !preambleWasHandled && state.sawPreamble && element.children().stream()
                         .allMatch(e -> e.type() == TEXT ||
                                 e.type() == ATTRIBUTE ||
                                 e.type() == LINK ||
@@ -285,7 +287,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append("</p>\n");
                 }
 
-                builder.append(" </div>\n");
+                if (!state.nowrap) {
+                    builder.append(" </div>\n");
+                }
             });
         });
     }
@@ -333,9 +337,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     public void visitSection(final Section element) {
         state.stackChain(element.children(), () -> {
             final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
-            titleRenderer.visitElement(element.title() instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
-                    new Text(t.style(), t.value(), Map.of("nowrap", "")) :
-                    element.title());
+            titleRenderer.state.sawPreamble = true;
+            titleRenderer.state.nowrap = true;
+            titleRenderer.visitElement(element.title());
             final var title = titleRenderer.result();
 
             builder.append(" <").append(configuration.getSectionTag());
@@ -496,7 +500,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 return;
             }
 
-            final boolean isParagraph = !state.inCallOut && useWrappers && (state.lastElement.size() <= 1 || state.lastElement.get(state.lastElement.size() - 2).type() == SECTION);
+            final boolean isParagraph = !state.nowrap && !state.inCallOut && useWrappers &&
+                    (state.lastElement.size() <= 1 || state.lastElement.get(state.lastElement.size() - 2).type() == SECTION);
             if (isParagraph) {
                 // not writeCommonAttributes to not add twice the id for ex
                 final var customRole = element.options().get("role");
@@ -1170,6 +1175,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         protected Document document = EMPTY_DOC;
         protected List<Element> currentChain = null;
         protected boolean hasStem = false;
+        protected boolean nowrap = false;
         protected boolean sawPreamble = false;
         protected boolean inCallOut = false;
         protected final List<Element> lastElement = new ArrayList<>(4);
