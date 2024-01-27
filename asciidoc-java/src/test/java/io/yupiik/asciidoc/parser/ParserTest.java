@@ -486,6 +486,30 @@ class ParserTest {
     }
 
     @Test
+    void orderedListWithCode() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                . item 1
+                +
+                [source,java]
+                ----
+                record Foo() {}
+                ----
+                +
+                2. item 2
+                +
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(List.of(
+                                new Paragraph(
+                                        List.of(
+                                                new Text(List.of(), "item 1", Map.of()),
+                                                new Code("record Foo() {}\n", List.of(), Map.of("language", "java"), false)),
+                                        Map.of()),
+                                new Text(List.of(), "item 2", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
     void orderedListNested() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 . item 1

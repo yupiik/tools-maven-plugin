@@ -1130,15 +1130,25 @@ public class Parser {
             if (level == currentLevel) { // a new item
                 buffer.setLength(0);
                 buffer.append(next.substring(prefix.length()).stripLeading());
-                while ((next = reader.nextLine()) != null &&
-                        !regex.matcher(next).matches() &&
-                        !next.isBlank()) {
+                while ((next = reader.nextLine()) != null) {
+                    if (next.isBlank()) {
+                        break;
+                    }
+                    if ("+".equals(next.strip())) { // continuation
+                        buffer.append('\n');
+                        continue;
+                    }
+                    if (regex.matcher(next).matches()) {
+                        break;
+                    }
                     buffer.append('\n').append(next);
                 }
                 if (next != null) {
                     reader.rewind();
                 }
-                children.add(unwrapElementIfPossible(parseParagraph(new Reader(List.of(buffer.toString().split("\n"))), Map.of(), resolver, currentAttributes, true)));
+
+                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes);
+                children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
             } else { // nested
                 reader.rewind();
                 final var nestedList = parseList(
