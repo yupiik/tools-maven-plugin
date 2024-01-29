@@ -554,6 +554,25 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void codeInSectionTitleComplex() {
+        assertRenderingContent("""
+                == Title :: foo `bar.json`
+                
+                foo""", """
+                 <div class="sect1" id="_title__foo_barjson">
+                  <h2>Title :: foo <code>bar.json</code></h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                foo
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void linkWithImage() {
         assertRenderingContent(
                 "link:http://foo.bar[this is image:foo.png[alt]]",

@@ -184,7 +184,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
-        return new Body(doParse(reader, line -> true, resolver, new HashMap<>()));
+        return new Body(doParse(reader, line -> true, resolver, new HashMap<>(), true));
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -194,7 +194,8 @@ public class Parser {
     }
 
     private List<Element> doParse(final Reader reader, final Predicate<String> continueTest,
-                                  final ContentResolver resolver, final Map<String, String> attributes) {
+                                  final ContentResolver resolver, final Map<String, String> attributes,
+                                  final boolean supportComplexStructures) {
         final var elements = new ArrayList<Element>(8);
         String next;
 
@@ -259,7 +260,7 @@ public class Parser {
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
-                elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes), options == null ? Map.of() : options));
+                elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures), options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
                 final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
@@ -275,7 +276,7 @@ public class Parser {
                 }
             } else {
                 reader.rewind();
-                elements.add(unwrapElementIfPossible(parseParagraph(reader, options, resolver, attributes, true)));
+                elements.add(unwrapElementIfPossible(parseParagraph(reader, options, resolver, attributes, supportComplexStructures)));
                 options = null;
             }
         }
@@ -309,7 +310,7 @@ public class Parser {
         if (next != null && !next.startsWith("--")) {
             reader.rewind();
         }
-        return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes), options == null ? Map.of() : options);
+        return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes, true), options == null ? Map.of() : options);
     }
 
     private Quote parseQuote(final Reader reader, final Map<String, String> options,
@@ -322,7 +323,7 @@ public class Parser {
         if (next != null && !next.startsWith("> ")) {
             reader.rewind();
         }
-        return new Quote(doParse(new Reader(content), l -> true, resolver, currentAttributes), options == null ? Map.of() : options);
+        return new Quote(doParse(new Reader(content), l -> true, resolver, currentAttributes, true), options == null ? Map.of() : options);
     }
 
     private Table parseTable(final Reader reader,
@@ -339,7 +340,7 @@ public class Parser {
                         .map(i -> {
                             if (i.contains("a")) { // asciidoc
                                 return (Function<List<String>, Element>) c -> {
-                                    final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes);
+                                    final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, true);
                                     if (content.size() == 1) {
                                         return content.get(0);
                                     }
@@ -455,7 +456,7 @@ public class Parser {
                 reader.rewind();
             }
 
-            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes);
+            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true);
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null && !next.isBlank()) {
@@ -603,7 +604,7 @@ public class Parser {
             }
 
             switch (c) {
-                case ':' -> inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ';
+                case ':' -> inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i-1) != ' ';
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
@@ -618,7 +619,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var attributeName = line.substring(i + 1, end);
-                        elements.add(new Attribute(attributeName, value -> doParse(new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes))));
+                        elements.add(new Attribute(attributeName, value -> doParse(new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true)));
                         i = end;
                         start = end + 1;
                     }
@@ -716,15 +717,15 @@ public class Parser {
                                     case "include" -> elements.addAll(doInclude(macro, resolver, currentAttributes));
                                     case "ifdef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifdef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
                                             macro.options()));
                                     case "ifndef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifndef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
                                             macro.options()));
                                     case "ifeval" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), currentAttributes)),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
                                             macro.options()));
                                     default -> elements.add(macro);
                                 }
@@ -1022,7 +1023,7 @@ public class Parser {
             content = List.of((value > 0 ? noIndent.indent(value) : noIndent).split("\n"));
         }
 
-        return doParse(new Reader(content), l -> true, resolver, currentAttributes);
+        return doParse(new Reader(content), l -> true, resolver, currentAttributes, true);
     }
 
     private int findSectionLevel(final String line) {
@@ -1147,7 +1148,7 @@ public class Parser {
                     reader.rewind();
                 }
 
-                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes);
+                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true);
                 children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
             } else { // nested
                 reader.rewind();
@@ -1251,10 +1252,12 @@ public class Parser {
         currentAttributes.put("sectnumlevels", Integer.toString(i));
 
         final var prefix = IntStream.rangeClosed(0, i).mapToObj(idx -> "=").collect(joining());
+        final var lineContent = title.substring(i).strip();
+        final var titleElement = parseLine(new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
         return new Section(
                 i,
-                unwrapElementIfPossible(parseParagraph(new Reader(List.of(title.substring(i).strip())), Map.of(), resolver, currentAttributes, false)),
-                doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes),
+                titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
+                doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true),
                 options == null ? Map.of() : options);
     }
 
