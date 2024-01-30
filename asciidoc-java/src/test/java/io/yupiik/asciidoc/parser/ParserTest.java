@@ -36,9 +36,15 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
+import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -422,6 +428,21 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(new Code("public record Foo() {\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)),
+                body.children());
+    }
+
+    @Test
+    void codeInclude(@TempDir final Path work) throws IOException {
+        final var code = "test = value\nmultiline = true\n";
+        Files.writeString(work.resolve("content.properties"), code);
+        final var body = new Parser(Map.of("partialsdir", work.toString())).parseBody(new Reader(List.of("""
+                [source,properties,.hljs]
+                ----
+                include::{partialsdir}/content.properties[]
+                ----
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Code(code, List.of(), Map.of("language", "properties", "role", "hljs"), false)),
                 body.children());
     }
 

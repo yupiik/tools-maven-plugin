@@ -356,8 +356,13 @@ public class Parser {
                                         new Text(List.of(BOLD), String.join("\n", c), Map.of());
                             }
                             if (i.contains("l") || i.contains("m")) { // literal or monospace
-                                return (Function<List<String>, Element>) c ->
-                                        new Code(handleIncludes(String.join("\n", c), resolver, currentAttributes), List.of(), Map.of(), true);
+                                return (Function<List<String>, Element>) c -> {
+                                    final var elements = handleIncludes(String.join("\n", c), resolver, currentAttributes, true)
+                                            .stream()
+                                            .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
+                                            .collect(joining());
+                                    return new Code(elements, List.of(), Map.of(), true);
+                                };
                             }
                             if (i.contains("h")) { // header
                                 return (Function<List<String>, Element>) c ->
@@ -429,12 +434,13 @@ public class Parser {
 
         // todo: better support of the code features/syntax config
         final var content = builder.toString();
-        final var snippet = handleIncludes(content, resolver, currentAttributes);
+        final var snippet = handleIncludes(content, resolver, currentAttributes, false);
+        final var code = snippet.stream().filter(Text.class::isInstance).map(Text.class::cast).map(Text::value).collect(joining());
         final var codeOptions = options == null ? Map.<String, String>of() : options;
 
-        final var contentWithCallouts = parseWithCallouts(snippet);
+        final var contentWithCallouts = parseWithCallouts(code);
         if (contentWithCallouts.callOutReferences().isEmpty()) {
-            return new Code(snippet, List.of(), codeOptions, false);
+            return new Code(code, List.of(), codeOptions, false);
         }
 
         final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
@@ -499,27 +505,31 @@ public class Parser {
         return out == null ? new ContentWithCalloutIndices(snippet.stripTrailing(), List.of()) : new ContentWithCalloutIndices(out.toString(), callOuts);
     }
 
-    private String handleIncludes(final String content,
-                                  final ContentResolver resolver,
-                                  final Map<String, String> currentAttributes) {
+    private List<Element> handleIncludes(final String content,
+                                         final ContentResolver resolver,
+                                         final Map<String, String> currentAttributes,
+                                         final boolean parse) {
         final int start = content.indexOf("include::");
         if (start < 0) {
-            return content;
+            return List.of(new Text(List.of(), content, Map.of()));
         }
         final int opts = content.indexOf('[', start);
         if (opts < 0) {
-            return content;
+            return List.of(new Text(List.of(), content, Map.of()));
         }
         final int end = content.indexOf(']', opts);
         if (end < 0) {
-            return content;
+            return List.of(new Text(List.of(), content, Map.of()));
         }
         final var include = doInclude(new Macro(
                         "include",
-                        content.substring(start + "include::".length(), opts),
+                        earlyAttributeReplacement(content.substring(start + "include::".length(), opts), currentAttributes),
                         parseOptions(content.substring(opts + 1, end)), false),
-                resolver, currentAttributes);
-        return content.substring(0, start) + include;
+                resolver, currentAttributes, parse);
+        return Stream.concat(
+                        Stream.of(new Text(List.of(), content.substring(0, start), Map.of())),
+                        include.stream())
+                .toList();
     }
 
     private Paragraph parseParagraph(final Reader reader, final Map<String, String> options,
@@ -604,7 +614,8 @@ public class Parser {
             }
 
             switch (c) {
-                case ':' -> inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i-1) != ' ';
+                case ':' ->
+                        inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i - 1) != ' ';
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
@@ -714,7 +725,8 @@ public class Parser {
 
                                 final var macro = new Macro(type, label, "stem".equals(type) ? Map.of() : options, inlined);
                                 switch (macro.name()) {
-                                    case "include" -> elements.addAll(doInclude(macro, resolver, currentAttributes));
+                                    case "include" ->
+                                            elements.addAll(doInclude(macro, resolver, currentAttributes, true));
                                     case "ifdef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifdef(macro.label()),
                                             doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
@@ -947,7 +959,8 @@ public class Parser {
     // include::target[leveloffset=offset,lines=ranges,tag(s)=name(s),indent=depth,encoding=encoding,opts=optional]
     private List<Element> doInclude(final Macro macro,
                                     final ContentResolver resolver,
-                                    final Map<String, String> currentAttributes) {
+                                    final Map<String, String> currentAttributes,
+                                    final boolean parse) {
         var content = resolver.resolve(
                         macro.label(),
                         ofNullable(macro.options().get("encoding"))
@@ -1023,7 +1036,10 @@ public class Parser {
             content = List.of((value > 0 ? noIndent.indent(value) : noIndent).split("\n"));
         }
 
-        return doParse(new Reader(content), l -> true, resolver, currentAttributes, true);
+        if (parse) {
+            return doParse(new Reader(content), l -> true, resolver, currentAttributes, true);
+        }
+        return List.of(new Text(List.of(), String.join("\n", content) + '\n', Map.of()));
     }
 
     private int findSectionLevel(final String line) {
