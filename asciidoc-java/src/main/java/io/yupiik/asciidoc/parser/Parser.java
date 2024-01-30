@@ -1072,7 +1072,7 @@ public class Parser {
     private DescriptionList parseDescriptionList(final Reader reader, final String prefix,
                                                  final ContentResolver resolver,
                                                  final Map<String, String> currentAttributes) {
-        final var children = new LinkedHashMap<String, Element>(2);
+        final var children = new LinkedHashMap<Element, Element>(2);
         String next;
         final var buffer = new ArrayList<String>();
         Matcher matcher;
@@ -1099,7 +1099,8 @@ public class Parser {
                 }
                 final var element = parseParagraph(new Reader(buffer), Map.of(), resolver, currentAttributes, true);
                 final var unwrapped = unwrapElementIfPossible(element);
-                children.put(matcher.group("name"), unwrapped);
+                final var key = doParse(new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false);
+                children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
                 last = unwrapped;
             } else { // nested
                 reader.rewind();

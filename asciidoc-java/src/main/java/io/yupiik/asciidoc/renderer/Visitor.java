@@ -153,7 +153,10 @@ public interface Visitor<R> {
     }
 
     default void visitDescriptionList(final DescriptionList element) {
-        element.children().values().forEach(this::visitElement);
+        element.children().forEach((key, value) -> {
+            visitElement(key);
+            visitElement(value);
+        });
     }
 
     default void visitMacro(final Macro element) {

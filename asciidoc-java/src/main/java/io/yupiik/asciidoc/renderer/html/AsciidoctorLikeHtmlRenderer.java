@@ -434,7 +434,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             writeCommonAttributes(element.options(), null);
             builder.append(">\n");
             for (final var elt : element.children().entrySet()) {
-                builder.append("  <dt>").append(escape(elt.getKey())).append("</dt>\n");
+                builder.append("  <dt>");
+                visitElement(elt.getKey());
+                builder.append("</dt>\n");
                 builder.append("  <dd>\n");
                 visitElement(elt.getValue());
                 builder.append("</dd>\n");

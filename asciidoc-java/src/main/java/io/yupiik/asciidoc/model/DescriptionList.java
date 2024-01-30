@@ -19,7 +19,7 @@ import java.util.Map;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.DESCRIPTION_LIST;
 
-public record DescriptionList(Map<String, Element> children, Map<String, String> options) implements Element {
+public record DescriptionList(Map<Element, Element> children, Map<String, String> options) implements Element {
     @Override
     public ElementType type() {
         return DESCRIPTION_LIST;

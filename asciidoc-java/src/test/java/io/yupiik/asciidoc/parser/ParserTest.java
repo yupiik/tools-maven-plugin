@@ -637,7 +637,7 @@ class ParserTest {
                                         entry("CPU", new Text(List.of(), "The brain of the computer.", Map.of())),
                                         entry("Hard drive", new Text(List.of(), "Permanent storage for operating system and/or user files.", Map.of())),
                                         entry("RAM", new Text(List.of(), "Temporarily stores information the CPU uses during operation.", Map.of())))
-                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
+                                .collect(toMap(e -> new Text(List.of(), e.getKey(), Map.of()), Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
                                 Map.of())),
                 body.children());
     }
@@ -665,7 +665,7 @@ class ParserTest {
                                         new Text(List.of(), "Bananas", Map.of())),
                                         Map.of()
                                 )))
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
+                        .collect(toMap(e -> new Text(List.of(), e.getKey(), Map.of()), Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
                         Map.of())),
                 body.children());
     }
