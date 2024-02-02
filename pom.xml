@@ -50,6 +50,7 @@
     <module>codec-core</module>
     <module>ascii2svg</module>
     <module>asciidoc-java</module>
+    <module>dev-env</module>
   </modules>
 
   <dependencyManagement>
