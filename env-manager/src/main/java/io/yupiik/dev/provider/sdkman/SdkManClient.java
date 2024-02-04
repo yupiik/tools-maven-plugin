@@ -40,6 +40,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Optional.of;
@@ -54,6 +57,7 @@ public class SdkManClient implements Provider {
     private final URI base;
     private final Path local;
     private final boolean enabled;
+    private final Pattern oldVersionsSplitter = Pattern.compile("\\ +");
 
     public SdkManClient(final YemHttpClient client, final SdkManConfiguration configuration, final Os os, final Archives archives) {
         this.client = client;
@@ -222,34 +226,67 @@ public class SdkManClient implements Provider {
                 .uri(base.resolve("candidates/" + tool + "/" + platform + "/versions/list?current=&installed="))
                 .build());
         ensure200(res);
-        return parseVersions(res.body());
+        return parseVersions(tool, res.body());
     }
 
-    private List<Version> parseVersions(final String body) {
+    private List<Version> parseVersions(final String tool, final String body) {
         final var markerStart = "--------------------------------------------------------------------------------";
         final var markerEnd = "================================================================================";
 
         final var allLines = lines(body);
         final var lines = allLines.subList(allLines.indexOf(markerStart) + 1, allLines.size());
-
-        String lastVendor = null;
-        final var from = lines.iterator();
         final var versions = new ArrayList<Version>(16);
-        while (from.hasNext()) {
-            final var next = from.next();
-            if (Objects.equals(markerEnd, next)) {
-                break;
-            }
 
-            final var segments = next.strip().split("\\|");
-            if (segments.length == 6) {
-                // Vendor        | Use | Version      | Dist    | Status     | Identifier
-                if (!segments[0].isBlank()) {
-                    lastVendor = segments[0].strip();
+        {
+            String lastVendor = null;
+            final var from = lines.iterator();
+            while (from.hasNext()) {
+                final var next = from.next();
+                if (Objects.equals(markerEnd, next)) {
+                    break;
                 }
-                versions.add(new Version(lastVendor, segments[2].strip(), segments[3].strip(), segments[5].strip()));
+
+                final var segments = next.strip().split("\\|");
+                if (segments.length == 6) {
+                    // Vendor        | Use | Version      | Dist    | Status     | Identifier
+                    if (!segments[0].isBlank()) {
+                        lastVendor = segments[0].strip();
+                    }
+                    versions.add(new Version(lastVendor, segments[2].strip(), segments[3].strip(), segments[5].strip()));
+                }
             }
         }
+
+        if (versions.isEmpty()) { // try old style
+            var data = lines;
+            for (int i = 0; i < 2; i++) {
+                final int marker = data.indexOf(markerEnd);
+                if (marker < 0) {
+                    break;
+                }
+                data = data.subList(marker + 1, data.size());
+            }
+
+            final var from = data.iterator();
+            while (from.hasNext()) {
+                final var next = from.next();
+                if (next.isBlank() || next.charAt(0) != ' ') {
+                    continue;
+                }
+                if (Objects.equals(markerEnd, next)) {
+                    break;
+                }
+
+                final var segments = oldVersionsSplitter.split(next.strip());
+                if (segments.length > 0) {
+                    versions.addAll(Stream.of(segments)
+                            .filter(Predicate.not(String::isBlank))
+                            .map(v -> new Version(tool, v, "sdkman", v))
+                            .toList());
+                }
+            }
+        }
+
         return versions;
     }
 

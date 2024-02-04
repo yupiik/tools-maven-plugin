@@ -47,6 +47,7 @@ class CommandsTest {
         assertEquals("""
                         - central: base=http://localhost:$port/2//m2/, local=$work/.m2/repository
                         - github: base=http://localhost:$port/2//github/, local=/github
+                        - maven: enabled=true
                         - minikube: enabled=false
                         - sdkman: enabled=true, base=http://localhost:$port/2/, platform=linuxx64.tar.gz, local=$work/sdkman/candidates
                         - zulu: enabled=true, preferJre=false, base=http://localhost:$port/2/, platform=linux64.tar.gz, local=$work/zulu"""

@@ -55,6 +55,7 @@ public class List implements Runnable {
                 .map(e -> "- " + e.getKey().tool() + ":" + (e.getValue().isEmpty() ?
                         " no version available" :
                         e.getValue().stream()
+                                .sorted((a, b) -> -a.compareTo(b))
                                 .map(v -> "-- " + v.version())
                                 .collect(joining("\n", "\n", "\n"))))
                 .sorted()

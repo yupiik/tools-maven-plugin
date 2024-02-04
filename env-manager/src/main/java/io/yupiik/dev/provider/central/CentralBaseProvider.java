@@ -135,7 +135,9 @@ public abstract class CentralBaseProvider implements Provider {
                                                     final var filename = distro.getFileName().toString();
                                                     final var version = filename.substring(0, filename.length() - "_exploded".length());
                                                     return new Version(gav.groupId(), version, gav.artifactId(), version);
-                                                });
+                                                })
+                                                .toList() // materialize otherwise exploded will be closed and lazy evaluation will fail
+                                                .stream();
                                     } catch (final IOException e) {
                                         return Stream.of();
                                     }

@@ -33,6 +33,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -141,6 +142,31 @@ class SdkManClientTest {
                             new Version("Zulu", "17.0.10", "zulu", "17.0.10-zulu"),
                             new Version("Zulu", "17.0.10.fx", "zulu", "17.0.10.fx-zulu")),
                     sdkMan(client, uri, work).listVersions("java"));
+        }
+    }
+
+    @Test
+    @Mock(uri = "/2/candidates/activemq/linuxx64/versions/list?current=&installed=", payload = """
+            ================================================================================
+            Available Activemq Versions
+            ================================================================================
+                 5.17.1              5.15.8              5.13.4              5.19.1         \s
+                 5.15.9              5.14.0              5.10.0                            \s
+                        
+            ================================================================================
+            + - local version
+            * - installed
+            > - currently in use
+            ================================================================================""")
+    void listToolVersionsSimple(final URI uri, @TempDir final Path work) {
+        try (final var client = client()) {
+            assertEquals(
+                    Stream.of("5.19.1", "5.17.1", "5.15.9", "5.15.8", "5.14.0", "5.13.4", "5.10.0")
+                            .map(v -> new Version("activemq", v, "sdkman", v))
+                            .toList(),
+                    sdkMan(client, uri, work).listVersions("activemq").stream()
+                            .sorted((a, b) -> -a.compareTo(b))
+                            .toList());
         }
     }
 

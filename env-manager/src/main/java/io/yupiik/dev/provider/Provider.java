@@ -24,7 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public interface Provider {
+/**
+ * Represents a source of distribution/tool and integrates with a external+local (cache) storage.
+ */
+public interface Provider { // NOTE: normally we don't need a reactive impl since we resolve most of tools locally
     String name();
 
     List<Candidate> listTools();

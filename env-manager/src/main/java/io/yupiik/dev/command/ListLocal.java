@@ -28,6 +28,7 @@ import static java.util.stream.Collectors.joining;
 @Command(name = "list-local", description = "List local available distributions.")
 public class ListLocal implements Runnable {
     private final Logger logger = Logger.getLogger(getClass().getName());
+
     private final ProviderRegistry registry;
     private final Conf conf;
 
@@ -41,10 +42,12 @@ public class ListLocal implements Runnable {
     public void run() {
         final var collect = registry.providers().stream()
                 .flatMap(p -> p.listLocal().entrySet().stream()
-                        .filter(it -> conf.tool() == null || Objects.equals(conf.tool(), it.getKey().tool()))
+                        .filter(it -> (conf.tool() == null || Objects.equals(conf.tool(), it.getKey().tool())) &&
+                                !it.getValue().isEmpty())
                         .map(e -> "- [" + p.name() + "] " + e.getKey().tool() + ":" + (e.getValue().isEmpty() ?
                                 " no version" :
                                 e.getValue().stream()
+                                        .sorted((a, b) -> -a.compareTo(b)) // more recent first
                                         .map(v -> "-- " + v.version())
                                         .collect(joining("\n", "\n", "\n")))))
                 .sorted()

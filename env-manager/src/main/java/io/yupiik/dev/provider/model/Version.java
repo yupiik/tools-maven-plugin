@@ -15,5 +15,31 @@
  */
 package io.yupiik.dev.provider.model;
 
-public record Version(String vendor, String version, String dist, String identifier) {
+import java.util.regex.Pattern;
+
+public record Version(String vendor, String version, String dist, String identifier) implements Comparable<Version> {
+    private static final Pattern DOT_SPLITTER = Pattern.compile("\\.");
+
+    @Override
+    public int compareTo(final Version other) {
+        final var s1 = DOT_SPLITTER.split(version().replace('-', '.'));
+        final var s2 = DOT_SPLITTER.split(other.version().replace('-', '.'));
+        for (int i = 0; i < s1.length; i++) {
+            if (s2.length <= i) {
+                return 1;
+            }
+            try {
+                final var segment1 = s1[i];
+                final var segment2 = s2[i];
+                if (segment1.equals(segment2)) { // enables to handle alpha case for ex
+                    continue;
+                }
+
+                return Integer.parseInt(segment1) - Integer.parseInt(segment2);
+            } catch (final NumberFormatException nfe) {
+                // alphabetical comparison
+            }
+        }
+        return version().compareTo(other.version());
+    }
 }

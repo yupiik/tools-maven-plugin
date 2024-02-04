@@ -15,6 +15,7 @@
  */
 package io.yupiik.dev.command;
 
+import io.yupiik.dev.provider.central.ApacheMavenConfiguration;
 import io.yupiik.dev.provider.central.SingletonCentralConfiguration;
 import io.yupiik.dev.provider.github.MinikubeConfiguration;
 import io.yupiik.dev.provider.github.SingletonGithubConfiguration;
@@ -36,18 +37,21 @@ public class Config implements Runnable {
     private final SingletonGithubConfiguration github;
     private final ZuluCdnConfiguration zulu;
     private final MinikubeConfiguration minikube;
+    private final ApacheMavenConfiguration maven;
 
     public Config(final Conf conf,
                   final SingletonCentralConfiguration central,
                   final SdkManConfiguration sdkman,
                   final SingletonGithubConfiguration github,
                   final ZuluCdnConfiguration zulu,
-                  final MinikubeConfiguration minikube) {
+                  final MinikubeConfiguration minikube,
+                  final ApacheMavenConfiguration maven) {
         this.central = central;
         this.sdkman = sdkman;
         this.github = github;
         this.zulu = zulu;
         this.minikube = minikube;
+        this.maven = maven;
     }
 
     @Override
@@ -57,7 +61,8 @@ public class Config implements Runnable {
                         "sdkman", sdkman,
                         "github", github.configuration(),
                         "zulu", zulu,
-                        "minikube", minikube)
+                        "minikube", minikube,
+                        "maven", maven)
                 .entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> {
