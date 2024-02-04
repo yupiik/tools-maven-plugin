@@ -30,6 +30,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+    <fusion.version>1.0.14</fusion.version>
     <mvn.version>3.6.3</mvn.version>
     <jruby.version>9.3.6.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
@@ -46,11 +47,11 @@
     <module>slides-core</module>
     <module>yupiik-tools-cli</module>
     <module>html-versioning-injector</module>
-    <module>_documentation</module>
     <module>codec-core</module>
     <module>ascii2svg</module>
     <module>asciidoc-java</module>
-    <module>dev-env</module>
+    <module>env-manager</module>
+    <module>_documentation</module>
   </modules>
 
   <dependencyManagement>

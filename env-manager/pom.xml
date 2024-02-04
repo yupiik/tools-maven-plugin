@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2020 - 2023 - Yupiik SAS - https://www.yupiik.com
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.yupiik.maven</groupId>
+    <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
+    <version>1.2.1-SNAPSHOT</version>
+  </parent>
+
+  <groupId>io.yupiik.dev</groupId>
+  <artifactId>env-manager</artifactId>
+  <name>Yupiik Tools :: Dev Env</name>
+  <description>Simple library to manage its dev tools.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-build-api</artifactId>
+      <version>${fusion.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-processor</artifactId>
+      <version>${fusion.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-api</artifactId>
+      <version>${fusion.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-cli</artifactId>
+      <version>${fusion.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-json</artifactId>
+      <version>${fusion.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-httpclient</artifactId>
+      <version>${fusion.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.logging</groupId>
+      <artifactId>yupiik-logging-jul</artifactId>
+      <version>1.0.7</version>
+    </dependency>
+
+    <dependency> <!-- mainly for tar.gz -->
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
+      <version>1.25.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-testing</artifactId>
+      <version>${fusion.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <compilerArgs>
+                <compilerArg>-Afusion.moduleFqn=io.yupiik.dev.YemModule</compilerArg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <compilerArgs>
+                <compilerArg>-Afusion.moduleFqn=io.yupiik.dev.test.YemTestModule</compilerArg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <source>17</source>
+          <target>17</target>
+          <release>17</release>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <source>17</source>
+        </configuration>
+      </plugin>
+
+      <plugin> <!-- mvn process-classes arthur:native-image -e && ./target/yem -->
+        <groupId>org.apache.geronimo.arthur</groupId>
+        <artifactId>arthur-maven-plugin</artifactId>
+        <version>1.0.8</version>
+        <configuration>
+          <main>io.yupiik.fusion.framework.api.main.Launcher</main>
+          <graalVersion>21.0.2-graalce</graalVersion>
+          <output>${project.build.directory}/yem</output>
+          <customOptions>
+            <customOption>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager</customOption>
+          </customOptions>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
