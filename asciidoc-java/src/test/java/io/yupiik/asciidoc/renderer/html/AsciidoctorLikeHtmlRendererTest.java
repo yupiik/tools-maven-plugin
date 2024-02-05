@@ -599,7 +599,6 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="colist arabic">
                           <ol>
                            <li>
-                         <div class="paragraph">
                          <span>
                         Version of the tool to install, using\s
                          </span>
@@ -609,7 +608,6 @@ class AsciidoctorLikeHtmlRendererTest {
                         <code>21.</code> <span>
                          for ex),
                          </span>
-                         </div>
                            </li>
                           </ol>
                          </div>

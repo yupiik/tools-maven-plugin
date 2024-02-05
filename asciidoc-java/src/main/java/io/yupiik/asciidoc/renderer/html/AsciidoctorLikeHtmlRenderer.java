@@ -594,10 +594,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" <div class=\"colist arabic\">\n");
             builder.append("  <ol>\n");
             element.callOuts().forEach(c -> {
+                final boolean nowrap = state.nowrap;
                 builder.append("   <li>\n");
                 state.inCallOut = true;
+                state.nowrap = true;
                 visitElement(c.text());
                 state.inCallOut = false;
+                state.nowrap = nowrap;
                 builder.append("   </li>\n");
             });
             builder.append("  </ol>\n");
