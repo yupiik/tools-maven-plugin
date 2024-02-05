@@ -6,10 +6,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="adoc:A set of build utilities.
-
-IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example.
-Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
@@ -20,7 +17,7 @@ Last available 1.0.x release is 1.0.26.">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.1.9-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
 </head>
 <body>
@@ -38,7 +35,7 @@ Last available 1.0.x release is 1.0.26.">
 
 					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
 						
-						<li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 		            </ul>
 	            </div>
             </div>
@@ -64,6 +61,10 @@ Last available 1.0.x release is 1.0.26.">
                     <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
                         <i class="fas fa-font"></i>Ascii2SVG
                     </a>
+                </li>                <li>
+                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+                        <i class="fas fa-robot"></i>YEM
+                    </a>
                 </li>
             </ul>
         </div>
@@ -74,29 +75,34 @@ Last available 1.0.x release is 1.0.26.">
             </div>
             <div class="page-content-body">
                 <div id="preamble">
-<div class="sectionbody">
-<div class="paragraph">
-<p>To learn all goals available in the maven plugin read <a href="mojo/yupiik-tools-maven-plugin.html">Yupiik Tools Maven Plugin</a> dedicated page.</p>
-</div>
-<div class="imageblock">
-<div class="content">
-<img src="https://img.shields.io/maven-central/v/io.yupiik.maven/yupiik-tools-maven-plugin-parent?color=00b2ef&label=Last%20Release&logoColor=00b2ef&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAqCAYAAADS4VmSAAAAAXNSR0IArs4c6QAABGdJREFUWEedmF2I3FQUx%2F9nZrYzq7ttMtuK32B90WpFEbtUW2T7UqqbjIgM%2BKQP%2BmAfBUEFP0H7oo%2BiIgg%2BqRUqk%2BwWRXTFj9UWoVIp7UN1H9QitTvJMtpOd3dydDI7k9zk3syd5C25557zO1%2F3I4S8z3xzJzp0MpweBDfioanf86iiPJPCOY7HwlzbzKUr1yQ4XgAgOZdhm4VRHcoLIHrft5ojCqMDiKF%2FGlQkcOfNgecjQowGcKS5ByX6NmUsDrXOe%2FFw9TvdVIwGEDdUNiawn%2F4NDR0%2BP4HKWCtPFPQBXP8EmO9UGonDEf0My7hLJwr6AHEDqjzryCSo9ACEtuM%2FYVevl3rneH8D2LoxptWWugBR2w2r8hGjMBxAaDt6BrbxRmZuHf81gJ%2FXLchsgEbzQRDN6SobyMWhmWdRq86roLMB4ooKVMWs4Q0Uuf4jYP4kfKfONKytxwdjR1vbsL5%2BXgdcDeD6J8G8U6vtukLJ2hDb8hdYxh2yKKgBsorJ9QJwYjMiMKzEZqRRkHKAhrcKwliPmC7ANrYN6A%2Bf2oTKtZelOW1%2FUUK93oml6RKYK%2BE7Yw01c1NyXhpggSto%2BZe0Qh%2FgMQBFFPC%2BlvykMY4Zasch0gBC4RUfx%2BzmDwYT5lem0Ql%2BTBkTWjW4HfbUqVhHvALgRRWgCDDXmkGw%2FpWWN%2BXLE9h%2FdW8z%2BtQzUETUIVkFWSjtw%2BzkQt%2BGCBD3pG2UUKcon43mCRBpbkZYhGXeF9UNj6PiX5Q5FgE4zUWAdmt5n2czEtLEP8Cu3huWeCxX6vVenHwadnWHtAsc7zcAN43iRA9gmAGNftZ05A8A18UBCQtcQstf06JmfhS16kdS7%2FsfHf9ZgA9p6Zs0xkjwngsHUNvyWeTNch0ofKxUpiIRNiO6BzXjp4Fow38OxK9HXZC8YDAfRK36dio1JaOCB0i%2BAiZBjvx1FcbKn8MyxWOZ670MxkviQuR4vwLYnnKG2QeRsfG9A9ssZYY%2Ba9BpXgRoPCVCWOwVoXvhFnDxtFLHsFOQTirS1rfDNpbSS3HD64Agv2JR8VZYm88MKcJ9AH8plWEEqJlFMQVq%2Bq8B3K8Y%2Fga2KY45XrfQ7s6Ea%2F9zBeo3RBud5IIJzPmmePJZ2QUOjuXKf6GzA0FpL8DvqjpJTIG7%2FCq48EIoTPQULOMdwXCyY%2BRU6eO4cDrCDCyzG92eGaUBWeE5%2FlsAH8yMBvMh1KrRqbgvrFhNIwDXOwfGNdJQOZ4PYMtIaWAso2b2LynJHxrHYZvTsQgwwfG7Px16T9f7bi0E3FQbDZ4ECu%2BF490lmuhDpWz%2FIiuJgmQzoiWAox1N1LoK2yyHn5zlJ2IA0dnf9dfArFq0ugeYK%2BOOSgAkfhBcWKYt1osCoC%2Fk%2BsfAvCszbbZJQwCC3bCnojNgXJsqAkmLzsoBIDgqBRkAuP5ZMN88EGqfK6N%2B22omvS5AX8nCUgUtI74IfQ%2Fb3DP8cqqiGBVAoSc%2FQFiIG%2F8K825W%2F%2Bv4D2sg4qMfRFPFAAAAAElFTkSuQmCC" alt="yupiik tools maven plugin parent?color=00b2ef&amp;label=Last%20Release&amp;logoColor=00b2ef&amp;logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAqCAYAAADS4VmSAAAAAXNSR0IArs4c6QAABGdJREFUWEedmF2I3FQUx%2F9nZrYzq7ttMtuK32B90WpFEbtUW2T7UqqbjIgM%2BKQP%2BmAfBUEFP0H7oo%2BiIgg%2BqRUqk%2BwWRXTFj9UWoVIp7UN1H9QitTvJMtpOd3dydDI7k9zk3syd5C25557zO1%2F3I4S8z3xzJzp0MpweBDfioanf86iiPJPCOY7HwlzbzKUr1yQ4XgAgOZdhm4VRHcoLIHrft5ojCqMDiKF%2FGlQkcOfNgecjQowGcKS5ByX6NmUsDrXOe%2FFw9TvdVIwGEDdUNiawn%2F4NDR0%2BP4HKWCtPFPQBXP8EmO9UGonDEf0My7hLJwr6AHEDqjzryCSo9ACEtuM%2FYVevl3rneH8D2LoxptWWugBR2w2r8hGjMBxAaDt6BrbxRmZuHf81gJ%2FXLchsgEbzQRDN6SobyMWhmWdRq86roLMB4ooKVMWs4Q0Uuf4jYP4kfKfONKytxwdjR1vbsL5%2BXgdcDeD6J8G8U6vtukLJ2hDb8hdYxh2yKKgBsorJ9QJwYjMiMKzEZqRRkHKAhrcKwliPmC7ANrYN6A%2Bf2oTKtZelOW1%2FUUK93oml6RKYK%2BE7Yw01c1NyXhpggSto%2BZe0Qh%2FgMQBFFPC%2BlvykMY4Zasch0gBC4RUfx%2BzmDwYT5lem0Ql%2BTBkTWjW4HfbUqVhHvALgRRWgCDDXmkGw%2FpWWN%2BXLE9h%2FdW8z%2BtQzUETUIVkFWSjtw%2BzkQt%2BGCBD3pG2UUKcon43mCRBpbkZYhGXeF9UNj6PiX5Q5FgE4zUWAdmt5n2czEtLEP8Cu3huWeCxX6vVenHwadnWHtAsc7zcAN43iRA9gmAGNftZ05A8A18UBCQtcQstf06JmfhS16kdS7%2FsfHf9ZgA9p6Zs0xkjwngsHUNvyWeTNch0ofKxUpiIRNiO6BzXjp4Fow38OxK9HXZC8YDAfRK36dio1JaOCB0i%2BAiZBjvx1FcbKn8MyxWOZ670MxkviQuR4vwLYnnKG2QeRsfG9A9ssZYY%2Ba9BpXgRoPCVCWOwVoXvhFnDxtFLHsFOQTirS1rfDNpbSS3HD64Agv2JR8VZYm88MKcJ9AH8plWEEqJlFMQVq%2Bq8B3K8Y%2Fga2KY45XrfQ7s6Ea%2F9zBeo3RBud5IIJzPmmePJZ2QUOjuXKf6GzA0FpL8DvqjpJTIG7%2FCq48EIoTPQULOMdwXCyY%2BRU6eO4cDrCDCyzG92eGaUBWeE5%2FlsAH8yMBvMh1KrRqbgvrFhNIwDXOwfGNdJQOZ4PYMtIaWAso2b2LynJHxrHYZvTsQgwwfG7Px16T9f7bi0E3FQbDZ4ECu%2BF490lmuhDpWz%2FIiuJgmQzoiWAox1N1LoK2yyHn5zlJ2IA0dnf9dfArFq0ugeYK%2BOOSgAkfhBcWKYt1osCoC%2Fk%2BsfAvCszbbZJQwCC3bCnojNgXJsqAkmLzsoBIDgqBRkAuP5ZMN88EGqfK6N%2B22omvS5AX8nCUgUtI74IfQ%2Fb3DP8cqqiGBVAoSc%2FQFiIG%2F8K825W%2F%2Bv4D2sg4qMfRFPFAAAAAElFTkSuQmCC">
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_chain_plugins">Chain plugins</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>Mojo can be chained from the command like - without pom declaration.</p>
-</div>
-<div class="paragraph">
-<p>This is the case of the git report one and PDF one for example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn \
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>To learn all goals available in the maven plugin read  <a href="mojo/yupiik-tools-maven-plugin.html">Yupiik Tools Maven Plugin</a>
+ dedicated page.</p>
+ </div>
+ </div>
+ </div>
+ <div class="imageblock">
+ <div class="content">
+ <img src="https://img.shields.io/maven-central/v/io.yupiik.maven/yupiik-tools-maven-plugin-parent?color=00b2ef&label=Last%20Release&logoColor=00b2ef&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAqCAYAAADS4VmSAAAAAXNSR0IArs4c6QAABGdJREFUWEedmF2I3FQUx%2F9nZrYzq7ttMtuK32B90WpFEbtUW2T7UqqbjIgM%2BKQP%2BmAfBUEFP0H7oo%2BiIgg%2BqRUqk%2BwWRXTFj9UWoVIp7UN1H9QitTvJMtpOd3dydDI7k9zk3syd5C25557zO1%2F3I4S8z3xzJzp0MpweBDfioanf86iiPJPCOY7HwlzbzKUr1yQ4XgAgOZdhm4VRHcoLIHrft5ojCqMDiKF%2FGlQkcOfNgecjQowGcKS5ByX6NmUsDrXOe%2FFw9TvdVIwGEDdUNiawn%2F4NDR0%2BP4HKWCtPFPQBXP8EmO9UGonDEf0My7hLJwr6AHEDqjzryCSo9ACEtuM%2FYVevl3rneH8D2LoxptWWugBR2w2r8hGjMBxAaDt6BrbxRmZuHf81gJ%2FXLchsgEbzQRDN6SobyMWhmWdRq86roLMB4ooKVMWs4Q0Uuf4jYP4kfKfONKytxwdjR1vbsL5%2BXgdcDeD6J8G8U6vtukLJ2hDb8hdYxh2yKKgBsorJ9QJwYjMiMKzEZqRRkHKAhrcKwliPmC7ANrYN6A%2Bf2oTKtZelOW1%2FUUK93oml6RKYK%2BE7Yw01c1NyXhpggSto%2BZe0Qh%2FgMQBFFPC%2BlvykMY4Zasch0gBC4RUfx%2BzmDwYT5lem0Ql%2BTBkTWjW4HfbUqVhHvALgRRWgCDDXmkGw%2FpWWN%2BXLE9h%2FdW8z%2BtQzUETUIVkFWSjtw%2BzkQt%2BGCBD3pG2UUKcon43mCRBpbkZYhGXeF9UNj6PiX5Q5FgE4zUWAdmt5n2czEtLEP8Cu3huWeCxX6vVenHwadnWHtAsc7zcAN43iRA9gmAGNftZ05A8A18UBCQtcQstf06JmfhS16kdS7%2FsfHf9ZgA9p6Zs0xkjwngsHUNvyWeTNch0ofKxUpiIRNiO6BzXjp4Fow38OxK9HXZC8YDAfRK36dio1JaOCB0i%2BAiZBjvx1FcbKn8MyxWOZ670MxkviQuR4vwLYnnKG2QeRsfG9A9ssZYY%2Ba9BpXgRoPCVCWOwVoXvhFnDxtFLHsFOQTirS1rfDNpbSS3HD64Agv2JR8VZYm88MKcJ9AH8plWEEqJlFMQVq%2Bq8B3K8Y%2Fga2KY45XrfQ7s6Ea%2F9zBeo3RBud5IIJzPmmePJZ2QUOjuXKf6GzA0FpL8DvqjpJTIG7%2FCq48EIoTPQULOMdwXCyY%2BRU6eO4cDrCDCyzG92eGaUBWeE5%2FlsAH8yMBvMh1KrRqbgvrFhNIwDXOwfGNdJQOZ4PYMtIaWAso2b2LynJHxrHYZvTsQgwwfG7Px16T9f7bi0E3FQbDZ4ECu%2BF490lmuhDpWz%2FIiuJgmQzoiWAox1N1LoK2yyHn5zlJ2IA0dnf9dfArFq0ugeYK%2BOOSgAkfhBcWKYt1osCoC%2Fk%2BsfAvCszbbZJQwCC3bCnojNgXJsqAkmLzsoBIDgqBRkAuP5ZMN88EGqfK6N%2B22omvS5AX8nCUgUtI74IfQ%2Fb3DP8cqqiGBVAoSc%2FQFiIG%2F8K825W%2F%2Bv4D2sg4qMfRFPFAAAAAElFTkSuQmCC" alt="https://img.shields.io/maven-central/v/io.yupiik.maven/yupiik-tools-maven-plugin-parent?color=00b2ef&label=Last%20Release&logoColor=00b2ef&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAqCAYAAADS4VmSAAAAAXNSR0IArs4c6QAABGdJREFUWEedmF2I3FQUx%2F9nZrYzq7ttMtuK32B90WpFEbtUW2T7UqqbjIgM%2BKQP%2BmAfBUEFP0H7oo%2BiIgg%2BqRUqk%2BwWRXTFj9UWoVIp7UN1H9QitTvJMtpOd3dydDI7k9zk3syd5C25557zO1%2F3I4S8z3xzJzp0MpweBDfioanf86iiPJPCOY7HwlzbzKUr1yQ4XgAgOZdhm4VRHcoLIHrft5ojCqMDiKF%2FGlQkcOfNgecjQowGcKS5ByX6NmUsDrXOe%2FFw9TvdVIwGEDdUNiawn%2F4NDR0%2BP4HKWCtPFPQBXP8EmO9UGonDEf0My7hLJwr6AHEDqjzryCSo9ACEtuM%2FYVevl3rneH8D2LoxptWWugBR2w2r8hGjMBxAaDt6BrbxRmZuHf81gJ%2FXLchsgEbzQRDN6SobyMWhmWdRq86roLMB4ooKVMWs4Q0Uuf4jYP4kfKfONKytxwdjR1vbsL5%2BXgdcDeD6J8G8U6vtukLJ2hDb8hdYxh2yKKgBsorJ9QJwYjMiMKzEZqRRkHKAhrcKwliPmC7ANrYN6A%2Bf2oTKtZelOW1%2FUUK93oml6RKYK%2BE7Yw01c1NyXhpggSto%2BZe0Qh%2FgMQBFFPC%2BlvykMY4Zasch0gBC4RUfx%2BzmDwYT5lem0Ql%2BTBkTWjW4HfbUqVhHvALgRRWgCDDXmkGw%2FpWWN%2BXLE9h%2FdW8z%2BtQzUETUIVkFWSjtw%2BzkQt%2BGCBD3pG2UUKcon43mCRBpbkZYhGXeF9UNj6PiX5Q5FgE4zUWAdmt5n2czEtLEP8Cu3huWeCxX6vVenHwadnWHtAsc7zcAN43iRA9gmAGNftZ05A8A18UBCQtcQstf06JmfhS16kdS7%2FsfHf9ZgA9p6Zs0xkjwngsHUNvyWeTNch0ofKxUpiIRNiO6BzXjp4Fow38OxK9HXZC8YDAfRK36dio1JaOCB0i%2BAiZBjvx1FcbKn8MyxWOZ670MxkviQuR4vwLYnnKG2QeRsfG9A9ssZYY%2Ba9BpXgRoPCVCWOwVoXvhFnDxtFLHsFOQTirS1rfDNpbSS3HD64Agv2JR8VZYm88MKcJ9AH8plWEEqJlFMQVq%2Bq8B3K8Y%2Fga2KY45XrfQ7s6Ea%2F9zBeo3RBud5IIJzPmmePJZ2QUOjuXKf6GzA0FpL8DvqjpJTIG7%2FCq48EIoTPQULOMdwXCyY%2BRU6eO4cDrCDCyzG92eGaUBWeE5%2FlsAH8yMBvMh1KrRqbgvrFhNIwDXOwfGNdJQOZ4PYMtIaWAso2b2LynJHxrHYZvTsQgwwfG7Px16T9f7bi0E3FQbDZ4ECu%2BF490lmuhDpWz%2FIiuJgmQzoiWAox1N1LoK2yyHn5zlJ2IA0dnf9dfArFq0ugeYK%2BOOSgAkfhBcWKYt1osCoC%2Fk%2BsfAvCszbbZJQwCC3bCnojNgXJsqAkmLzsoBIDgqBRkAuP5ZMN88EGqfK6N%2B22omvS5AX8nCUgUtI74IfQ%2Fb3DP8cqqiGBVAoSc%2FQFiIG%2F8K825W%2F%2Bv4D2sg4qMfRFPFAAAAAElFTkSuQmCC">
+ </div>
+ </div>
+ <div class="sect1" id="_chain_plugins">
+  <h2>Chain plugins</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Mojo can be chained from the command like - without pom declaration.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>
+This is the case of the git report one and PDF one for example:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn \
     io.yupiik.maven:yupiik-tools-maven-plugin:$version:git-report \
     io.yupiik.maven:yupiik-tools-maven-plugin:$version:pdf \
     -Dyupiik.workDir=work \
@@ -104,19 +110,21 @@ Last available 1.0.x release is 1.0.26.">
     -Dyupiik.git-report.target=log.adoc
     -Dyupiik.pdf.source=log.adoc \
     -Dyupiik.pdf.target=.</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_pdf_and_latex_formula">PDF and latex formula</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>You can enable latex formula support in PDF adding the related dependency:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_pdf_and_latex_formula">
+  <h2>PDF and latex formula</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+You can enable latex formula support in PDF adding the related dependency:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
   &lt;configuration&gt;
@@ -130,131 +138,171 @@ Last available 1.0.x release is 1.0.26.">
     &lt;/dependency&gt;
   &lt;/dependencies&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Then usage is as follow:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">[jlatexmath]
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>
+Then usage is as follow:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">[jlatexmath]
 --
 x = a + b
 --
 
 This formula (jmath:_[a + b]) is cool.</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_pom_less_pdf_rendering">Pom-less PDF rendering</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>You can render an asciidoctor file without a pom nor pom declaration:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn \
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_pomless_pdf_rendering">
+  <h2>Pom-less PDF rendering</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+You can render an asciidoctor file without a pom nor pom declaration:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn \
   io.yupiik.maven:yupiik-tools-maven-plugin:$version:pdf \
   -Dyupiik.pdf.source=content.adoc \
   -Dyupiik.pdf.target=.</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_minisite">Minisite</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p><a href="mojo/minisite.html">minisite</a> can push the minisite to a remote target (often git backed pages).</p>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-as all plugins it requires Java 11 but if you want to use it with Java 8 you can use <code>minisite-core</code> module with <code>exec-maven-plugin</code> since version 1.1.1.
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Here is the related documentation.</p>
-</div>
-<div class="paragraph">
-<p>The configuration supports a <code>git</code> entry if you want to upload to a Git branch the generated website (like <code>gh-pages</code>):</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col style="width: 25%;">
-<col style="width: 25%;">
-<col style="width: 50%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Name</th>
-<th class="tableblock halign-left valign-top">Type</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">branch</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Git branch to update (default to <code>refs/heads/gh-pages</code>).</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">username</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Username if serverId is not set.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">password</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Password if serverId is not set.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">serverId</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">ServerID to use to get username/password from settings.xml - default to <code>project.scm.url</code>. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">url</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Git url.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">ignore</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Should the execution be skipped - enables to set a maven variable.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">prefix</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Prefix prepended to file in the git repo (ex: <code>public/</code>).</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">noJekyll</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Will force a <code>.nojekyll</code> file presence if <code>true</code>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">envBase64SshKey</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>String</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Environment variable the private key will be read as base64 encoded from - useful on CI. note that <code>&lt;value&gt;_PH</code> environment variable must contain the associated passphrase.</p></td>
-</tr>
-</tbody>
-</table>
-<div class="paragraph">
-<p>The configuration also supports an experimental Atlassian Confluence export support.
-It only works using the default template and require a configuration similar to <code>git</code> or <code>ftp</code> exports:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;profile&gt; &lt;!--  mvn clean package -Pconfluence  --&gt;
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_minisite">
+  <h2>Minisite</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p> <a href="mojo/minisite.html">minisite</a>
+ can push the minisite to a remote target (often git backed pages).</p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>as all plugins it requires Java 11 but if you want to use it with Java 8 you can use <code>minisite-core</code> module with <code>exec-maven-plugin</code> since version 1.1.1.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="paragraph">
+ <p>
+Here is the related documentation.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>The configuration supports a <code>git</code> entry if you want to upload to a Git branch the generated website (like <code>gh-pages</code>):</p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col width="25%">
+   <col width="25%">
+   <col width="50%">
+  </colgroup>
+  <thead>
+   <tr>
+    <th>
+Name    </th>
+    <th>
+<code>Type</code>    </th>
+    <th>
+Description    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td>
+branch    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Git branch to update (default to `refs/heads/gh-pages`).    </td>
+   </tr>
+   <tr>
+    <td>
+username    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Username if serverId is not set.    </td>
+   </tr>
+   <tr>
+    <td>
+password    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Password if serverId is not set.    </td>
+   </tr>
+   <tr>
+    <td>
+serverId    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.    </td>
+   </tr>
+   <tr>
+    <td>
+url    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Git url.    </td>
+   </tr>
+   <tr>
+    <td>
+ignore    </td>
+    <td>
+<code>boolean</code>    </td>
+    <td>
+Should the execution be skipped - enables to set a maven variable.    </td>
+   </tr>
+   <tr>
+    <td>
+prefix    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Prefix prepended to file in the git repo (ex: `public/`).    </td>
+   </tr>
+   <tr>
+    <td>
+noJekyll    </td>
+    <td>
+<code>boolean</code>    </td>
+    <td>
+Will force a `.nojekyll` file presence if `true`.    </td>
+   </tr>
+   <tr>
+    <td>
+envBase64SshKey    </td>
+    <td>
+<code>String</code>    </td>
+    <td>
+Environment variable the private key will be read as base64 encoded from - useful on CI. note that `&lt;value&gt;_PH` environment variable must contain the associated passphrase.    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="paragraph">
+ <p>The configuration also supports an experimental Atlassian Confluence export support. It only works using the default template and require a configuration similar to <code>git</code> or <code>ftp</code> exports:</p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;profile&gt; &lt;!--  mvn clean package -Pconfluence  --&gt;
   &lt;id&gt;confluence&lt;/id&gt;
   &lt;build&gt;
     &lt;plugins&gt;
@@ -283,319 +331,425 @@ It only works using the default template and require a configuration similar to 
     &lt;/plugins&gt;
   &lt;/build&gt;
 &lt;/profile&gt;</code></pre>
-</div>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Important</div>
-</td>
-<td class="content">
-the nested support of this exporter is very experimental, and we recommend you to keep only one level of <code>.adoc</code> files using it.
-</td>
-</tr>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_confluence_limitations">Confluence Limitations</h3>
-<div class="ulist">
-<ul>
-<li>
-<p>Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,</p>
-</li>
-<li>
-<p>It only works with the default theme since we extract metadata from there to enable to update the space,</p>
-</li>
-<li>
-<p>To look nice, you can need to tune the Confluence space CSS to import admonitions, codeblocks, &#8230;&#8203; styling (can require some admin permissions).</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_blog">Blog</h3>
-<div class="paragraph">
-<p>Blog is supported if pages contain at least one block metadata.
-Here is the list of available attributes you can use:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>:minisite-blog-published-date: yyyy-MM-dd</code>: when the page will be rendered (if not set it is always rendered).</p>
-</li>
-<li>
-<p><code>:minisite-blog-categories: c1,c2</code>: comma separated list of categories of this post</p>
-</li>
-<li>
-<p><code>:minisite-blog-authors: My, Myself</code>: comma separated list of author names</p>
-</li>
-<li>
-<p><code>:minisite-blog-summary: Some short description.</code>: the summary of this post used on post list pages.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Blog page example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">= My Post
+ </div>
+ </div>
+ <div class="admonitionblock important">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">IMPORTANT</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>the nested support of this exporter is very experimental, and we recommend you to keep only one level of <code>.adoc</code> files using it.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="sect2" id="_confluence_limitations">
+  <h3>Confluence Limitations</h3>
+ <div class="sectionbody">
+ <div class="ulist">
+ <ul>
+  <li>
+ <p>
+Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,
+ </p>
+  </li>
+  <li>
+ <p>
+It only works with the default theme since we extract metadata from there to enable to update the space,
+ </p>
+  </li>
+  <li>
+ <p>
+To look nice, you can need to tune the Confluence space CSS to import admonitions, codeblocks, ... styling (can require some admin permissions).
+ </p>
+  </li>
+ </ul>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_blog">
+  <h3>Blog</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Blog is supported if pages contain at least one block metadata. Here is the list of available attributes you can use:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>:minisite-blog-published-date: yyyy-MM-dd</code>: when the page will be rendered (if not set it is always rendered).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>:minisite-blog-categories: c1,c2</code>: comma separated list of categories of this post</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>:minisite-blog-authors: My, Myself</code>: comma separated list of author names</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>:minisite-blog-summary: Some short description.</code>: the summary of this post used on post list pages.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ <div class="paragraph">
+ <p>
+Blog page example:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">= My Post
 :minisite-blog-published-date: 2021-02-16T16:00
 :minisite-blog-categories: others,simple
 :minisite-blog-authors: Romain Manni-Bucau
 :minisite-blog-summary: Second post.
 
 Bla bla</code></pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_pre_action">Pre-Action</h3>
-<div class="paragraph">
-<p>Pre actions enables to generate some content from the project.
-It is typically used to generate configuration from code or things like that.
-It uses the documentation module classpath.
-Actions must implement <code>Runnable</code> and can have some (public) constructor parameters (we use parameter names to match so ensure to enable <code>-parameters</code> in maven compiler plugin):</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>configuration</code> (<code>Map&lt;String, String&gt;</code>): the action configuration, it enables to reuse it if needed or write generic actions</p>
-</li>
-<li>
-<p><code>sourceBase</code> (<code>Path</code>): the base directory you can generate <code>.adoc</code> into (generally where you sources are, tip: use <code>generated</code> folder to be able to exclude it in <code>.gitignore</code> if desired)</p>
-</li>
-<li>
-<p><code>outputBase</code> (<code>Path</code>): the base directory you can generate direct html assets</p>
-</li>
-</ul>
-</div>
-<div class="sect3">
-<h4 id="_maven_plugin">Maven Plugin</h4>
-<div class="paragraph">
-<p>Using <code>type=maven-plugin</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration</code> you can get a <code>plugin.xml</code> file parsed to generate:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>One file per goal with some usage, the goal description and parameters (named <code>&lt;goal&gt;.adoc</code>)</p>
-</li>
-<li>
-<p>One file listing all goals (named <code>&lt;goal-prefix&gt;-maven-plugin.adoc</code>)</p>
-</li>
-</ol>
-</div>
-<div class="paragraph">
-<p>The configuration of this action is:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>pluginXml</code>: file path or resource to find the <code>plugin.xml</code> file.</p>
-</li>
-<li>
-<p><code>toBase</code>: where to generate the <code>adoc</code>.</p>
-</li>
-<li>
-<p><code>description</code>: a global plugin description for the "listing" page (default is empty and page will just list goals).</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_copy">Copy</h4>
-<div class="paragraph">
-<p>Using <code>type=copy</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.CopyFile</code> will copy a file from a source to a destination:
-It is typically useful for assets (<code>openapi.json</code> for example).</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>from</code>: source file.</p>
-</li>
-<li>
-<p><code>to</code>: destination.</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_json_schema">JSON-Schema</h4>
-<div class="paragraph">
-<p>Using <code>type=jsonschema</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchemaGenerator</code> will generate a JSON-Schema from a class:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>class</code>: the class to generate the schema from.</p>
-</li>
-<li>
-<p><code>to</code>: destination of the schema.</p>
-</li>
-<li>
-<p><code>type</code>: <code>JSON</code> for a raw JSON-Schema (default) or <code>ADOC</code> for a textual, asciidoctor output.</p>
-</li>
-<li>
-<p><code>setClassAsTitle</code>: <code>true</code> to force object title to be the class name.</p>
-</li>
-<li>
-<p><code>useReflectionForDefaults</code>: <code>true</code> to force reflection to try to extract defaults of attributes.</p>
-</li>
-<li>
-<p><code>pretty</code> when type=JSON, should the JSON be prettified or not (default=true).</p>
-</li>
-<li>
-<p><code>levelPrefix</code> when type=ADOC, a title prefix (<code>==</code> for example), <code>=</code> by default.</p>
-</li>
-<li>
-<p><code>title</code> and <code>description</code> enable to set class title/description for its json schema. It is required for type=ADOC.</p>
-</li>
-<li>
-<p><code>annotationOnlyProvidesTheDescription</code> enable to never take the title from an annotation (<code>@Description(value)</code> case).</p>
-</li>
-</ol>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Note</div>
-</td>
-<td class="content">
-the model classes can use a custom <code>@Description(title,description)</code> annotation (note that <code>@Doc</code> is also supported and <code>value</code> method can be used instead of <code>description</code>).
-See <code>JsonDocExtractor</code> for more details.
-</td>
-</tr>
-</table>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_json_schema_to_asciidoc">JSON-Schema to asciidoc</h4>
-<div class="paragraph">
-<p>Using <code>type=jsonschema2adoc</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchema2AdocGenerator</code> will generate an asciidoctor document from a JSON-Schema file (intended to be used with fusion mainly):</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>schema</code>: location of the schema (JSON).</p>
-</li>
-<li>
-<p><code>root</code>: key under <code>schemas</code> map of the root schema to generate a doc for.</p>
-</li>
-<li>
-<p><code>levelPrefix</code>: prefix to set for title (default <code>=</code>).</p>
-</li>
-<li>
-<p><code>output</code>: where to generate the <code>.adoc</code>.</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_openmetrics_renderer">OpenMetrics renderer</h4>
-<div class="paragraph">
-<p>Using <code>type=openmetrics2adoc</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc</code> will generate an asciidoctor form from an OpenMetrics export.</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>source</code>: path of the openmetrics dump.</p>
-</li>
-<li>
-<p><code>to</code>: destination of the asciidoc generated from <code>source</code>.</p>
-</li>
-<li>
-<p><code>levelPrefix</code>: a prefix set before the part title (`== ` by default for a second level title).</p>
-</li>
-<li>
-<p><code>legend</code>: should tables have a legend (name of the metric), default to <code>true</code>.</p>
-</li>
-<li>
-<p><code>header</code>: prefix the whole rendering (enables to set a title and some options if needed).</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_yupiik_batch_simple_configuration_renderer">Yupiik Batch simple-configuration renderer</h4>
-<div class="paragraph">
-<p>Using <code>type=simple-configuration</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator</code> will generate an asciidoctor from a configuration class passed in <code>class</code> <code>&lt;configuration&gt;</code> option.</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>class</code>: root configuration fully qualified name.</p>
-</li>
-<li>
-<p><code>output</code>: where to generate the <code>.adoc</code> to.</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_download_and_unzip">Download and Unzip</h4>
-<div class="paragraph">
-<p>Using <code>type=download-unzip</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip</code> enables to download a zip from a HTTP url then extract it totally or partially to a particular folder.
-This can be used to download a git repository using Github/Gitlab/Gitea API for example.</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>url</code>: the zip URL.</p>
-</li>
-<li>
-<p><code>subpath</code>: the subpath to copy in <code>target</code>. It filters the zip entries names by prefix.</p>
-</li>
-<li>
-<p><code>headers</code>: in properties format, a set of headers to set.</p>
-</li>
-<li>
-<p><code>target</code>: where to copy the selected files.</p>
-</li>
-<li>
-<p><code>workdir</code>: temporary folder (to download the zip), temporary if not set.</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_replace_string_in_file">Replace string in file</h4>
-<div class="paragraph">
-<p>Using <code>type=replace-in-file</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile</code> will rewrite a text file replacing a string by another one.</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><code>source</code>: file to rewrite.</p>
-</li>
-<li>
-<p><code>token</code>: text to replace.</p>
-</li>
-<li>
-<p><code>replacement</code>: text replacing <code>token</code>.</p>
-</li>
-</ol>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-using <code>regex{xxx}</code> as <code>token</code> will use a java regex to do the replacement.
-</td>
-</tr>
-</table>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_example">Example</h3>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_preaction">
+  <h3>Pre-Action</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Pre actions enables to generate some content from the project. It is typically used to generate configuration from code or things like that. It uses the documentation module classpath. Actions must implement <code>Runnable</code> and can have some (public) constructor parameters (we use parameter names to match so ensure to enable <code>-parameters</code> in maven compiler plugin):</p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>configuration</code> (<code>Map&lt;String, String&gt;</code>): the action configuration, it enables to reuse it if needed or write generic actions</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>sourceBase</code> (<code>Path</code>): the base directory you can generate <code>.adoc</code> into (generally where you sources are, tip: use <code>generated</code> folder to be able to exclude it in <code>.gitignore</code> if desired)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>outputBase</code> (<code>Path</code>): the base directory you can generate direct html assets</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ <div class="sect3" id="_maven_plugin">
+  <h4>Maven Plugin</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=maven-plugin</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration</code> you can get a <code>plugin.xml</code> file parsed to generate:</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p>One file per goal with some usage, the goal description and parameters (named <code>&lt;goal&gt;.adoc</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>One file listing all goals (named <code>&lt;goal-prefix&gt;-maven-plugin.adoc</code>)</p>
+ </div>
+  </li>
+ </ol>
+ <div class="paragraph">
+ <p>
+The configuration of this action is:
+ </p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>pluginXml</code>: file path or resource to find the <code>plugin.xml</code> file.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>toBase</code>: where to generate the <code>adoc</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>description</code>: a global plugin description for the &quot;listing&quot; page (default is empty and page will just list goals).</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_copy">
+  <h4>Copy</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=copy</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.CopyFile</code> will copy a file from a source to a destination: It is typically useful for assets (<code>openapi.json</code> for example).</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>from</code>: source file.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>to</code>: destination.</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_jsonschema">
+  <h4>JSON-Schema</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=jsonschema</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchemaGenerator</code> will generate a JSON-Schema from a class:</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>class</code>: the class to generate the schema from.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>to</code>: destination of the schema.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>type</code>: <code>JSON</code> for a raw JSON-Schema (default) or <code>ADOC</code> for a textual, asciidoctor output.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>setClassAsTitle</code>: <code>true</code> to force object title to be the class name.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>useReflectionForDefaults</code>: <code>true</code> to force reflection to try to extract defaults of attributes.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>pretty</code> when type=JSON, should the JSON be prettified or not (default=true).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>levelPrefix</code> when type=ADOC, a title prefix (<code>==</code> for example), <code>=</code> by default.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>title</code> and <code>description</code> enable to set class title/description for its json schema. It is required for type=ADOC.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>annotationOnlyProvidesTheDescription</code> enable to never take the title from an annotation (<code>@Description(value)</code> case).</p>
+ </div>
+  </li>
+ </ol>
+ <div class="admonitionblock note">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">NOTE</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>the model classes can use a custom <code>@Description(title,description)</code> annotation (note that <code>@Doc</code> is also supported and <code>value</code> method can be used instead of <code>description</code>). See <code>JsonDocExtractor</code> for more details.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ </div>
+ </div>
+ <div class="sect3" id="_jsonschema_to_asciidoc">
+  <h4>JSON-Schema to asciidoc</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=jsonschema2adoc</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchema2AdocGenerator</code> will generate an asciidoctor document from a JSON-Schema file (intended to be used with fusion mainly):</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>schema</code>: location of the schema (JSON).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>root</code>: key under <code>schemas</code> map of the root schema to generate a doc for.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>levelPrefix</code>: prefix to set for title (default <code>=</code>).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>output</code>: where to generate the <code>.adoc</code>.</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_openmetrics_renderer">
+  <h4>OpenMetrics renderer</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=openmetrics2adoc</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc</code> will generate an asciidoctor form from an OpenMetrics export.</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>source</code>: path of the openmetrics dump.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>to</code>: destination of the asciidoc generated from <code>source</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>levelPrefix</code>: a prefix set before the part title (<code>==</code> by default for a second level title).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>legend</code>: should tables have a legend (name of the metric), default to <code>true</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>header</code>: prefix the whole rendering (enables to set a title and some options if needed).</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_yupiik_batch_simpleconfiguration_renderer">
+  <h4>Yupiik Batch simple-configuration renderer</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=simple-configuration</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator</code> will generate an asciidoctor from a configuration class passed in <code>class</code> <code>&lt;configuration&gt;</code> option.</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>class</code>: root configuration fully qualified name.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>output</code>: where to generate the <code>.adoc</code> to.</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_download_and_unzip">
+  <h4>Download and Unzip</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=download-unzip</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip</code> enables to download a zip from a HTTP url then extract it totally or partially to a particular folder. This can be used to download a git repository using Github/Gitlab/Gitea API for example.</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>url</code>: the zip URL.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>subpath</code>: the subpath to copy in <code>target</code>. It filters the zip entries names by prefix.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>headers</code>: in properties format, a set of headers to set.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>target</code>: where to copy the selected files.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>workdir</code>: temporary folder (to download the zip), temporary if not set.</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ <div class="sect3" id="_replace_string_in_file">
+  <h4>Replace string in file</h4>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Using <code>type=replace-in-file</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile</code> will rewrite a text file replacing a string by another one.</p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p><code>source</code>: file to rewrite.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>token</code>: text to replace.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>replacement</code>: text replacing <code>token</code>.</p>
+ </div>
+  </li>
+ </ol>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>using <code>regex{xxx}</code> as <code>token</code> will use a java regex to do the replacement.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_example">
+  <h3>Example</h3>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
   &lt;executions&gt;
@@ -617,72 +771,96 @@ using <code>regex{xxx}</code> as <code>token</code> will use a java regex to do 
     &lt;/execution&gt;
   &lt;/executions&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_page_attributes">Page attributes</h3>
-<div class="paragraph">
-<p>Some specific attributes enables to customize the generation. Here is their list:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>minisite-skip=[true|false]</code> enables to skip a <code>.adoc</code> rendering even if not in <code>_partials</code> directory.</p>
-</li>
-<li>
-<p><code>minisite-path=&lt;string&gt;</code> enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute <code>minisite-path</code> set to <code>foo/bar.html</code> will output a <code>foo/bar.html</code> file instead of <code>foo-bar.html</code>. Note however it does not rewrite the links to ensure to use <code><a href="&#8230;&#8203;..html" class="bare">&#8230;&#8203;..html</a></code> instead of <code>ref</code> to link this page then.</p>
-</li>
-<li>
-<p><code>minisite-highlightjs-skip</code> enables to not setup highlight.js for the page (useful with swagger-ui for example).</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_index_generation">Index generation</h3>
-<div class="paragraph">
-<p>To include a page in the index it must contain <code>minisite-index</code> attribute.
-Its value is the order of the entry in the index tiles.</p>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-ensure to not use <code>1</code>, <code>2</code>, <code>3</code>, &#8230;&#8203; but rather <code>100</code>, <code>200</code>, &#8230;&#8203; to easily insert an item later.
-</td>
-</tr>
-</table>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>minisite-index-title</code> attribute enables to override link text.</p>
-</li>
-<li>
-<p><code>minisite-index-icon</code> attribute enables to override font awesome icon (without <code>fa-</code> prefix).</p>
-</li>
-<li>
-<p><code>minisite-index-description</code> attribute enables to override the text in the index tile for the page entry.</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_escaping">Escaping</h3>
-<div class="paragraph">
-<p>When you write some documentation in a language close to the minisite interpolation one (mustache for ex), it can be hard to use.
-To ease that, you can surround your snippet with <code></code> and <code></code>, included text will not support interpolations.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_synchronize_releases_example">Synchronize Releases Example</h3>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_page_attributes">
+  <h3>Page attributes</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Some specific attributes enables to customize the generation. Here is their list:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-skip=[true|false]</code> enables to skip a <code>.adoc</code> rendering even if not in <code>_partials</code> directory.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-path=&lt;string&gt;</code> enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute <code>minisite-path</code> set to <code>foo/bar.html</code> will output a <code>foo/bar.html</code> file instead of <code>foo-bar.html</code>. Note however it does not rewrite the links to ensure to use <code>link:.....html[]</code> instead of <code>ref</code> to link this page then.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-highlightjs-skip</code> enables to not setup highlight.js for the page (useful with swagger-ui for example).</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_index_generation">
+  <h3>Index generation</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>To include a page in the index it must contain <code>minisite-index</code> attribute. Its value is the order of the entry in the index tiles.</p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>ensure to not use <code>1</code>, <code>2</code>, <code>3</code>, ... but rather <code>100</code>, <code>200</code>, ... to easily insert an item later.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-index-title</code> attribute enables to override link text.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-index-icon</code> attribute enables to override font awesome icon (without <code>fa-</code> prefix).</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-index-description</code> attribute enables to override the text in the index tile for the page entry.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_escaping">
+  <h3>Escaping</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>When you write some documentation in a language close to the minisite interpolation one (mustache for ex), it can be hard to use. To ease that, you can surround your snippet with <code></code> and <code></code>, included text will not support interpolations.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_synchronize_releases_example">
+  <h3>Synchronize Releases Example</h3>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
   &lt;executions&gt;
@@ -727,138 +905,135 @@ To ease that, you can surround your snippet with <code></code> and <code></code>
     &lt;/execution&gt;
   &lt;/executions&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Then run <code>mvn yupiik-tools:synchronize-github-releases</code>.</p>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_bash_cli_skeleton">Bash CLI skeleton</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p><a href="mojo/script-cli-skeleton.html">script-cli-skeleton</a> enables to generates a skeleton layout to write a CLI in bash (helper commands for your project).</p>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-can be used on a pomless project: <code>mvn io.yupiik.maven:yupiik-tools-maven-plugin:&lt;version&gt;:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project</code> (version &gt;= 1.0.26).
-</td>
-</tr>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_usage">Usage</h3>
-<div class="paragraph">
-<p>To add a command:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Create an <code>index.sh</code> containing the command script in <code>commands</code> folder</p>
-</li>
-<li>
-<p>(optional) create a <code>commands/&lt;your command name&gt;/_cli/help.txt</code> file containing the help description.</p>
-</li>
-</ol>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_maven_asciidoctor_macro">Maven Asciidoctor Macro</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>The project adds asciidoc macros to get back some maven build information.
-Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).</p>
-</div>
-<div class="sect2">
-<h3 id="_maven_dependencies">maven_dependencies</h3>
-<div class="paragraph">
-<p>Enables to list the project dependencies.</p>
-</div>
-<div class="sect3">
-<h4 id="_usage_2">Usage</h4>
-<div class="listingblock">
-<div class="content">
-<pre>[maven_dependencies,scope=compile]
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>Then run <code>mvn yupiik-tools:synchronize-github-releases</code>.</p>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_bash_cli_skeleton">
+  <h2>Bash CLI skeleton</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p> <a href="mojo/script-cli-skeleton.html">script-cli-skeleton</a>
+ enables to generates a skeleton layout to write a CLI in bash (helper commands for your project).</p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>can be used on a pomless project: <code>mvn io.yupiik.maven:yupiik-tools-maven-plugin:&lt;version&gt;:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project</code> (version &gt;= 1.0.26).</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="sect2" id="_usage">
+  <h3>Usage</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+To add a command:
+ </p>
+ </div>
+ <ol>
+  <li>
+ <div class="paragraph">
+ <p>Create an <code>index.sh</code> containing the command script in <code>commands</code> folder</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>(optional) create a <code>commands/&lt;your command name&gt;/_cli/help.txt</code> file containing the help description.</p>
+ </div>
+  </li>
+ </ol>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_maven_asciidoctor_macro">
+  <h2>Maven Asciidoctor Macro</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+The project adds asciidoc macros to get back some maven build information. Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
+ </p>
+ </div>
+ <div class="sect2" id="_maven_dependencies">
+  <h3>maven_dependencies</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Enables to list the project dependencies.
+ </p>
+ </div>
+ <div class="sect3" id="_usage">
+  <h4>Usage</h4>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="null hljs">[maven_dependencies,scope=compile]
 --
---</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Scope can be:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>compile</p>
-</li>
-<li>
-<p>runtime</p>
-</li>
-<li>
-<p>compile+runtime</p>
-</li>
-<li>
-<p>runtime+system</p>
-</li>
-<li>
-<p>test</p>
-</li>
-<li>
-<p>provided_only</p>
-</li>
-<li>
-<p>compile_only</p>
-</li>
-<li>
-<p>test_only</p>
-</li>
-<li>
-<p>system_only</p>
-</li>
-<li>
-<p>runtime_only</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The optional attribute <code>groupId</code> is also supported and take a list (comma separated) of groupId to include.</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_simple_dependencies">Simple Dependencies</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p><a href="mojo/simple-dependencies.html">simple-dependencies</a> is a trivial and simple alternative to <code>maven-dependency-plugin:list</code> mojo which outputs the data in JSON.</p>
-</div>
-<div class="paragraph">
-<p>It is convenient with <code>minisite</code> mojo to format with a custom action the dependencies according to a custom need.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_yupiik_oss_extension">Yupiik OSS extension</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.</p>
-</div>
-<div class="paragraph">
-<p>It is configured in the root project through maven properties:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;properties&gt;
+--</code></pre>
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>
+Scope can be:
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>
+- compile - runtime - compile+runtime - runtime+system - test - provided_only - compile_only - test_only - system_only - runtime_only
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>The optional attribute <code>groupId</code> is also supported and take a list (comma separated) of groupId to include.</p>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_simple_dependencies">
+  <h2>Simple Dependencies</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p> <a href="mojo/simple-dependencies.html">simple-dependencies</a>
+ is a trivial and simple alternative to <code>maven-dependency-plugin:list</code> mojo which outputs the data in JSON.</p>
+ </div>
+ <div class="paragraph">
+ <p>It is convenient with <code>minisite</code> mojo to format with a custom action the dependencies according to a custom need.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_yupiik_oss_extension">
+  <h2>Yupiik OSS extension</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>
+It is configured in the root project through maven properties:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;properties&gt;
   &lt;!-- REQUIRED: enable the extension --&gt;
   &lt;yupiik.oss.enabled&gt;true&lt;/yupiik.oss.enabled&gt;
   &lt;!-- OPTIONAL: defaults --&gt;
@@ -867,21 +1042,24 @@ Note that it must be executed in the right lifecycle phase if using some project
   &lt;yupiik.oss.javadoc.doclint&gt;none&lt;/yupiik.oss.enabled&gt;
   &lt;yupiik.oss..sign.skip&gt;none&lt;/yupiik.oss.enabled&gt;
 &lt;/properties&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Just enabling this extension will upgrade a few plugin, enforce the encoding and java version, enforce license check and much more.</p>
-</div>
-<div class="paragraph">
-<p>See <code>io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead</code> for details.</p>
-</div>
-<div class="sect2">
-<h3 id="_example_2">Example</h3>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>
+Just enabling this extension will upgrade a few plugin, enforce the encoding and java version, enforce license check and much more.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>See <code>io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead</code> for details.</p>
+ </div>
+ <div class="sect2" id="_example">
+  <h3>Example</h3>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;
+         xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
   &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
 
   &lt;!-- ... --&gt;
@@ -906,44 +1084,51 @@ Note that it must be executed in the right lifecycle phase if using some project
     &lt;/profile&gt;
   &lt;/profiles&gt;
 &lt;/project&gt;</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_inline_pom_contributor_extension">Inline pom contributor extension</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>It enables to put in each module a <code>YupiikContributor.java</code> file which will be compiled and executed in <code>afterProjectRead(MavenSession)</code> callback.</p>
-</div>
-<div class="paragraph">
-<p>Example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import org.apache.maven.AbstractMavenLifecycleParticipant;
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_inline_pom_contributor_extension">
+  <h2>Inline pom contributor extension</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>It enables to put in each module a <code>YupiikContributor.java</code> file which will be compiled and executed in <code>afterProjectRead(MavenSession)</code> callback.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+Example:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import org.apache.maven.AbstractMavenLifecycleParticipant;
 import org.apache.maven.execution.MavenSession;
 import org.codehaus.plexus.component.annotations.Component;
 
-@Component(role = AbstractMavenLifecycleParticipant.class, hint = "my-module-customizer")
+@Component(role = AbstractMavenLifecycleParticipant.class, hint = &quot;my-module-customizer&quot;)
 public class YupiikContributor extends AbstractMavenLifecycleParticipant {
     @Override
     public void afterProjectsRead(final MavenSession session) {
-        System.out.println("&gt;&gt;&gt;&gt; hello: " + session);
+        System.out.println(&quot;&gt;&gt;&gt;&gt; hello: &quot; + session);
     }
 }</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>This enables to programmatically handle the pom (mainly intended for plugins since dependencies are not synchronized in maven poms when contributed this way).</p>
-</div>
-<div class="paragraph">
-<p>To enable it, enable the related extension:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;build&gt;
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>
+This enables to programmatically handle the pom (mainly intended for plugins since dependencies are not synchronized in maven poms when contributed this way).
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>
+To enable it, enable the related extension:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;build&gt;
   &lt;extensions&gt;
     &lt;extension&gt;
       &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
@@ -952,106 +1137,138 @@ public class YupiikContributor extends AbstractMavenLifecycleParticipant {
     &lt;/extension&gt;
   &lt;/extensions&gt;
 &lt;/build&gt;</code></pre>
-</div>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-see <code>io.yupiik.maven.extension.YupiikOSSExtension</code> for a more complex participant example.
-</td>
-</tr>
-</table>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_crypt_mojos">Crypt mojos</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>Crypt mojos are intended to encrypt/decrypt (using <code>AES/CBC/PKCS5Padding</code> algorithm - like <a href="https://maven.apache.org/guides/mini/guide-encryption.html">maven default encryption</a>) values.
-It supports either inline values or properties files.</p>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-it is a neat way to handle secrets in a bundlebee placeholder properties file on CI/CD if you don&#8217;t have a vault or equivalent mecanism for GitOps.
-</td>
-</tr>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_value_based_mojo">Value based mojo</h3>
-<div class="paragraph">
-<p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
-</div>
-<div class="paragraph">
-<p>Configuration is:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>value</code>: the value to crypt (decrypt),</p>
-</li>
-<li>
-<p><code>useStdout</code>: should the value be printed using Maven logger or simply <code>stdout</code>,</p>
-</li>
-<li>
-<p><code>masterPassword</code>: the master password for the ciphering.</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_properties_based_mojo">Properties based mojo</h3>
-<div class="paragraph">
-<p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
-</div>
-<div class="paragraph">
-<p>Configuration is:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>input</code>: path to the properties file to crypt (decrypt) <strong>values</strong> for (keys are never encrypted),</p>
-</li>
-<li>
-<p><code>output</code>: path to the properties file which will contain encrypted (decrypted) data,</p>
-</li>
-<li>
-<p><code>masterPassword</code>: the master password for the ciphering,</p>
-</li>
-<li>
-<p><code>includedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to encrypt (decrypt) based on their keys,</p>
-</li>
-<li>
-<p><code>excludedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to <strong>NOT</strong> encrypt (decrypt) based on their keys.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Important</div>
-</td>
-<td class="content">
-<code>output</code> always sorts the keys and will ignore comments. An already encoded value will not be re-encoded.
-This last point enables to set <code>input</code>=<code>output</code> to encrypt in place a file.
-</td>
-</tr>
-</table>
-</div>
-</div>
-</div>
-</div>
+ </div>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>see <code>io.yupiik.maven.extension.YupiikOSSExtension</code> for a more complex participant example.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_crypt_mojos">
+  <h2>Crypt mojos</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Crypt mojos are intended to encrypt/decrypt (using <code>AES/CBC/PKCS5Padding</code> algorithm - like  <a href="https://maven.apache.org/guides/mini/guide-encryption.html">maven default encryption</a>
+) values. It supports either inline values or properties files.</p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+it is a neat way to handle secrets in a bundlebee placeholder properties file on CI/CD if you don't have a vault or equivalent mecanism for GitOps.    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="sect2" id="_value_based_mojo">
+  <h3>Value based mojo</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
+ </div>
+ <div class="paragraph">
+ <p>
+Configuration is:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>value</code>: the value to crypt (decrypt),</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>useStdout</code>: should the value be printed using Maven logger or simply <code>stdout</code>,</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>masterPassword</code>: the master password for the ciphering.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ </div>
+ </div>
+ <div class="sect2" id="_properties_based_mojo">
+  <h3>Properties based mojo</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
+ </div>
+ <div class="paragraph">
+ <p>
+Configuration is:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>input</code>: path to the properties file to crypt (decrypt) <b>values</b> for (keys are never encrypted),</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>output</code>: path to the properties file which will contain encrypted (decrypted) data,</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>masterPassword</code>: the master password for the ciphering,</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>includedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to encrypt (decrypt) based on their keys,</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>excludedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to <b>NOT</b> encrypt (decrypt) based on their keys.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ <div class="admonitionblock important">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">IMPORTANT</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p><code>output</code> always sorts the keys and will ignore comments. An already encoded value will not be re-encoded. This last point enables to set <code>input</code>=<code>output</code> to encrypt in place a file.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
                 
             </div>
         </div>
@@ -1064,7 +1281,7 @@ This last point enables to set <code>input</code>=<code>output</code> to encrypt
     <footer class="footer pb-5">
 	    <div class="footer-bottom text-center">
 		    <ul class="social-list list-unstyled">
-                <li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
             <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
@@ -1108,7 +1325,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.1.9-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>

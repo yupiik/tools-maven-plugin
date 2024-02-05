@@ -6,10 +6,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="adoc:A set of build utilities.
-
-IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example.
-Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
@@ -20,7 +17,7 @@ Last available 1.0.x release is 1.0.26.">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.1.9-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
 </head>
 <body>
@@ -38,7 +35,7 @@ Last available 1.0.x release is 1.0.26.">
 
 					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
 						
-						<li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 		            </ul>
 	            </div>
             </div>
@@ -64,6 +61,10 @@ Last available 1.0.x release is 1.0.26.">
                     <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
                         <i class="fas fa-font"></i>Ascii2SVG
                     </a>
+                </li>                <li>
+                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+                        <i class="fas fa-robot"></i>YEM
+                    </a>
                 </li>
             </ul>
         </div>
@@ -74,52 +75,60 @@ Last available 1.0.x release is 1.0.26.">
             </div>
             <div class="page-content-body">
                 <div id="preamble">
-<div class="sectionbody">
-<div class="paragraph">
-<p>Minisite goal. Enables to generate a small website.</p>
-</div>
-<div class="paragraph">
-<p>It needs a "documentation" module, it uses the following default layout:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>src/main/doc/content: contains a set of .adoc (converted to .html)</p>
-</li>
-<li>
-<p>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</p>
-</li>
-<li>
-<p>src/main/doc/templates: contains the templates for the layout and pages of the website</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_coordinates">Coordinates</h2>
-<div class="sectionbody">
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ <div class="sectionbody">
+ <p> <div class="paragraph">
+ <p>
+Minisite goal. Enables to generate a small website. It needs a &quot;documentation&quot; module, it uses the following default layout:
+ </p>
+ </div>
+</p>
+ </div>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <p>
+src/main/doc/content: contains a set of .adoc (converted to .html) 
+ </p>
+  </li>
+  <li>
+ <p>
+src/main/doc/assets: contains a set of files moved &quot;as this&quot; to site output directory (css, js) 
+ </p>
+  </li>
+  <li>
+ <p>
+src/main/doc/templates: contains the templates for the layout and pages of the website
+ </p>
+  </li>
+ </ul>
+ </div>
+ <div class="sect1" id="_coordinates">
+  <h2>Coordinates</h2>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
+  &lt;version&gt;1.2.1-SNAPSHOT&lt;/version&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:minisite</code>.</p>
-</div>
-<div class="paragraph">
-<p>To bind this goal in the build you can use:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>To call this goal from the command line execute: <code>mvn yupiik-tools:minisite</code>.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+To bind this goal in the build you can use:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
+  &lt;version&gt;1.2.1-SNAPSHOT&lt;/version&gt;
   &lt;executions&gt;
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
@@ -132,224 +141,569 @@ Last available 1.0.x release is 1.0.26.">
     &lt;/execution&gt;
   &lt;/executions&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:minisite@my-execution</code> command.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_configuration">Configuration</h2>
-<div class="sectionbody">
-<div class="dlist">
-<dl>
-<dt class="hdlist1">addCodeCopyButton (<code>boolean</code>)</dt>
-<dd>
-<p>Adds a copy button to code snippets (highlightjs). Default value: <code>true</code>. Property: <code>${yupiik.minisite.addCodeCopyButton}</code>.</p>
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>You can execute this goal particularly with <code>mvn yupiik-tools:minisite@my-execution</code> command.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_configuration">
+  <h2>Configuration</h2>
+ <div class="sectionbody">
+ <dl>
+  <dt> <div class="paragraph">
+ <p>addCodeCopyButton (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Adds a copy button to code snippets (highlightjs). Default value: <code>true</code>. Property: <code>${yupiik.minisite.addCodeCopyButton}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">addIndexRegistrationPerCategory (<code>boolean</code>)</dt>
-<dd>
-<p>Should blog categories pages be added to home page. Default value: <code>true</code>. Property: <code>${yupiik.minisite.addIndexRegistrationPerCategory}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>addIndexRegistrationPerCategory (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should blog categories pages be added to home page. Default value: <code>true</code>. Property: <code>${yupiik.minisite.addIndexRegistrationPerCategory}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">asciidoctorExtensions (<code>List</code>)</dt>
-<dd>
-<p>Asciidoctor extensions to register in Asciidoctor instance.
-Can be in target/classes.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>asciidoctorExtensions (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+Asciidoctor extensions to register in Asciidoctor instance. Can be in target/classes.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>attributes (<code>Map</code>)</p>
+ </div>
+</dt>
+  <dd>
+Asciidoctor attributes.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>blogCategoriesCustomizations (<code>Map</code>)</p>
+ </div>
+</dt>
+  <dd>
+Enables to customize how categories are shown on home page.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>blogPageSize (<code>int</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>For blog generated pages, the number of items to keep per page. Default value: <code>10</code>. Property: <code>${yupiik.minisite.blogPageSize}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">attributes (<code>Map</code>)</dt>
-<dd>
-<p>Asciidoctor attributes.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>blogPublicationDate (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Max date until when posts are published. today and infinite are supported as dynamic alias. Using default the minisite rendering uses today and the serve mode uses infinite to get local previews. Default value: <code>default</code>. Property: <code>${yupiik.minisite.blogPublicationDate}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">blogCategoriesCustomizations (<code>Map</code>)</dt>
-<dd>
-<p>Enables to customize how categories are shown on home page.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>classes (<code>java.io.File</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>target/classes for pre-actions if needed. Default value: <code>${project.build.outputDirectory}</code>. Property: <code>${yupiik.minisite.classes}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">blogPageSize (<code>int</code>)</dt>
-<dd>
-<p>For blog generated pages, the number of items to keep per page. Default value: <code>10</code>. Property: <code>${yupiik.minisite.blogPageSize}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>confluence (<code>io.yupiik.maven.service.confluence.Confluence</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p></p>
+ </div>
 </dd>
-<dt class="hdlist1">blogPublicationDate (<code>String</code>)</dt>
-<dd>
-<p>Max date until when posts are published.
-<code>today</code> and <code>infinite</code> are supported as dynamic alias.
-Using <code>default</code> the minisite rendering uses <code>today</code> and the serve mode uses <code>infinite</code> to get local previews. Default value: <code>default</code>. Property: <code>${yupiik.minisite.blogPublicationDate}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>copyright (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>copyright value in the footer when using default theme. Property: <code>${yupiik.minisite.copyright}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">classes (<code>java.io.File</code>)</dt>
-<dd>
-<p>target/classes for pre-actions if needed. Default value: <code>${project.build.outputDirectory}</code>. Property: <code>${yupiik.minisite.classes}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>customHead (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Custom head links (to add custom css easily). Property: <code>${yupiik.minisite.customHead}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">confluence (<code>io.yupiik.maven.service.confluence.Confluence</code>)</dt>
-<dt class="hdlist1">copyright (<code>String</code>)</dt>
-<dd>
-<p>copyright value in the footer when using default theme. Property: <code>${yupiik.minisite.copyright}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>customMenu (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Custom html template for menus. Property: <code>${yupiik.minisite.customMenu}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">customHead (<code>String</code>)</dt>
-<dd>
-<p>Custom head links (to add custom css easily). Property: <code>${yupiik.minisite.customHead}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>customScripts (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Custom scripts links (to add custom js easily). Property: <code>${yupiik.minisite.customScripts}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">customMenu (<code>String</code>)</dt>
-<dd>
-<p>Custom html template for menus. Property: <code>${yupiik.minisite.customMenu}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>description (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Default HTML page description. Property: <code>${yupiik.minisite.description}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">customScripts (<code>String</code>)</dt>
-<dd>
-<p>Custom scripts links (to add custom js easily). Property: <code>${yupiik.minisite.customScripts}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>excludedArtifacts (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Artifacts to ignore in the classloader loading asciidoctor extensions and preactions. Default value: <code>org.asciidoctor:asciidoctorj</code>. Property: <code>${yupiik.minisite.excludedArtifacts}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">description (<code>String</code>)</dt>
-<dd>
-<p>Default HTML page description. Property: <code>${yupiik.minisite.description}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>ftp (<code>io.yupiik.maven.service.ftp.configuration.Ftp</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p></p>
+ </div>
 </dd>
-<dt class="hdlist1">excludedArtifacts (<code>List</code>)</dt>
-<dd>
-<p>Artifacts to ignore in the classloader loading asciidoctor extensions and preactions. Default value: <code>org.asciidoctor:asciidoctorj</code>. Property: <code>${yupiik.minisite.excludedArtifacts}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>generateBlog (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Generate blog pages if it has some blog entries - skipped otherwise. Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateBlog}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">ftp (<code>io.yupiik.maven.service.ftp.configuration.Ftp</code>)</dt>
-<dt class="hdlist1">generateBlog (<code>boolean</code>)</dt>
-<dd>
-<p>Generate blog pages if it has some blog entries - skipped otherwise. Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateBlog}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>generateIndex (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Generate index page. Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateIndex}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">generateIndex (<code>boolean</code>)</dt>
-<dd>
-<p>Generate index page. Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateIndex}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>generateSiteMap (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Generate sitemap page (xml). Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateSiteMap}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">generateSiteMap (<code>boolean</code>)</dt>
-<dd>
-<p>Generate sitemap page (xml). Default value: <code>true</code>. Property: <code>${yupiik.minisite.generateSiteMap}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>git (<code>io.yupiik.maven.service.git.Git</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p></p>
+ </div>
 </dd>
-<dt class="hdlist1">git (<code>io.yupiik.maven.service.git.Git</code>)</dt>
-<dt class="hdlist1">gravatar (<code>io.yupiik.tools.minisite.MiniSiteConfiguration$GravatarConfiguration</code>)</dt>
-<dd>
-<p>Gravatar configuration.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>gravatar (<code>io.yupiik.tools.minisite.MiniSiteConfiguration$GravatarConfiguration</code>)</p>
+ </div>
+</dt>
+  <dd>
+Gravatar configuration.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>includeProvidedScope (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should asciidoctor extensions and preactions be loaded with the provided dependencies in the classloader or not. Default value: <code>true</code>. Property: <code>${yupiik.minisite.includeProvidedScope}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">includeProvidedScope (<code>boolean</code>)</dt>
-<dd>
-<p>Should asciidoctor extensions and preactions be loaded with the provided dependencies in the classloader or not. Default value: <code>true</code>. Property: <code>${yupiik.minisite.includeProvidedScope}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>indexSubTitle (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>When index is generated the content page title. Property: <code>${yupiik.minisite.indexSubTitle}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">indexSubTitle (<code>String</code>)</dt>
-<dd>
-<p>When index is generated the content page title. Property: <code>${yupiik.minisite.indexSubTitle}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>indexText (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>When index is generated the content page title. Property: <code>${yupiik.minisite.indexText}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">indexText (<code>String</code>)</dt>
-<dd>
-<p>When index is generated the content page title. Property: <code>${yupiik.minisite.indexText}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>injectBlogMeta (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Add reading time on blog pages. Default value: <code>true</code>. Property: <code>${yupiik.minisite.injectBlogMeta}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">injectBlogMeta (<code>boolean</code>)</dt>
-<dd>
-<p>Add reading time on blog pages. Default value: <code>true</code>. Property: <code>${yupiik.minisite.injectBlogMeta}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>injectYupiikTemplateExtensionPoints (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Use yupiik theme. Default value: <code>true</code>. Property: <code>${yupiik.minisite.injectYupiikTemplateExtensionPoints}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">injectYupiikTemplateExtensionPoints (<code>boolean</code>)</dt>
-<dd>
-<p>Use yupiik theme. Default value: <code>true</code>. Property: <code>${yupiik.minisite.injectYupiikTemplateExtensionPoints}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>linkedInCompany (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>linkedInCompany name (in linkedin url). Default value: <code>yupiik</code>. Property: <code>${yupiik.minisite.linkedInCompany}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">linkedInCompany (<code>String</code>)</dt>
-<dd>
-<p>linkedInCompany name (in linkedin url). Default value: <code>yupiik</code>. Property: <code>${yupiik.minisite.linkedInCompany}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>logo (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Logo url. Default value: <code>//www.yupiik.io/images/favicon.png</code>. Property: <code>${yupiik.minisite.logo}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">logo (<code>String</code>)</dt>
-<dd>
-<p>Logo url. Default value: <code>//www.yupiik.io/images/favicon.png</code>. Property: <code>${yupiik.minisite.logo}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>logoSideText (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Text next to the logo text. Default value: <code>Docs</code>. Property: <code>${yupiik.minisite.logoSideText}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">logoSideText (<code>String</code>)</dt>
-<dd>
-<p>Text next to the logo text. Default value: <code>Docs</code>. Property: <code>${yupiik.minisite.logoSideText}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>logoText (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Default logo text for default template. Property: <code>${yupiik.minisite.logoText}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">logoText (<code>String</code>)</dt>
-<dd>
-<p>Default logo text for default template. Property: <code>${yupiik.minisite.logoText}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>notIndexedPages (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+List of pages to ignore in search.json when search is enabled, typically useful if you create an all in one page.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>preActions (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+Actions to execute before any rendering. Typically used to generate some content.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>preferYupiikAsciidoc (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should Yupiik asciidoctor-java be used instead of asciidoctorj (over jruby). While this is likely faster to bootstrap and render it is not as complete as asciidoctor as of today and requires to run at least on Java 17. Default value: <code>false</code>. Property: <code>${yupiik.minisite.preferYupiikAsciidoc}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">notIndexedPages (<code>List</code>)</dt>
-<dd>
-<p>List of pages to ignore in search.json when search is enabled, typically useful if you create an all in one page.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>requires (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+Warning: this must be a shared settings by all executions. Override defaults require - completely.</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>reverseBlogOrder (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should page sorting be reversed (by published date). Default value: <code>true</code>. Property: <code>${yupiik.minisite.reverseBlogOrder}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">preActions (<code>List</code>)</dt>
-<dd>
-<p>Actions to execute before any rendering.
-Typically used to generate some content.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>rssFeedFile (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>RSS feed location (relative to the output) if set. Property: <code>${yupiik.minisite.rssFeedFile}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">requires (<code>List</code>)</dt>
-<dd>
-<p>Warning: this must be a shared settings by all executions.
-Override defaults require - completely.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>searchIndexName (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Generate search json. Default value: <code>search.json</code>. Property: <code>${yupiik.minisite.searchIndexName}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">reverseBlogOrder (<code>boolean</code>)</dt>
-<dd>
-<p>Should page sorting be reversed (by published date). Default value: <code>true</code>. Property: <code>${yupiik.minisite.reverseBlogOrder}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>siteBase (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Default HTML page description. Default value: . Property: <code>${yupiik.minisite.siteBase}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">rssFeedFile (<code>String</code>)</dt>
-<dd>
-<p>RSS feed location (relative to the output) if set. Property: <code>${yupiik.minisite.rssFeedFile}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>skip (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Skip mojo execution. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skip}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">searchIndexName (<code>String</code>)</dt>
-<dd>
-<p>Generate search json. Default value: <code>search.json</code>. Property: <code>${yupiik.minisite.searchIndexName}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>skipIndexTitleDocumentationText (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should Documentation title suffix be skipped. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skipIndexTitleDocumentationText}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">siteBase (<code>String</code>)</dt>
-<dd>
-<p>Default HTML page description. Default value: <code><a href="http://localhost:4200" class="bare">http://localhost:4200</a></code>. Property: <code>${yupiik.minisite.siteBase}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>skipRendering (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Skip site rendering. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skipRendering}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">skip (<code>boolean</code>)</dt>
-<dd>
-<p>Skip mojo execution. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skip}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>source (<code>java.io.File</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Where to read content (layout root) from. Default value: <code>${project.basedir}/src/main/minisite</code>. Property: <code>${yupiik.minisite.source}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">skipIndexTitleDocumentationText (<code>boolean</code>)</dt>
-<dd>
-<p>Should Documentation title suffix be skipped. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skipIndexTitleDocumentationText}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>target (<code>java.io.File</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Where to generate the site. Default value: <code>${project.build.directory}/${project.build.finalName}</code>. Property: <code>${yupiik.minisite.target}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">skipRendering (<code>boolean</code>)</dt>
-<dd>
-<p>Skip site rendering. Default value: <code>false</code>. Property: <code>${yupiik.minisite.skipRendering}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>templateAddLeftMenu (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should left menu (global navigation) be added from index links. Default value: <code>true</code>. Property: <code>${yupiik.minisite.addLeftMenu}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">source (<code>java.io.File</code>)</dt>
-<dd>
-<p>Where to read content (layout root) from. Default value: <code>${project.basedir}/src/main/minisite</code>. Property: <code>${yupiik.minisite.source}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>templateDirs (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Template directory if set. Property: <code>${yupiik.slides.templateDirs}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">target (<code>java.io.File</code>)</dt>
-<dd>
-<p>Where to generate the site. Default value: <code>${project.build.directory}/${project.build.finalName}</code>. Property: <code>${yupiik.minisite.target}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>templateExtensionPoints (<code>Map</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Custom default theme extension points. An extension point is a placeholder in a template surrounded by 3 braces: } }. Property: <code>${yupiik.minisite.templateExtensionPoints}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">templateAddLeftMenu (<code>boolean</code>)</dt>
-<dd>
-<p>Should left menu (global navigation) be added from index links. Default value: <code>true</code>. Property: <code>${yupiik.minisite.addLeftMenu}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>templatePrefixes (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Template file name added before the content. Default value: <code>header.html,menu.html</code>. Property: <code></code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">templateDirs (<code>List</code>)</dt>
-<dd>
-<p>Template directory if set. Property: <code>${yupiik.slides.templateDirs}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>templateSuffixes (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Template file name added after the content. Default value: <code>footer-top.html,footer-end.html</code>. Property: <code></code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">templateExtensionPoints (<code>Map</code>)</dt>
-<dd>
-<p>Custom default theme extension points.
-An extension point is a placeholder in a template surrounded by 3 braces: <code>{{{xyz</code>}} }. Property: <code>${yupiik.minisite.templateExtensionPoints}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>title (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Default HTML page title. Property: <code>${yupiik.minisite.title}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">templatePrefixes (<code>List</code>)</dt>
-<dd>
-<p>Template file name added before the content. Default value: <code>header.html,menu.html</code>. Property: ``.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>useDefaultAssets (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Use default assets. Default value: <code>true</code>. Property: <code>${yupiik.minisite.useDefaultAssets}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">templateSuffixes (<code>List</code>)</dt>
-<dd>
-<p>Template file name added after the content. Default value: <code>footer-top.html,footer-end.html</code>. Property: ``.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>usePluginAsParentClassLoader (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>A boolean or auto (= if asciidoctorExtensions is not empty it behaves as true) to use the plugin classloader as parent for preaction and asciidoctor extension or not. Default value: <code>auto</code>. Property: <code>${yupiik.minisite.usePluginAsParentClassLoader}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">title (<code>String</code>)</dt>
-<dd>
-<p>Default HTML page title. Property: <code>${yupiik.minisite.title}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>workDir (<code>java.io.File</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Where to extract files needed for the rendering. Default value: <code>${project.build.directory}/yupiik-workdir</code>. Property: <code>${yupiik.workDir}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">useDefaultAssets (<code>boolean</code>)</dt>
-<dd>
-<p>Use default assets. Default value: <code>true</code>. Property: <code>${yupiik.minisite.useDefaultAssets}</code>.</p>
-</dd>
-<dt class="hdlist1">usePluginAsParentClassLoader (<code>String</code>)</dt>
-<dd>
-<p>A boolean or auto (= if asciidoctorExtensions is not empty it behaves as true) to use the plugin classloader as parent
-for preaction and asciidoctor extension or not. Default value: <code>auto</code>. Property: <code>${yupiik.minisite.usePluginAsParentClassLoader}</code>.</p>
-</dd>
-<dt class="hdlist1">workDir (<code>java.io.File</code>)</dt>
-<dd>
-<p>Where to extract files needed for the rendering. Default value: <code>${project.build.directory}/yupiik-workdir</code>. Property: <code>${yupiik.workDir}</code>.</p>
-</dd>
-</dl>
-</div>
-</div>
-</div>
+ </dl>
+ </div>
+ </div>
                 
             </div>
         </div>
@@ -362,7 +716,7 @@ for preaction and asciidoctor extension or not. Default value: <code>auto</code>
     <footer class="footer pb-5">
 	    <div class="footer-bottom text-center">
 		    <ul class="social-list list-unstyled">
-                <li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
             <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
@@ -406,7 +760,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.1.9-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>

@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>yupiik-tools:slides</title>
+    <title>yupiik-tools:asciidoc</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -69,16 +69,16 @@
             </ul>
         </div>
 
-        <div id="mojo-slides-html-container" class="container page-content mojo-slides-html">
+        <div id="mojo-asciidoc-html-container" class="container page-content mojo-asciidoc-html">
                         <div class="page-header">
-                <h1>yupiik-tools:slides</h1>
+                <h1>yupiik-tools:asciidoc</h1>
             </div>
             <div class="page-content-body">
                 <div id="preamble">
  <div class="sectionbody">
  <p> <div class="paragraph">
  <p>
-Custom attributes.
+Uses the Yupiik asciidoc implementation to render an asciidoc file in HTML.
  </p>
  </div>
 </p>
@@ -97,7 +97,7 @@ Custom attributes.
  </div>
  </div>
  <div class="paragraph">
- <p>To call this goal from the command line execute: <code>mvn yupiik-tools:slides</code>.</p>
+ <p>To call this goal from the command line execute: <code>mvn yupiik-tools:asciidoc</code>.</p>
  </div>
  <div class="paragraph">
  <p>
@@ -114,7 +114,7 @@ To bind this goal in the build you can use:
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
       &lt;goals&gt;
-        &lt;goal&gt;slides&lt;/goal&gt;
+        &lt;goal&gt;asciidoc&lt;/goal&gt;
       &lt;/goals&gt;
       &lt;configuration&gt;
         &lt;!-- execution specific configuration come there --&gt;
@@ -125,51 +125,100 @@ To bind this goal in the build you can use:
  </div>
  </div>
  <div class="paragraph">
- <p>You can execute this goal particularly with <code>mvn yupiik-tools:slides@my-execution</code> command.</p>
+ <p>You can execute this goal particularly with <code>mvn yupiik-tools:asciidoc@my-execution</code> command.</p>
  </div>
  </div>
  </div>
  <div class="sect1" id="_configuration">
   <h2>Configuration</h2>
  <div class="sectionbody">
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p><code>*</code> means the parameter is required.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>input* (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>The file to render. Property: <code>${yupiik.asciidoc.input}</code>.</p>
+ </div>
+</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>output* (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Where to write the output. Property: <code>${yupiik.asciidoc.output}</code>.</p>
+ </div>
+</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>assets (<code>List</code>)</p>
+ </div>
+</dt>
+  <dd>
+Assets folder to copy before the rendering next to the output. Can host js, css etc...</dd>
+ </dl>
  <dl>
   <dt> <div class="paragraph">
  <p>attributes (<code>Map</code>)</p>
  </div>
 </dt>
   <dd>
-Custom attributes.</dd>
- </dl>
- <dl>
-  <dt> <div class="paragraph">
- <p>customCss (<code>java.io.File</code>)</p>
- </div>
-</dt>
-  <dd>
  <div class="paragraph">
- <p>Custom css if needed, overrides default one. Property: <code>${yupiik.slides.customCss}</code>.</p>
+ <p>attributes. Property: <code>${yupiik.asciidoc.attributes}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>customScripts (<code>String[]</code>)</p>
+ <p>base (<code>String</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Custom js if needed. Property: <code>${yupiik.slides.customScripts}</code>.</p>
+ <p>include resolution base directory. Property: <code>${yupiik.asciidoc.base}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>mode (<code>io.yupiik.tools.slides.SlidesConfiguration$Mode</code>)</p>
+ <p>dataUriForAscii2Svg (<code>boolean</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Which execution mode to use, WATCH and SERVE are for dev purposes. Default value: <code>DEFAULT</code>. Property: <code>${yupiik.slides.mode}</code>.</p>
+ <p>should ascii2svg diagram be rendered as svg or img tag. Default value: <code>true</code>. Property: <code>${yupiik.asciidoc.dataUriForAscii2Svg}</code>.</p>
+ </div>
+</dd>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>openBrowser (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should the browser be opened after the rendering in watch mode (ignored otherwise). Can be true/false. Default value: <code>true</code>. Property: <code>${yupiik.asciidoc.openBrowser}</code>.</p>
  </div>
 </dd>
  </dl>
@@ -180,100 +229,73 @@ Custom attributes.</dd>
 </dt>
   <dd>
  <div class="paragraph">
- <p>For SERVE mode, which port to bind. Default value: <code>4200</code>. Property: <code>${yupiik.slides.serve.port}</code>.</p>
+ <p>Port to launch the server when opening the browser in watch mode. Default value: <code>4200</code>. Property: <code>${yupiik.asciidoc.port}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>preferYupiikAsciidoc (<code>boolean</code>)</p>
+ <p>renderer (<code>String</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Should Yupiik asciidoctor-java be used instead of asciidoctorj (over jruby). While this is likely faster to bootstrap and render it is not as complete as asciidoctor as of today and requires to run at least on Java 17. Default value: <code>false</code>. Property: <code>${yupiik.minisite.preferYupiikAsciidoc}</code>.</p>
+ <p>Renderer to use, can be io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer, io.yupiik.asciidoc.renderer.html.ShowerRenderer or any fully qualified name of a visitor. Default value: <code>io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer</code>. Property: <code>${yupiik.asciidoc.renderer}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>requires (<code>List</code>)</p>
- </div>
-</dt>
-  <dd>
-Warning: this must be a shared settings by all executions. Override defaults require - completely.</dd>
- </dl>
- <dl>
-  <dt> <div class="paragraph">
- <p>slider (<code>io.yupiik.tools.slides.SlidesConfiguration$SliderType</code>)</p>
+ <p>sectionTag (<code>String</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Which renderer (slide) to use. Default value: <code>BESPOKE_ENRICHED</code>. Property: <code>${yupiik.slides.slider}</code>.</p>
+ <p>section tag for default asciidoctor like renderer. Default value: <code>div</code>. Property: <code>${yupiik.asciidoc.sectionTag}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>source (<code>java.io.File</code>)</p>
+ <p>skipGlobalContentWrapper (<code>boolean</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Slide deck source file. Default value: <code>${project.basedir}/src/main/slides/index.adoc</code>. Property: <code>${yupiik.slides.source}</code>.</p>
+ <p>should the div.content wrapper for the whole rendering be skipped. Default value: <code>false</code>. Property: <code>${yupiik.asciidoc.skipGlobalContentWrapper}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>synchronizationFolders (<code>List</code>)</p>
- </div>
-</dt>
-  <dd>
-Synchronize folders.</dd>
- </dl>
- <dl>
-  <dt> <div class="paragraph">
- <p>targetDirectory (<code>java.io.File</code>)</p>
+ <p>skipSectionBody (<code>boolean</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Where to render the slide deck. Default value: <code>${project.build.directory}/yupiik/slides</code>. Property: <code>${yupiik.slides.target}</code>.</p>
+ <p>should section body div wrappers be skipped (can be useful for some theming). Default value: <code>false</code>. Property: <code>${yupiik.asciidoc.skipSectionBody}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>templateDirs (<code>java.io.File</code>)</p>
+ <p>supportsDataAttributes (<code>boolean</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>Template directory if set. Property: <code>${yupiik.slides.templateDirs}</code>.</p>
+ <p>should html data attributes be supported. Default value: <code>true</code>. Property: <code>${yupiik.asciidoc.supportsDataAttributes}</code>.</p>
  </div>
 </dd>
  </dl>
  <dl>
   <dt> <div class="paragraph">
- <p>watchDelay (<code>int</code>)</p>
+ <p>watch (<code>long</code>)</p>
  </div>
 </dt>
   <dd>
  <div class="paragraph">
- <p>How long to wait to check if render must be re-done in watch mode (in ms). Default value: <code>150</code>. Property: <code>${yupiik.slides.watchDelay}</code>.</p>
- </div>
-</dd>
- </dl>
- <dl>
-  <dt> <div class="paragraph">
- <p>workDir (<code>java.io.File</code>)</p>
- </div>
-</dt>
-  <dd>
- <div class="paragraph">
- <p>Where to extract files needed for the rendering. Default value: <code>${project.build.directory}/yupiik-workdir</code>. Property: <code>${yupiik.workDir}</code>.</p>
+ <p>If positive the rendering will loop with a delay of this value. Default value: <code>-1</code>. Property: <code>${yupiik.asciidoc.watch}</code>.</p>
  </div>
 </dd>
  </dl>

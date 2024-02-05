@@ -6,10 +6,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="adoc:A set of build utilities.
-
-IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example.
-Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
@@ -20,7 +17,7 @@ Last available 1.0.x release is 1.0.26.">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.1.9-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
 </head>
 <body>
@@ -38,7 +35,7 @@ Last available 1.0.x release is 1.0.26.">
 
 					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
 						
-						<li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 		            </ul>
 	            </div>
             </div>
@@ -64,6 +61,10 @@ Last available 1.0.x release is 1.0.26.">
                     <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
                         <i class="fas fa-font"></i>Ascii2SVG
                     </a>
+                </li>                <li>
+                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+                        <i class="fas fa-robot"></i>YEM
+                    </a>
                 </li>
             </ul>
         </div>
@@ -73,85 +74,52 @@ Last available 1.0.x release is 1.0.26.">
                 <h1>Yupiik-tools Maven Plugin</h1>
             </div>
             <div class="page-content-body">
-                <div class="sect1">
-<h2 id="_goals">Goals</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p><a href="audit.html">audit</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-<li>
-<p><a href="crypt-properties.html">crypt-properties</a>: enables to crypt a properties file.</p>
-</li>
-<li>
-<p><a href="crypt-value.html">crypt-value</a>: enables to crypt a value and log it.</p>
-</li>
-<li>
-<p><a href="cucumber2asciidoc.html">cucumber2asciidoc</a>: convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals.</p>
-</li>
-<li>
-<p><a href="decrypt-properties.html">decrypt-properties</a>: enables to decrypt an encrypted properties file.</p>
-</li>
-<li>
-<p><a href="decrypt-value.html">decrypt-value</a>: enables to decrypt a value.</p>
-</li>
-<li>
-<p><a href="generate-blog-post-releases.html">generate-blog-post-releases</a>: fetch releases from github repo to generate a blog post. The search is between 2 dates.</p>
-</li>
-<li>
-<p><a href="git-report.html">git-report</a>: generates a report from a <code>.git</code> folder.</p>
-</li>
-<li>
-<p><a href="inject-version.html">inject-version</a>: injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything.</p>
-</li>
-<li>
-<p><a href="list-github-releases.html">list-github-releases</a>: fetch github releases between two dates.</p>
-</li>
-<li>
-<p><a href="minisite.html">minisite</a>: minisite goal. Enables to generate a small website.   It needs a "documentation" module, it uses the following default layout:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>src/main/doc/content: contains a set of .adoc (converted to .html)</p>
-</li>
-<li>
-<p>src/main/doc/assets: contains a set of files moved "as this" to site output directory (css, js)</p>
-</li>
-<li>
-<p>src/main/doc/templates: contains the templates for the layout and pages of the website</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p><a href="pdf.html">pdf</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-<li>
-<p><a href="script-cli-skeleton.html">script-cli-skeleton</a>: seed a simple bash CLI.</p>
-</li>
-<li>
-<p><a href="serve-minisite.html">serve-minisite</a>: minisite goa with HTTP server.</p>
-</li>
-<li>
-<p><a href="serve-slides.html">serve-slides</a>: custom attributes.</p>
-</li>
-<li>
-<p><a href="simple-dependencies.html">simple-dependencies</a>: which format to use to dump them.</p>
-</li>
-<li>
-<p><a href="slides.html">slides</a>: custom attributes.</p>
-</li>
-<li>
-<p><a href="synchronize-github-releases.html">synchronize-github-releases</a>: fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.</p>
-</li>
-<li>
-<p><a href="watch-pdf.html">watch-pdf</a>: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
+                <div class="sect1" id="_goals">
+  <h2>Goals</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+-  <a href="asciidoc.html">asciidoc</a>
+: uses the Yupiik asciidoc implementation to render an asciidoc file in HTML. -  <a href="audit.html">audit</a>
+: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes. -  <a href="crypt-properties.html">crypt-properties</a>
+: enables to crypt a properties file. -  <a href="crypt-value.html">crypt-value</a>
+: enables to crypt a value and log it. -  <a href="cucumber2asciidoc.html">cucumber2asciidoc</a>
+: convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals. -  <a href="decrypt-properties.html">decrypt-properties</a>
+: enables to decrypt an encrypted properties file. -  <a href="decrypt-value.html">decrypt-value</a>
+: enables to decrypt a value. -  <a href="generate-blog-post-releases.html">generate-blog-post-releases</a>
+: fetch releases from github repo to generate a blog post. The search is between 2 dates. -  <a href="git-report.html">git-report</a>
+: generates a report from a .git folder. -  <a href="inject-version.html">inject-version</a>
+: injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything. -  <a href="list-github-releases.html">list-github-releases</a>
+: fetch github releases between two dates. -  <a href="minisite.html">minisite</a>
+: minisite goal. Enables to generate a small website.  It needs a &quot;documentation&quot; module, it uses the following default layout:   <div class="ulist">
+ <ul>
+  <li>
+ <p>
+src/main/doc/content: contains a set of .adoc (converted to .html)  
+ </p>
+  </li>
+  <li>
+ <p>
+src/main/doc/assets: contains a set of files moved &quot;as this&quot; to site output directory (css, js)  
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>src/main/doc/templates: contains the templates for the layout and pages of the website -  <a href="pdf.html">pdf</a>
+: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes. -  <a href="script-cli-skeleton.html">script-cli-skeleton</a>
+: seed a simple bash CLI. -  <a href="serve-minisite.html">serve-minisite</a>
+: minisite goa with HTTP server. -  <a href="serve-slides.html">serve-slides</a>
+: custom attributes. -  <a href="simple-dependencies.html">simple-dependencies</a>
+: which format to use to dump them. -  <a href="slides.html">slides</a>
+: custom attributes. -  <a href="synchronize-github-releases.html">synchronize-github-releases</a>
+: fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts. -  <a href="watch-pdf.html">watch-pdf</a>
+: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ </div>
+ </div>
+ </div>
                 
             </div>
         </div>
@@ -164,7 +132,7 @@ Last available 1.0.x release is 1.0.26.">
     <footer class="footer pb-5">
 	    <div class="footer-bottom text-center">
 		    <ul class="social-list list-unstyled">
-                <li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
             <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
@@ -208,7 +176,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.1.9-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>

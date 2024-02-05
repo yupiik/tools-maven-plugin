@@ -6,10 +6,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="adoc:A set of build utilities.
-
-IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example.
-Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
@@ -20,7 +17,7 @@ Last available 1.0.x release is 1.0.26.">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.1.9-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
 </head>
 <body>
@@ -38,7 +35,7 @@ Last available 1.0.x release is 1.0.26.">
 
 					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
 						
-						<li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 		            </ul>
 	            </div>
             </div>
@@ -64,6 +61,10 @@ Last available 1.0.x release is 1.0.26.">
                     <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
                         <i class="fas fa-font"></i>Ascii2SVG
                     </a>
+                </li>                <li>
+                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+                        <i class="fas fa-robot"></i>YEM
+                    </a>
                 </li>
             </ul>
         </div>
@@ -74,36 +75,41 @@ Last available 1.0.x release is 1.0.26.">
             </div>
             <div class="page-content-body">
                 <div id="preamble">
-<div class="sectionbody">
-<div class="paragraph">
-<p>Enables to decrypt a value.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_coordinates">Coordinates</h2>
-<div class="sectionbody">
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ <div class="sectionbody">
+ <p> <div class="paragraph">
+ <p>
+Enables to decrypt a value.
+ </p>
+ </div>
+</p>
+ </div>
+ </div>
+ <div class="sect1" id="_coordinates">
+  <h2>Coordinates</h2>
+ <div class="sectionbody">
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
+  &lt;version&gt;1.2.1-SNAPSHOT&lt;/version&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To call this goal from the command line execute: <code>mvn yupiik-tools:decrypt-value</code>.</p>
-</div>
-<div class="paragraph">
-<p>To bind this goal in the build you can use:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>To call this goal from the command line execute: <code>mvn yupiik-tools:decrypt-value</code>.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+To bind this goal in the build you can use:
+ </p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;plugin&gt;
   &lt;groupId&gt;io.yupiik.maven&lt;/groupId&gt;
   &lt;artifactId&gt;yupiik-tools-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;1.1.9-SNAPSHOT&lt;/version&gt;
+  &lt;version&gt;1.2.1-SNAPSHOT&lt;/version&gt;
   &lt;executions&gt;
     &lt;execution&gt;
       &lt;id&gt;my-execution&lt;/id&gt;
@@ -116,46 +122,78 @@ Last available 1.0.x release is 1.0.26.">
     &lt;/execution&gt;
   &lt;/executions&gt;
 &lt;/plugin&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>You can execute this goal particularly with <code>mvn yupiik-tools:decrypt-value@my-execution</code> command.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_configuration">Configuration</h2>
-<div class="sectionbody">
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Tip</div>
-</td>
-<td class="content">
-<code>*</code> means the parameter is required.
-</td>
-</tr>
-</table>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">masterPassword* (<code>String</code>)</dt>
-<dd>
-<p>Master password for the enryption (AES/CBC/PKCS5Padding). Property: <code>${yupiik.crypt.masterPassword}</code>.</p>
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>You can execute this goal particularly with <code>mvn yupiik-tools:decrypt-value@my-execution</code> command.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_configuration">
+  <h2>Configuration</h2>
+ <div class="sectionbody">
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p><code>*</code> means the parameter is required.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>masterPassword* (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Master password for the enryption (AES/CBC/PKCS5Padding). Property: <code>${yupiik.crypt.masterPassword}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">value* (<code>String</code>)</dt>
-<dd>
-<p>Value to decrypt. Property: <code>${yupiik.decrypt.value}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>value* (<code>String</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Value to decrypt. Property: <code>${yupiik.decrypt.value}</code>.</p>
+ </div>
 </dd>
-<dt class="hdlist1">useStdout (<code>boolean</code>)</dt>
-<dd>
-<p>Should the clear value be printed using maven logger or directly in stdout. Default value: <code>false</code>. Property: <code>${yupiik.decrypt.useStdout}</code>.</p>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>useAES256GCM (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should AES256 GCM be used else AES/CBC/PKCS5Padding is used. Default value: <code>fase</code>. Property: <code>${yupiik.crypt.useAES256GCM}</code>.</p>
+ </div>
 </dd>
-</dl>
-</div>
-</div>
-</div>
+ </dl>
+ <dl>
+  <dt> <div class="paragraph">
+ <p>useStdout (<code>boolean</code>)</p>
+ </div>
+</dt>
+  <dd>
+ <div class="paragraph">
+ <p>Should the clear value be printed using maven logger or directly in stdout. Default value: <code>false</code>. Property: <code>${yupiik.decrypt.useStdout}</code>.</p>
+ </div>
+</dd>
+ </dl>
+ </div>
+ </div>
                 
             </div>
         </div>
@@ -168,7 +206,7 @@ Last available 1.0.x release is 1.0.26.">
     <footer class="footer pb-5">
 	    <div class="footer-bottom text-center">
 		    <ul class="social-list list-unstyled">
-                <li class="list-inline-item"><a href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
             <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
@@ -212,7 +250,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.1.9-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
