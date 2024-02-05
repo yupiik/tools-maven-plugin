@@ -32,8 +32,8 @@ import static java.util.Optional.ofNullable;
 public class EnableSimpleOptionsArgs { // here the goal is to auto-complete short options (--tool) by prefixing it with the command name.
     public void onStart(@OnEvent @Order(Integer.MIN_VALUE) final Start start, final RuntimeContainer container) {
         ofNullable(container.getBeans().getBeans().get(Args.class))
-                .ifPresent(args -> {
-                    final var enriched = enrich(((Args) args.get(0).create(container, null)).args());
+                .ifPresent(beans -> {
+                    final var enriched = enrich(((Args) beans.get(0).create(container, null)).args());
                     container.getBeans().getBeans()
                             .put(Args.class, List.of(new ProvidedInstanceBean<>(DefaultScoped.class, Args.class, () -> enriched)));
                 });
@@ -45,7 +45,7 @@ public class EnableSimpleOptionsArgs { // here the goal is to auto-complete shor
         }
         final var prefix = "--" + args.get(0) + '-';
         return new Args(args.stream()
-                .flatMap(i -> i.startsWith("--") && !i.startsWith(prefix) ?
+                .flatMap(i -> !"--".equals(i) && i.startsWith("--") && !i.startsWith(prefix) ?
                         (i.substring("--".length()).contains("-") ?
                                 Stream.of(prefix + i.substring("--".length()), i) :
                                 Stream.of(prefix + i.substring("--".length()))) :

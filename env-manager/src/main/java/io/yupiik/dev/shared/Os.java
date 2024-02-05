@@ -54,4 +54,8 @@ public class Os {
     public boolean isAarch64() {
         return arch.contains("aarch64");
     }
+
+    public boolean isWindows() {
+        return "windows".equals(findOs());
+    }
 }

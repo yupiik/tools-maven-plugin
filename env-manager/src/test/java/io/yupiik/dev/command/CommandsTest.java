@@ -113,7 +113,7 @@ class CommandsTest {
     @Test
     void env(@TempDir final Path work, final URI uri) throws IOException {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
-        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString());
+        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
                         echo "[yem] Installing java@21.32.17-ca-jdk21.0.2"
 
@@ -133,7 +133,7 @@ class CommandsTest {
         doInstall(work, uri);
 
         final var rc = Files.writeString(work.resolve(".sdkmanrc"), "java = 21.0.2");
-        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString());
+        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
                         export YEM_ORIGINAL_PATH="$original_path"
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH"
