@@ -161,7 +161,7 @@
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.rc</code> (<code>env_rc</code>)*: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ <p><code>env.rc</code> (<code>env_rc</code>) (default: <code>&quot;.yemrc&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
  </div>
   </li>
   <li>
@@ -266,7 +266,7 @@
   </li>
   <li>
  <div class="paragraph">
- <p><code>run.rc</code> (<code>run_rc</code>)*: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ <p><code>run.rc</code> (<code>run_rc</code>) (default: <code>&quot;.yemrc&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
  </div>
   </li>
   <li>
@@ -411,7 +411,7 @@ resolve: Resolve a distribution. <div class="ulist">
   </li>
   <li>
  <div class="paragraph">
-run: Similar to <code>env</code> spirit but for aliases, using <code>.yemrc</code> it will load all lines matching <code>xxx.alias = yyyy</code> with <code>xxx</code> the alias name and <code>yyyy</code> the command to execute. <div class="ulist">
+run: Similar to <code>env</code> spirit but for aliases or execution in the shell context of the <code>.yemrc</code> file.<code>. Important: it is recommended to use</code>--<code>to separate yem args from the command:</code>yem run --rc .yemrc -- mvn clean package<code>. Note that the first arg after</code>--<code>will be tested against an alias in the</code>.yemrc<code>(or global one) so you can pre-define complex commands there. Ex:</code>build.alias = mvn package<code>in</code>.yemrc<code>will enable to run</code>yem run -- build<code>which will actually execute</code>mvn package<code>and if you configure maven version (</code>maven.version = 3.9.6` for example) the execution environment will use the right distribution. <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
@@ -453,87 +453,106 @@ prefix.toolName = 1.2.3 <b class="conum">(8)</b></code></pre>
   <ol>
    <li>
  <div class="paragraph">
- <p> <p>
+ <p> <span>
 Version of the tool to install, using 
- </p>
-<code>relaxed</code> <p>
+ </span>
+<code>relaxed</code> <span>
  option it can be a version prefix (
- </p>
-<code>21.</code> <p>
+ </span>
+<code>21.</code> <span>
  for ex),
- </p>
+ </span>
 </p>
  </div>
    </li>
    <li>
  <div class="paragraph">
- <p> <p>
+ <p> <span>
 Provider to use to resolve the tool, if you want to force 
- </p>
-<code>zulu</code> <p>
+ </span>
+<code>zulu</code> <span>
  provider instead of using SDKMan to install Java versions for example,
- </p>
+ </span>
 </p>
  </div>
    </li>
    <li>
- <p>
+ <span>
 Should version be matched exactly or the first matching one be used,
- </p>
+ </span>
    </li>
    <li>
  <div class="paragraph">
- <p> <p>
+ <p> <span>
 When 
- </p>
-<code>addToPath</code> <p>
+ </span>
+<code>addToPath</code> <span>
  is 
- </p>
-<code>true</code> <p>
+ </span>
+<code>true</code> <span>
  (default) the environment name to setup for this tool - deduced from tool name otherwise, generally 
- </p>
-<code>uppercase(tool)_HOME</code> <p>
+ </span>
+<code>uppercase(tool)_HOME</code> <span>
  with dot replaced by underscores,
- </p>
+ </span>
 </p>
  </div>
    </li>
    <li>
  <div class="paragraph">
- <p> <p>
+ <p> <span>
 Should the 
- </p>
-<code>PATH</code> <p>
+ </span>
+<code>PATH</code> <span>
  be set too - note that when it is the case 
- </p>
-<code>YEM_ORIGINAL_PATH</code> <p>
+ </span>
+<code>YEM_ORIGINAL_PATH</code> <span>
  is set too allowing to reset 
- </p>
-<code>PATH</code> <p>
+ </span>
+<code>PATH</code> <span>
  when exiting the folder,
- </p>
+ </span>
 </p>
  </div>
    </li>
    <li>
- <p>
+ <span>
 Should the execution fail if a tool is missing (mainly for debug purposes),
- </p>
+ </span>
    </li>
    <li>
- <p>
+ <span>
 Should tools be installed automatically when missing - CI friendly,
- </p>
+ </span>
    </li>
    <li>
- <p>
+ <span>
 If your prefix does not match the tool name, the tool name to use.
- </p>
+ </span>
    </li>
   </ol>
  </div>
  <div class="paragraph">
  <p>Only the <code>version</code> property is required of <code>prefix</code> matches a tool name. You can get as much group of properties as needed tools (one for java 11, one for java 17, one for maven 4 etc...).</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_alias_support">
+  <h2>Alias support</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>The <code>run</code> command supports aliases. They globally use a <code>.yemrc</code> file as for <code>env</code> command but support additional properties.</p>
+ </div>
+ <div class="paragraph">
+ <p>These additional properties must match the pattern <code>xxx.alias = yyyy</code> where <code>xxx</code> is an alias name and <code>yyyy</code> a command. The usage of <code>yem run -- xxxx</code> will be equivalent to run <code>yyyy</code> command (can have arguments predefined) in the context of the <code>.yemrc</code> file, including the environment - Java, Apache Maven etc...</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_tip">
+  <h2>TIP</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>If you need to see more logs from <i>yem</i> you can add the following system properties: <code>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST</code>.</p>
  </div>
  </div>
  </div>
