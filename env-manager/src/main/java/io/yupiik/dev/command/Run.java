@@ -76,8 +76,6 @@ public class Run implements Runnable {
             }
         }
 
-        logger.finest(() -> "Resolved command: " + command);
-
         final var process = new ProcessBuilder(command);
         process.inheritIO();
 
@@ -108,6 +106,8 @@ public class Run implements Runnable {
                         .ifPresent(bin -> command.set(0, bin.toString()));
             }
         }
+
+        logger.finest(() -> "Resolved command: " + command);
 
         try {
             final var processExec = process.start();
