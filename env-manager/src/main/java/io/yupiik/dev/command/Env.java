@@ -25,6 +25,7 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -102,9 +103,16 @@ public class Env implements Runnable {
 
         final var logger = this.logger.getParent().getParent();
         final var useParentHandlers = logger.getUseParentHandlers();
+        final var messages = new ArrayList<String>();
         final var tempHandler = new Handler() { // forward all standard messages to stderr and at debug level to avoid to break default behavior
             @Override
             public void publish(final LogRecord record) {
+                // capture to forward messages in the shell when init is done (thanks eval call)
+                if (logger.isLoggable(record.getLevel())) {
+                    messages.add(record.getMessage());
+                }
+
+                // enable to log at fine level for debug purposes
                 record.setLevel(FINE);
                 if (useParentHandlers) {
                     logger.getParent().log(record);
@@ -185,7 +193,8 @@ public class Env implements Runnable {
                             .collect(joining("\n", "", "\n")) :
                     "";
 
-            final var script = pathVars + toolVars + echos + "\n" +
+            final var script = messages.stream().map(m -> "echo \"[yem] " + m + "\"").collect(joining("\n", "", "\n\n")) +
+                    pathVars + toolVars + echos + "\n" +
                     comment + "To load a .yemrc configuration run:\n" +
                     comment + "[ -f .yemrc ] && eval $(yem env--env-file .yemrc)\n" +
                     comment + "\n" +

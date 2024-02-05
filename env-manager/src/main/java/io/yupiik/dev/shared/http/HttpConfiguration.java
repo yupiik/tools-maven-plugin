@@ -22,6 +22,8 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 public record HttpConfiguration(
         @Property(defaultValue = "false", documentation = "Should HTTP calls be logged.") boolean log,
         @Property(defaultValue = "60_000L", documentation = "Connection timeout in milliseconds.") long connectTimeout,
-        @Property(defaultValue = "900_000L", documentation = "Request timeout in milliseconds.") long requestTimeout
+        @Property(defaultValue = "900_000L", documentation = "Request timeout in milliseconds.") long requestTimeout,
+        @Property(defaultValue = "86_400_000L", documentation = "Cache validity of requests (1 day by default) in milliseconds. A negative or zero value will disable cache.") long cacheValidity,
+        @Property(defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/cache/http\"", documentation = "Where to cache slow updates (version fetching). `none` will disable cache.") String cache
 ) {
 }

@@ -16,6 +16,8 @@
 package io.yupiik.dev.test;
 
 import com.sun.net.httpserver.HttpServer;
+import io.yupiik.dev.shared.http.HttpConfiguration;
+import io.yupiik.dev.shared.http.YemHttpClient;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
@@ -81,12 +83,18 @@ public class HttpMockExtension implements BeforeEachCallback, AfterEachCallback,
 
     @Override
     public boolean supportsParameter(final ParameterContext parameterContext, final ExtensionContext extensionContext) throws ParameterResolutionException {
-        return URI.class == parameterContext.getParameter().getType();
+        return URI.class == parameterContext.getParameter().getType() || YemHttpClient.class == parameterContext.getParameter().getType();
     }
 
     @Override
     public Object resolveParameter(final ParameterContext parameterContext, final ExtensionContext context) throws ParameterResolutionException {
-        return URI.create("http://localhost:" + context.getStore(NAMESPACE).get(HttpServer.class, HttpServer.class).getAddress().getPort() + "/2/");
+        if (URI.class == parameterContext.getParameter().getType()) {
+            return URI.create("http://localhost:" + context.getStore(NAMESPACE).get(HttpServer.class, HttpServer.class).getAddress().getPort() + "/2/");
+        }
+        if (YemHttpClient.class == parameterContext.getParameter().getType()) {
+            return new YemHttpClient(new HttpConfiguration(false, 30_000L, 30_000L, 0, "none"), null);
+        }
+        throw new ParameterResolutionException("Can't resolve " + parameterContext.getParameter().getType());
     }
 
     private byte[] process(final byte[] bytes, final String format) throws IOException {

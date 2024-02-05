@@ -19,8 +19,6 @@ import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.Os;
-import io.yupiik.dev.shared.http.HttpBean;
-import io.yupiik.dev.shared.http.HttpConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.dev.test.Mock;
 import org.junit.jupiter.api.Test;
@@ -139,52 +137,40 @@ class ZuluCdnClientTest {
             	</table><hr></pre>
             </body>
             </html>""")
-    void listJavaVersions(final URI uri, @TempDir final Path local) {
-        try (final var client = client()) {
-            final var actual = newProvider(uri, client, local).listVersions("");
-            assertEquals(
-                    List.of(new Version("Azul", "21.0.2", "zulu", "21.32.17-ca-jre21.0.2")),
-                    actual);
-        }
+    void listJavaVersions(final URI uri, @TempDir final Path local, final YemHttpClient client) {
+        final var actual = newProvider(uri, client, local).listVersions("");
+        assertEquals(
+                List.of(new Version("Azul", "21.0.2", "zulu", "21.32.17-ca-jre21.0.2")),
+                actual);
     }
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void install(final URI uri, @TempDir final Path work) throws IOException {
-        try (final var client = client()) {
-            final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
-            assertEquals(installationDir, newProvider(uri, client, work.resolve("yem")).install("java", "21.0.2", Provider.ProgressListener.NOOP));
-            assertTrue(Files.isDirectory(installationDir));
-            assertEquals("you got a zip", Files.readString(installationDir.resolve("entry.txt")));
-        }
+    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+        final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
+        assertEquals(installationDir, newProvider(uri, client, work.resolve("yem")).install("java", "21.0.2", Provider.ProgressListener.NOOP));
+        assertTrue(Files.isDirectory(installationDir));
+        assertEquals("you got a zip", Files.readString(installationDir.resolve("entry.txt")));
     }
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void resolve(final URI uri, @TempDir final Path work) {
-        try (final var client = client()) {
-            final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
-            final var provider = newProvider(uri, client, work.resolve("yem"));
-            provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
-            assertEquals(installationDir, provider.resolve("java", "21.0.2").orElseThrow());
-        }
+    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+        final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
+        final var provider = newProvider(uri, client, work.resolve("yem"));
+        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
+        assertEquals(installationDir, provider.resolve("java", "21.0.2").orElseThrow());
     }
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void delete(final URI uri, @TempDir final Path work) {
-        try (final var client = client()) {
-            final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
-            final var provider = newProvider(uri, client, work.resolve("yem"));
-            provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
-            assertTrue(Files.exists(installationDir.getParent()));
-            provider.delete("java", "21.0.2");
-            assertTrue(Files.notExists(installationDir.getParent()));
-        }
-    }
-
-    private YemHttpClient client() {
-        return new HttpBean().client(new HttpConfiguration(false, 30_000L, 30_000L));
+    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+        final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
+        final var provider = newProvider(uri, client, work.resolve("yem"));
+        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
+        assertTrue(Files.exists(installationDir.getParent()));
+        provider.delete("java", "21.0.2");
+        assertTrue(Files.notExists(installationDir.getParent()));
     }
 
     private ZuluCdnClient newProvider(final URI uri, final YemHttpClient client, final Path local) {

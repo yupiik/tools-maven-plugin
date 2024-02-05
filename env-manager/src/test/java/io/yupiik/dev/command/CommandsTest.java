@@ -114,11 +114,13 @@ class CommandsTest {
     void env(@TempDir final Path work, final URI uri) throws IOException {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
         final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString());
-        assertEquals(
-                ("export YEM_ORIGINAL_PATH=\"$original_path\"\n" +
-                        "export PATH=\"$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH\"\n" +
-                        "export JAVA_HOME=\"$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded\"\n" +
-                        "echo \"[yem] Resolved java@21. to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\"")
+        assertEquals(("""
+                        echo "[yem] Installing java@21.32.17-ca-jdk21.0.2"
+
+                        export YEM_ORIGINAL_PATH="$original_path"
+                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH"
+                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded"
+                        echo "[yem] Resolved java@21. to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\"""")
                         .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
@@ -170,6 +172,7 @@ class CommandsTest {
         @Override
         public String get(final String key) {
             return switch (key) {
+                case "http.cache" -> "none";
                 case "github.base" -> baseHttp + "/github/";
                 case "github.local" -> work.resolve("/github").toString();
                 case "central.base" -> baseHttp + "/m2/";

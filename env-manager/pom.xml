@@ -130,7 +130,11 @@
         </configuration>
       </plugin>
 
-      <plugin> <!-- mvn process-classes arthur:native-image -e && ./target/yem -->
+      <plugin>
+        <!--
+        WARNING: https://github.com/oracle/graal/issues/5814 (buildStaticImage=false is there just as a workaround)
+        $ mvn process-classes arthur:native-image -e
+        $ ./target/yem -->
         <groupId>org.apache.geronimo.arthur</groupId>
         <artifactId>arthur-maven-plugin</artifactId>
         <version>1.0.8</version>
@@ -138,7 +142,9 @@
           <main>io.yupiik.fusion.framework.api.main.Launcher</main>
           <graalVersion>21.0.2-graalce</graalVersion>
           <output>${project.build.directory}/yem</output>
+          <buildStaticImage>false</buildStaticImage>
           <customOptions>
+            <customOption>-H:+StaticExecutableWithDynamicLibC</customOption>
             <customOption>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager</customOption>
           </customOptions>
         </configuration>

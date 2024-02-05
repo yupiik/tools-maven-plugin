@@ -210,6 +210,9 @@ public class SdkManClient implements Provider {
             return List.of();
         }
 
+        // note: we could use ~/.sdkman/var/candidates too but
+        //       this would assume sdkman keeps updating this list which is likely not true
+
         final var res = client.send(HttpRequest.newBuilder()
                 .uri(base.resolve("candidates/list"))
                 .build());
