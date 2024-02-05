@@ -576,8 +576,44 @@ class AsciidoctorLikeHtmlRendererTest {
     void linkWithImage() {
         assertRenderingContent(
                 "link:http://foo.bar[this is image:foo.png[alt]]",
-                " <a href=\"http://foo.bar\">this is  <img src=\"foo.png\" alt=\"alt\">\n" +
-                        "</a>\n");
+                """
+                         <a href="http://foo.bar">this is  <img src="foo.png" alt="alt">
+                        </a>
+                        """);
+    }
+
+    @Test
+    void callouts() {
+        assertRenderingContent("""
+                [source,properties]
+                ----
+                prefix.version = 1.2.3 <1>
+                ----
+                <.> Version of the tool to install, using `relaxed` option it can be a version prefix (`21.` for ex),""",
+                """
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">prefix.version = 1.2.3 <b class="conum">(1)</b></code></pre>
+                         </div>
+                         </div>
+                         <div class="colist arabic">
+                          <ol>
+                           <li>
+                         <div class="paragraph">
+                         <span>
+                        Version of the tool to install, using\s
+                         </span>
+                        <code>relaxed</code> <span>
+                         option it can be a version prefix (
+                         </span>
+                        <code>21.</code> <span>
+                         for ex),
+                         </span>
+                         </div>
+                           </li>
+                          </ol>
+                         </div>
+                        """);
     }
 
     private void assertRendering(final String adoc, final String html) {

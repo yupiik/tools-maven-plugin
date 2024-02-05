@@ -517,7 +517,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());
             final boolean wrap = useWrappers &&
                     (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut || !element.options().isEmpty())));
-            final boolean useP = parentNeedsP || isParagraph || state.inCallOut;
+            final boolean useP = parentNeedsP || isParagraph || !state.inCallOut;
             if (wrap) {
                 builder.append(" <").append(useP ? "p" : "span");
                 writeCommonAttributes(element.options(), null);
