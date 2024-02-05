@@ -21,6 +21,8 @@ import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.provider.sdkman.SdkManClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,7 +62,7 @@ public class ProviderRegistry {
 
     public Map.Entry<Provider, Version> findByToolVersionAndProvider(final String tool, final String version, final String provider,
                                                                      final boolean relaxed) {
-        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed)
+        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, new Cache(new IdentityHashMap<>(), new IdentityHashMap<>()))
                 .orElseThrow(() -> new IllegalArgumentException("No provider for tool '" + tool + "' in version '" + version + "', available tools:\n" +
                         providers().stream()
                                 .flatMap(it -> it.listTools().stream()
@@ -72,7 +74,9 @@ public class ProviderRegistry {
                                 .collect(joining("\n"))));
     }
 
-    public Optional<Map.Entry<Provider, Version>> tryFindByToolVersionAndProvider(final String tool, final String version, final String provider, final boolean relaxed) {
+    public Optional<Map.Entry<Provider, Version>> tryFindByToolVersionAndProvider(
+            final String tool, final String version, final String provider, final boolean relaxed,
+            final Cache cache) {
         return providers().stream()
                 .filter(it -> provider == null ||
                         // enable "--install-provider zulu" for example
@@ -81,7 +85,8 @@ public class ProviderRegistry {
                 .map(it -> {
                     final var candidates = it.listTools();
                     if (candidates.stream().anyMatch(t -> tool.equals(t.tool()))) {
-                        return it.listLocal().entrySet().stream()
+                        return cache.local.computeIfAbsent(it, Provider::listLocal)
+                                .entrySet().stream()
                                 .filter(e -> Objects.equals(e.getKey().tool(), tool))
                                 .flatMap(e -> e.getValue().stream()
                                         .filter(v -> matchVersion(v, version, relaxed))
@@ -91,7 +96,9 @@ public class ProviderRegistry {
                                 .findFirst()
                                 .map(Optional::of)
                                 .orElseGet(() -> {
-                                    final var versions = it.listVersions(tool);
+                                    final var versions = cache.versions
+                                            .computeIfAbsent(it, p -> new HashMap<>())
+                                            .computeIfAbsent(tool, it::listVersions);
                                     return versions.stream()
                                             .filter(v -> matchVersion(v, version, relaxed))
                                             .findFirst()
@@ -107,5 +114,9 @@ public class ProviderRegistry {
     private boolean matchVersion(final Version v, final String version, final boolean relaxed) {
         return version.equals(v.version()) || version.equals(v.identifier()) ||
                 (relaxed && v.version().startsWith(version));
+    }
+
+    public record Cache(Map<Provider, Map<Candidate, List<Version>>> local,
+                        Map<Provider, Map<String, List<Version>>> versions) {
     }
 }

@@ -128,6 +128,24 @@ class CommandsTest {
                         .strip());
     }
 
+    @Test
+    void envSdkManRc(@TempDir final Path work, final URI uri) throws IOException {
+        doInstall(work, uri);
+
+        final var rc = Files.writeString(work.resolve(".sdkmanrc"), "java = 21.0.2");
+        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString());
+        assertEquals(("""
+                        export YEM_ORIGINAL_PATH="$original_path"
+                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH"
+                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded"
+                        echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\"""")
+                        .replace("$original_path", System.getenv("PATH"))
+                        .replace("$work", work.toString()),
+                out
+                        .replaceAll("#.*", "")
+                        .strip());
+    }
+
     private String captureOutput(final Path work, final URI uri, final String... command) {
         final var out = new ByteArrayOutputStream();
         final var oldOut = System.out;

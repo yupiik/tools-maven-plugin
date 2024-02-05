@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -65,7 +66,8 @@ public class Env implements Runnable {
         final var pathName = windows ? "Path" : "PATH";
         final var pathVar = windows ? "%" + pathName + "%" : ("$" + pathName);
 
-        var rcLocation = Path.of(conf.rc());
+        final var isAuto = "auto".equals(conf.rc());
+        var rcLocation = isAuto ? auto() : Path.of(conf.rc());
         if (Files.notExists(rcLocation)) { // enable to navigate in the project without loosing the env
             while (Files.notExists(rcLocation)) {
                 var parent = rcLocation.toAbsolutePath().getParent();
@@ -76,7 +78,7 @@ public class Env implements Runnable {
                 if (parent == null || !Files.isReadable(parent)) {
                     break;
                 }
-                rcLocation = parent.resolve(conf.rc());
+                rcLocation = parent.resolve(isAuto ? rcLocation.getFileName().toString() : conf.rc());
             }
         }
 
@@ -99,6 +101,9 @@ public class Env implements Runnable {
             props.load(reader);
         } catch (final IOException e) {
             throw new IllegalStateException(e);
+        }
+        if (".sdkmanrc".equals(rcLocation.getFileName().toString())) {
+            rewritePropertiesFromSdkManRc(props);
         }
 
         final var logger = this.logger.getParent().getParent();
@@ -148,7 +153,9 @@ public class Env implements Runnable {
                                 Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
                     })
                     .flatMap(tool -> registry.tryFindByToolVersionAndProvider(
-                                    tool.toolName(), tool.version(), tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed())
+                                    tool.toolName(), tool.version(),
+                                    tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
+                                    new ProviderRegistry.Cache(new IdentityHashMap<>(), new IdentityHashMap<>()))
                             .or(() -> {
                                 if (tool.failOnMissing()) {
                                     throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
@@ -218,6 +225,24 @@ public class Env implements Runnable {
         }
     }
 
+    private void rewritePropertiesFromSdkManRc(final Properties props) {
+        final var original = new Properties();
+        original.putAll(props);
+
+        props.clear();
+        props.setProperty("addToPath", "true");
+        props.putAll(original.stringPropertyNames().stream()
+                .collect(toMap(p -> p + ".version", original::getProperty)));
+    }
+
+    private Path auto() {
+        return Stream.of(".yemrc", ".sdkmanrc")
+                .map(Path::of)
+                .filter(Files::exists)
+                .findFirst()
+                .orElseGet(() -> Path.of(".yemrc"));
+    }
+
     private String quoted(final Path path) {
         return path
                 .toAbsolutePath()
@@ -236,7 +261,7 @@ public class Env implements Runnable {
 
     @RootConfiguration("env")
     public record Conf(
-            @Property(documentation = "Env file location to read to generate the script.", required = true) String rc) {
+            @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", required = true) String rc) {
     }
 
     private record ToolProperties(
