@@ -1,0 +1,62 @@
+= YEM (Environment Manager)
+:minisite-index: 600
+:minisite-index-title: YEM
+:minisite-index-icon: robot
+:minisite-index-description: Yupiik Environment manager
+
+[abstract]
+Setting up dev environment can be a nightmare.
+_yem_ intends to make it easier.
+
+== Inspiration
+
+_yem_ is inspired from SDKMan, Chocolatey and other alternatives.
+The main differences are:
+
+* _yem_ does not come with a remote storage but it tries to reuse existing ones - priviledging immutable one when possible (compared to SDKMan where you can loose the version you picked),
+* _yem_ intends to be portable (linux/windows at least),
+* _yem_ is extensible if needed (new source or tool/distribution).
+
+== Configuration
+
+IMPORTANT: the atomic configuration is listed there but used on the command line you must ensure to prefix any option by `-` and replace dots by `-`. Example: `central.base` becomes `--central-base`.
+
+include::{partialsdir}/generated/documentation.yem.adoc[lines=4..-1]
+
+== CLI
+
+The command line uses spaces between option and value: `yem install --tool java --version 21.0.2`.
+
+=== Commands
+
+include::{partialsdir}/generated/commands.yem.adoc[]
+
+== Auto-path
+
+A bit like SDKMan, _yem_ supports to initialize an environment from a file but with some differences.
+
+The file must be a `properties` file.
+Each tool/distribution setup has several properties:
+
+[source,properties]
+----
+prefix.version = 1.2.3 <1>
+prefix.provider = xxxx <2>
+prefix.relaxed = [true|false] <3>
+prefix.envVarName = xxxx <4>
+prefix.addToPath = [true|false] <5>
+prefix.failOnMissing = [true|false] <6>
+prefix.installIfMissing = [true|false] <7>
+prefix.toolName = 1.2.3 <8>
+----
+<.> Version of the tool to install, using `relaxed` option it can be a version prefix (`21.` for ex),
+<.> Provider to use to resolve the tool, if you want to force `zulu` provider instead of using SDKMan to install Java versions for example,
+<.> Should version be matched exactly or the first matching one be used,
+<.> When `addToPath` is `true` (default) the environment name to setup for this tool - deduced from tool name otherwise, generally `uppercase(tool)_HOME` with dot replaced by underscores,
+<.> Should the `PATH` be set too - note that when it is the case `YEM_ORIGINAL_PATH` is set too allowing to reset `PATH` when exiting the folder,
+<.> Should the execution fail if a tool is missing (mainly for debug purposes),
+<.> Should tools be installed automatically when missing - CI friendly,
+<.> If your prefix does not match the tool name, the tool name to use.
+
+Only the `version` property is required of `prefix` matches a tool name.
+You can get as much group of properties as needed tools (one for java 11, one for java 17, one for maven 4 etc...).

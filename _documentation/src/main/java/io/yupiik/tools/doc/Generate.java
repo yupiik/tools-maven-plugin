@@ -15,6 +15,7 @@
  */
 package io.yupiik.tools.doc;
 
+import io.yupiik.fusion.documentation.DocumentationGenerator;
 import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
@@ -53,6 +54,19 @@ public final class Generate {
                 "toBase", doc.resolve("content/mojo").toString(),
                 "pluginXml", doc.resolve("../../../../yupiik-tools-maven-plugin/target/classes/META-INF/maven/plugin.xml").toString()));
 
+        final var generateEnvManagerConfiguration = new PreAction();
+        generateEnvManagerConfiguration.setType(DocumentationGenerator.class.getName());
+        generateEnvManagerConfiguration.setConfiguration(Map.of(
+                "includeEnvironmentNames", "true",
+                "module", "yem",
+                "urls", doc
+                        .resolve("../../../../env-manager/target/classes/META-INF/fusion/configuration/documentation.json")
+                        .normalize()
+                        .toUri().toURL().toExternalForm()));
+
+        final var generateEnvManagerCommands = new PreAction();
+        generateEnvManagerCommands.setType(YemCommands.class.getName());
+
         final var configuration = new MiniSiteConfiguration();
         configuration.setIndexText("Yupiik Tools");
         configuration.setIndexSubTitle("adoc:" +
@@ -77,7 +91,7 @@ public final class Generate {
         configuration.setSource(doc);
         configuration.setTarget(out);
         configuration.setSiteBase("/tools-maven-plugin");
-        configuration.setPreActions(List.of(mojoAction));
+        configuration.setPreActions(List.of(mojoAction, generateEnvManagerConfiguration, generateEnvManagerCommands));
         configuration.setGenerateSiteMap(true);
         configuration.setGenerateIndex(true);
         configuration.setProjectName(projectName);
@@ -90,6 +104,7 @@ public final class Generate {
         configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
             // avoid it to be closed too early by wrapping it in a not URLCLassLoader
         });
+        configuration.setAttributes(Map.of("partialsdir", doc + "/content/_partials"));
         configuration.setAsciidoc(new YupiikAsciidoc());
         configuration.setAsciidoctorConfiguration(new AsciidoctorConfiguration() {
             @Override
