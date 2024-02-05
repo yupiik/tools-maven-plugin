@@ -34,6 +34,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -146,6 +147,20 @@ class CommandsTest {
                         .strip());
     }
 
+    @Test
+    void run(@TempDir final Path work, final URI uri) throws IOException {
+        final var output = work.resolve("output");
+        final var yem = Files.writeString(
+                work.resolve(".yemrc"),
+                "demo.alias = " + System.getProperty("java.home") + "/bin/java " +
+                        "-cp target/test-classes " +
+                        "io.yupiik.dev.command.CommandsTest$SampleMain " +
+                        "\"" + output + "\"" +
+                        "hello YEM!");
+        captureOutput(work, uri, "run", "--rc", yem.toString(), "--", "demo");
+        assertEquals(">> [hello, YEM!]", Files.readString(output));
+    }
+
     private String captureOutput(final Path work, final URI uri, final String... command) {
         final var out = new ByteArrayOutputStream();
         final var oldOut = System.out;
@@ -202,6 +217,16 @@ class CommandsTest {
                 case "zulu.platform" -> "linux64.tar.gz";
                 default -> null;
             };
+        }
+    }
+
+    public static final class SampleMain {
+        private SampleMain() {
+            // no-op
+        }
+
+        public static void main(final String... args) throws IOException {
+            Files.writeString(Path.of(args[0]), ">> " + Stream.of(args).skip(1).toList());
         }
     }
 }

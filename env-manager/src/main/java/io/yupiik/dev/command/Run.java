@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -87,10 +88,21 @@ public class Run implements Runnable {
         if (!command.isEmpty() && !path.isBlank()) {
             final var exec = command.get(0);
             if (Files.notExists(Path.of(exec))) {
-                Stream.of(path.split(pathSeparator))
+                final var paths = path.split(pathSeparator);
+                final var exts = os.isWindows() ?
+                        Stream.concat(
+                                        Stream.of(""),
+                                        Stream.ofNullable(System.getenv("PathExt"))
+                                                .map(i -> Stream.of(i.split(";"))
+                                                        .map(String::strip)
+                                                        .filter(Predicate.not(String::isBlank))))
+                                .toList() :
+                        List.of("");
+                Stream.of(paths)
                         .map(Path::of)
                         .filter(Files::exists)
-                        .map(d -> d.resolve(exec))
+                        .flatMap(d -> exts.stream()
+                                .map(e -> d.resolve(exec + e)))
                         .filter(Files::exists)
                         .findFirst()
                         .ifPresent(bin -> command.set(0, bin.toString()));
