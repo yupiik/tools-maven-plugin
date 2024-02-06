@@ -119,6 +119,7 @@
         <configuration>
           <systemPropertyVariables>
             <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
+            <yem.disableGlobalRcFileConfiguration>true</yem.disableGlobalRcFileConfiguration>
           </systemPropertyVariables>
         </configuration>
       </plugin>

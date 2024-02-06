@@ -20,6 +20,7 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 @Command(name = "resolve", description = "Resolve a distribution.")
@@ -36,10 +37,21 @@ public class Resolve implements Runnable {
 
     @Override
     public void run() {
-        final var providerAndVersion = registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false);
-        final var resolved = providerAndVersion.getKey().resolve(conf.tool(), providerAndVersion.getValue().identifier())
-                .orElseThrow(() -> new IllegalArgumentException("No matching instance for " + conf.tool() + "@" + conf.version() + ", ensure to install it before resolving it."));
-        logger.info(() -> "Resolved " + conf.tool() + "@" + providerAndVersion.getValue().version() + ": '" + resolved + "'");
+        try {
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
+                    .thenAccept(providerAndVersion -> {
+                        final var resolved = providerAndVersion.getKey().resolve(conf.tool(), providerAndVersion.getValue().identifier())
+                                .orElseThrow(() -> new IllegalArgumentException("No matching instance for " + conf.tool() + "@" + conf.version() + ", ensure to install it before resolving it."));
+                        logger.info(() -> "Resolved " + conf.tool() + "@" + providerAndVersion.getValue().version() + ": '" + resolved + "'");
+                    })
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
 
     }
 

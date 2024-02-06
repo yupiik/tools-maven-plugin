@@ -22,15 +22,19 @@ import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
 import static java.util.Map.entry;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 
 @ApplicationScoped
@@ -44,48 +48,49 @@ public class RcService {
         this.registry = registry;
     }
 
-    public Map<ToolProperties, Path> toToolProperties(final Properties props) {
-        return props.stringPropertyNames().stream()
+    public CompletionStage<Map<ToolProperties, Path>> toToolProperties(final Properties props) {
+        final var promises = props.stringPropertyNames().stream()
                 .filter(it -> it.endsWith(".version"))
-                .map(versionKey -> {
-                    final var name = versionKey.substring(0, versionKey.lastIndexOf('.'));
-                    return new ToolProperties(
-                            props.getProperty(name + ".toolName", name),
-                            props.getProperty(versionKey),
-                            props.getProperty(name + ".provider"),
-                            Boolean.parseBoolean(props.getProperty(name + ".relaxed", props.getProperty("relaxed"))),
-                            props.getProperty(name + ".envVarName", name.toUpperCase(ROOT).replace('.', '_') + "_HOME"),
-                            Boolean.parseBoolean(props.getProperty(name + ".addToPath", props.getProperty("addToPath", "true"))),
-                            Boolean.parseBoolean(props.getProperty(name + ".failOnMissing", props.getProperty("failOnMissing"))),
-                            Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
-                })
-                .flatMap(tool -> registry.tryFindByToolVersionAndProvider(
-                                tool.toolName(), tool.version(),
-                                tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
-                                new ProviderRegistry.Cache(new IdentityHashMap<>(), new IdentityHashMap<>()))
-                        .or(() -> {
-                            if (tool.failOnMissing()) {
-                                throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
-                            }
-                            return Optional.empty();
-                        })
-                        .flatMap(providerAndVersion -> {
-                            final var provider = providerAndVersion.getKey();
-                            final var version = providerAndVersion.getValue().identifier();
-                            return provider.resolve(tool.toolName(), tool.version())
-                                    .or(() -> {
-                                        if (tool.installIfMissing()) {
+                .map(versionKey -> toToolProperties(props, versionKey))
+                .map(tool -> {
+                    final var providerAndVersionPromise = registry.tryFindByToolVersionAndProvider(
+                            tool.toolName(), tool.version(),
+                            tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
+                            new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
+                    return providerAndVersionPromise.thenCompose(providerAndVersionOpt -> {
+                                if (tool.failOnMissing() && !tool.installIfMissing() && providerAndVersionOpt.isEmpty()) {
+                                    throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
+                                }
+
+                                final var providerVersion = providerAndVersionOpt.orElseThrow();
+                                final var provider = providerVersion.getKey();
+                                final var version = providerVersion.getValue().identifier();
+
+                                return provider.resolve(tool.toolName(), providerVersion.getValue().identifier())
+                                        .map(path -> completedFuture(Optional.of(path)))
+                                        .or(() -> {
+                                            if (!tool.installIfMissing()) {
+                                                if (tool.failOnMissing()) {
+                                                    throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + version);
+                                                }
+                                                return Optional.empty();
+                                            }
+
                                             logger.info(() -> "Installing " + tool.toolName() + '@' + version);
-                                            provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP);
-                                        } else if (tool.failOnMissing()) {
-                                            throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + version);
-                                        }
-                                        return provider.resolve(tool.toolName(), version);
-                                    });
-                        })
-                        .stream()
-                        .map(home -> entry(tool, home)))
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                                            return Optional.of(provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP)
+                                                    .thenApply(Optional::of)
+                                                    .toCompletableFuture());
+                                        })
+                                        .orElseGet(() -> completedFuture(Optional.empty()))
+                                        .thenApply(path -> path.map(p -> entry(tool, p)));
+                            })
+                            .toCompletableFuture();
+                })
+                .toList();
+        return allOf(promises.toArray(new CompletableFuture<?>[0]))
+                .thenApply(ok -> promises.stream()
+                        .flatMap(p -> p.getNow(Optional.empty()).stream())
+                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     public Properties loadPropertiesFrom(final String rcPath, final String defaultRcPath) {
@@ -131,6 +136,19 @@ public class RcService {
                 .filter(Files::exists)
                 .findFirst()
                 .orElse(value);
+    }
+
+    private ToolProperties toToolProperties(final Properties props, final String versionKey) {
+        final var name = versionKey.substring(0, versionKey.lastIndexOf('.'));
+        return new ToolProperties(
+                props.getProperty(name + ".toolName", name),
+                props.getProperty(versionKey),
+                props.getProperty(name + ".provider"),
+                Boolean.parseBoolean(props.getProperty(name + ".relaxed", props.getProperty("relaxed"))),
+                props.getProperty(name + ".envVarName", name.toUpperCase(ROOT).replace('.', '_') + "_HOME"),
+                Boolean.parseBoolean(props.getProperty(name + ".addToPath", props.getProperty("addToPath", "true"))),
+                Boolean.parseBoolean(props.getProperty(name + ".failOnMissing", props.getProperty("failOnMissing"))),
+                Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
     }
 
     private void readRc(final Path rcLocation, final Properties props) {

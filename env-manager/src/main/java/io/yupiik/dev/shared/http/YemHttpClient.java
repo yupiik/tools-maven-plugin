@@ -28,6 +28,7 @@ import io.yupiik.fusion.httpclient.core.response.StaticHttpResponse;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
@@ -39,7 +40,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -49,6 +56,7 @@ import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpResponse.BodyHandlers.ofByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Clock.systemDefaultZone;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 
 @ApplicationScoped
@@ -98,12 +106,36 @@ public class YemHttpClient implements AutoCloseable {
                 .setDelegate(HttpClient.newBuilder()
                         .followRedirects(ALWAYS)
                         .version(HTTP_1_1)
+                        .executor(Executors.newFixedThreadPool(configuration.threads(), new ThreadFactory() {
+                            private final AtomicInteger counter = new AtomicInteger(1);
+
+                            @Override
+                            public Thread newThread(final Runnable r) {
+                                final var thread = new Thread(r, YemHttpClient.class.getName() + "-" + counter.getAndIncrement());
+                                thread.setContextClassLoader(YemHttpClient.class.getClassLoader());
+                                return thread;
+                            }
+                        }))
                         .connectTimeout(Duration.ofMillis(configuration.connectTimeout()))
                         .build())
                 .setRequestListeners(listeners);
 
         this.cache = cache;
-        this.client = new ExtendedHttpClient(conf);
+        this.client = new ExtendedHttpClient(conf).onClose(c -> {
+            final var executorService = (ExecutorService) conf.getDelegate().executor().orElseThrow();
+            executorService.shutdown();
+            while (!executorService.isTerminated()) {
+                try {
+                    if (executorService.awaitTermination(1L, TimeUnit.DAYS)) {
+                        break;
+                    }
+                } catch (final InterruptedException e) {
+                    executorService.shutdownNow();
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
     }
 
     @Override
@@ -111,131 +143,124 @@ public class YemHttpClient implements AutoCloseable {
         this.client.close();
     }
 
-    public HttpResponse<Path> getFile(final HttpRequest request, final Path target, final Provider.ProgressListener listener) {
+    public CompletionStage<HttpResponse<Path>> getFile(final HttpRequest request, final Path target, final Provider.ProgressListener listener) {
         logger.finest(() -> "Calling " + request);
-        final var response = sendWithProgress(request, listener, HttpResponse.BodyHandlers.ofFile(target));
-        if (isGzip(response) && Files.exists(response.body())) {
-            final var tmp = response.body().getParent().resolve(response.body().getFileName() + ".degzip.tmp");
-            try (final var in = new GZIPInputStream(new BufferedInputStream(Files.newInputStream(response.body())))) {
-                Files.copy(in, tmp);
-            } catch (final IOException ioe) {
-                return response;
-            } finally {
-                if (Files.exists(tmp)) {
-                    try {
-                        Files.delete(tmp);
-                    } catch (final IOException e) {
-                        // no-op
+        return sendWithProgress(request, listener, HttpResponse.BodyHandlers.ofFile(target))
+                .thenApply(response -> {
+                    if (isGzip(response) && Files.exists(response.body())) {
+                        final var tmp = response.body().getParent().resolve(response.body().getFileName() + ".degzip.tmp");
+                        try (final var in = new GZIPInputStream(new BufferedInputStream(Files.newInputStream(response.body())))) {
+                            Files.copy(in, tmp);
+                        } catch (final IOException ioe) {
+                            return response;
+                        } finally {
+                            if (Files.exists(tmp)) {
+                                try {
+                                    Files.delete(tmp);
+                                } catch (final IOException e) {
+                                    // no-op
+                                }
+                            }
+                        }
+                        try {
+                            Files.move(tmp, response.body());
+                        } catch (final IOException e) {
+                            return response;
+                        }
+                        return new SimpleHttpResponse<>(
+                                response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
+                                response.body());
                     }
-                }
-            }
-            try {
-                Files.move(tmp, response.body());
-            } catch (final IOException e) {
-                return response;
-            }
-            return new StaticHttpResponse<>(
-                    response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
-                    response.body());
-        }
-        return response;
+                    return response;
+                });
     }
 
-    public HttpResponse<String> send(final HttpRequest request) {
+    public CompletionStage<HttpResponse<String>> sendAsync(final HttpRequest request) {
         final var entry = cache.lookup(request);
         if (entry != null && entry.hit() != null) {
-            return new StaticHttpResponse<>(
+            return completedFuture(new SimpleHttpResponse<>(
                     request, request.uri(), HTTP_1_1, 200,
                     HttpHeaders.of(
                             entry.hit().headers().entrySet().stream()
                                     .collect(toMap(Map.Entry::getKey, e -> List.of(e.getValue()))),
                             (a, b) -> true),
-                    entry.hit().payload());
+                    entry.hit().payload()));
         }
 
         logger.finest(() -> "Calling " + request);
-        try {
-            final var response = client.send(request, ofByteArray());
-            HttpResponse<String> result = null;
-            if (isGzip(response) && response.body() != null) {
-                try (final var in = new GZIPInputStream(new ByteArrayInputStream(response.body()))) {
-                    result = new StaticHttpResponse<>(
+        return client.sendAsync(request, ofByteArray())
+                .thenApply(response -> {
+                    HttpResponse<String> result = null;
+                    if (isGzip(response) && response.body() != null) {
+                        try (final var in = new GZIPInputStream(new ByteArrayInputStream(response.body()))) {
+                            result = new SimpleHttpResponse<>(
+                                    response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
+                                    new String(in.readAllBytes(), UTF_8));
+                        } catch (final IOException ioe) {
+                            // no-op, use original response
+                        }
+                    }
+                    result = result != null ? result : new SimpleHttpResponse<>(
                             response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
-                            new String(in.readAllBytes(), UTF_8));
-                } catch (final IOException ioe) {
-                    // no-op, use original response
-                }
-            }
-            result = result != null ? result : new StaticHttpResponse<>(
-                    response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
-                    new String(response.body(), UTF_8));
-            if (entry != null && result.statusCode() == 200) {
-                cache.save(entry.key(), result);
-            }
-            return result;
-        } catch (final InterruptedException var4) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(var4);
-        } catch (final RuntimeException run) {
-            throw run;
-        } catch (final Exception others) {
-            throw new IllegalStateException(others);
-        }
+                            new String(response.body(), UTF_8));
+                    if (entry != null && result.statusCode() == 200) {
+                        cache.save(entry.key(), result);
+                    }
+                    return result;
+                });
     }
 
     private boolean isGzip(final HttpResponse<?> response) {
         return response.headers().allValues("content-encoding").stream().anyMatch(it -> it.contains("gzip"));
     }
 
-    /* not needed yet
-    public HttpResponse<String> send(final HttpRequest request, final Provider.ProgressListener listener) {
-        return sendWithProgress(request, listener, ofString());
+    private <A> CompletionStage<HttpResponse<A>> sendWithProgress(final HttpRequest request, final Provider.ProgressListener listener,
+                                                                  final HttpResponse.BodyHandler<A> delegateHandler) {
+        return client.sendAsync(request, listener == Provider.ProgressListener.NOOP ? delegateHandler : responseInfo -> {
+            final long contentLength = Long.parseLong(responseInfo.headers().firstValue("content-length").orElse("-1"));
+            final var delegate = delegateHandler.apply(responseInfo);
+            if (contentLength > 0) {
+                final var name = request.uri().getPath();
+                return HttpResponse.BodySubscribers.fromSubscriber(new Flow.Subscriber<List<ByteBuffer>>() {
+                    private long current = 0;
+
+                    @Override
+                    public void onSubscribe(final Flow.Subscription subscription) {
+                        delegate.onSubscribe(subscription);
+                    }
+
+                    @Override
+                    public void onNext(final List<ByteBuffer> item) {
+                        current += item.stream().mapToLong(ByteBuffer::remaining).sum();
+                        listener.onProcess(name, current * 1. / contentLength);
+                        delegate.onNext(item);
+                    }
+
+                    @Override
+                    public void onError(final Throwable throwable) {
+                        delegate.onError(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        delegate.onComplete();
+                    }
+                }, subscriber -> delegate.getBody().toCompletableFuture().getNow(null));
+            }
+            return delegate;
+        });
     }
-     */
 
-    private <A> HttpResponse<A> sendWithProgress(final HttpRequest request, final Provider.ProgressListener listener,
-                                                 final HttpResponse.BodyHandler<A> delegateHandler) {
-        try {
-            return client.send(request, listener == Provider.ProgressListener.NOOP ? delegateHandler : responseInfo -> {
-                final long contentLength = Long.parseLong(responseInfo.headers().firstValue("content-length").orElse("-1"));
-                final var delegate = delegateHandler.apply(responseInfo);
-                if (contentLength > 0) {
-                    final var name = request.uri().getPath();
-                    return HttpResponse.BodySubscribers.fromSubscriber(new Flow.Subscriber<List<ByteBuffer>>() {
-                        private long current = 0;
+    private static class SimpleHttpResponse<T> extends StaticHttpResponse<T> {
+        private SimpleHttpResponse(final HttpRequest request, final URI uri, final HttpClient.Version version,
+                                   final int status, final HttpHeaders headers, final T body) {
+            super(request, uri, version, status, headers, body);
+        }
 
-                        @Override
-                        public void onSubscribe(final Flow.Subscription subscription) {
-                            delegate.onSubscribe(subscription);
-                        }
-
-                        @Override
-                        public void onNext(final List<ByteBuffer> item) {
-                            current += item.stream().mapToLong(ByteBuffer::remaining).sum();
-                            listener.onProcess(name, current * 1. / contentLength);
-                            delegate.onNext(item);
-                        }
-
-                        @Override
-                        public void onError(final Throwable throwable) {
-                            delegate.onError(throwable);
-                        }
-
-                        @Override
-                        public void onComplete() {
-                            delegate.onComplete();
-                        }
-                    }, subscriber -> delegate.getBody().toCompletableFuture().getNow(null));
-                }
-                return delegate;
-            });
-        } catch (final InterruptedException var3) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(var3);
-        } catch (final RuntimeException var4) {
-            throw var4;
-        } catch (final Exception var5) {
-            throw new IllegalStateException(var5);
+        @Override
+        public String toString() {
+            final var uri = request().uri();
+            return '(' + request().method() + ' ' + (uri == null ? "" : uri) + ") " + statusCode();
         }
     }
 }

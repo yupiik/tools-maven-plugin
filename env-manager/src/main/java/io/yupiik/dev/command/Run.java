@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -58,66 +59,73 @@ public class Run implements Runnable {
     @Override
     public void run() {
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
-        final var resolved = rc.toToolProperties(tools);
-
-        final int idx = args.args().indexOf("--");
-        final var command = new ArrayList<String>(8);
-        if (idx > 0) {
-            command.addAll(args.args().subList(idx + 1, args.args().size()));
-        } else {
-            command.addAll(args.args().subList(1, args.args().size()));
-        }
-
-        if (!command.isEmpty()) { // handle aliasing
-            final var alias = tools.getProperty(command.get(0) + ".alias");
-            if (alias != null) {
-                command.remove(0);
-                command.addAll(0, parseArgs(alias));
-            }
-        }
-
-        final var process = new ProcessBuilder(command);
-        process.inheritIO();
-
-        final var environment = process.environment();
-        setEnv(resolved, environment);
-
-        final var path = environment.getOrDefault("PATH", environment.getOrDefault("Path", ""));
-        if (!command.isEmpty() && !path.isBlank()) {
-            final var exec = command.get(0);
-            if (Files.notExists(Path.of(exec))) {
-                final var paths = path.split(pathSeparator);
-                final var exts = os.isWindows() ?
-                        Stream.concat(
-                                        Stream.of(""),
-                                        Stream.ofNullable(System.getenv("PathExt"))
-                                                .map(i -> Stream.of(i.split(";"))
-                                                        .map(String::strip)
-                                                        .filter(Predicate.not(String::isBlank))))
-                                .toList() :
-                        List.of("");
-                Stream.of(paths)
-                        .map(Path::of)
-                        .filter(Files::exists)
-                        .flatMap(d -> exts.stream()
-                                .map(e -> d.resolve(exec + e)))
-                        .filter(Files::exists)
-                        .findFirst()
-                        .ifPresent(bin -> command.set(0, bin.toString()));
-            }
-        }
-
-        logger.finest(() -> "Resolved command: " + command);
-
         try {
-            final var processExec = process.start();
-            final int exitCode = processExec.waitFor();
-            logger.finest(() -> "Process exited with status=" + exitCode);
-        } catch (final IOException e) {
-            throw new IllegalStateException(e);
+            rc.toToolProperties(tools).thenAccept(resolved -> {
+                final int idx = args.args().indexOf("--");
+                final var command = new ArrayList<String>(8);
+                if (idx > 0) {
+                    command.addAll(args.args().subList(idx + 1, args.args().size()));
+                } else {
+                    command.addAll(args.args().subList(1, args.args().size()));
+                }
+
+                if (!command.isEmpty()) { // handle aliasing
+                    final var alias = tools.getProperty(command.get(0) + ".alias");
+                    if (alias != null) {
+                        command.remove(0);
+                        command.addAll(0, parseArgs(alias));
+                    }
+                }
+
+                final var process = new ProcessBuilder(command);
+                process.inheritIO();
+
+                final var environment = process.environment();
+                setEnv(resolved, environment);
+
+                final var path = environment.getOrDefault("PATH", environment.getOrDefault("Path", ""));
+                if (!command.isEmpty() && !path.isBlank()) {
+                    final var exec = command.get(0);
+                    if (Files.notExists(Path.of(exec))) {
+                        final var paths = path.split(pathSeparator);
+                        final var exts = os.isWindows() ?
+                                Stream.concat(
+                                                Stream.of(""),
+                                                Stream.ofNullable(System.getenv("PathExt"))
+                                                        .map(i -> Stream.of(i.split(";"))
+                                                                .map(String::strip)
+                                                                .filter(Predicate.not(String::isBlank))))
+                                        .toList() :
+                                List.of("");
+                        Stream.of(paths)
+                                .map(Path::of)
+                                .filter(Files::exists)
+                                .flatMap(d -> exts.stream()
+                                        .map(e -> d.resolve(exec + e)))
+                                .filter(Files::exists)
+                                .findFirst()
+                                .ifPresent(bin -> command.set(0, bin.toString()));
+                    }
+                }
+
+                logger.finest(() -> "Resolved command: " + command);
+
+                try {
+                    final var processExec = process.start();
+                    final int exitCode = processExec.waitFor();
+                    logger.finest(() -> "Process exited with status=" + exitCode);
+                } catch (final IOException e) {
+                    throw new IllegalStateException(e);
+                } catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }).toCompletableFuture().get();
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
         }
     }
 

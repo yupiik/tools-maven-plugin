@@ -15,58 +15,65 @@
  */
 package io.yupiik.dev.command;
 
-import io.yupiik.dev.provider.central.ApacheMavenConfiguration;
-import io.yupiik.dev.provider.central.SingletonCentralConfiguration;
+import io.yupiik.dev.provider.central.CentralConfiguration;
+import io.yupiik.dev.provider.central.GavRegistry;
 import io.yupiik.dev.provider.github.MinikubeConfiguration;
 import io.yupiik.dev.provider.github.SingletonGithubConfiguration;
 import io.yupiik.dev.provider.sdkman.SdkManConfiguration;
 import io.yupiik.dev.provider.zulu.ZuluCdnConfiguration;
+import io.yupiik.fusion.framework.api.configuration.Configuration;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
+import static java.util.Map.entry;
 import static java.util.stream.Collectors.joining;
 
 @Command(name = "config", description = "Show configuration.")
 public class Config implements Runnable {
     private final Logger logger = Logger.getLogger(getClass().getName());
-    private final SingletonCentralConfiguration central;
+    private final CentralConfiguration central;
     private final SdkManConfiguration sdkman;
     private final SingletonGithubConfiguration github;
     private final ZuluCdnConfiguration zulu;
     private final MinikubeConfiguration minikube;
-    private final ApacheMavenConfiguration maven;
+    private final GavRegistry gavs;
+    private final Configuration configuration;
 
     public Config(final Conf conf,
-                  final SingletonCentralConfiguration central,
+                  final Configuration configuration,
+                  final CentralConfiguration central,
                   final SdkManConfiguration sdkman,
                   final SingletonGithubConfiguration github,
                   final ZuluCdnConfiguration zulu,
                   final MinikubeConfiguration minikube,
-                  final ApacheMavenConfiguration maven) {
+                  final GavRegistry gavs) {
+        this.configuration = configuration;
         this.central = central;
         this.sdkman = sdkman;
         this.github = github;
         this.zulu = zulu;
         this.minikube = minikube;
-        this.maven = maven;
+        this.gavs = gavs;
     }
 
     @Override
     public void run() {
-        logger.info(() -> Map.of(
-                        "central", central.configuration(),
-                        "sdkman", sdkman,
-                        "github", github.configuration(),
-                        "zulu", zulu,
-                        "minikube", minikube,
-                        "maven", maven)
-                .entrySet().stream()
+        logger.info(() -> Stream.concat(
+                        Map.of(
+                                "central", central.toString(),
+                                "sdkman", sdkman.toString(),
+                                "github", github.configuration().toString(),
+                                "zulu", zulu.toString(),
+                                "minikube", minikube.toString()).entrySet().stream(),
+                        gavs.gavs().stream()
+                                .map(g -> entry(g.artifactId(), "[enabled=" + configuration.get(g.artifactId() + ".enabled").orElse("true") + "]")))
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> {
-                    final var value = e.getValue().toString();
+                    final var value = e.getValue();
                     return "- " + e.getKey() + ": " + value.substring(value.indexOf('[') + 1, value.lastIndexOf(']'));
                 })
                 .collect(joining("\n")));

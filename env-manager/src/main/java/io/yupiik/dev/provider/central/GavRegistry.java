@@ -17,15 +17,24 @@ package io.yupiik.dev.provider.central;
 
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 
-@ApplicationScoped
-public class SingletonCentralConfiguration {
-    private final CentralConfiguration configuration;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
-    public SingletonCentralConfiguration(final CentralConfiguration configuration) {
-        this.configuration = configuration;
+@ApplicationScoped
+public class GavRegistry {
+    private final List<Gav> gavs;
+
+    public GavRegistry(final CentralConfiguration configuration) {
+        this.gavs = configuration == null ? null : Stream.ofNullable(configuration.gavs())
+                .flatMap(it -> Stream.of(it.split(",")))
+                .map(String::strip)
+                .filter(Predicate.not(String::isBlank))
+                .map(Gav::of)
+                .toList();
     }
 
-    public CentralConfiguration configuration() {
-        return configuration;
+    public List<Gav> gavs() {
+        return gavs;
     }
 }

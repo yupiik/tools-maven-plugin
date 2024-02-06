@@ -20,6 +20,7 @@ import io.yupiik.dev.provider.model.Archive;
 import io.yupiik.dev.provider.model.Candidate;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
+import io.yupiik.dev.shared.http.Cache;
 import io.yupiik.dev.shared.http.YemHttpClient;
 
 import java.io.IOException;
@@ -33,30 +34,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Stream;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
-public abstract class CentralBaseProvider implements Provider {
+public class CentralBaseProvider implements Provider {
     private final YemHttpClient client;
     private final Archives archives;
     private final URI base;
+    private final Cache cache;
     private final Gav gav;
     private final Path local;
     private final boolean enabled;
 
-    protected CentralBaseProvider(final YemHttpClient client,
-                                  final CentralConfiguration conf, // children must use SingletonCentralConfiguration to avoid multiple creations
-                                  final Archives archives,
-                                  final String gav,
-                                  final boolean enabled) {
+    public CentralBaseProvider(final YemHttpClient client,
+                               final CentralConfiguration conf, // children must use SingletonCentralConfiguration to avoid multiple creations
+                               final Archives archives,
+                               final Cache cache,
+                               final Gav gav,
+                               final boolean enabled) {
         this.client = client;
         this.archives = archives;
+        this.cache = cache;
         this.base = URI.create(conf.base());
         this.local = Path.of(conf.local());
-        this.gav = Gav.of(gav);
+        this.gav = gav;
         this.enabled = enabled;
     }
 
@@ -93,11 +99,11 @@ public abstract class CentralBaseProvider implements Provider {
     }
 
     @Override
-    public Path install(final String tool, final String version, final ProgressListener progressListener) {
+    public CompletionStage<Path> install(final String tool, final String version, final ProgressListener progressListener) {
         final var archivePath = local.resolve(relativePath(version));
         final var exploded = archivePath.getParent().resolve(archivePath.getFileName() + "_exploded");
         if (Files.exists(exploded)) {
-            return exploded;
+            return completedFuture(exploded);
         }
 
         if (!enabled) {
@@ -109,15 +115,13 @@ public abstract class CentralBaseProvider implements Provider {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
-        final var archive = Files.notExists(archivePath) ?
-                download(tool, version, archivePath, progressListener) :
-                new Archive(gav.type(), archivePath);
-        return archives.unpack(archive, exploded);
+        return (Files.notExists(archivePath) ? download(tool, version, archivePath, progressListener) : completedFuture(new Archive(gav.type(), archivePath)))
+                .thenApply(archive -> archives.unpack(archive, exploded));
     }
 
     @Override
-    public Map<Candidate, List<Version>> listLocal() {
-        return listTools().stream()
+    public CompletionStage<Map<Candidate, List<Version>>> listLocal() {
+        return listTools().thenApply(candidates -> candidates.stream()
                 .collect(toMap(identity(), it -> {
                     final var artifactDir = local.resolve(relativePath("ignored")).getParent().getParent();
                     if (Files.notExists(artifactDir)) {
@@ -146,7 +150,7 @@ public abstract class CentralBaseProvider implements Provider {
                     } catch (final IOException e) {
                         return List.of();
                     }
-                }));
+                })));
     }
 
     @Override
@@ -170,46 +174,62 @@ public abstract class CentralBaseProvider implements Provider {
     }
 
     @Override
-    public List<Candidate> listTools() {
+    public CompletionStage<List<Candidate>> listTools() {
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
 
         final var gavString = Stream.of(gav.groupId(), gav.artifactId(), gav.type(), gav.classifier())
                 .filter(Objects::nonNull)
                 .collect(joining(":"));
-        return List.of(new Candidate(gavString, gav.artifactId(), gavString + " downloaded from central.", base.toASCIIString()));
+        return completedFuture(List.of(new Candidate(gavString, gav.artifactId(), gavString + " downloaded from central.", base.toASCIIString())));
     }
 
     @Override
-    public Archive download(final String tool, final String version, final Path target, final ProgressListener progressListener) {
+    public CompletionStage<Archive> download(final String tool, final String version, final Path target, final ProgressListener progressListener) {
         if (!enabled) {
             throw new IllegalStateException(gav + " support not enabled (by configuration)");
         }
 
-        final var res = client.getFile(HttpRequest.newBuilder()
-                        .uri(base.resolve(relativePath(version)))
-                        .build(),
-                target, progressListener);
-        ensure200(res);
-        return new Archive(gav.type().endsWith(".zip") || gav.type().endsWith(".jar") ? "zip" : "tar.gz", target);
+        return client.getFile(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve(relativePath(version)))
+                                .build(),
+                        target, progressListener)
+                .thenApply(res -> {
+                    ensure200(res);
+                    return new Archive(gav.type().endsWith(".zip") || gav.type().endsWith(".jar") ? "zip" : "tar.gz", target);
+                });
     }
 
     @Override
-    public List<Version> listVersions(final String tool) {
+    public CompletionStage<List<Version>> listVersions(final String tool) {
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
 
-        final var res = client.send(HttpRequest.newBuilder()
-                .GET()
-                .uri(base
-                        .resolve(gav.groupId().replace('.', '/') + '/')
-                        .resolve(gav.artifactId() + '/')
-                        .resolve("maven-metadata.xml"))
-                .build());
-        ensure200(res);
-        return parseVersions(res.body());
+        final var entry = cache.lookup(base.toASCIIString());
+        if (entry != null && entry.hit() != null) {
+            return completedFuture(parseVersions(entry.hit().payload()));
+        }
+
+        return client.sendAsync(HttpRequest.newBuilder()
+                        .GET()
+                        .uri(base
+                                .resolve(gav.groupId().replace('.', '/') + '/')
+                                .resolve(gav.artifactId() + '/')
+                                .resolve("maven-metadata.xml"))
+                        .build())
+                .thenApply(this::ensure200)
+                .thenApply(res -> {
+                    final var filtered = parseVersions(res.body());
+                    if (entry != null) {
+                        cache.save(entry.key(), Map.of(), filtered.stream()
+                                .map(it -> "<version>" + it.version() + "</version>")
+                                .collect(joining("\n", "", "\n")));
+                    }
+                    return parseVersions(res.body());
+                });
     }
 
     private String relativePath(final String version) {
@@ -236,41 +256,10 @@ public abstract class CentralBaseProvider implements Provider {
         return out;
     }
 
-    private void ensure200(final HttpResponse<?> res) {
+    private <A> HttpResponse<A> ensure200(final HttpResponse<A> res) {
         if (res.statusCode() != 200) {
             throw new IllegalStateException("Invalid response: " + res + "\n" + res.body());
         }
-    }
-
-    public record Gav(String groupId, String artifactId, String type, String classifier) implements Comparable<Gav> {
-        private static Gav of(final String gav) {
-            final var segments = gav.split(":");
-            return switch (segments.length) {
-                case 2 -> new Gav(segments[0], segments[1], "jar", null);
-                case 3 -> new Gav(segments[0], segments[1], segments[2], null);
-                case 4 -> new Gav(segments[0], segments[1], segments[2], segments[3]);
-                default -> throw new IllegalArgumentException("Invalid gav: '" + gav + "'");
-            };
-        }
-
-        @Override
-        public int compareTo(final Gav o) {
-            if (this == o) {
-                return 0;
-            }
-            final int g = groupId().compareTo(o.groupId());
-            if (g != 0) {
-                return g;
-            }
-            final int a = artifactId().compareTo(o.artifactId());
-            if (a != 0) {
-                return a;
-            }
-            final int t = type().compareTo(o.type());
-            if (t != 0) {
-                return t;
-            }
-            return (classifier == null ? "" : classifier).compareTo(o.classifier() == null ? "" : o.classifier());
-        }
+        return res;
     }
 }

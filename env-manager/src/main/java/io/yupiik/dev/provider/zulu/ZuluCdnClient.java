@@ -36,8 +36,10 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 
 import static java.util.Optional.ofNullable;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -95,11 +97,11 @@ public class ZuluCdnClient implements Provider {
     }
 
     @Override
-    public Path install(final String tool, final String version, final ProgressListener progressListener) {
+    public CompletionStage<Path> install(final String tool, final String version, final ProgressListener progressListener) {
         final var archivePath = local.resolve(version).resolve(version + '-' + suffix);
         final var exploded = archivePath.getParent().resolve("distribution_exploded");
         if (Files.exists(exploded)) {
-            return exploded;
+            return completedFuture(exploded);
         }
 
         if (!enabled) {
@@ -111,18 +113,18 @@ public class ZuluCdnClient implements Provider {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
-        final var archive = Files.notExists(archivePath) ?
+        return (Files.notExists(archivePath) ?
                 download(tool, version, archivePath, progressListener) :
-                new Archive(suffix.endsWith(".zip") ? "zip" : "tar.gz", archivePath);
-        return archives.unpack(archive, exploded);
+                completedFuture(new Archive(suffix.endsWith(".zip") ? "zip" : "tar.gz", archivePath)))
+                .thenApply(archive -> archives.unpack(archive, exploded));
     }
 
     @Override
-    public Map<Candidate, List<Version>> listLocal() {
+    public CompletionStage<Map<Candidate, List<Version>>> listLocal() {
         if (Files.notExists(local)) {
-            return Map.of();
+            return completedFuture(Map.of());
         }
-        return listTools().stream().collect(toMap(identity(), tool -> {
+        return listTools().thenApply(candidates -> candidates.stream().collect(toMap(identity(), tool -> {
             try (final var versions = Files.list(local)) {
                 return versions
                         .map(v -> {
@@ -137,7 +139,7 @@ public class ZuluCdnClient implements Provider {
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
-        }));
+        })));
     }
 
     @Override
@@ -161,49 +163,54 @@ public class ZuluCdnClient implements Provider {
     }
 
     @Override
-    public Archive download(final String tool, final String id, final Path target, final ProgressListener progressListener) {
+    public CompletionStage<Archive> download(final String tool, final String id, final Path target, final ProgressListener progressListener) {
         if (!enabled) {
             throw new IllegalStateException("Zulu support not enabled (by configuration)");
         }
 
-        final var res = client.getFile(HttpRequest.newBuilder()
-                        .uri(base.resolve("zulu" + id + '-' + suffix))
-                        .build(),
-                target, progressListener);
-        ensure200(res);
-        return new Archive(suffix.endsWith(".zip") ? "zip" : "tar.gz", target);
+        return client.getFile(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve("zulu" + id + '-' + suffix))
+                                .build(),
+                        target, progressListener)
+                .thenApply(res -> {
+                    ensure200(res);
+                    return new Archive(suffix.endsWith(".zip") ? "zip" : "tar.gz", target);
+                });
     }
 
     @Override
-    public List<Candidate> listTools() {
+    public CompletionStage<List<Candidate>> listTools() {
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
-        return List.of(new Candidate("java", "java", "Java JRE or JDK downloaded from Azul CDN.", base.toASCIIString()));
+        return completedFuture(List.of(new Candidate("java", "java", "Java JRE or JDK downloaded from Azul CDN.", base.toASCIIString())));
     }
 
     @Override
-    public List<Version> listVersions(final String tool) {
+    public CompletionStage<List<Version>> listVersions(final String tool) {
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
 
         // here the payload is >5M so we can let the client cache it but saving the result will be way more efficient on the JSON side
         final var entry = cache.lookup(base.toASCIIString());
         if (entry != null && entry.hit() != null) {
-            return parseVersions(entry.hit().payload());
+            return completedFuture(parseVersions(entry.hit().payload()));
         }
 
-        final var res = client.send(HttpRequest.newBuilder().GET().uri(base).build());
-        ensure200(res);
+        return client.sendAsync(HttpRequest.newBuilder().GET().uri(base).build())
+                .thenApply(res -> {
+                    ensure200(res);
 
-        final var filtered = parseVersions(res.body());
-        if (entry != null) {
-            cache.save(entry.key(), Map.of(), filtered.stream()
-                    .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
-                    .collect(joining("\n", "", "\n")));
-        }
-        return filtered;
+                    final var filtered = parseVersions(res.body());
+                    if (entry != null) {
+                        cache.save(entry.key(), Map.of(), filtered.stream()
+                                .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
+                                .collect(joining("\n", "", "\n")));
+                    }
+                    return filtered;
+                });
     }
 
     private void ensure200(final HttpResponse<?> res) {

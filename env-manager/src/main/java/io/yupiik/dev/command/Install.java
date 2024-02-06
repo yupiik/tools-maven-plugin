@@ -15,12 +15,12 @@
  */
 package io.yupiik.dev.command;
 
-import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.ProviderRegistry;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
@@ -40,18 +40,27 @@ public class Install implements Runnable {
 
     @Override
     public void run() {
-        final var providerAndVersion = registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), conf.relaxed());
-        final var result = providerAndVersion.getKey().install(conf.tool(), providerAndVersion.getValue().identifier(), new Provider.ProgressListener() {
-            @Override
-            public void onProcess(final String name, final double percent) {
-                final int plain = (int) (10 * percent);
-                System.out.printf("%s [%s]\r",
-                        name,
-                        (plain == 0 ? "" : IntStream.range(0, plain).mapToObj(i -> "X").collect(joining(""))) +
-                                (plain == 10 ? "" : IntStream.range(0, 10 - plain).mapToObj(i -> "_").collect(joining(""))));
-            }
-        });
-        logger.info(() -> "Installed " + conf.tool() + "@" + providerAndVersion.getValue().version() + " at '" + result + "'");
+        try {
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), conf.relaxed())
+                    .thenCompose(providerAndVersion -> providerAndVersion.getKey()
+                            .install(conf.tool(), providerAndVersion.getValue().identifier(), this::onProgress)
+                            .thenAccept(result -> logger.info(() -> "Installed " + conf.tool() + "@" + providerAndVersion.getValue().version() + " at '" + result + "'")))
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
+    }
+
+    private void onProgress(final String name, final double percent) {
+        final int plain = (int) (10 * percent);
+        System.out.printf("%s [%s]\r",
+                name,
+                (plain == 0 ? "" : IntStream.range(0, plain).mapToObj(i -> "X").collect(joining(""))) +
+                        (plain == 10 ? "" : IntStream.range(0, 10 - plain).mapToObj(i -> "_").collect(joining(""))));
     }
 
     @RootConfiguration("install")

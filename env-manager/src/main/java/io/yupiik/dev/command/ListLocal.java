@@ -20,9 +20,13 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.joining;
 
 @Command(name = "list-local", description = "List local available distributions.")
@@ -40,19 +44,38 @@ public class ListLocal implements Runnable {
 
     @Override
     public void run() {
-        final var collect = registry.providers().stream()
-                .flatMap(p -> p.listLocal().entrySet().stream()
-                        .filter(it -> (conf.tool() == null || Objects.equals(conf.tool(), it.getKey().tool())) &&
-                                !it.getValue().isEmpty())
-                        .map(e -> "- [" + p.name() + "] " + e.getKey().tool() + ":" + (e.getValue().isEmpty() ?
-                                " no version" :
-                                e.getValue().stream()
-                                        .sorted((a, b) -> -a.compareTo(b)) // more recent first
-                                        .map(v -> "-- " + v.version())
-                                        .collect(joining("\n", "\n", "\n")))))
-                .sorted()
-                .collect(joining("\n"));
-        logger.info(() -> collect.isBlank() ? "No distribution available." : collect);
+        final var promises = registry.providers().stream()
+                .map(p -> p.listLocal()
+                        .thenApply(candidates -> candidates.entrySet().stream()
+                                .filter(it -> (conf.tool() == null || Objects.equals(conf.tool(), it.getKey().tool())) &&
+                                        !it.getValue().isEmpty())
+                                .map(e -> "- [" + p.name() + "] " + e.getKey().tool() + ":" + (e.getValue().isEmpty() ?
+                                        " no version" :
+                                        e.getValue().stream()
+                                                .sorted((a, b) -> -a.compareTo(b)) // more recent first
+                                                .map(v -> "-- " + v.version())
+                                                .collect(joining("\n", "\n", "\n"))))
+                                .toList())
+                        .toCompletableFuture())
+                .toList();
+
+        try {
+            allOf(promises.toArray(new CompletableFuture<?>[0]))
+                    .thenAccept(ok -> {
+                        final var collect = promises.stream()
+                                .flatMap(p -> p.getNow(List.of()).stream())
+                                .sorted()
+                                .collect(joining("\n"));
+                        logger.info(() -> collect.isBlank() ? "No distribution available." : collect);
+                    })
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
     }
 
     @RootConfiguration("list-local")

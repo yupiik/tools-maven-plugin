@@ -21,19 +21,27 @@ import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.provider.sdkman.SdkManClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
 import static java.util.Map.entry;
+import static java.util.Optional.empty;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.logging.Level.FINEST;
 import static java.util.stream.Collectors.joining;
 
 @ApplicationScoped
 public class ProviderRegistry {
+    private final Logger logger = Logger.getLogger(getClass().getName());
     private final List<Provider> providers;
 
     public ProviderRegistry(final List<Provider> providers) {
@@ -60,55 +68,116 @@ public class ProviderRegistry {
         return providers;
     }
 
-    public Map.Entry<Provider, Version> findByToolVersionAndProvider(final String tool, final String version, final String provider,
-                                                                     final boolean relaxed) {
-        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, new Cache(new IdentityHashMap<>(), new IdentityHashMap<>()))
-                .orElseThrow(() -> new IllegalArgumentException("No provider for tool '" + tool + "' in version '" + version + "', available tools:\n" +
-                        providers().stream()
-                                .flatMap(it -> it.listTools().stream()
-                                        .map(Candidate::tool)
-                                        .map(t -> "- " + t + "\n" + it.listVersions(t).stream()
-                                                .map(v -> "-- " + v.identifier() + " (" + v.version() + ")")
-                                                .collect(joining("\n"))))
-                                .sorted()
-                                .collect(joining("\n"))));
+    public CompletionStage<Map.Entry<Provider, Version>> findByToolVersionAndProvider(final String tool, final String version, final String provider,
+                                                                                      final boolean relaxed) {
+        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, new Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()))
+                .thenApply(found -> found.orElseThrow(() -> new IllegalArgumentException(
+                        "No provider for tool " + tool + "@" + version + "', available tools:\n" +
+                                providers().stream()
+                                        .flatMap(it -> { // here we accept to block since normally we cached everything
+                                            try {
+                                                return it.listTools().toCompletableFuture().get().stream()
+                                                        .map(Candidate::tool)
+                                                        .map(t -> {
+                                                            try {
+                                                                return "- " + t + "\n" + it.listVersions(t)
+                                                                        .toCompletableFuture().get().stream()
+                                                                        .map(v -> "-- " + v.identifier() + " (" + v.version() + ")")
+                                                                        .collect(joining("\n"));
+                                                            } catch (final InterruptedException e) {
+                                                                Thread.currentThread().interrupt();
+                                                                throw new IllegalStateException(e);
+                                                            } catch (final ExecutionException e) {
+                                                                throw new IllegalStateException(e.getCause());
+                                                            }
+                                                        });
+                                            } catch (final InterruptedException e) {
+                                                Thread.currentThread().interrupt();
+                                                throw new IllegalStateException(e);
+                                            } catch (final ExecutionException e) {
+                                                throw new IllegalStateException(e.getCause());
+                                            }
+                                        })
+                                        .sorted()
+                                        .collect(joining("\n")))));
     }
 
-    public Optional<Map.Entry<Provider, Version>> tryFindByToolVersionAndProvider(
+    public CompletionStage<Optional<Map.Entry<Provider, Version>>> tryFindByToolVersionAndProvider(
             final String tool, final String version, final String provider, final boolean relaxed,
             final Cache cache) {
-        return providers().stream()
+        final var result = new CompletableFuture<Optional<Map.Entry<Provider, Version>>>();
+        final var promises = providers().stream()
                 .filter(it -> provider == null ||
                         // enable "--install-provider zulu" for example
                         Objects.equals(provider, it.name()) ||
                         it.getClass().getSimpleName().toLowerCase(ROOT).startsWith(provider.toLowerCase(ROOT)))
-                .map(it -> {
-                    final var candidates = it.listTools();
+                .map(it -> it.listTools().thenCompose(candidates -> {
                     if (candidates.stream().anyMatch(t -> tool.equals(t.tool()))) {
-                        return cache.local.computeIfAbsent(it, Provider::listLocal)
-                                .entrySet().stream()
-                                .filter(e -> Objects.equals(e.getKey().tool(), tool))
-                                .flatMap(e -> e.getValue().stream()
-                                        .filter(v -> matchVersion(v, version, relaxed))
-                                        .findFirst()
-                                        .stream())
-                                .map(v -> entry(it, v))
+                        final var candidateListMap = cache.local.get(it);
+                        return (candidateListMap != null ?
+                                completedFuture(candidateListMap) :
+                                it.listLocal().thenApply(res -> {
+                                    cache.local.putIfAbsent(it, res);
+                                    return res;
+                                })).thenCompose(list -> findMatchingVersion(tool, version, relaxed, it, list)
                                 .findFirst()
                                 .map(Optional::of)
-                                .orElseGet(() -> {
-                                    final var versions = cache.versions
-                                            .computeIfAbsent(it, p -> new HashMap<>())
-                                            .computeIfAbsent(tool, it::listVersions);
-                                    return versions.stream()
-                                            .filter(v -> matchVersion(v, version, relaxed))
-                                            .findFirst()
-                                            .map(v -> entry(it, v));
-                                });
+                                .map(CompletableFuture::completedFuture)
+                                .orElseGet(() -> findRemoteVersions(tool, cache, it)
+                                        .thenApply(all -> all.stream()
+                                                .filter(v -> matchVersion(v, version, relaxed))
+                                                .findFirst()
+                                                .map(v -> entry(it, v)))
+                                        .toCompletableFuture()));
                     }
-                    return Optional.<Map.Entry<Provider, Version>>empty();
-                })
-                .flatMap(Optional::stream)
-                .findFirst();
+                    return completedFuture(Optional.empty());
+                }))
+                .toList();
+
+        // don't leak a promise when exiting
+        var guard = completedFuture(null);
+        for (final var it : promises) {
+            guard = guard.thenCompose(ok -> it
+                    .thenAccept(opt -> {
+                        if (opt.isPresent() && !result.isDone()) {
+                            result.complete(opt);
+                        }
+                    })
+                    .exceptionally(e -> {
+                        logger.log(FINEST, e, e::getMessage);
+                        return null;
+                    }).thenApply(ignored -> null));
+        }
+
+        return guard.thenCompose(allDone -> {
+            if (!result.isDone()) {
+                result.complete(empty());
+            }
+            return result;
+        });
+    }
+
+    private CompletionStage<List<Version>> findRemoteVersions(final String tool, final Cache cache, final Provider provider) {
+        final var providerCache = cache.versions
+                .computeIfAbsent(provider, p -> new ConcurrentHashMap<>());
+        final var cached = providerCache.get(tool);
+        return (cached != null ?
+                completedFuture(cached) :
+                provider.listVersions(tool).thenApply(res -> {
+                    providerCache.putIfAbsent(tool, res);
+                    return res;
+                }));
+    }
+
+    private Stream<Map.Entry<Provider, Version>> findMatchingVersion(final String tool, final String version,
+                                                                     final boolean relaxed, final Provider provider,
+                                                                     final Map<Candidate, List<Version>> versions) {
+        return versions.entrySet().stream()
+                .filter(e -> Objects.equals(e.getKey().tool(), tool))
+                .flatMap(e -> e.getValue().stream().filter(v -> matchVersion(v, version, relaxed)))
+                .findFirst()
+                .stream()
+                .map(v -> entry(provider, v));
     }
 
     private boolean matchVersion(final Version v, final String version, final boolean relaxed) {

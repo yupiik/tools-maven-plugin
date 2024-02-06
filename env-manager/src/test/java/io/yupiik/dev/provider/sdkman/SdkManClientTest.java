@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,8 +82,8 @@ class SdkManClientTest {
                                                                          $ sdk install maven
             --------------------------------------------------------------------------------
             """)
-    void listTools(final URI uri, @TempDir final Path work, final YemHttpClient client) {
-        final var actual = sdkMan(client, uri, work).listTools();
+    void listTools(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
+        final var actual = sdkMan(client, uri, work).listTools().toCompletableFuture().get();
         final var expected = List.of(
                 new Candidate(
                         "activemq", "Apache ActiveMQ (Classic)", // "5.17.1",
@@ -124,7 +125,7 @@ class SdkManClientTest {
                 $ sdk install java 221-zulu-tem
             Hit Q to exit this list view
             ================================================================================""")
-    void listToolVersions(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void listToolVersions(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         assertEquals(
                 List.of(
                         new Version("Gluon", "22.1.0.1.r17", "gln", "22.1.0.1.r17-gln"),
@@ -136,7 +137,7 @@ class SdkManClientTest {
                         new Version("Zulu", "21.0.1.crac", "zulu", "21.0.1.crac-zulu"),
                         new Version("Zulu", "17.0.10", "zulu", "17.0.10-zulu"),
                         new Version("Zulu", "17.0.10.fx", "zulu", "17.0.10.fx-zulu")),
-                sdkMan(client, uri, work).listVersions("java"));
+                sdkMan(client, uri, work).listVersions("java").toCompletableFuture().get());
     }
 
     @Test
@@ -152,48 +153,50 @@ class SdkManClientTest {
             * - installed
             > - currently in use
             ================================================================================""")
-    void listToolVersionsSimple(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void listToolVersionsSimple(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         assertEquals(
                 Stream.of("5.19.1", "5.17.1", "5.15.9", "5.15.8", "5.14.0", "5.13.4", "5.10.0")
                         .map(v -> new Version("activemq", v, "sdkman", v))
                         .toList(),
-                sdkMan(client, uri, work).listVersions("activemq").stream()
+                sdkMan(client, uri, work).listVersions("activemq").toCompletableFuture().get().stream()
                         .sorted((a, b) -> -a.compareTo(b))
                         .toList());
     }
 
     @Test
     @Mock(uri = "/2/broker/download/java/21-zulu/linuxx64", payload = "you got a tar.gz")
-    void download(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+    void download(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
         final var out = work.resolve("download.tar.gz");
-        assertEquals(new Archive("tar.gz", out), sdkMan(client, uri, work.resolve("local")).download("java", "21-zulu", out, Provider.ProgressListener.NOOP));
+        assertEquals(new Archive("tar.gz", out), sdkMan(client, uri, work.resolve("local")).download("java", "21-zulu", out, Provider.ProgressListener.NOOP)
+                .toCompletableFuture().get());
         assertEquals("you got a tar.gz", Files.readString(out));
     }
 
     @Test
     @Mock(uri = "/2/broker/download/java/21-zulu/linuxx64", payload = "you got a tar.gz", format = "tar.gz")
-    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
         final var installationDir = work.resolve("candidates/java/21-zulu");
-        assertEquals(installationDir, sdkMan(client, uri, work.resolve("candidates")).install("java", "21-zulu", Provider.ProgressListener.NOOP));
+        assertEquals(installationDir, sdkMan(client, uri, work.resolve("candidates")).install("java", "21-zulu", Provider.ProgressListener.NOOP)
+                .toCompletableFuture().get());
         assertTrue(Files.isDirectory(installationDir));
         assertEquals("you got a tar.gz", Files.readString(installationDir.resolve("entry.txt")));
     }
 
     @Test
     @Mock(uri = "/2/broker/download/java/21-zulu/linuxx64", payload = "you got a tar.gz", format = "tar.gz")
-    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("candidates/java/21-zulu");
         final var provider = sdkMan(client, uri, work.resolve("candidates"));
-        provider.install("java", "21-zulu", Provider.ProgressListener.NOOP);
+        provider.install("java", "21-zulu", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         assertEquals(installationDir, provider.resolve("java", "21-zulu").orElseThrow());
     }
 
     @Test
     @Mock(uri = "/2/broker/download/java/21-zulu/linuxx64", payload = "you got a tar.gz", format = "tar.gz")
-    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("candidates/java/21-zulu");
         final var provider = sdkMan(client, uri, work.resolve("candidates"));
-        provider.install("java", "21-zulu", Provider.ProgressListener.NOOP);
+        provider.install("java", "21-zulu", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         provider.delete("java", "21-zulu");
         assertFalse(Files.exists(installationDir));
     }

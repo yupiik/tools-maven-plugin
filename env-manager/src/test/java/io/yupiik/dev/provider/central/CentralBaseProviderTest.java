@@ -19,6 +19,8 @@ import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.model.Archive;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
+import io.yupiik.dev.shared.http.Cache;
+import io.yupiik.dev.shared.http.HttpConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.dev.test.Mock;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,8 +59,8 @@ class CentralBaseProviderTest {
               </versioning>
             </metadata>
             """)
-    void lastVersions(final URI uri, @TempDir final Path work, final YemHttpClient client) {
-        final var actual = newProvider(uri, client, work).listVersions("");
+    void lastVersions(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
+        final var actual = newProvider(uri, client, work).listVersions("").toCompletableFuture().get();
         assertEquals(
                 List.of(new Version("org.foo", "1.0.0", "bar", "1.0.0"),
                         new Version("org.foo", "1.0.2", "bar", "1.0.2"),
@@ -70,43 +73,48 @@ class CentralBaseProviderTest {
 
     @Test
     @Mock(uri = "/2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz", payload = "you got a tar.gz")
-    void download(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+    void download(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
         final var out = work.resolve("download.tar.gz");
-        assertEquals(new Archive("tar.gz", out), newProvider(uri, client, work.resolve("local")).download("", "1.0.2", out, Provider.ProgressListener.NOOP));
+        assertEquals(new Archive("tar.gz", out), newProvider(uri, client, work.resolve("local"))
+                .download("", "1.0.2", out, Provider.ProgressListener.NOOP)
+                .toCompletableFuture().get());
         assertEquals("you got a tar.gz", Files.readString(out));
     }
 
     @Test
     @Mock(uri = "/2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz", payload = "you got a tar.gz", format = "tar.gz")
-    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
         final var installationDir = work.resolve("m2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz_exploded");
-        assertEquals(installationDir, newProvider(uri, client, work.resolve("m2")).install("", "1.0.2", Provider.ProgressListener.NOOP));
+        assertEquals(installationDir, newProvider(uri, client, work.resolve("m2")).install("", "1.0.2", Provider.ProgressListener.NOOP)
+                .toCompletableFuture().get());
         assertTrue(Files.isDirectory(installationDir));
         assertEquals("you got a tar.gz", Files.readString(installationDir.resolve("entry.txt")));
     }
 
     @Test
     @Mock(uri = "/2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz", payload = "you got a tar.gz", format = "tar.gz")
-    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("m2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz_exploded");
         final var provider = newProvider(uri, client, work.resolve("m2"));
-        provider.install("", "1.0.2", Provider.ProgressListener.NOOP);
+        provider.install("", "1.0.2", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         assertEquals(installationDir, provider.resolve("", "1.0.2").orElseThrow());
     }
 
     @Test
     @Mock(uri = "/2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz", payload = "you got a tar.gz", format = "tar.gz")
-    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("m2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz_exploded");
         final var provider = newProvider(uri, client, work.resolve("m2"));
-        provider.install("", "1.0.2", Provider.ProgressListener.NOOP);
+        provider.install("", "1.0.2", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         provider.delete("", "1.0.2");
         assertFalse(Files.exists(installationDir));
         assertFalse(Files.exists(work.resolve("m2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz")));
     }
 
     private CentralBaseProvider newProvider(final URI uri, final YemHttpClient client, final Path local) {
-        return new CentralBaseProvider(client, new CentralConfiguration(uri.toASCIIString(), local.toString()), new Archives(), "org.foo:bar:tar.gz:simple", true) {
-        };
+        return new CentralBaseProvider(
+                client, new CentralConfiguration(uri.toASCIIString(), local.toString(), ""), new Archives(),
+                new Cache(new HttpConfiguration(1, false, 30_000L, 30_000L, 0, "none"), null),
+                Gav.of("org.foo:bar:tar.gz:simple"), true);
     }
 }

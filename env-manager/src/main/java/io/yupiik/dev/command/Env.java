@@ -23,6 +23,7 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -92,36 +93,44 @@ public class Env implements Runnable {
         logger.addHandler(tempHandler);
 
         try {
-            final var resolved = rc.toToolProperties(tools);
-            final var toolVars = resolved.entrySet().stream()
-                    .map(e -> export + e.getKey().envVarName() + "=\"" + quoted(e.getValue()) + "\"")
-                    .sorted()
-                    .collect(joining("\n", "", "\n"));
+            rc.toToolProperties(tools).thenAccept(resolved -> {
+                        final var toolVars = resolved.entrySet().stream()
+                                .map(e -> export + e.getKey().envVarName() + "=\"" + quoted(e.getValue()) + "\"")
+                                .sorted()
+                                .collect(joining("\n", "", "\n"));
 
-            final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
-                    .or(() -> ofNullable(System.getenv(pathName)))
-                    .orElse("");
-            final var pathVars = resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath) ?
-                    export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\"\n" +
-                            export + pathName + "=\"" + resolved.entrySet().stream()
-                            .filter(r -> r.getKey().addToPath())
-                            .map(r -> quoted(rc.toBin(r.getValue())))
-                            .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\"\n" :
-                    "";
-            final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
-                    resolved.entrySet().stream()
-                            .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\"")
-                            .collect(joining("\n", "", "\n")) :
-                    "";
+                        final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
+                                .or(() -> ofNullable(System.getenv(pathName)))
+                                .orElse("");
+                        final var pathVars = resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath) ?
+                                export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\"\n" +
+                                        export + pathName + "=\"" + resolved.entrySet().stream()
+                                        .filter(r -> r.getKey().addToPath())
+                                        .map(r -> quoted(rc.toBin(r.getValue())))
+                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\"\n" :
+                                "";
+                        final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
+                                resolved.entrySet().stream()
+                                        .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\"")
+                                        .collect(joining("\n", "", "\n")) :
+                                "";
 
-            final var script = messages.stream().map(m -> "echo \"[yem] " + m + "\"").collect(joining("\n", "", "\n\n")) +
-                    pathVars + toolVars + echos + "\n" +
-                    comment + "To load a .yemrc configuration run:\n" +
-                    comment + "[ -f .yemrc ] && eval $(yem env--env-file .yemrc)\n" +
-                    comment + "\n" +
-                    comment + "See https://www.yupiik.io/tools-maven-plugin/yem.html#autopath for details\n" +
-                    "\n";
-            System.out.println(script);
+                        final var script = messages.stream().map(m -> "echo \"[yem] " + m + "\"").collect(joining("\n", "", "\n\n")) +
+                                pathVars + toolVars + echos + "\n" +
+                                comment + "To load a .yemrc configuration run:\n" +
+                                comment + "[ -f .yemrc ] && eval $(yem env--env-file .yemrc)\n" +
+                                comment + "\n" +
+                                comment + "See https://www.yupiik.io/tools-maven-plugin/yem.html#autopath for details\n" +
+                                "\n";
+                        System.out.println(script);
+                    })
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
         } finally {
             logger.setUseParentHandlers(useParentHandlers);
             logger.removeHandler(tempHandler);

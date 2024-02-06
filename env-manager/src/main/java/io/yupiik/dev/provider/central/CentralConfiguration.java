@@ -21,5 +21,6 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 @RootConfiguration("central")
 public record CentralConfiguration(
         @Property(documentation = "Base repository URL.", defaultValue = "\"https://repo.maven.apache.org/maven2/\"") String base,
-        @Property(documentation = "Local repository path.", defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.m2/repository\"") String local) {
+        @Property(documentation = "Local repository path.", defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.m2/repository\"") String local,
+        @Property(documentation = "List of GAV to register (comma separated). Such a provider can be enabled/disabled using `artifactId.enabled` property.", defaultValue = "\"org.apache.maven:apache-maven:tar.gz:bin\"") String gavs) {
 }

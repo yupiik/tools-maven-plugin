@@ -16,19 +16,19 @@
 package io.yupiik.dev.command;
 
 import io.yupiik.dev.provider.ProviderRegistry;
-import io.yupiik.dev.provider.model.Candidate;
-import io.yupiik.dev.provider.model.Version;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
-import static java.util.function.Function.identity;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.logging.Level.FINEST;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -50,27 +50,57 @@ public class List implements Runnable {
     public void run() {
         final var toolFilter = toFilter(conf.tools());
         final var providerFilter = toFilter(conf.providers());
-        final var collect = registry.providers().stream()
+        final var promises = registry.providers().stream()
                 .filter(p -> providerFilter.test(p.name()) || providerFilter.test(p.getClass().getSimpleName().toLowerCase(ROOT)))
                 .map(p -> {
                     try {
-                        return p.listTools().stream()
-                                .filter(t -> toolFilter.test(t.tool()) || toolFilter.test(t.name()))
-                                .collect(toMap(c -> "[" + p.name() + "] " + c.tool(), tool -> p.listVersions(tool.tool())));
+                        return p.listTools()
+                                .thenCompose(tools -> {
+                                    final var filteredTools = tools.stream()
+                                            .filter(t -> toolFilter.test(t.tool()) || toolFilter.test(t.name()))
+                                            .toList();
+
+                                    final var versions = filteredTools.stream()
+                                            .map(v -> p.listVersions(v.tool()).toCompletableFuture())
+                                            .toList();
+
+                                    final var versionsIt = versions.iterator();
+                                    return allOf(versions.toArray(new CompletableFuture<?>[0]))
+                                            .thenApply(ready -> filteredTools.stream()
+                                                    .collect(toMap(c -> "[" + p.name() + "] " + c.tool(), tool -> versionsIt.next().getNow(java.util.List.of())))
+                                                    .entrySet().stream()
+                                                    .filter(Predicate.not(m -> m.getValue().isEmpty()))
+                                                    .map(e -> "- " + e.getKey() + ":" + e.getValue().stream()
+                                                            .sorted((a, b) -> -a.compareTo(b))
+                                                            .map(v -> "-- " + v.version())
+                                                            .collect(joining("\n", "\n", "\n")))
+                                                    .toList());
+                                })
+                                .exceptionally(e -> {
+                                    logger.log(FINEST, e, e::getMessage);
+                                    return java.util.List.of();
+                                })
+                                .toCompletableFuture();
                     } catch (final RuntimeException re) {
                         logger.log(FINEST, re, re::getMessage);
-                        return Map.<Candidate, java.util.List<Version>>of();
+                        return completedFuture(java.util.List.<String>of());
                     }
                 })
-                .flatMap(m -> m.entrySet().stream())
-                .filter(Predicate.not(m -> m.getValue().isEmpty()))
-                .map(e -> "- " + e.getKey() + ":" + e.getValue().stream()
-                        .sorted((a, b) -> -a.compareTo(b))
-                        .map(v -> "-- " + v.version())
-                        .collect(joining("\n", "\n", "\n")))
-                .sorted()
-                .collect(joining("\n"));
-        logger.info(() -> collect.isBlank() ? "No distribution available." : collect);
+                .toList();
+        try {
+            allOf(promises.toArray(new CompletableFuture<?>[0]))
+                    .thenApply(ok -> promises.stream()
+                            .flatMap(p -> p.getNow(java.util.List.of()).stream())
+                            .sorted()
+                            .collect(joining("\n")))
+                    .thenAccept(collect -> logger.info(() -> collect.isBlank() ? "No distribution available." : collect))
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
     }
 
     private Predicate<String> toFilter(final String values) {

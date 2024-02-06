@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -139,8 +140,8 @@ class ZuluCdnClientTest {
             	</table><hr></pre>
             </body>
             </html>""")
-    void listJavaVersions(final URI uri, @TempDir final Path local, final YemHttpClient client) {
-        final var actual = newProvider(uri, client, local).listVersions("");
+    void listJavaVersions(final URI uri, @TempDir final Path local, final YemHttpClient client) throws ExecutionException, InterruptedException {
+        final var actual = newProvider(uri, client, local).listVersions("").toCompletableFuture().get();
         assertEquals(
                 List.of(new Version("Azul", "21.0.2", "zulu", "21.32.17-ca-jre21.0.2")),
                 actual);
@@ -148,28 +149,29 @@ class ZuluCdnClientTest {
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException {
+    void install(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
         final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
-        assertEquals(installationDir, newProvider(uri, client, work.resolve("yem")).install("java", "21.0.2", Provider.ProgressListener.NOOP));
+        assertEquals(installationDir, newProvider(uri, client, work.resolve("yem")).install("java", "21.0.2", Provider.ProgressListener.NOOP)
+                .toCompletableFuture().get());
         assertTrue(Files.isDirectory(installationDir));
         assertEquals("you got a zip", Files.readString(installationDir.resolve("entry.txt")));
     }
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void resolve(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
         final var provider = newProvider(uri, client, work.resolve("yem"));
-        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
+        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         assertEquals(installationDir, provider.resolve("java", "21.0.2").orElseThrow());
     }
 
     @Test
     @Mock(uri = "/2/zulu21.0.2-linux_x64.zip", payload = "you got a zip", format = "zip")
-    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) {
+    void delete(final URI uri, @TempDir final Path work, final YemHttpClient client) throws ExecutionException, InterruptedException {
         final var installationDir = work.resolve("yem/21.0.2/distribution_exploded");
         final var provider = newProvider(uri, client, work.resolve("yem"));
-        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP);
+        provider.install("java", "21.0.2", Provider.ProgressListener.NOOP).toCompletableFuture().get();
         assertTrue(Files.exists(installationDir.getParent()));
         provider.delete("java", "21.0.2");
         assertTrue(Files.notExists(installationDir.getParent()));
@@ -179,6 +181,6 @@ class ZuluCdnClientTest {
         return new ZuluCdnClient(
                 client,
                 new ZuluCdnConfiguration(true, true, uri.toASCIIString(), "linux_x64.zip", local.toString()),
-                new Os(), new Archives(), new Cache(new HttpConfiguration(false, 30_000L, 30_000L, 0L, "none"), null));
+                new Os(), new Archives(), new Cache(new HttpConfiguration(1, false, 30_000L, 30_000L, 0L, "none"), null));
     }
 }

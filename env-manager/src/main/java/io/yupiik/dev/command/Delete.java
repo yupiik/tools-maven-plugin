@@ -20,6 +20,7 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 @Command(name = "delete", description = "Delete a distribution.")
@@ -36,9 +37,20 @@ public class Delete implements Runnable {
 
     @Override
     public void run() {
-        final var providerAndVersion = registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false);
-        providerAndVersion.getKey().delete(conf.tool(), providerAndVersion.getValue().identifier());
-        logger.info(() -> "Deleted " + conf.tool() + "@" + providerAndVersion.getValue().version());
+        try {
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
+                    .thenAccept(providerAndVersion -> {
+                        providerAndVersion.getKey().delete(conf.tool(), providerAndVersion.getValue().identifier());
+                        logger.info(() -> "Deleted " + conf.tool() + "@" + providerAndVersion.getValue().version());
+                    })
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
 
     }
 

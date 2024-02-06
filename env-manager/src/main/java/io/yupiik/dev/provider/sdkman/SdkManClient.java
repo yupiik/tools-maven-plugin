@@ -40,17 +40,21 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 
 @DefaultScoped
 public class SdkManClient implements Provider {
+    private final Logger logger = Logger.getLogger(getClass().getName());
     private final String platform;
     private final Archives archives;
     private final YemHttpClient client;
@@ -97,14 +101,14 @@ public class SdkManClient implements Provider {
     }
 
     @Override
-    public Path install(final String tool, final String version, final ProgressListener progressListener) {
+    public CompletionStage<Path> install(final String tool, final String version, final ProgressListener progressListener) {
         final var target = local.resolve(tool).resolve(version);
         if (Files.exists(target)) {
             final var maybeMac = target.resolve("Contents/Home"); // todo: check it is the case
             if (Files.isDirectory(maybeMac)) {
-                return maybeMac;
+                return completedFuture(maybeMac);
             }
-            return target;
+            return completedFuture(target);
         }
 
         if (!enabled) {
@@ -114,12 +118,13 @@ public class SdkManClient implements Provider {
         try {
             final var toDelete = Files.createDirectories(local.resolve(tool).resolve(version + ".yem.tmp"));
             Files.createDirectories(local.resolve(tool).resolve(version));
-            try {
-                final var archive = download(tool, version, toDelete.resolve("distro.archive"), progressListener);
-                return archives.unpack(archive, target);
-            } finally {
-                archives.delete(toDelete);
-            }
+            return download(tool, version, toDelete.resolve("distro.archive"), progressListener)
+                    .thenApply(archive -> archives.unpack(archive, target))
+                    .exceptionally(e -> {
+                        archives.delete(local.resolve(tool).resolve(version));
+                        throw new IllegalStateException(e);
+                    })
+                    .whenComplete((ok, ko) -> archives.delete(toDelete));
         } catch (final IOException e) {
             archives.delete(local.resolve(tool).resolve(version));
             throw new IllegalStateException(e);
@@ -127,13 +132,13 @@ public class SdkManClient implements Provider {
     }
 
     @Override
-    public Map<Candidate, List<Version>> listLocal() {
+    public CompletionStage<Map<Candidate, List<Version>>> listLocal() {
         if (Files.notExists(local)) {
-            return Map.of();
+            return completedFuture(Map.of());
         }
         try (final var tool = Files.list(local)) {
             // todo: if we cache in listTools we could reuse the meta there
-            return tool.collect(toMap(
+            return completedFuture(tool.collect(toMap(
                     it -> {
                         final var name = it.getFileName().toString();
                         return new Candidate(name, name, "", "");
@@ -153,7 +158,7 @@ public class SdkManClient implements Provider {
                         } catch (final IOException e) {
                             throw new IllegalStateException(e);
                         }
-                    }));
+                    })));
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
@@ -169,67 +174,76 @@ public class SdkManClient implements Provider {
     }
 
     @Override // warn: zip for windows often and tar.gz for linux
-    public Archive download(final String tool, final String version, final Path target, final ProgressListener progressListener) { // todo: checksum (x-sdkman headers) etc
+    public CompletionStage<Archive> download(final String tool, final String version, final Path target, final ProgressListener progressListener) { // todo: checksum (x-sdkman headers) etc
         if (!enabled) {
             throw new IllegalStateException("SDKMan support not enabled (by configuration)");
         }
-        final var res = client.getFile(HttpRequest.newBuilder()
-                        .uri(base.resolve("broker/download/" + tool + "/" + version + "/" + platform))
-                        .build(),
-                target, progressListener);
-        ensure200(res);
-        return new Archive(
-                StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Iterator<HttpResponse<?>>() {
-                            private HttpResponse<?> current = res;
+        return client.getFile(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve("broker/download/" + tool + "/" + version + "/" + platform))
+                                .build(),
+                        target, progressListener)
+                .thenApply(res -> {
+                    ensure200(res);
+                    return new Archive(
+                            StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Iterator<HttpResponse<?>>() {
+                                        private HttpResponse<?> current = res;
 
-                            @Override
-                            public boolean hasNext() {
-                                return current != null;
-                            }
+                                        @Override
+                                        public boolean hasNext() {
+                                            return current != null;
+                                        }
 
-                            @Override
-                            public HttpResponse<?> next() {
-                                try {
-                                    return current;
-                                } finally {
-                                    current = current.previousResponse().orElse(null);
-                                }
-                            }
-                        }, Spliterator.IMMUTABLE), false)
-                        .filter(Objects::nonNull)
-                        .map(r -> r.headers().firstValue("x-sdkman-archivetype").orElse(null))
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .orElse("tar.gz"),
-                target);
+                                        @Override
+                                        public HttpResponse<?> next() {
+                                            try {
+                                                return current;
+                                            } finally {
+                                                current = current.previousResponse().orElse(null);
+                                            }
+                                        }
+                                    }, Spliterator.IMMUTABLE), false)
+                                    .filter(Objects::nonNull)
+                                    .map(r -> r.headers().firstValue("x-sdkman-archivetype").orElse(null))
+                                    .filter(Objects::nonNull)
+                                    .findFirst()
+                                    .orElse("tar.gz"),
+                            target);
+                });
     }
 
     @Override
-    public List<Candidate> listTools() { // todo: cache in sdkman folder a sdkman.yem.properties? refresh once per day?
+    public CompletionStage<List<Candidate>> listTools() { // todo: cache in sdkman folder a sdkman.yem.properties? refresh once per day?
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
 
         // note: we could use ~/.sdkman/var/candidates too but
         //       this would assume sdkman keeps updating this list which is likely not true
 
-        final var res = client.send(HttpRequest.newBuilder()
-                .uri(base.resolve("candidates/list"))
-                .build());
-        ensure200(res);
-        return parseList(res.body());
+        return client.sendAsync(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve("candidates/list"))
+                                .build())
+                .thenApply(res -> {
+                    ensure200(res);
+                    return parseList(res.body());
+                });
     }
 
     @Override
-    public List<Version> listVersions(final String tool) {
+    public CompletionStage<List<Version>> listVersions(final String tool) {
         if (!enabled) {
-            return List.of();
+            return completedFuture(List.of());
         }
-        final var res = client.send(HttpRequest.newBuilder()
-                .uri(base.resolve("candidates/" + tool + "/" + platform + "/versions/list?current=&installed="))
-                .build());
-        ensure200(res);
-        return parseVersions(tool, res.body());
+        return client.sendAsync(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve("candidates/" + tool + "/" + platform + "/versions/list?current=&installed="))
+                                .build())
+                .thenApply(res -> {
+                    ensure200(res);
+                    return parseVersions(tool, res.body());
+                });
     }
 
     private List<Version> parseVersions(final String tool, final String body) {

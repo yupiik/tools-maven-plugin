@@ -46,11 +46,11 @@ class CommandsTest {
     @Test
     void config(@TempDir final Path work, final URI uri) {
         assertEquals("""
-                        - central: base=http://localhost:$port/2//m2/, local=$work/.m2/repository
+                        - apache-maven: enabled=false
+                        - central: base=http://localhost:$port/2//m2/, local=$work/.m2/repository, gavs=org.apache.maven:apache-maven:tar.gz:bin
                         - github: base=http://localhost:$port/2//github/, local=/github
-                        - maven: enabled=true
                         - minikube: enabled=false
-                        - sdkman: enabled=true, base=http://localhost:$port/2/, platform=linuxx64.tar.gz, local=$work/sdkman/candidates
+                        - sdkman: enabled=false, base=http://localhost:$port/2/, platform=linuxx64.tar.gz, local=$work/sdkman/candidates
                         - zulu: enabled=true, preferJre=false, base=http://localhost:$port/2/, platform=linux64.tar.gz, local=$work/zulu"""
                         .replace("$work", work.toString())
                         .replace("$port", Integer.toString(uri.getPort())),
@@ -206,6 +206,7 @@ class CommandsTest {
         public String get(final String key) {
             return switch (key) {
                 case "http.cache" -> "none";
+                case "apache-maven.enabled", "sdkman.enabled",  "minikube.enabled" -> "false";
                 case "github.base" -> baseHttp + "/github/";
                 case "github.local" -> work.resolve("/github").toString();
                 case "central.base" -> baseHttp + "/m2/";

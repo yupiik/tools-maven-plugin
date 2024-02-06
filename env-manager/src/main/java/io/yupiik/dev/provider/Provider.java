@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Represents a source of distribution/tool and integrates with a external+local (cache) storage.
@@ -30,17 +31,17 @@ import java.util.Optional;
 public interface Provider { // NOTE: normally we don't need a reactive impl since we resolve most of tools locally
     String name();
 
-    List<Candidate> listTools();
+    CompletionStage<List<Candidate>> listTools();
 
-    List<Version> listVersions(String tool);
+    CompletionStage<List<Version>> listVersions(String tool);
 
-    Archive download(String tool, String version, Path target, ProgressListener progressListener);
+    CompletionStage<Archive> download(String tool, String version, Path target, ProgressListener progressListener);
 
     void delete(String tool, String version);
 
-    Path install(String tool, String version, ProgressListener progressListener);
+    CompletionStage<Path> install(String tool, String version, ProgressListener progressListener);
 
-    Map<Candidate, List<Version>> listLocal();
+    CompletionStage<Map<Candidate, List<Version>>> listLocal();
 
     Optional<Path> resolve(String tool, String version);
 
