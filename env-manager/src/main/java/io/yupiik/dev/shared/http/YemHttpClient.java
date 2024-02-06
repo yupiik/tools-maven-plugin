@@ -28,6 +28,8 @@ import io.yupiik.fusion.httpclient.core.response.StaticHttpResponse;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
@@ -40,7 +42,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
@@ -65,10 +69,15 @@ public class YemHttpClient implements AutoCloseable {
 
     private final ExtendedHttpClient client;
     private final Cache cache;
+    private final Map<String, Boolean> state = new ConcurrentHashMap<>();
+    private final int offlineTimeout;
+    private final boolean offline;
 
     protected YemHttpClient() { // for subclassing proxy
         this.client = null;
         this.cache = null;
+        this.offlineTimeout = 0;
+        this.offline = false;
     }
 
     public YemHttpClient(final HttpConfiguration configuration, final Cache cache) {
@@ -120,6 +129,8 @@ public class YemHttpClient implements AutoCloseable {
                         .build())
                 .setRequestListeners(listeners);
 
+        this.offline = configuration.offlineMode();
+        this.offlineTimeout = configuration.offlineTimeout();
         this.cache = cache;
         this.client = new ExtendedHttpClient(conf).onClose(c -> {
             final var executorService = (ExecutorService) conf.getDelegate().executor().orElseThrow();
@@ -145,6 +156,7 @@ public class YemHttpClient implements AutoCloseable {
 
     public CompletionStage<HttpResponse<Path>> getFile(final HttpRequest request, final Path target, final Provider.ProgressListener listener) {
         logger.finest(() -> "Calling " + request);
+        checkOffline(request.uri());
         return sendWithProgress(request, listener, HttpResponse.BodyHandlers.ofFile(target))
                 .thenApply(response -> {
                     if (isGzip(response) && Files.exists(response.body())) {
@@ -177,17 +189,19 @@ public class YemHttpClient implements AutoCloseable {
 
     public CompletionStage<HttpResponse<String>> sendAsync(final HttpRequest request) {
         final var entry = cache.lookup(request);
-        if (entry != null && entry.hit() != null) {
-            return completedFuture(new SimpleHttpResponse<>(
-                    request, request.uri(), HTTP_1_1, 200,
-                    HttpHeaders.of(
-                            entry.hit().headers().entrySet().stream()
-                                    .collect(toMap(Map.Entry::getKey, e -> List.of(e.getValue()))),
-                            (a, b) -> true),
-                    entry.hit().payload()));
+        if (entry != null && entry.hit() != null && !entry.expired()) {
+            return fromCache(request, entry);
         }
 
         logger.finest(() -> "Calling " + request);
+        try {
+            checkOffline(request.uri());
+        } catch (final RuntimeException re) {
+            if (entry != null && entry.hit() != null) { // expired but use it instead of failling
+                return fromCache(request, entry);
+            }
+            throw re;
+        }
         return client.sendAsync(request, ofByteArray())
                 .thenApply(response -> {
                     HttpResponse<String> result = null;
@@ -208,6 +222,34 @@ public class YemHttpClient implements AutoCloseable {
                     }
                     return result;
                 });
+    }
+
+    private CompletableFuture<HttpResponse<String>> fromCache(final HttpRequest request, final Cache.CachedEntry entry) {
+        return completedFuture(new SimpleHttpResponse<>(
+                request, request.uri(), HTTP_1_1, 200,
+                HttpHeaders.of(
+                        entry.hit().headers().entrySet().stream()
+                                .collect(toMap(Map.Entry::getKey, e -> List.of(e.getValue()))),
+                        (a, b) -> true),
+                entry.hit().payload()));
+    }
+
+    private void checkOffline(final URI uri) {
+        if (offline) {
+            throw OfflineException.INSTANCE;
+        }
+        if (state.computeIfAbsent(uri.getHost() + ":" + uri.getPort(), k -> {
+            try (final var socket = new Socket()) {
+                final var address = new InetSocketAddress(uri.getHost(), uri.getPort() >= 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80));
+                socket.connect(address, offlineTimeout);
+                socket.getInputStream().close();
+                return false;
+            } catch (final IOException e) {
+                return true;
+            }
+        })) {
+            throw OfflineException.INSTANCE;
+        }
     }
 
     private boolean isGzip(final HttpResponse<?> response) {
@@ -261,6 +303,18 @@ public class YemHttpClient implements AutoCloseable {
         public String toString() {
             final var uri = request().uri();
             return '(' + request().method() + ' ' + (uri == null ? "" : uri) + ") " + statusCode();
+        }
+    }
+
+    public static class OfflineException extends RuntimeException {
+        public static final OfflineException INSTANCE = new OfflineException();
+
+        static {
+            INSTANCE.setStackTrace(new StackTraceElement[0]);
+        }
+
+        public OfflineException() {
+            super("Network is offline");
         }
     }
 }

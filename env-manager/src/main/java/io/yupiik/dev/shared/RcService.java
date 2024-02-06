@@ -17,6 +17,7 @@ package io.yupiik.dev.shared;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.ProviderRegistry;
+import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
@@ -78,7 +80,17 @@ public class RcService {
 
                                             logger.info(() -> "Installing " + tool.toolName() + '@' + version);
                                             return Optional.of(provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP)
-                                                    .thenApply(Optional::of)
+                                                    .exceptionally(e -> {
+                                                        final var unwrapped = e instanceof CompletionException ce ? ce.getCause() : e;
+                                                        if (unwrapped instanceof YemHttpClient.OfflineException ex) {
+                                                            return null;
+                                                        }
+                                                        if (unwrapped instanceof RuntimeException ex) {
+                                                            throw ex;
+                                                        }
+                                                        throw new IllegalStateException(unwrapped);
+                                                    })
+                                                    .thenApply(Optional::ofNullable)
                                                     .toCompletableFuture());
                                         })
                                         .orElseGet(() -> completedFuture(Optional.empty()))
@@ -101,7 +113,7 @@ public class RcService {
         }
 
         final var isAuto = "auto".equals(rcPath);
-        var rcLocation = isAuto ? auto() : Path.of(rcPath);
+        var rcLocation = isAuto ? auto(Path.of(".")) : Path.of(rcPath);
         final boolean isAbsolute = rcLocation.isAbsolute();
         if (Files.notExists(rcLocation)) { // enable to navigate in the project without loosing the env
             while (!isAbsolute && Files.notExists(rcLocation)) {
@@ -113,7 +125,7 @@ public class RcService {
                 if (parent == null || !Files.isReadable(parent)) {
                     break;
                 }
-                rcLocation = parent.resolve(isAuto ? rcLocation.getFileName().toString() : rcPath);
+                rcLocation = isAuto ? auto(parent) : parent.resolve(rcPath);
             }
         }
 
@@ -169,9 +181,9 @@ public class RcService {
                 .collect(toMap(p -> p + ".version", original::getProperty)));
     }
 
-    private Path auto() {
+    private Path auto(final Path from) {
         return Stream.of(".yemrc", ".sdkmanrc")
-                .map(Path::of)
+                .map(from::resolve)
                 .filter(Files::exists)
                 .findFirst()
                 .orElseGet(() -> Path.of(".yemrc"));

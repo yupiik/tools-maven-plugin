@@ -181,6 +181,6 @@ class ZuluCdnClientTest {
         return new ZuluCdnClient(
                 client,
                 new ZuluCdnConfiguration(true, true, uri.toASCIIString(), "linux_x64.zip", local.toString()),
-                new Os(), new Archives(), new Cache(new HttpConfiguration(1, false, 30_000L, 30_000L, 0L, "none"), null));
+                new Os(), new Archives(), new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0L, "none"), null));
     }
 }

@@ -92,17 +92,15 @@ public class Cache {
         if (Files.exists(cacheLocation)) {
             try {
                 final var cached = jsonMapper.fromString(Response.class, Files.readString(cacheLocation));
-                if (cached.validUntil() > clock.instant().toEpochMilli()) {
-                    return new CachedEntry(cacheLocation, cached);
-                }
+                return new CachedEntry(cacheLocation, cached, cached.validUntil() < clock.instant().toEpochMilli());
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
         }
-        return new CachedEntry(cacheLocation, null);
+        return new CachedEntry(cacheLocation, null, true);
     }
 
-    public record CachedEntry(Path key, Response hit) {
+    public record CachedEntry(Path key, Response hit, boolean expired) {
     }
 
     @JsonModel

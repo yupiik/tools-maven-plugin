@@ -114,7 +114,7 @@ class CentralBaseProviderTest {
     private CentralBaseProvider newProvider(final URI uri, final YemHttpClient client, final Path local) {
         return new CentralBaseProvider(
                 client, new CentralConfiguration(uri.toASCIIString(), local.toString(), ""), new Archives(),
-                new Cache(new HttpConfiguration(1, false, 30_000L, 30_000L, 0, "none"), null),
+                new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0, "none"), null),
                 Gav.of("org.foo:bar:tar.gz:simple"), true);
     }
 }

@@ -72,3 +72,18 @@ The usage of `yem run -- xxxx` will be equivalent to run `yyyy` command (can hav
 == TIP
 
 If you need to see more logs from _yem_ you can add the following system properties: `-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST`.
+
+You can also force some default configuration (typically central `gavs` or `offlineMode`) in `~/.yupiik/yem/rc`.
+If you don't want this global file to be taken into account temporarly (or not) you can set the environment variable `YEM_DISABLE_GLOBAL_RC_FILE` to `true`.
+
+== Shell/Bash setup
+
+Yem is portable but we detail there only shell setup.
+
+The idea is to leverage `env` command.
+Add to your global `~/.bashrc` (or `~/.profile`) configuration the following line:
+
+[source,bash]
+----
+eval $(yem env)
+----

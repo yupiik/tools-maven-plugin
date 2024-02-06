@@ -93,7 +93,7 @@ public class HttpMockExtension implements BeforeEachCallback, AfterEachCallback,
             return URI.create("http://localhost:" + context.getStore(NAMESPACE).get(HttpServer.class, HttpServer.class).getAddress().getPort() + "/2/");
         }
         if (YemHttpClient.class == parameterContext.getParameter().getType()) {
-            final var configuration = new HttpConfiguration(1, false, 30_000L, 30_000L, 0, "none");
+            final var configuration = new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0, "none");
             return new YemHttpClient(configuration, new Cache(configuration, null));
         }
         throw new ParameterResolutionException("Can't resolve " + parameterContext.getParameter().getType());

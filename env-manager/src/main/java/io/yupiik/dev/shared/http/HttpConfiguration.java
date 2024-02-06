@@ -20,6 +20,8 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
 @RootConfiguration("http")
 public record HttpConfiguration(
+        @Property(defaultValue = "false", documentation = "Force offline mode.") boolean offlineMode,
+        @Property(defaultValue = "10_000", documentation = "Check offline timeout. Per uri a test is done to verify the system is offline.") int offlineTimeout,
         @Property(defaultValue = "4", documentation = "Number of NIO threads.") int threads,
         @Property(defaultValue = "false", documentation = "Should HTTP calls be logged.") boolean log,
         @Property(defaultValue = "60_000L", documentation = "Connection timeout in milliseconds.") long connectTimeout,

@@ -61,7 +61,7 @@ public class Env implements Runnable {
             return;
         }
 
-        final var logger = this.logger.getParent().getParent();
+        final var logger = Logger.getLogger("io.yupiik.dev");
         final var useParentHandlers = logger.getUseParentHandlers();
         final var messages = new ArrayList<String>();
         final var tempHandler = new Handler() { // forward all standard messages to stderr and at debug level to avoid to break default behavior
@@ -95,7 +95,7 @@ public class Env implements Runnable {
         try {
             rc.toToolProperties(tools).thenAccept(resolved -> {
                         final var toolVars = resolved.entrySet().stream()
-                                .map(e -> export + e.getKey().envVarName() + "=\"" + quoted(e.getValue()) + "\"")
+                                .map(e -> export + e.getKey().envVarName() + "=\"" + quoted(e.getValue()) + "\";")
                                 .sorted()
                                 .collect(joining("\n", "", "\n"));
 
@@ -103,19 +103,19 @@ public class Env implements Runnable {
                                 .or(() -> ofNullable(System.getenv(pathName)))
                                 .orElse("");
                         final var pathVars = resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath) ?
-                                export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\"\n" +
+                                export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\";\n" +
                                         export + pathName + "=\"" + resolved.entrySet().stream()
                                         .filter(r -> r.getKey().addToPath())
                                         .map(r -> quoted(rc.toBin(r.getValue())))
-                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\"\n" :
+                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\";\n" :
                                 "";
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
                                 resolved.entrySet().stream()
-                                        .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\"")
+                                        .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\";")
                                         .collect(joining("\n", "", "\n")) :
                                 "";
 
-                        final var script = messages.stream().map(m -> "echo \"[yem] " + m + "\"").collect(joining("\n", "", "\n\n")) +
+                        final var script = messages.stream().map(m -> "echo \"[yem] " + m.replace("\"", "\"\\\"\"") + "\";").collect(joining("\n", "", "\n\n")) +
                                 pathVars + toolVars + echos + "\n" +
                                 comment + "To load a .yemrc configuration run:\n" +
                                 comment + "[ -f .yemrc ] && eval $(yem env--env-file .yemrc)\n" +
@@ -150,17 +150,17 @@ public class Env implements Runnable {
         ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
                 .ifPresent(value -> {
                     if (os.isWindows()) {
-                        System.out.println("set YEM_ORIGINAL_PATH=");
+                        System.out.println("set YEM_ORIGINAL_PATH=;");
                     } else {
-                        System.out.println("unset YEM_ORIGINAL_PATH");
+                        System.out.println("unset YEM_ORIGINAL_PATH;");
                     }
-                    System.out.println(export + " " + pathName + "=\"" + value + '"');
+                    System.out.println(export + " " + pathName + "=\"" + value + "\";");
                 });
     }
 
     @RootConfiguration("env")
     public record Conf(
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
-            @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\".yemrc\"") String rc) {
+            @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\"auto\"") String rc) {
     }
 }

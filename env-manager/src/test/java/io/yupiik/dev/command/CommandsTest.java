@@ -116,12 +116,12 @@ class CommandsTest {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
         final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
-                        echo "[yem] Installing java@21.32.17-ca-jdk21.0.2"
+                        echo "[yem] Installing java@21.32.17-ca-jdk21.0.2";
 
-                        export YEM_ORIGINAL_PATH="$original_path"
-                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH"
-                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded"
-                        echo "[yem] Resolved java@21. to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\"""")
+                        export YEM_ORIGINAL_PATH="$original_path";
+                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
+                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
+                        echo "[yem] Resolved java@21. to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
                         .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
@@ -136,10 +136,10 @@ class CommandsTest {
         final var rc = Files.writeString(work.resolve(".sdkmanrc"), "java = 21.0.2");
         final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
-                        export YEM_ORIGINAL_PATH="$original_path"
-                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH"
-                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded"
-                        echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\"""")
+                        export YEM_ORIGINAL_PATH="$original_path";
+                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
+                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
+                        echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
                         .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
