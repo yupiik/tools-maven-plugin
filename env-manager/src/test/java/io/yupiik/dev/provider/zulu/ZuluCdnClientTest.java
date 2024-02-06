@@ -180,7 +180,7 @@ class ZuluCdnClientTest {
     private ZuluCdnClient newProvider(final URI uri, final YemHttpClient client, final Path local) {
         return new ZuluCdnClient(
                 client,
-                new ZuluCdnConfiguration(true, true, uri.toASCIIString(), "linux_x64.zip", local.toString()),
-                new Os(), new Archives(), new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0L, "none"), null));
+                new ZuluCdnConfiguration(true, true, uri.toASCIIString(), false, uri.toASCIIString(), "linux_x64.zip", local.toString()),
+                new Os(), new Archives(), new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0L, "none"), null), null);
     }
 }

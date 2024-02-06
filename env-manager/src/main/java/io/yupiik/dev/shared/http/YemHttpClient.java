@@ -17,6 +17,7 @@ package io.yupiik.dev.shared.http;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
+import io.yupiik.fusion.framework.build.api.lifecycle.Destroy;
 import io.yupiik.fusion.httpclient.core.ExtendedHttpClient;
 import io.yupiik.fusion.httpclient.core.ExtendedHttpClientConfiguration;
 import io.yupiik.fusion.httpclient.core.listener.RequestListener;
@@ -149,6 +150,7 @@ public class YemHttpClient implements AutoCloseable {
         });
     }
 
+    @Destroy
     @Override
     public void close() {
         this.client.close();

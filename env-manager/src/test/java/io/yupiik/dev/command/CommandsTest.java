@@ -51,7 +51,7 @@ class CommandsTest {
                         - github: base=http://localhost:$port/2//github/, local=/github
                         - minikube: enabled=false
                         - sdkman: enabled=false, base=http://localhost:$port/2/, platform=linuxx64.tar.gz, local=$work/sdkman/candidates
-                        - zulu: enabled=true, preferJre=false, base=http://localhost:$port/2/, platform=linux64.tar.gz, local=$work/zulu"""
+                        - zulu: enabled=true, preferJre=false, base=http://localhost:$port/2/, preferApi=false, apiBase=https://api.azul.com, platform=linux64.tar.gz, local=$work/zulu"""
                         .replace("$work", work.toString())
                         .replace("$port", Integer.toString(uri.getPort())),
                 captureOutput(work, uri, "config"));
@@ -114,19 +114,19 @@ class CommandsTest {
     @Test
     void env(@TempDir final Path work, final URI uri) throws IOException {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
-        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
+        final var out = captureOutput(work, uri, "env", "--skipReset", "true", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
                         echo "[yem] Installing java@21.32.17-ca-jdk21.0.2";
 
-                        export YEM_ORIGINAL_PATH="$original_path";
+                        export YEM_ORIGINAL_PATH="...";
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
                         echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
-                        .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
                         .replaceAll("#.*", "")
+                        .replaceFirst("export YEM_ORIGINAL_PATH=\"[^\"]+\"", "export YEM_ORIGINAL_PATH=\"...\"")
                         .strip());
     }
 
@@ -135,17 +135,17 @@ class CommandsTest {
         doInstall(work, uri);
 
         final var rc = Files.writeString(work.resolve(".sdkmanrc"), "java = 21.0.2");
-        final var out = captureOutput(work, uri, "env", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
+        final var out = captureOutput(work, uri, "env", "--skipReset", "true", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
-                        export YEM_ORIGINAL_PATH="$original_path";
+                        export YEM_ORIGINAL_PATH="...";
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
                         echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
-                        .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
                         .replaceAll("#.*", "")
+                        .replaceFirst("export YEM_ORIGINAL_PATH=\"[^\"]+\"", "export YEM_ORIGINAL_PATH=\"...\"")
                         .strip());
     }
 
@@ -208,7 +208,7 @@ class CommandsTest {
         public String get(final String key) {
             return switch (key) {
                 case "http.cache" -> "none";
-                case "apache-maven.enabled", "sdkman.enabled",  "minikube.enabled" -> "false";
+                case "apache-maven.enabled", "sdkman.enabled",  "minikube.enabled", "zulu.preferApi" -> "false";
                 case "github.base" -> baseHttp + "/github/";
                 case "github.local" -> work.resolve("/github").toString();
                 case "central.base" -> baseHttp + "/m2/";

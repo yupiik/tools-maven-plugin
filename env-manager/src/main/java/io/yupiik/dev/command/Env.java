@@ -57,7 +57,9 @@ public class Env implements Runnable {
         final var pathName = windows ? "Path" : "PATH";
         final var pathVar = windows ? "%" + pathName + "%" : ("$" + pathName);
 
-        resetOriginalPath(export, pathName);
+        if (!conf.skipReset()) {
+            resetOriginalPath(export, pathName);
+        }
 
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
         if (tools == null || tools.isEmpty()) { // nothing to do
@@ -155,6 +157,7 @@ public class Env implements Runnable {
     private void resetOriginalPath(final String export, final String pathName) {
         // just check we have YEM_ORIGINAL_PATH and reset PATH if needed
         ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
+                .filter(it -> !"skip".equals(it))
                 .ifPresent(value -> {
                     if (os.isWindows()) {
                         System.out.println("set YEM_ORIGINAL_PATH=;");
@@ -167,6 +170,7 @@ public class Env implements Runnable {
 
     @RootConfiguration("env")
     public record Conf(
+            @Property(documentation = "By default if `YEM_ORIGINAL_PATH` exists in the environment variables it is used as `PATH` base to not keep appending path to the `PATH` indefinively. This can be disabled setting this property to `false`", defaultValue = "false") boolean skipReset,
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
             @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\"auto\"") String rc) {
     }

@@ -121,6 +121,9 @@
             <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
             <yem.disableGlobalRcFileConfiguration>true</yem.disableGlobalRcFileConfiguration>
           </systemPropertyVariables>
+          <environmentVariables>
+            <YEM_ORIGINAL_PATH>skip</YEM_ORIGINAL_PATH>
+          </environmentVariables>
         </configuration>
       </plugin>
       <plugin>

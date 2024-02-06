@@ -23,11 +23,15 @@ import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.Os;
 import io.yupiik.dev.shared.http.Cache;
 import io.yupiik.dev.shared.http.YemHttpClient;
+import io.yupiik.fusion.framework.api.container.Types;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import io.yupiik.fusion.framework.build.api.json.JsonModel;
+import io.yupiik.fusion.json.JsonMapper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -37,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Stream;
 
 import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -51,18 +56,24 @@ public class ZuluCdnClient implements Provider {
     private final YemHttpClient client;
     private final Cache cache;
     private final URI base;
+    private final URI apiBase;
     private final Path local;
     private final boolean enabled;
     private final boolean preferJre;
+    private final boolean preferApi;
+    private final JsonMapper jsonMapper;
 
     public ZuluCdnClient(final YemHttpClient client, final ZuluCdnConfiguration configuration, final Os os, final Archives archives,
-                         final Cache cache) {
+                         final Cache cache, final JsonMapper jsonMapper) {
         this.client = client;
+        this.jsonMapper = jsonMapper;
         this.archives = archives;
         this.cache = cache;
         this.base = URI.create(configuration.base());
         this.local = Path.of(configuration.local());
         this.enabled = configuration.enabled();
+        this.apiBase = URI.create(configuration.apiBase());
+        this.preferApi = configuration.preferApi();
         this.preferJre = configuration.preferJre();
         this.suffix = ofNullable(configuration.platform())
                 .filter(i -> !"auto".equalsIgnoreCase(i))
@@ -199,6 +210,28 @@ public class ZuluCdnClient implements Provider {
             return completedFuture(parseVersions(entry.hit().payload()));
         }
 
+        if (preferApi) {
+            final var baseUrl = apiBase.resolve("/metadata/v1/zulu/packages/") + "?" +
+                    "os=linux&" +
+                    "arch=" + (suffix.contains("_aarch64") ? "aarch64" : "x64") + "&" +
+                    "archive_type=" + (suffix.endsWith(".tar.gz") ? "tar.gz" : "zip") + "&" +
+                    "java_package_type=" + (preferJre ? "jre" : "jdk") + "&" +
+                    "release_status=&" +
+                    "availability_types=&" +
+                    "certifications=&" +
+                    "page_size=900";
+            final var listOfVersionsType = new Types.ParameterizedTypeImpl(List.class, APiVersion.class);
+            return fetchVersionPages(1, baseUrl, listOfVersionsType)
+                    .thenApply(filtered -> {
+                        if (entry != null) {
+                            cache.save(entry.key(), Map.of(), filtered.stream()
+                                    .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
+                                    .collect(joining("\n", "", "\n")));
+                        }
+                        return filtered;
+                    });
+        }
+
         return client.sendAsync(HttpRequest.newBuilder().GET().uri(base).build())
                 .thenApply(res -> {
                     ensure200(res);
@@ -210,6 +243,29 @@ public class ZuluCdnClient implements Provider {
                                 .collect(joining("\n", "", "\n")));
                     }
                     return filtered;
+                });
+    }
+
+    private CompletionStage<List<Version>> fetchVersionPages(final int page, final String baseUrl,
+                                                             final Type listOfVersionsType) {
+        return client.sendAsync(HttpRequest.newBuilder().GET()
+                        .uri(URI.create(baseUrl + "&page=" + page))
+                        .header("accept", "application/json")
+                        .build())
+                .thenCompose(res -> {
+                    ensure200(res);
+
+                    final List<APiVersion> apiVersions = jsonMapper.fromString(listOfVersionsType, res.body());
+                    final var pageVersions = apiVersions.stream().map(APiVersion::name).map(this::toProviderVersion).toList();
+
+                    return res.headers()
+                            .firstValue("x-pagination")
+                            .map(p -> jsonMapper.fromString(Pagination.class, p.strip()))
+                            .filter(p -> p.last_page() <= page)
+                            .map(p -> completedFuture(pageVersions))
+                            .orElseGet(() -> fetchVersionPages(page + 1, baseUrl, listOfVersionsType)
+                                    .thenApply(newVersions -> Stream.concat(newVersions.stream(), pageVersions.stream()).toList())
+                                    .toCompletableFuture());
                 });
     }
 
@@ -228,18 +284,51 @@ public class ZuluCdnClient implements Provider {
                         return it.substring(from, it.indexOf('"', from)).strip();
                     })
                     .filter(it -> it.endsWith(suffix) && (preferJre ? it.contains("jre") : it.contains("jdk")))
-                    .map(v -> { // ex: "zulu21.32.17-ca-jre21.0.2-linux_x64.zip"
-                        // path for the download directly without the prefix and suffix
-                        final var identifier = v.substring("zulu".length(), v.length() - suffix.length() - 1);
-                        final var distroType = preferJre ? "-jre" : "-jdk";
-                        final int versionStart = identifier.lastIndexOf(distroType);
-                        final var version = identifier.substring(versionStart + distroType.length()).strip();
-                        return new Version("Azul", version, "zulu", identifier);
-                    })
+                    .map(this::toProviderVersion)
                     .distinct()
                     .toList();
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    // ex: "zulu21.32.17-ca-jre21.0.2-linux_x64.zip"
+    // path for the download directly without the prefix and suffix
+    private Version toProviderVersion(final String name) {
+        final var identifier = name.substring("zulu".length(), name.length() - suffix.length() - 1);
+        final var distroType = preferJre ? "-jre" : "-jdk";
+        final int versionStart = identifier.lastIndexOf(distroType);
+        final var version = identifier.substring(versionStart + distroType.length()).strip();
+        return new Version("Azul", version, "zulu", identifier);
+    }
+
+    @JsonModel
+    public record Pagination(long last_page) {
+    }
+
+    @JsonModel
+    public record APiVersion(String name) {
+        /*
+          {
+            "availability_type": "CA",
+            "distro_version": [
+              21,
+              32,
+              17,
+              0
+            ],
+            "download_url": "https://cdn.azul.com/zulu/bin/zulu21.32.17-ca-fx-jdk21.0.2-linux_x64.tar.gz",
+            "java_version": [
+              21,
+              0,
+              2
+            ],
+            "latest": true,
+            "name": "zulu21.32.17-ca-fx-jdk21.0.2-linux_x64.tar.gz",
+            "openjdk_build_number": 13,
+            "package_uuid": "f282c770-a435-4053-9d10-b3434305eb78",
+            "product": "zulu"
+          }
+         */
     }
 }

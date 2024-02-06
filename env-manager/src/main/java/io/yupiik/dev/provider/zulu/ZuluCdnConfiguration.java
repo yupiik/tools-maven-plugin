@@ -23,6 +23,8 @@ public record ZuluCdnConfiguration(
         @Property(documentation = "Is Zulu CDN support enabled.", defaultValue = "true") boolean enabled,
         @Property(documentation = "Should JRE be preferred over JDK.", defaultValue = "false") boolean preferJre,
         @Property(documentation = "Base URL for zulu CDN archives.", defaultValue = "\"https://cdn.azul.com/zulu/bin/\"") String base,
+        @Property(documentation = "YEM is able to scrape the CDN index page but it is slow when not cached so by default we prefer the Zulu API. This property enables to use the scrapping by being set to `false`.", defaultValue = "true") boolean preferApi,
+        @Property(documentation = "This property is the Zulu API base URI.", defaultValue = "\"https://api.azul.com\"") String apiBase,
         @Property(documentation = "Zulu platform value - if `auto` it will be computed.", defaultValue = "\"auto\"") String platform,
         @Property(documentation = "Local cache of distributions.", defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/zulu\"") String local
 ) {
