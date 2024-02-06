@@ -231,6 +231,16 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>list.providers</code> (<code>list_providers</code>): List of providers to use (comma separated)..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>list.tools</code> (<code>list_tools</code>): List of tools to list (comma separated)..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>maven.enabled</code> (<code>maven_enabled</code>) (default: <code>true</code>): Is Apache Maven provider enabled - from central..</p>
  </div>
   </li>
@@ -374,9 +384,17 @@ install: Install a distribution. <div class="ulist">
  </div>
   </li>
   <li>
+ <div class="paragraph">
+list: List remote (available) distributions. <div class="ulist">
+ <ul>
+  <li>
  <p>
-list: List remote (available) distributions.
+Parameters: * --list-providers: List of providers to use (comma separated). * --list-tools: List of tools to list (comma separated).
  </p>
+  </li>
+ </ul>
+ </div>
+ </div>
   </li>
   <li>
  <div class="paragraph">
