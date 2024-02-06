@@ -17,7 +17,6 @@ package io.yupiik.dev.shared.http;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
-import io.yupiik.fusion.framework.build.api.json.JsonModel;
 import io.yupiik.fusion.httpclient.core.ExtendedHttpClient;
 import io.yupiik.fusion.httpclient.core.ExtendedHttpClientConfiguration;
 import io.yupiik.fusion.httpclient.core.listener.RequestListener;
@@ -25,7 +24,6 @@ import io.yupiik.fusion.httpclient.core.listener.impl.DefaultTimeout;
 import io.yupiik.fusion.httpclient.core.listener.impl.ExchangeLogger;
 import io.yupiik.fusion.httpclient.core.request.UnlockedHttpRequest;
 import io.yupiik.fusion.httpclient.core.response.StaticHttpResponse;
-import io.yupiik.fusion.json.JsonMapper;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -37,10 +35,8 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
@@ -58,21 +54,16 @@ import static java.util.stream.Collectors.toMap;
 @ApplicationScoped
 public class YemHttpClient implements AutoCloseable {
     private final Logger logger = Logger.getLogger(getClass().getName());
+
     private final ExtendedHttpClient client;
-    private final Path cache;
-    private final JsonMapper jsonMapper;
-    private final Clock clock;
-    private final long cacheValidity;
+    private final Cache cache;
 
     protected YemHttpClient() { // for subclassing proxy
         this.client = null;
         this.cache = null;
-        this.jsonMapper = null;
-        this.clock = null;
-        this.cacheValidity = 0L;
     }
 
-    public YemHttpClient(final HttpConfiguration configuration, final JsonMapper jsonMapper) {
+    public YemHttpClient(final HttpConfiguration configuration, final Cache cache) {
         final var listeners = new ArrayList<RequestListener<?>>();
         if (configuration.log()) {
             listeners.add((new ExchangeLogger(
@@ -111,17 +102,8 @@ public class YemHttpClient implements AutoCloseable {
                         .build())
                 .setRequestListeners(listeners);
 
-        try {
-            this.cache = "none".equals(configuration.cache()) || configuration.cacheValidity() <= 0 ?
-                    null :
-                    Files.createDirectories(Path.of(configuration.cache()));
-        } catch (final IOException e) {
-            throw new IllegalArgumentException("Can't create HTTP cache directory : '" + configuration.cache() + "', adjust --http-cache parameter");
-        }
-        this.cacheValidity = configuration.cacheValidity();
+        this.cache = cache;
         this.client = new ExtendedHttpClient(conf);
-        this.jsonMapper = jsonMapper;
-        this.clock = systemDefaultZone();
     }
 
     @Override
@@ -160,27 +142,15 @@ public class YemHttpClient implements AutoCloseable {
     }
 
     public HttpResponse<String> send(final HttpRequest request) {
-        final Path cacheLocation;
-        if (cache != null) {
-            cacheLocation = cache.resolve(Base64.getUrlEncoder().withoutPadding().encodeToString(request.uri().toASCIIString().getBytes(UTF_8)));
-            if (Files.exists(cacheLocation)) {
-                try {
-                    final var cached = jsonMapper.fromString(Response.class, Files.readString(cacheLocation));
-                    if (cached.validUntil() > clock.instant().toEpochMilli()) {
-                        return new StaticHttpResponse<>(
-                                request, request.uri(), HTTP_1_1, 200,
-                                HttpHeaders.of(
-                                        cached.headers().entrySet().stream()
-                                                .collect(toMap(Map.Entry::getKey, e -> List.of(e.getValue()))),
-                                        (a, b) -> true),
-                                cached.payload());
-                    }
-                } catch (final IOException e) {
-                    throw new IllegalStateException(e);
-                }
-            }
-        } else {
-            cacheLocation = null;
+        final var entry = cache.lookup(request);
+        if (entry != null && entry.hit() != null) {
+            return new StaticHttpResponse<>(
+                    request, request.uri(), HTTP_1_1, 200,
+                    HttpHeaders.of(
+                            entry.hit().headers().entrySet().stream()
+                                    .collect(toMap(Map.Entry::getKey, e -> List.of(e.getValue()))),
+                            (a, b) -> true),
+                    entry.hit().payload());
         }
 
         logger.finest(() -> "Calling " + request);
@@ -199,22 +169,8 @@ public class YemHttpClient implements AutoCloseable {
             result = result != null ? result : new StaticHttpResponse<>(
                     response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
                     new String(response.body(), UTF_8));
-            if (cacheLocation != null && result.statusCode() == 200) {
-                final var cachedData = jsonMapper.toString(new Response(
-                        result.headers().map().entrySet().stream()
-                                .filter(it -> !"content-encoding".equalsIgnoreCase(it.getKey()))
-                                .collect(toMap(Map.Entry::getKey, l -> String.join(",", l.getValue()))),
-                        result.body(),
-                        clock.instant().plusMillis(cacheValidity).toEpochMilli()));
-                try {
-                    Files.writeString(cacheLocation, cachedData);
-                } catch (final IOException e) {
-                    try {
-                        Files.deleteIfExists(cacheLocation);
-                    } catch (final IOException ex) {
-                        // no-op
-                    }
-                }
+            if (entry != null && result.statusCode() == 200) {
+                cache.save(entry.key(), result);
             }
             return result;
         } catch (final InterruptedException var4) {
@@ -281,9 +237,5 @@ public class YemHttpClient implements AutoCloseable {
         } catch (final Exception var5) {
             throw new IllegalStateException(var5);
         }
-    }
-
-    @JsonModel
-    public record Response(Map<String, String> headers, String payload, long validUntil) {
     }
 }

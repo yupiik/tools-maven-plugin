@@ -21,6 +21,7 @@ import io.yupiik.dev.provider.model.Candidate;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.Os;
+import io.yupiik.dev.shared.http.Cache;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 
@@ -38,6 +39,7 @@ import java.util.Optional;
 
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
 @DefaultScoped
@@ -45,14 +47,17 @@ public class ZuluCdnClient implements Provider {
     private final String suffix;
     private final Archives archives;
     private final YemHttpClient client;
+    private final Cache cache;
     private final URI base;
     private final Path local;
     private final boolean enabled;
     private final boolean preferJre;
 
-    public ZuluCdnClient(final YemHttpClient client, final ZuluCdnConfiguration configuration, final Os os, final Archives archives) {
+    public ZuluCdnClient(final YemHttpClient client, final ZuluCdnConfiguration configuration, final Os os, final Archives archives,
+                         final Cache cache) {
         this.client = client;
         this.archives = archives;
+        this.cache = cache;
         this.base = URI.create(configuration.base());
         this.local = Path.of(configuration.local());
         this.enabled = configuration.enabled();
@@ -182,9 +187,23 @@ public class ZuluCdnClient implements Provider {
         if (!enabled) {
             return List.of();
         }
+
+        // here the payload is >5M so we can let the client cache it but saving the result will be way more efficient on the JSON side
+        final var entry = cache.lookup(base.toASCIIString());
+        if (entry != null && entry.hit() != null) {
+            return parseVersions(entry.hit().payload());
+        }
+
         final var res = client.send(HttpRequest.newBuilder().GET().uri(base).build());
         ensure200(res);
-        return parseVersions(res.body());
+
+        final var filtered = parseVersions(res.body());
+        if (entry != null) {
+            cache.save(entry.key(), Map.of(), filtered.stream()
+                    .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
+                    .collect(joining("\n", "", "\n")));
+        }
+        return filtered;
     }
 
     private void ensure200(final HttpResponse<?> res) {

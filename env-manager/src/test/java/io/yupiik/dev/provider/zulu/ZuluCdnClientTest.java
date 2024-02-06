@@ -19,6 +19,8 @@ import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.Os;
+import io.yupiik.dev.shared.http.Cache;
+import io.yupiik.dev.shared.http.HttpConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.dev.test.Mock;
 import org.junit.jupiter.api.Test;
@@ -174,6 +176,9 @@ class ZuluCdnClientTest {
     }
 
     private ZuluCdnClient newProvider(final URI uri, final YemHttpClient client, final Path local) {
-        return new ZuluCdnClient(client, new ZuluCdnConfiguration(true, true, uri.toASCIIString(), "linux_x64.zip", local.toString()), new Os(), new Archives());
+        return new ZuluCdnClient(
+                client,
+                new ZuluCdnConfiguration(true, true, uri.toASCIIString(), "linux_x64.zip", local.toString()),
+                new Os(), new Archives(), new Cache(new HttpConfiguration(false, 30_000L, 30_000L, 0L, "none"), null));
     }
 }

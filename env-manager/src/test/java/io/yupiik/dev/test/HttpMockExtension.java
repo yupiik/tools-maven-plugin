@@ -16,6 +16,7 @@
 package io.yupiik.dev.test;
 
 import com.sun.net.httpserver.HttpServer;
+import io.yupiik.dev.shared.http.Cache;
 import io.yupiik.dev.shared.http.HttpConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -92,7 +93,8 @@ public class HttpMockExtension implements BeforeEachCallback, AfterEachCallback,
             return URI.create("http://localhost:" + context.getStore(NAMESPACE).get(HttpServer.class, HttpServer.class).getAddress().getPort() + "/2/");
         }
         if (YemHttpClient.class == parameterContext.getParameter().getType()) {
-            return new YemHttpClient(new HttpConfiguration(false, 30_000L, 30_000L, 0, "none"), null);
+            final var configuration = new HttpConfiguration(false, 30_000L, 30_000L, 0, "none");
+            return new YemHttpClient(configuration, new Cache(configuration, null));
         }
         throw new ParameterResolutionException("Can't resolve " + parameterContext.getParameter().getType());
     }
