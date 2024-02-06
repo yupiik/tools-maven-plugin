@@ -23,10 +23,13 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import static java.io.File.pathSeparator;
 import static java.util.Optional.ofNullable;
@@ -95,7 +98,9 @@ public class Env implements Runnable {
         try {
             rc.toToolProperties(tools).thenAccept(resolved -> {
                         final var toolVars = resolved.entrySet().stream()
-                                .map(e -> export + e.getKey().envVarName() + "=\"" + quoted(e.getValue()) + "\";")
+                                .flatMap(e -> Stream.of(
+                                        export + e.getKey().envPathVarName() + "=\"" + quoted(e.getValue()) + "\";",
+                                        export + e.getKey().envVersionVarName() + "=\"" + e.getKey().version() + "\";"))
                                 .sorted()
                                 .collect(joining("\n", "", "\n"));
 
@@ -111,6 +116,8 @@ public class Env implements Runnable {
                                 "";
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
                                 resolved.entrySet().stream()
+                                        // don't log too much, if it does not change, don't re-log it
+                                        .filter(Predicate.not(it -> Objects.equals(it.getValue().toString(), System.getenv(it.getKey().envPathVarName()))))
                                         .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\";")
                                         .collect(joining("\n", "", "\n")) :
                                 "";

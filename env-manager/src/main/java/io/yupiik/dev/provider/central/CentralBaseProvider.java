@@ -182,7 +182,17 @@ public class CentralBaseProvider implements Provider {
         final var gavString = Stream.of(gav.groupId(), gav.artifactId(), gav.type(), gav.classifier())
                 .filter(Objects::nonNull)
                 .collect(joining(":"));
-        return completedFuture(List.of(new Candidate(gavString, gav.artifactId(), gavString + " downloaded from central.", base.toASCIIString())));
+
+        final var defaultCandidate = new Candidate(gavString, gav.artifactId(), gavString + " downloaded from central.", base.toASCIIString());
+        final List<Candidate> candidates;
+        if (gav.artifactId().startsWith("apache-")) {
+            candidates = List.of(
+                    defaultCandidate,
+                    new Candidate(gavString, gav.artifactId().substring("apache-".length()), gavString + " downloaded from central.", base.toASCIIString()));
+        } else {
+            candidates = List.of(defaultCandidate);
+        }
+        return completedFuture(candidates);
     }
 
     @Override

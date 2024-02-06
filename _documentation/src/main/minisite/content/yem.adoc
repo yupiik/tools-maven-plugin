@@ -85,5 +85,30 @@ Add to your global `~/.bashrc` (or `~/.profile`) configuration the following lin
 
 [source,bash]
 ----
-eval $(yem env)
+yem_env() {
+  eval $(yem env)
+}
+if [[ -n "$ZSH_VERSION" ]]; then
+  chpwd_functions+=(yem_env)
+else
+  trimmed_prompt_command="${PROMPT_COMMAND%"${PROMPT_COMMAND##*[![:space:]]}"}"
+  [[ -z "$trimmed_prompt_command" ]] && PROMPT_COMMAND="yem_env" || PROMPT_COMMAND="${trimmed_prompt_command%\;};yem_env"
+fi
+yem_env
 ----
+
+--
+TIP: if you don't use zsh shell you can simplify it:
+
+[source,bash]
+----
+yem_env() {
+  eval $(yem env)
+}
+trimmed_prompt_command="${PROMPT_COMMAND%"${PROMPT_COMMAND##*[![:space:]]}"}"
+[[ -z "$trimmed_prompt_command" ]] && PROMPT_COMMAND="yem_env" || PROMPT_COMMAND="${trimmed_prompt_command%\;};yem_env"
+yem_env
+----
+--
+
+TIP: it is also recommended to set some default versions in `~/.yupiik/yem/rc`

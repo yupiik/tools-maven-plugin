@@ -132,8 +132,8 @@ public class Run implements Runnable {
     private void setEnv(final Map<RcService.ToolProperties, Path> resolved, final Map<String, String> environment) {
         resolved.forEach((tool, home) -> {
             final var homeStr = home.toString();
-            logger.finest(() -> "Setting '" + tool.envVarName() + "' to '" + homeStr + "'");
-            environment.put(tool.envVarName(), homeStr);
+            logger.finest(() -> "Setting '" + tool.envPathVarName() + "' to '" + homeStr + "'");
+            environment.put(tool.envPathVarName(), homeStr);
         });
         if (resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath)) {
             final var pathName = os.isWindows() ? "Path" : "PATH";

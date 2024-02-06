@@ -17,6 +17,7 @@ package io.yupiik.dev.shared;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.ProviderRegistry;
+import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -42,67 +44,10 @@ import static java.util.stream.Collectors.toMap;
 @ApplicationScoped
 public class RcService {
     private final Logger logger = Logger.getLogger(getClass().getName());
-    private final Os os;
     private final ProviderRegistry registry;
 
-    public RcService(final Os os, final ProviderRegistry registry) {
-        this.os = os;
+    public RcService(final ProviderRegistry registry) {
         this.registry = registry;
-    }
-
-    public CompletionStage<Map<ToolProperties, Path>> toToolProperties(final Properties props) {
-        final var promises = props.stringPropertyNames().stream()
-                .filter(it -> it.endsWith(".version"))
-                .map(versionKey -> toToolProperties(props, versionKey))
-                .map(tool -> {
-                    final var providerAndVersionPromise = registry.tryFindByToolVersionAndProvider(
-                            tool.toolName(), tool.version(),
-                            tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
-                            new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
-                    return providerAndVersionPromise.thenCompose(providerAndVersionOpt -> {
-                                if (tool.failOnMissing() && !tool.installIfMissing() && providerAndVersionOpt.isEmpty()) {
-                                    throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
-                                }
-
-                                final var providerVersion = providerAndVersionOpt.orElseThrow();
-                                final var provider = providerVersion.getKey();
-                                final var version = providerVersion.getValue().identifier();
-
-                                return provider.resolve(tool.toolName(), providerVersion.getValue().identifier())
-                                        .map(path -> completedFuture(Optional.of(path)))
-                                        .or(() -> {
-                                            if (!tool.installIfMissing()) {
-                                                if (tool.failOnMissing()) {
-                                                    throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + version);
-                                                }
-                                                return Optional.empty();
-                                            }
-
-                                            logger.info(() -> "Installing " + tool.toolName() + '@' + version);
-                                            return Optional.of(provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP)
-                                                    .exceptionally(e -> {
-                                                        final var unwrapped = e instanceof CompletionException ce ? ce.getCause() : e;
-                                                        if (unwrapped instanceof YemHttpClient.OfflineException ex) {
-                                                            return null;
-                                                        }
-                                                        if (unwrapped instanceof RuntimeException ex) {
-                                                            throw ex;
-                                                        }
-                                                        throw new IllegalStateException(unwrapped);
-                                                    })
-                                                    .thenApply(Optional::ofNullable)
-                                                    .toCompletableFuture());
-                                        })
-                                        .orElseGet(() -> completedFuture(Optional.empty()))
-                                        .thenApply(path -> path.map(p -> entry(tool, p)));
-                            })
-                            .toCompletableFuture();
-                })
-                .toList();
-        return allOf(promises.toArray(new CompletableFuture<?>[0]))
-                .thenApply(ok -> promises.stream()
-                        .flatMap(p -> p.getNow(Optional.empty()).stream())
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     public Properties loadPropertiesFrom(final String rcPath, final String defaultRcPath) {
@@ -130,6 +75,7 @@ public class RcService {
         }
 
         final var props = new Properties();
+        props.putAll(defaultProps);
         if (Files.exists(rcLocation)) {
             readRc(rcLocation, props);
             if (".sdkmanrc".equals(rcLocation.getFileName().toString())) {
@@ -150,14 +96,93 @@ public class RcService {
                 .orElse(value);
     }
 
+    public CompletionStage<Map<ToolProperties, Path>> toToolProperties(final Properties props) {
+        final var promises = props.stringPropertyNames().stream()
+                .filter(it -> it.endsWith(".version"))
+                .map(versionKey -> toToolProperties(props, versionKey))
+                .map(tool -> {
+                    final var providerAndVersionPromise = registry.tryFindByToolVersionAndProvider(
+                            tool.toolName(), tool.version(),
+                            tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
+                            new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
+                    return providerAndVersionPromise.thenCompose(providerAndVersionOpt -> providerAndVersionOpt
+                                    .map(providerVersion -> doResolveVersion(tool, providerVersion))
+                                    .orElseGet(() -> {
+                                        if (tool.failOnMissing()) {
+                                            throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
+                                        }
+                                        logger.finest(() -> tool.toolName() + "@" + tool.version() + " not available");
+                                        return completedFuture(Optional.empty());
+                                    }))
+                            .toCompletableFuture();
+                })
+                .toList();
+        return allOf(promises.toArray(new CompletableFuture<?>[0]))
+                .thenApply(ok -> promises.stream()
+                        .flatMap(p -> p.getNow(Optional.empty()).stream())
+                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
+    private CompletableFuture<Optional<Map.Entry<ToolProperties, Path>>> doResolveVersion(final ToolProperties tool,
+                                                                                          final Map.Entry<Provider, Version> providerVersion) {
+        final var provider = providerVersion.getKey();
+        final var version = providerVersion.getValue().identifier();
+        return provider.resolve(tool.toolName(), providerVersion.getValue().identifier())
+                .map(path -> completedFuture(Optional.of(path)))
+                .or(() -> {
+                    if (!tool.installIfMissing()) {
+                        if (tool.failOnMissing()) {
+                            throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + version);
+                        }
+                        return Optional.empty();
+                    }
+
+                    logger.info(() -> "Installing " + tool.toolName() + '@' + version);
+                    return Optional.of(provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP)
+                            .exceptionally(this::onInstallException)
+                            .thenApply(Optional::ofNullable)
+                            .toCompletableFuture());
+                })
+                .orElseGet(() -> completedFuture(Optional.empty()))
+                .thenApply(path -> path.map(p -> entry(adjustToolVersion(tool, providerVersion), p)));
+    }
+
+    private Path onInstallException(final Throwable e) {
+        final var unwrapped = e instanceof CompletionException ce ? ce.getCause() : e;
+        if (unwrapped instanceof YemHttpClient.OfflineException) {
+            return null;
+        }
+        if (unwrapped instanceof RuntimeException ex) {
+            throw ex;
+        }
+        throw new IllegalStateException(unwrapped);
+    }
+
+    private ToolProperties adjustToolVersion(final ToolProperties tool, final Map.Entry<Provider, Version> providerVersion) {
+        return Objects.equals(tool.version(), providerVersion.getValue().version()) ?
+                tool :
+                new ToolProperties(
+                        tool.toolName(),
+                        providerVersion.getValue().version(),
+                        tool.provider(),
+                        true,
+                        tool.envPathVarName(),
+                        tool.envVersionVarName(),
+                        tool.addToPath(),
+                        tool.failOnMissing(),
+                        tool.installIfMissing());
+    }
+
     private ToolProperties toToolProperties(final Properties props, final String versionKey) {
         final var name = versionKey.substring(0, versionKey.lastIndexOf('.'));
+        final var baseEnvVar = name.toUpperCase(ROOT).replace('.', '_');
         return new ToolProperties(
                 props.getProperty(name + ".toolName", name),
                 props.getProperty(versionKey),
                 props.getProperty(name + ".provider"),
                 Boolean.parseBoolean(props.getProperty(name + ".relaxed", props.getProperty("relaxed"))),
-                props.getProperty(name + ".envVarName", name.toUpperCase(ROOT).replace('.', '_') + "_HOME"),
+                props.getProperty(name + ".envVarName", baseEnvVar + "_HOME"),
+                props.getProperty(name + ".envVarVersionName", baseEnvVar + "_VERSION"),
                 Boolean.parseBoolean(props.getProperty(name + ".addToPath", props.getProperty("addToPath", "true"))),
                 Boolean.parseBoolean(props.getProperty(name + ".failOnMissing", props.getProperty("failOnMissing"))),
                 Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
@@ -186,7 +211,7 @@ public class RcService {
                 .map(from::resolve)
                 .filter(Files::exists)
                 .findFirst()
-                .orElseGet(() -> Path.of(".yemrc"));
+                .orElseGet(() -> from.resolve(".yemrc"));
     }
 
     public record ToolProperties(
@@ -194,7 +219,8 @@ public class RcService {
             String version,
             String provider,
             boolean relaxed,
-            String envVarName,
+            String envPathVarName,
+            String envVersionVarName,
             boolean addToPath,
             boolean failOnMissing,
             boolean installIfMissing) {

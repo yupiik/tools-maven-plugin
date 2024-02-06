@@ -218,6 +218,7 @@ public class YemHttpClient implements AutoCloseable {
                             response.request(), response.uri(), response.version(), response.statusCode(), response.headers(),
                             new String(response.body(), UTF_8));
                     if (entry != null && result.statusCode() == 200) {
+                        logger.info(() -> "Updated '" + request.uri() + "' metadata");
                         cache.save(entry.key(), result);
                     }
                     return result;

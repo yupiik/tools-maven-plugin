@@ -121,7 +121,8 @@ class CommandsTest {
                         export YEM_ORIGINAL_PATH="$original_path";
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
-                        echo "[yem] Resolved java@21. to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
+                        export JAVA_VERSION="21.0.2";
+                        echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
                         .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
                 out
@@ -139,6 +140,7 @@ class CommandsTest {
                         export YEM_ORIGINAL_PATH="$original_path";
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
+                        export JAVA_VERSION="21.0.2";
                         echo "[yem] Resolved java@21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
                         .replace("$original_path", System.getenv("PATH"))
                         .replace("$work", work.toString()),
@@ -157,7 +159,7 @@ class CommandsTest {
                         "io.yupiik.dev.command.CommandsTest$SampleMain " +
                         "\"" + output + "\"" +
                         "hello YEM!");
-        captureOutput(work, uri, "run", "--rc", yem.toString(), "--", "demo");
+        captureOutput(work, uri, "run", "--rc", yem.toString(), "--defaultRc", "skip", "--", "demo");
         assertEquals(">> [hello, YEM!]", Files.readString(output));
     }
 
