@@ -119,12 +119,14 @@ public class Env implements Runnable {
                                         .map(r -> quoted(rc.toBin(r.path())))
                                         .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\";\n" :
                                 "";
+                        final var home = System.getProperty("user.home", "");
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
                                 resolved.stream()
                                         // don't log too much, if it does not change, don't re-log it
                                         .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
                                         .map(e -> "echo \"[yem] Resolved " + messageHelper.formatToolNameAndVersion(
-                                                e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" + e.path() + "'\";")
+                                                e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" +
+                                                e.path().toString().replace(home, "~") + "'\";")
                                         .collect(joining("\n", "", "\n")) :
                                 "";
 

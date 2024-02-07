@@ -26,8 +26,10 @@ import java.nio.file.Path;
 
 @ApplicationScoped
 public class MessageHelper {
+    private final String colorPrefix = new String(new char[]{27, '['});
     private final MessagesConfiguration configuration;
     private boolean supportsEmoji;
+    private boolean enableColors;
 
     public MessageHelper(final MessagesConfiguration configuration) {
         this.configuration = configuration;
@@ -40,28 +42,36 @@ public class MessageHelper {
                     Files.exists(Path.of("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"));
             default -> !Boolean.parseBoolean(configuration.disableEmoji());
         };
-    }
-
-    public boolean supportsEmoji() {
-        return supportsEmoji;
+        enableColors = switch (configuration.disableColors()) {
+            case "auto" -> !Boolean.parseBoolean(System.getenv("CI"));
+            default -> !Boolean.parseBoolean(configuration.disableColors());
+        };
     }
 
     public String formatToolNameAndVersion(final Candidate candidate, final String tool, final String version) {
-        final var base = tool + '@' + version;
+        final var base = format(configuration.toolColor(), tool) + " @ " + format(configuration.versionColor(), version);
         if (!supportsEmoji) {
             return base;
         }
 
         final var metadata = candidate.metadata();
-        if (metadata.containsKey("emoji")) {
-            return metadata.get("emoji") + ' ' + base;
+        final var emoji = metadata.get("emoji");
+        if (emoji != null) {
+            return emoji + ' ' + base;
         }
 
         return base;
     }
 
+    private String format(final String color, final String value) {
+        return (enableColors ? colorPrefix + color + 'm' : "") + value + (enableColors ? colorPrefix + "0m" : "");
+    }
+
     @RootConfiguration("messages")
     public record MessagesConfiguration(
+            @Property(documentation = "Are colors disabled for the terminal.", defaultValue = "\"auto\"") String disableColors,
+            @Property(documentation = "When color are enabled the tool name color.", defaultValue = "\"0;49;34\"") String toolColor,
+            @Property(documentation = "When color are enabled the version color.", defaultValue = "\"0;49;96\"") String versionColor,
             @Property(documentation = "If `false` emoji are totally disabled. " +
                     "`auto` will test `/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf` presence to enable emojis. " +
                     "`true`/`false` disable/enable emoji whatever the available fonts.", defaultValue = "\"auto\"") String disableEmoji) {
