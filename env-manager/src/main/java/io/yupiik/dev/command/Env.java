@@ -59,6 +59,7 @@ public class Env implements Runnable {
         final var comment = windows ? "%% " : "# ";
         final var pathName = windows ? "Path" : "PATH";
         final var pathVar = windows ? "%" + pathName + "%" : ("$" + pathName);
+        final var quote = windows ? "" : "\"";
 
         if (!conf.skipReset()) {
             resetOriginalPath(export, pathName);
@@ -104,8 +105,8 @@ public class Env implements Runnable {
             rc.toToolProperties(tools).thenAccept(resolved -> {
                         final var toolVars = resolved.stream()
                                 .flatMap(e -> Stream.of(
-                                        export + e.properties().envPathVarName() + "=\"" + quoted(e.path()) + "\";",
-                                        export + e.properties().envVersionVarName() + "=\"" + e.properties().version() + "\";"))
+                                        export + e.properties().envPathVarName() + "=" + quote + quoted(e.path()) + quote + ";",
+                                        export + e.properties().envVersionVarName() + "=" + quote + e.properties().version() + quote + ";"))
                                 .sorted()
                                 .collect(joining("\n", "", "\n"));
 
@@ -113,11 +114,11 @@ public class Env implements Runnable {
                                 .or(() -> ofNullable(System.getenv(pathName)))
                                 .orElse("");
                         final var pathVars = resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath) ?
-                                export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\";\n" +
-                                        export + pathName + "=\"" + resolved.stream()
+                                export + "YEM_ORIGINAL_PATH=" + quote + pathBase + quote + ";\n" +
+                                        export + pathName + "=" + quote + resolved.stream()
                                         .filter(r -> r.properties().addToPath())
                                         .map(r -> quoted(rc.toBin(r.path())))
-                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\";\n" :
+                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + quote + ";\n" :
                                 "";
                         final var home = System.getProperty("user.home", "");
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?

@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
+import static io.yupiik.dev.provider.Provider.ProgressListener.NOOP;
 import static java.util.stream.Collectors.joining;
 
 @Command(name = "install", description = "Install a distribution.")
@@ -47,7 +48,7 @@ public class Install implements Runnable {
         try {
             registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), conf.relaxed())
                     .thenCompose(matched -> matched.provider()
-                            .install(conf.tool(), matched.version().identifier(), this::onProgress)
+                            .install(conf.tool(), matched.version().identifier(), Boolean.parseBoolean(System.getenv("CI")) ? NOOP : this::onProgress)
                             .thenAccept(result -> logger.info(() -> "Installed " + messageHelper.formatToolNameAndVersion(
                                     matched.candidate(), conf.tool(), matched.version().version()) + " at '" + result + "'")))
                     .toCompletableFuture()
