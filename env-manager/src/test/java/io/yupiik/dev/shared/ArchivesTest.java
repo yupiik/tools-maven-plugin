@@ -22,6 +22,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -98,14 +99,14 @@ class ArchivesTest {
             @Override
             public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
                 if (!Objects.equals(dir, exploded)) {
-                    actual.put(exploded.relativize(dir).toString() + '/', "");
+                    actual.put(exploded.relativize(dir).toString().replace(File.separatorChar, '/') + '/', "");
                 }
                 return super.preVisitDirectory(dir, attrs);
             }
 
             @Override
             public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                actual.put(exploded.relativize(file).toString(), Files.readString(file));
+                actual.put(exploded.relativize(file).toString().replace(File.separatorChar, '/'), Files.readString(file));
                 return super.visitFile(file, attrs);
             }
         });

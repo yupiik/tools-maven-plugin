@@ -153,7 +153,13 @@ public class Run implements Runnable {
         char await = 0;
         boolean escaped = false;
         for (final char c : alias.toCharArray()) {
-            if (await == 0 && c == ' ') {
+            if (escaped) {
+                if (!(c == '"' || c == '\'')) {
+                    builder.append('\\');
+                }
+                builder.append(c);
+                escaped = false;
+            } else if (await == 0 && c == ' ') {
                 if (!builder.isEmpty()) {
                     out.add(builder.toString().strip());
                     builder.setLength(0);
@@ -162,9 +168,6 @@ public class Run implements Runnable {
                 out.add(builder.toString().strip());
                 builder.setLength(0);
                 await = 0;
-            } else if (escaped) {
-                builder.append(c);
-                escaped = false;
             } else if (c == '\\') {
                 escaped = true;
             } else if (c == '"' && builder.isEmpty()) {

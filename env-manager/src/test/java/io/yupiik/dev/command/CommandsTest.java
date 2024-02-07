@@ -25,6 +25,7 @@ import io.yupiik.fusion.framework.api.main.ArgsConfigSource;
 import io.yupiik.fusion.framework.api.main.Awaiter;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
@@ -37,13 +38,16 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ROOT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 @Mock(uri = "/2/", payload = "<td><a href=\"/zulu/bin/zulu21.32.17-ca-jdk21.0.2-linux64.tar.gz\">zulu21.32.17-ca-jdk21.0.2-linux64.tar.gz</a></td>")
 @Mock(uri = "/2/zulu21.32.17-ca-jdk21.0.2-linux64.tar.gz", payload = "this is Java", format = "tar.gz")
 class CommandsTest {
     @Test
+    @DisabledOnOs(WINDOWS)
     void config(@TempDir final Path work, final URI uri) {
         assertEquals("""
                         - apache-maven: enabled=false
@@ -84,6 +88,7 @@ class CommandsTest {
     }
 
     @Test
+    @DisabledOnOs(WINDOWS)
     void resolve(@TempDir final Path work, final URI uri) {
         doInstall(work, uri);
         assertEquals(
@@ -112,6 +117,7 @@ class CommandsTest {
     }
 
     @Test
+    @DisabledOnOs(WINDOWS)
     void env(@TempDir final Path work, final URI uri) throws IOException {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
         final var out = captureOutput(work, uri, "env", "--skipReset", "true", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
@@ -131,6 +137,7 @@ class CommandsTest {
     }
 
     @Test
+    @DisabledOnOs(WINDOWS)
     void envSdkManRc(@TempDir final Path work, final URI uri) throws IOException {
         doInstall(work, uri);
 
@@ -154,10 +161,12 @@ class CommandsTest {
         final var output = work.resolve("output");
         final var yem = Files.writeString(
                 work.resolve(".yemrc"),
-                "demo.alias = " + System.getProperty("java.home") + "/bin/java " +
+                "demo.alias = " + (System.getProperty("java.home") + "/bin/java" +
+                        (System.getProperty("os.name", "").toLowerCase(ROOT).contains("win") ? ".exe" : ""))
+                        .replace("\\", "\\\\") + ' ' +
                         "-cp target/test-classes " +
                         "io.yupiik.dev.command.CommandsTest$SampleMain " +
-                        "\"" + output + "\"" +
+                        "\"" + output.toString().replace("\\", "\\\\") + "\"" +
                         "hello YEM!");
         captureOutput(work, uri, "run", "--rc", yem.toString(), "--defaultRc", "skip", "--", "demo");
         assertEquals(">> [hello, YEM!]", Files.readString(output));
@@ -208,7 +217,7 @@ class CommandsTest {
         public String get(final String key) {
             return switch (key) {
                 case "http.cache" -> "none";
-                case "apache-maven.enabled", "sdkman.enabled",  "minikube.enabled", "zulu.preferApi" -> "false";
+                case "apache-maven.enabled", "sdkman.enabled", "minikube.enabled", "zulu.preferApi" -> "false";
                 case "github.base" -> baseHttp + "/github/";
                 case "github.local" -> work.resolve("/github").toString();
                 case "central.base" -> baseHttp + "/m2/";
