@@ -180,7 +180,7 @@ public class MinikubeGithubClient implements Provider {
                                                                 GROUP_READ, GROUP_EXECUTE,
                                                                 OTHERS_READ, OTHERS_EXECUTE)
                                                         .collect(toSet()));
-                                    } catch (final IOException e) {
+                                    } catch (final UnsupportedOperationException | IOException e) {
                                         // no-op
                                     }
                                 });

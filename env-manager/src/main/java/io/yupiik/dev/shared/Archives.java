@@ -196,13 +196,17 @@ public class Archives {
                 (parentFilename.equals("lib") && (
                         filename.contains("exec") || filename.startsWith("j") ||
                                 (filename.startsWith("lib") && filename.contains(".so"))))) {
-            Files.setPosixFilePermissions(
-                    target,
-                    Stream.of(
-                                    OWNER_READ, OWNER_EXECUTE, OWNER_WRITE,
-                                    GROUP_READ, GROUP_EXECUTE,
-                                    OTHERS_READ, OTHERS_EXECUTE)
-                            .collect(toSet()));
+            try {
+                Files.setPosixFilePermissions(
+                        target,
+                        Stream.of(
+                                        OWNER_READ, OWNER_EXECUTE, OWNER_WRITE,
+                                        GROUP_READ, GROUP_EXECUTE,
+                                        OTHERS_READ, OTHERS_EXECUTE)
+                                .collect(toSet()));
+            } catch (final UnsupportedOperationException ue) {
+                // no-op, likely windows
+            }
         }
     }
 }

@@ -75,7 +75,7 @@ class CommandsTest {
     void list(@TempDir final Path work, final URI uri) {
         assertEquals("""
                 - [zulu] java:
-                -- 21.0.2""", captureOutput(work, uri, "list"));
+                -- 21.0.2 (21.32.17-ca-jdk21.0.2)""", captureOutput(work, uri, "list"));
     }
 
     @Test

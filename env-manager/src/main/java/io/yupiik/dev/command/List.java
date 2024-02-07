@@ -20,6 +20,7 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
@@ -72,7 +73,8 @@ public class List implements Runnable {
                                                     .filter(Predicate.not(m -> m.getValue().isEmpty()))
                                                     .map(e -> "- " + e.getKey() + ":" + e.getValue().stream()
                                                             .sorted((a, b) -> -a.compareTo(b))
-                                                            .map(v -> "-- " + v.version())
+                                                            .map(v -> "-- " + v.version() + (!Objects.equals(v.version(), v.identifier()) ? " (" + v.identifier() + ")" : ""))
+                                                            .distinct()
                                                             .collect(joining("\n", "\n", "\n")))
                                                     .toList());
                                 })

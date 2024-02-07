@@ -91,7 +91,8 @@ public class Run implements Runnable {
                         final var exts = os.isWindows() ?
                                 Stream.concat(
                                                 Stream.of(""),
-                                                Stream.ofNullable(System.getenv("PathExt"))
+                                                Stream.ofNullable(ofNullable(System.getenv("PathExt"))
+                                                                .orElseGet(() -> System.getenv("PATHEXT")))
                                                         .map(i -> Stream.of(i.split(";"))
                                                                 .map(String::strip)
                                                                 .filter(Predicate.not(String::isBlank))))

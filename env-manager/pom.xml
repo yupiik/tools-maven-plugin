@@ -152,6 +152,68 @@
             <customOption>-H:+StaticExecutableWithDynamicLibC</customOption>
             <customOption>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager</customOption>
           </customOptions>
+          <reflections>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.AsiExtraField</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X5455_ExtendedTimestamp</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X7875_NewUnix</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.JarMarker</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.UnicodePathExtraField</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.UnicodeCommentExtraField</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.Zip64ExtendedInformationExtraField</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X000A_NTFS</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X0014_X509Certificates</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X0015_CertificateIdForFile</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X0016_CertificateIdForCentralDirectory</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X0017_StrongEncryptionHeader</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.X0019_EncryptionRecipientCertificateList</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+            <reflection>
+              <name>org.apache.commons.compress.archivers.zip.ResourceAlignmentExtraField</name>
+              <allPublicConstructors>true</allPublicConstructors>
+            </reflection>
+          </reflections>
+          <!-- until release 1.0.9 of arthur you need to tune the graalvm CE download url on windows (ensure to not let the -graalce suffix otherwise url is overriden):
+          <graalVersion>21.0.2</graalVersion>
+          <graalDownloadUrl>https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-${graalJavaVersion}/graalvm-community-jdk-${graalJavaVersion}_windows-x64_bin.zip</graalDownloadUrl>
+          -->
         </configuration>
       </plugin>
     </plugins>

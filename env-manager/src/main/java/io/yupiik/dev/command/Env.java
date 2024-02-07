@@ -54,7 +54,7 @@ public class Env implements Runnable {
 
     @Override
     public void run() {
-        final var windows = os.isWindows();
+        final var windows = os.isWindows() && System.getenv("TERM") == null /* if not null behave as bash */;
         final var export = windows ? "set " : "export ";
         final var comment = windows ? "%% " : "# ";
         final var pathName = windows ? "Path" : "PATH";
@@ -62,7 +62,7 @@ public class Env implements Runnable {
         final var quote = windows ? "" : "\"";
 
         if (!conf.skipReset()) {
-            resetOriginalPath(export, pathName);
+            resetOriginalPath(export, pathName, windows);
         }
 
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
@@ -134,7 +134,7 @@ public class Env implements Runnable {
                         final var script = messages.stream().map(m -> "echo \"[yem] " + m.replace("\"", "\"\\\"\"") + "\";").collect(joining("\n", "", "\n\n")) +
                                 pathVars + toolVars + echos + "\n" +
                                 comment + "To load a .yemrc configuration run:\n" +
-                                comment + "[ -f .yemrc ] && eval $(yem env--env-file .yemrc)\n" +
+                                comment + "[ -f .yemrc ] && eval $(yem env --env-file .yemrc)\n" +
                                 comment + "\n" +
                                 comment + "See https://www.yupiik.io/tools-maven-plugin/yem.html#autopath for details\n" +
                                 "\n";
@@ -161,12 +161,12 @@ public class Env implements Runnable {
                 .replace("\"", "\\\"");
     }
 
-    private void resetOriginalPath(final String export, final String pathName) {
+    private void resetOriginalPath(final String export, final String pathName, final boolean windows) {
         // just check we have YEM_ORIGINAL_PATH and reset PATH if needed
         ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
                 .filter(it -> !"skip".equals(it))
                 .ifPresent(value -> {
-                    if (os.isWindows()) {
+                    if (windows) {
                         System.out.println("set YEM_ORIGINAL_PATH=;");
                     } else {
                         System.out.println("unset YEM_ORIGINAL_PATH;");

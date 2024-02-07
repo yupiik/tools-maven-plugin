@@ -213,7 +213,11 @@ public class ZuluCdnClient implements Provider {
 
         if (preferApi) {
             final var baseUrl = apiBase.resolve("/metadata/v1/zulu/packages/") + "?" +
-                    "os=linux&" +
+                    "os=" + (suffix.startsWith("win") ?
+                    "windows" :
+                    (suffix.startsWith("mac") ?
+                            "macosx" :
+                            (Files.exists(Path.of("/lib/ld-musl-x86_64.so.1")) ? "linux-musl" : "linux-glibc"))) + "&" +
                     "arch=" + (suffix.contains("_aarch64") ? "aarch64" : "x64") + "&" +
                     "archive_type=" + (suffix.endsWith(".tar.gz") ? "tar.gz" : "zip") + "&" +
                     "java_package_type=" + (preferJre ? "jre" : "jdk") + "&" +
