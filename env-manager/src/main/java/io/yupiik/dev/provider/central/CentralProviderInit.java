@@ -27,6 +27,8 @@ import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 import io.yupiik.fusion.framework.build.api.event.OnEvent;
 import io.yupiik.fusion.framework.build.api.order.Order;
 
+import java.util.Map;
+
 @ApplicationScoped
 public class CentralProviderInit {
     public void onStart(@OnEvent @Order(Integer.MIN_VALUE + 100) final Start start,
@@ -40,7 +42,10 @@ public class CentralProviderInit {
         final var beans = container.getBeans();
         registry.gavs().forEach(gav -> beans.doRegister(new ProvidedInstanceBean<>(DefaultScoped.class, CentralBaseProvider.class, () -> {
             final var enabled = "true".equals(conf.get(gav.artifactId() + ".enabled").orElse("true"));
-            return new CentralBaseProvider(client, configuration, archives, cache, gav, enabled);
+            return new CentralBaseProvider(client, configuration, archives, cache, gav, enabled, switch (gav.artifactId()) {
+                case "apache-maven" -> Map.of("emoji", "\uD83E\uDD89");
+                default -> Map.of();
+            });
         })));
     }
 }

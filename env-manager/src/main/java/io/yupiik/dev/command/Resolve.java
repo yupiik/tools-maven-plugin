@@ -16,6 +16,7 @@
 package io.yupiik.dev.command;
 
 import io.yupiik.dev.provider.ProviderRegistry;
+import io.yupiik.dev.shared.MessageHelper;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
@@ -28,21 +29,24 @@ public class Resolve implements Runnable {
     private final Logger logger = Logger.getLogger(getClass().getName());
     private final Conf conf;
     private final ProviderRegistry registry;
+    private final MessageHelper messageHelper;
 
     public Resolve(final Conf conf,
-                   final ProviderRegistry registry) {
+                   final ProviderRegistry registry,
+                   final MessageHelper messageHelper) {
         this.conf = conf;
         this.registry = registry;
+        this.messageHelper = messageHelper;
     }
 
     @Override
     public void run() {
         try {
             registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
-                    .thenAccept(providerAndVersion -> {
-                        final var resolved = providerAndVersion.getKey().resolve(conf.tool(), providerAndVersion.getValue().identifier())
+                    .thenAccept(matched -> {
+                        final var resolved = matched.provider().resolve(conf.tool(), matched.version().identifier())
                                 .orElseThrow(() -> new IllegalArgumentException("No matching instance for " + conf.tool() + "@" + conf.version() + ", ensure to install it before resolving it."));
-                        logger.info(() -> "Resolved " + conf.tool() + "@" + providerAndVersion.getValue().version() + ": '" + resolved + "'");
+                        logger.info(() -> "Resolved " + messageHelper.formatToolNameAndVersion(matched.candidate(), conf.tool(), matched.version().version()) + ": '" + resolved + "'");
                     })
                     .toCompletableFuture()
                     .get();

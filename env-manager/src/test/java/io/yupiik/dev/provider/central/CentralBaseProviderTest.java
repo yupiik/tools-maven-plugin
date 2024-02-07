@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -115,6 +116,6 @@ class CentralBaseProviderTest {
         return new CentralBaseProvider(
                 client, new CentralConfiguration(uri.toASCIIString(), local.toString(), ""), new Archives(),
                 new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0, "none"), null),
-                Gav.of("org.foo:bar:tar.gz:simple"), true);
+                Gav.of("org.foo:bar:tar.gz:simple"), true, Map.of());
     }
 }

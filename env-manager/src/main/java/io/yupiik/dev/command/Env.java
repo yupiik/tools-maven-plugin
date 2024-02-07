@@ -15,6 +15,7 @@
  */
 package io.yupiik.dev.command;
 
+import io.yupiik.dev.shared.MessageHelper;
 import io.yupiik.dev.shared.Os;
 import io.yupiik.dev.shared.RcService;
 import io.yupiik.fusion.framework.build.api.cli.Command;
@@ -42,11 +43,13 @@ public class Env implements Runnable {
     private final Conf conf;
     private final RcService rc;
     private final Os os;
+    private final MessageHelper messageHelper;
 
-    public Env(final Conf conf, final Os os, final RcService rc) {
+    public Env(final Conf conf, final Os os, final RcService rc, final MessageHelper messageHelper) {
         this.conf = conf;
         this.os = os;
         this.rc = rc;
+        this.messageHelper = messageHelper;
     }
 
     @Override
@@ -99,28 +102,29 @@ public class Env implements Runnable {
 
         try {
             rc.toToolProperties(tools).thenAccept(resolved -> {
-                        final var toolVars = resolved.entrySet().stream()
+                        final var toolVars = resolved.stream()
                                 .flatMap(e -> Stream.of(
-                                        export + e.getKey().envPathVarName() + "=\"" + quoted(e.getValue()) + "\";",
-                                        export + e.getKey().envVersionVarName() + "=\"" + e.getKey().version() + "\";"))
+                                        export + e.properties().envPathVarName() + "=\"" + quoted(e.path()) + "\";",
+                                        export + e.properties().envVersionVarName() + "=\"" + e.properties().version() + "\";"))
                                 .sorted()
                                 .collect(joining("\n", "", "\n"));
 
                         final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
                                 .or(() -> ofNullable(System.getenv(pathName)))
                                 .orElse("");
-                        final var pathVars = resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath) ?
+                        final var pathVars = resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath) ?
                                 export + "YEM_ORIGINAL_PATH=\"" + pathBase + "\";\n" +
-                                        export + pathName + "=\"" + resolved.entrySet().stream()
-                                        .filter(r -> r.getKey().addToPath())
-                                        .map(r -> quoted(rc.toBin(r.getValue())))
+                                        export + pathName + "=\"" + resolved.stream()
+                                        .filter(r -> r.properties().addToPath())
+                                        .map(r -> quoted(rc.toBin(r.path())))
                                         .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + "\";\n" :
                                 "";
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
-                                resolved.entrySet().stream()
+                                resolved.stream()
                                         // don't log too much, if it does not change, don't re-log it
-                                        .filter(Predicate.not(it -> Objects.equals(it.getValue().toString(), System.getenv(it.getKey().envPathVarName()))))
-                                        .map(e -> "echo \"[yem] Resolved " + e.getKey().toolName() + "@" + e.getKey().version() + " to '" + e.getValue() + "'\";")
+                                        .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
+                                        .map(e -> "echo \"[yem] Resolved " + messageHelper.formatToolNameAndVersion(
+                                                e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" + e.path() + "'\";")
                                         .collect(joining("\n", "", "\n")) :
                                 "";
 

@@ -141,7 +141,7 @@ public class SdkManClient implements Provider {
             return completedFuture(tool.collect(toMap(
                     it -> {
                         final var name = it.getFileName().toString();
-                        return new Candidate(name, name, "", "");
+                        return new Candidate(name, name, "", "", toMetadata(name));
                     },
                     it -> {
                         if (Files.notExists(it)) {
@@ -346,9 +346,21 @@ public class SdkManClient implements Provider {
             }
             candidates.add(new Candidate(
                     tool, line1.substring(0, sep1), // version=line1.substring(sep1 + 2, sep2),
-                    description.toString(), link > 0 ? line1.substring(link) : ""));
+                    description.toString(), link > 0 ? line1.substring(link) : "",
+                    toMetadata(tool)));
         }
         return candidates;
+    }
+
+    private Map<String, String> toMetadata(final String tool) {
+        if (tool == null) {
+            return Map.of();
+        }
+        return switch (tool) {
+            case "java" -> Map.of("emoji", "☕");
+            case "maven" -> Map.of("emoji", "\uD83E\uDD89");
+            default -> Map.of();
+        };
     }
 
     private List<String> lines(final String body) {

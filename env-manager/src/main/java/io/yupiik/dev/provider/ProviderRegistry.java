@@ -33,7 +33,6 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
-import static java.util.Map.entry;
 import static java.util.Optional.empty;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.logging.Level.FINEST;
@@ -68,8 +67,8 @@ public class ProviderRegistry {
         return providers;
     }
 
-    public CompletionStage<Map.Entry<Provider, Version>> findByToolVersionAndProvider(final String tool, final String version, final String provider,
-                                                                                      final boolean relaxed) {
+    public CompletionStage<MatchedVersion> findByToolVersionAndProvider(final String tool, final String version, final String provider,
+                                                                        final boolean relaxed) {
         return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, new Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()))
                 .thenApply(found -> found.orElseThrow(() -> new IllegalArgumentException(
                         "No provider for tool " + tool + "@" + version + "', available tools:\n" +
@@ -102,10 +101,10 @@ public class ProviderRegistry {
                                         .collect(joining("\n")))));
     }
 
-    public CompletionStage<Optional<Map.Entry<Provider, Version>>> tryFindByToolVersionAndProvider(
+    public CompletionStage<Optional<MatchedVersion>> tryFindByToolVersionAndProvider(
             final String tool, final String version, final String provider, final boolean relaxed,
             final Cache cache) {
-        final var result = new CompletableFuture<Optional<Map.Entry<Provider, Version>>>();
+        final var result = new CompletableFuture<Optional<MatchedVersion>>();
         final var promises = providers().stream()
                 .filter(it -> provider == null ||
                         // enable "--install-provider zulu" for example
@@ -127,7 +126,13 @@ public class ProviderRegistry {
                                         .thenApply(all -> all.stream()
                                                 .filter(v -> matchVersion(v, version, relaxed))
                                                 .findFirst()
-                                                .map(v -> entry(it, v)))
+                                                .map(v -> new MatchedVersion(
+                                                        it,
+                                                        candidates.stream()
+                                                                .filter(c -> Objects.equals(c.tool(), tool))
+                                                                .findFirst()
+                                                                .orElse(null),
+                                                        v)))
                                         .toCompletableFuture()));
                     }
                     return completedFuture(Optional.empty());
@@ -169,15 +174,16 @@ public class ProviderRegistry {
                 }));
     }
 
-    private Stream<Map.Entry<Provider, Version>> findMatchingVersion(final String tool, final String version,
-                                                                     final boolean relaxed, final Provider provider,
-                                                                     final Map<Candidate, List<Version>> versions) {
+    private Stream<MatchedVersion> findMatchingVersion(final String tool, final String version,
+                                                       final boolean relaxed, final Provider provider,
+                                                       final Map<Candidate, List<Version>> versions) {
         return versions.entrySet().stream()
                 .filter(e -> Objects.equals(e.getKey().tool(), tool))
-                .flatMap(e -> e.getValue().stream().filter(v -> matchVersion(v, version, relaxed)))
-                .findFirst()
-                .stream()
-                .map(v -> entry(provider, v));
+                .flatMap(e -> e.getValue().stream()
+                        .filter(v -> matchVersion(v, version, relaxed))
+                        .findFirst()
+                        .stream()
+                        .map(v -> new MatchedVersion(provider, e.getKey(), v)));
     }
 
     private boolean matchVersion(final Version v, final String version, final boolean relaxed) {
@@ -187,5 +193,8 @@ public class ProviderRegistry {
 
     public record Cache(Map<Provider, Map<Candidate, List<Version>>> local,
                         Map<Provider, Map<String, List<Version>>> versions) {
+    }
+
+    public record MatchedVersion(Provider provider, Candidate candidate, Version version) {
     }
 }

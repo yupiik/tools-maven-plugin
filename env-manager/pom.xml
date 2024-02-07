@@ -123,6 +123,7 @@
           </systemPropertyVariables>
           <environmentVariables>
             <YEM_ORIGINAL_PATH>skip</YEM_ORIGINAL_PATH>
+            <CI>true</CI> <!-- no emoji for tests -->
           </environmentVariables>
         </configuration>
       </plugin>

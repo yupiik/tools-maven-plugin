@@ -195,7 +195,8 @@ public class ZuluCdnClient implements Provider {
         if (!enabled) {
             return completedFuture(List.of());
         }
-        return completedFuture(List.of(new Candidate("java", "java", "Java JRE or JDK downloaded from Azul CDN.", base.toASCIIString())));
+        return completedFuture(List.of(new Candidate(
+                "java", "java", "Java JRE or JDK downloaded from Azul CDN.", base.toASCIIString(), Map.of("emoji", "☕"))));
     }
 
     @Override

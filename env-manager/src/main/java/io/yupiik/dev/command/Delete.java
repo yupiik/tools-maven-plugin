@@ -16,6 +16,7 @@
 package io.yupiik.dev.command;
 
 import io.yupiik.dev.provider.ProviderRegistry;
+import io.yupiik.dev.shared.MessageHelper;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
@@ -28,20 +29,23 @@ public class Delete implements Runnable {
     private final Logger logger = Logger.getLogger(getClass().getName());
     private final Conf conf;
     private final ProviderRegistry registry;
+    private final MessageHelper messageHelper;
 
     public Delete(final Conf conf,
-                  final ProviderRegistry registry) {
+                  final ProviderRegistry registry,
+                  final MessageHelper messageHelper) {
         this.conf = conf;
         this.registry = registry;
+        this.messageHelper = messageHelper;
     }
 
     @Override
     public void run() {
         try {
             registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
-                    .thenAccept(providerAndVersion -> {
-                        providerAndVersion.getKey().delete(conf.tool(), providerAndVersion.getValue().identifier());
-                        logger.info(() -> "Deleted " + conf.tool() + "@" + providerAndVersion.getValue().version());
+                    .thenAccept(matched -> {
+                        matched.provider().delete(conf.tool(), matched.version().identifier());
+                        logger.info(() -> "Deleted " + messageHelper.formatToolNameAndVersion(matched.candidate(), conf.tool(), matched.version().version()));
                     })
                     .toCompletableFuture()
                     .get();

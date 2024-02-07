@@ -15,5 +15,7 @@
  */
 package io.yupiik.dev.provider.model;
 
-public record Candidate(String tool, String name, String description, String url) {
+import java.util.Map;
+
+public record Candidate(String tool, String name, String description, String url, Map<String, String> metadata) {
 }

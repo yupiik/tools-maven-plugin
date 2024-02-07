@@ -129,17 +129,17 @@ public class Run implements Runnable {
         }
     }
 
-    private void setEnv(final Map<RcService.ToolProperties, Path> resolved, final Map<String, String> environment) {
-        resolved.forEach((tool, home) -> {
-            final var homeStr = home.toString();
-            logger.finest(() -> "Setting '" + tool.envPathVarName() + "' to '" + homeStr + "'");
-            environment.put(tool.envPathVarName(), homeStr);
+    private void setEnv(final List<RcService.MatchedPath> resolved, final Map<String, String> environment) {
+        resolved.forEach(it -> {
+            final var homeStr = it.path().toString();
+            logger.finest(() -> "Setting '" + it.properties().envPathVarName() + "' to '" + homeStr + "'");
+            environment.put(it.properties().envPathVarName(), homeStr);
         });
-        if (resolved.keySet().stream().anyMatch(RcService.ToolProperties::addToPath)) {
+        if (resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath)) {
             final var pathName = os.isWindows() ? "Path" : "PATH";
-            final var path = resolved.entrySet().stream()
-                    .filter(r -> r.getKey().addToPath())
-                    .map(r -> rc.toBin(r.getValue()).toString())
+            final var path = resolved.stream()
+                    .filter(r -> r.properties().addToPath())
+                    .map(r -> rc.toBin(r.path()).toString())
                     .collect(joining(pathSeparator, "", pathSeparator)) +
                     ofNullable(System.getenv(pathName)).orElse("");
             logger.finest(() -> "Setting 'PATH' to '" + path + "'");

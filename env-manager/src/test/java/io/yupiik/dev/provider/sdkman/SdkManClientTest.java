@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
@@ -88,15 +89,18 @@ class SdkManClientTest {
                 new Candidate(
                         "activemq", "Apache ActiveMQ (Classic)", // "5.17.1",
                         "Apache ActiveMQ® is a popular open source, multi-protocol, Java-based message broker. It supports industry standard protocols so users get the benefits of client choices across a broad range of languages and platforms. Connect from clients written in JavaScript, C, C++, Python, .Net, and more. Integrate your multi-platform applications using the ubiquitous AMQP protocol. Exchange messages between your web applications using STOMP over websockets. Manage your IoT devices using MQTT. Support your existing JMS infrastructure and beyond. ActiveMQ offers the power and flexibility to support any messaging use-case.",
-                        "https://activemq.apache.org/"),
+                        "https://activemq.apache.org/",
+                        Map.of()),
                 new Candidate(
                         "java", "Java", // "221-zulu-tem",
                         "Java Platform, Standard Edition (or Java SE) is a widely used platform for development and deployment of portable code for desktop and server environments. Java SE uses the object-oriented Java programming language. It is part of the Java software-platform family. Java SE defines a wide range of general-purpose APIs – such as Java APIs for the Java Class Library – and also includes the Java Language Specification and the Java Virtual Machine Specification.",
-                        "https://projects.eclipse.org/projects/adoptium.temurin/"),
+                        "https://projects.eclipse.org/projects/adoptium.temurin/",
+                        Map.of("emoji", "☕")),
                 new Candidate(
                         "maven", "Maven", // "3.9.6",
                         "Apache Maven is a software project management and comprehension tool. Based on the concept of a project object model (POM), Maven can manage a project's build, reporting and documentation from a central piece of information.",
-                        "https://maven.apache.org/"));
+                        "https://maven.apache.org/",
+                        Map.of("emoji", "\uD83E\uDD89")));
         assertEquals(expected, actual);
     }
 

@@ -86,7 +86,8 @@ public class MinikubeGithubClient implements Provider {
             return completedFuture(List.of());
         }
         return completedFuture(List.of(new Candidate(
-                "minikube", "Minikube", "Local development Kubernetes binary.", "https://minikube.sigs.k8s.io/docs/")));
+                "minikube", "Minikube", "Local development Kubernetes binary.", "https://minikube.sigs.k8s.io/docs/",
+                Map.of("emoji", "☸️"))));
     }
 
     @Override

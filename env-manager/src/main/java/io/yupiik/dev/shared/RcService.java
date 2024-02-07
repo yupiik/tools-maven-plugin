@@ -17,6 +17,7 @@ package io.yupiik.dev.shared;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.ProviderRegistry;
+import io.yupiik.dev.provider.model.Candidate;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
@@ -24,7 +25,7 @@ import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
@@ -36,7 +37,6 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
-import static java.util.Map.entry;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
@@ -96,16 +96,16 @@ public class RcService {
                 .orElse(value);
     }
 
-    public CompletionStage<Map<ToolProperties, Path>> toToolProperties(final Properties props) {
+    public CompletionStage<List<MatchedPath>> toToolProperties(final Properties props) {
         final var promises = props.stringPropertyNames().stream()
                 .filter(it -> it.endsWith(".version"))
                 .map(versionKey -> toToolProperties(props, versionKey))
                 .map(tool -> {
-                    final var providerAndVersionPromise = registry.tryFindByToolVersionAndProvider(
+                    final var promise = registry.tryFindByToolVersionAndProvider(
                             tool.toolName(), tool.version(),
                             tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
                             new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
-                    return providerAndVersionPromise.thenCompose(providerAndVersionOpt -> providerAndVersionOpt
+                    return promise.thenCompose(providerAndVersionOpt -> providerAndVersionOpt
                                     .map(providerVersion -> doResolveVersion(tool, providerVersion))
                                     .orElseGet(() -> {
                                         if (tool.failOnMissing()) {
@@ -120,14 +120,13 @@ public class RcService {
         return allOf(promises.toArray(new CompletableFuture<?>[0]))
                 .thenApply(ok -> promises.stream()
                         .flatMap(p -> p.getNow(Optional.empty()).stream())
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
+                        .toList());
     }
 
-    private CompletableFuture<Optional<Map.Entry<ToolProperties, Path>>> doResolveVersion(final ToolProperties tool,
-                                                                                          final Map.Entry<Provider, Version> providerVersion) {
-        final var provider = providerVersion.getKey();
-        final var version = providerVersion.getValue().identifier();
-        return provider.resolve(tool.toolName(), providerVersion.getValue().identifier())
+    private CompletableFuture<Optional<MatchedPath>> doResolveVersion(final ToolProperties tool,
+                                                                      final ProviderRegistry.MatchedVersion matchedVersion) {
+        final var version = matchedVersion.version().identifier();
+        return matchedVersion.provider().resolve(tool.toolName(), version)
                 .map(path -> completedFuture(Optional.of(path)))
                 .or(() -> {
                     if (!tool.installIfMissing()) {
@@ -138,13 +137,14 @@ public class RcService {
                     }
 
                     logger.info(() -> "Installing " + tool.toolName() + '@' + version);
-                    return Optional.of(provider.install(tool.toolName(), version, Provider.ProgressListener.NOOP)
+                    return Optional.of(matchedVersion.provider().install(tool.toolName(), version, Provider.ProgressListener.NOOP)
                             .exceptionally(this::onInstallException)
                             .thenApply(Optional::ofNullable)
                             .toCompletableFuture());
                 })
                 .orElseGet(() -> completedFuture(Optional.empty()))
-                .thenApply(path -> path.map(p -> entry(adjustToolVersion(tool, providerVersion), p)));
+                .thenApply(path -> path.map(p -> new MatchedPath(
+                        p, adjustToolVersion(tool, matchedVersion.version()), matchedVersion.provider(), matchedVersion.candidate())));
     }
 
     private Path onInstallException(final Throwable e) {
@@ -158,12 +158,12 @@ public class RcService {
         throw new IllegalStateException(unwrapped);
     }
 
-    private ToolProperties adjustToolVersion(final ToolProperties tool, final Map.Entry<Provider, Version> providerVersion) {
-        return Objects.equals(tool.version(), providerVersion.getValue().version()) ?
+    private ToolProperties adjustToolVersion(final ToolProperties tool, final Version version) {
+        return Objects.equals(tool.version(), version.version()) ?
                 tool :
                 new ToolProperties(
                         tool.toolName(),
-                        providerVersion.getValue().version(),
+                        version.version(),
                         tool.provider(),
                         true,
                         tool.envPathVarName(),
@@ -224,5 +224,8 @@ public class RcService {
             boolean addToPath,
             boolean failOnMissing,
             boolean installIfMissing) {
+    }
+
+    public record MatchedPath(Path path, ToolProperties properties, Provider provider, Candidate candidate) {
     }
 }

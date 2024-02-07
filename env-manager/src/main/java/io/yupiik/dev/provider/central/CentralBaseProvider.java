@@ -50,13 +50,15 @@ public class CentralBaseProvider implements Provider {
     private final Gav gav;
     private final Path local;
     private final boolean enabled;
+    private final Map<String, String> meta;
 
     public CentralBaseProvider(final YemHttpClient client,
                                final CentralConfiguration conf, // children must use SingletonCentralConfiguration to avoid multiple creations
                                final Archives archives,
                                final Cache cache,
                                final Gav gav,
-                               final boolean enabled) {
+                               final boolean enabled,
+                               final Map<String, String> meta) {
         this.client = client;
         this.archives = archives;
         this.cache = cache;
@@ -64,6 +66,7 @@ public class CentralBaseProvider implements Provider {
         this.local = Path.of(conf.local());
         this.gav = gav;
         this.enabled = enabled;
+        this.meta = meta;
     }
 
     public Gav gav() {
@@ -185,7 +188,7 @@ public class CentralBaseProvider implements Provider {
 
         return completedFuture(List.of(new Candidate(
                 gav.artifactId().startsWith("apache-") ? gav.artifactId().substring("apache-".length()) : gavString,
-                toName(gav.artifactId()), gavString + " downloaded from central.", base.toASCIIString())));
+                toName(gav.artifactId()), gavString + " downloaded from central.", base.toASCIIString(), meta)));
     }
 
     @Override
