@@ -28,6 +28,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -50,7 +51,7 @@ public class IndexService {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     if (file.getFileName().toString().endsWith(".html") && filter.test(file)) {
-                        doIndex(file, siteBase + '/' + base.relativize(file)).ifPresent(result.getEntries()::add);
+                        doIndex(file, siteBase + '/' + base.relativize(file).toString().replace(File.separatorChar, '/')).ifPresent(result.getEntries()::add);
                     }
                     return super.visitFile(file, attrs);
                 }

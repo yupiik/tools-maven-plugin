@@ -647,7 +647,7 @@ public class MiniSite implements Runnable {
                             .reduce(s -> false, Predicate::or);
             final IndexService indexer = new IndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
-                final String location = configuration.getTarget().relativize(path).toString().replace(File.pathSeparatorChar, '/');
+                final String location = configuration.getTarget().relativize(path).toString().replace(File.separatorChar, '/');
                 final String name = path.getFileName().toString();
                 if ((location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) || ignoredPages.test(name)) {
                     return false;

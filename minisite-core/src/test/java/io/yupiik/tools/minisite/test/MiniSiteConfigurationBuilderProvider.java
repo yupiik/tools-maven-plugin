@@ -182,7 +182,7 @@ public @interface MiniSiteConfigurationBuilderProvider {
                     Files.walkFileTree(base, new SimpleFileVisitor<>() {
                         @Override
                         public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                            collector.generated.put(base.relativize(file).toString().replace(File.pathSeparatorChar, '/'), Files.readString(file));
+                            collector.generated.put(base.relativize(file).toString().replace(File.separatorChar, '/'), Files.readString(file));
                             return super.visitFile(file, attrs);
                         }
                     });

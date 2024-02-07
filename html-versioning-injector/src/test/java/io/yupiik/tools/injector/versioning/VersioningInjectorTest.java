@@ -137,7 +137,7 @@ class VersioningInjectorTest {
                             "                \n" +
                             "            </div>\n" +
                             "        </div>",
-                    extractContent(Files.readString(output.resolve("page.html"))).strip());
+                    extractContent(Files.readString(output.resolve("page.html"))).strip().replace("\r", ""));
         }
     }
 
