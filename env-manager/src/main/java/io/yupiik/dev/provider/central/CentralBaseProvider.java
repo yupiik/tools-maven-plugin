@@ -183,16 +183,9 @@ public class CentralBaseProvider implements Provider {
                 .filter(Objects::nonNull)
                 .collect(joining(":"));
 
-        final var defaultCandidate = new Candidate(gavString, gav.artifactId(), gavString + " downloaded from central.", base.toASCIIString());
-        final List<Candidate> candidates;
-        if (gav.artifactId().startsWith("apache-")) {
-            candidates = List.of(
-                    defaultCandidate,
-                    new Candidate(gavString, gav.artifactId().substring("apache-".length()), gavString + " downloaded from central.", base.toASCIIString()));
-        } else {
-            candidates = List.of(defaultCandidate);
-        }
-        return completedFuture(candidates);
+        return completedFuture(List.of(new Candidate(
+                gav.artifactId().startsWith("apache-") ? gav.artifactId().substring("apache-".length()) : gavString,
+                toName(gav.artifactId()), gavString + " downloaded from central.", base.toASCIIString())));
     }
 
     @Override
@@ -240,6 +233,24 @@ public class CentralBaseProvider implements Provider {
                     }
                     return parseVersions(res.body());
                 });
+    }
+
+    private String toName(final String artifactId) {
+        final var out = new StringBuilder();
+        boolean up = true;
+        for (int i = 0; i < artifactId.length(); i++) {
+            final var c = artifactId.charAt(i);
+            if (up) {
+                out.append(Character.toUpperCase(c));
+                up = false;
+            } else if (c == '-' || c == '_') {
+                out.append(' ');
+                up = true;
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     private String relativePath(final String version) {
