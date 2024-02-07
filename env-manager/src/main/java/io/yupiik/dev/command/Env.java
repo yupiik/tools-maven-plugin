@@ -54,7 +54,8 @@ public class Env implements Runnable {
 
     @Override
     public void run() {
-        final var windows = os.isWindows() && System.getenv("TERM") == null /* if not null behave as bash */;
+        final var hasTerm = os.isUnixLikeTerm();
+        final var windows = os.isWindows() && hasTerm /* if not null behave as bash */;
         final var export = windows ? "set " : "export ";
         final var comment = windows ? "%% " : "# ";
         final var pathName = windows ? "Path" : "PATH";
@@ -113,12 +114,13 @@ public class Env implements Runnable {
                         final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
                                 .or(() -> ofNullable(System.getenv(pathName)))
                                 .orElse("");
+                        final var pathsSeparator = hasTerm ? ":" : pathSeparator;
                         final var pathVars = resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath) ?
                                 export + "YEM_ORIGINAL_PATH=" + quote + pathBase + quote + ";\n" +
                                         export + pathName + "=" + quote + resolved.stream()
                                         .filter(r -> r.properties().addToPath())
                                         .map(r -> quoted(rc.toBin(r.path())))
-                                        .collect(joining(pathSeparator, "", pathSeparator)) + pathVar + quote + ";\n" :
+                                        .collect(joining(pathsSeparator, "", pathsSeparator)) + pathVar + quote + ";\n" :
                                 "";
                         final var home = System.getProperty("user.home", "");
                         final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?

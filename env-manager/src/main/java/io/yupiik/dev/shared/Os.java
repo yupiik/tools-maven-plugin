@@ -58,4 +58,8 @@ public class Os {
     public boolean isWindows() {
         return "windows".equals(findOs());
     }
+
+    public boolean isUnixLikeTerm() {
+        return System.getenv("TERM") != null;
+    }
 }

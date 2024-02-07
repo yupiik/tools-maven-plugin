@@ -93,7 +93,7 @@ public class Run implements Runnable {
                                                 Stream.of(""),
                                                 Stream.ofNullable(ofNullable(System.getenv("PathExt"))
                                                                 .orElseGet(() -> System.getenv("PATHEXT")))
-                                                        .map(i -> Stream.of(i.split(";"))
+                                                        .flatMap(i -> Stream.of(i.split(";"))
                                                                 .map(String::strip)
                                                                 .filter(Predicate.not(String::isBlank))))
                                         .toList() :
