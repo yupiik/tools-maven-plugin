@@ -136,6 +136,11 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>central.gavs</code> (<code>central_gavs</code>) (default: <code>&quot;org.apache.maven:apache-maven:tar.gz:bin&quot;</code>): List of GAV to register (comma separated). Such a provider can be enabled/disabled using <code>artifactId.enabled</code> property..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>central.local</code> (<code>central_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.m2/repository&quot;</code>): Local repository path..</p>
  </div>
   </li>
@@ -161,7 +166,12 @@
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.rc</code> (<code>env_rc</code>) (default: <code>&quot;.yemrc&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ <p><code>env.rc</code> (<code>env_rc</code>) (default: <code>&quot;auto&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>env.skipReset</code> (<code>env_skipReset</code>) (default: <code>false</code>): By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code>.</p>
  </div>
   </li>
   <li>
@@ -196,7 +206,22 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>http.offlineMode</code> (<code>http_offlineMode</code>) (default: <code>false</code>): Force offline mode..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.offlineTimeout</code> (<code>http_offlineTimeout</code>) (default: <code>10_000</code>): Check offline timeout. Per uri a test is done to verify the system is offline..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>http.requestTimeout</code> (<code>http_requestTimeout</code>) (default: <code>900_000L</code>): Request timeout in milliseconds..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.threads</code> (<code>http_threads</code>) (default: <code>4</code>): Number of NIO threads..</p>
  </div>
   </li>
   <li>
@@ -241,7 +266,22 @@
   </li>
   <li>
  <div class="paragraph">
- <p><code>maven.enabled</code> (<code>maven_enabled</code>) (default: <code>true</code>): Is Apache Maven provider enabled - from central..</p>
+ <p><code>messages.disableColors</code> (<code>messages_disableColors</code>) (default: <code>&quot;auto&quot;</code>): Are colors disabled for the terminal..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>messages.disableEmoji</code> (<code>messages_disableEmoji</code>) (default: <code>&quot;auto&quot;</code>): If <code>false</code> emoji are totally disabled. <code>auto</code> will test <code>/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf</code> presence to enable emojis. <code>true</code>/<code>false</code> disable/enable emoji whatever the available fonts..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>messages.toolColor</code> (<code>messages_toolColor</code>) (default: <code>&quot;0;49;34&quot;</code>): When color are enabled the tool name color..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>messages.versionColor</code> (<code>messages_versionColor</code>) (default: <code>&quot;0;49;96&quot;</code>): When color are enabled the version color..</p>
  </div>
   </li>
   <li>
@@ -301,6 +341,11 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>zulu.apiBase</code> (<code>zulu_apiBase</code>) (default: <code>&quot;https://api.azul.com&quot;</code>): This property is the Zulu API base URI..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>zulu.base</code> (<code>zulu_base</code>) (default: <code>&quot;https://cdn.azul.com/zulu/bin/&quot;</code>): Base URL for zulu CDN archives..</p>
  </div>
   </li>
@@ -317,6 +362,11 @@
   <li>
  <div class="paragraph">
  <p><code>zulu.platform</code> (<code>zulu_platform</code>) (default: <code>&quot;auto&quot;</code>): Zulu platform value - if <code>auto</code> it will be computed..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>zulu.preferApi</code> (<code>zulu_preferApi</code>) (default: <code>true</code>): YEM is able to scrape the CDN index page but it is slow when not cached so by default we prefer the Zulu API. This property enables to use the scrapping by being set to <code>false</code>..</p>
  </div>
   </li>
   <li>
@@ -363,7 +413,7 @@ env: Creates a script you can eval in a shell to prepare the environment from a 
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
+ <p>Parameters: * --env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present. * --env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
  </div>
   </li>
  </ul>
@@ -559,6 +609,77 @@ If your prefix does not match the tool name, the tool name to use.
  <div class="sectionbody">
  <div class="paragraph">
  <p>If you need to see more logs from <i>yem</i> you can add the following system properties: <code>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST</code>.</p>
+ </div>
+ <div class="paragraph">
+ <p>You can also force some default configuration (typically central <code>gavs</code> or <code>offlineMode</code>) in <code>~/.yupiik/yem/rc</code>. If you don't want this global file to be taken into account temporarly (or not) you can set the environment variable <code>YEM_DISABLE_GLOBAL_RC_FILE</code> to <code>true</code>.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1" id="_shellbash_setup">
+  <h2>Shell/Bash setup</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Yem is portable but we detail there only shell setup.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>The idea is to leverage <code>env</code> command. Add to your global <code>~/.bashrc</code> (or <code>~/.profile</code>) configuration the following line:</p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">yem_env() {
+  eval $(yem env)
+}
+if [[ -n &quot;$ZSH_VERSION&quot; ]]; then
+  chpwd_functions+=(yem_env)
+else
+  trimmed_prompt_command=&quot;${PROMPT_COMMAND%&quot;${PROMPT_COMMAND##*[![:space:]]}&quot;}&quot;
+  [[ -z &quot;$trimmed_prompt_command&quot; ]] &amp;&amp; PROMPT_COMMAND=&quot;yem_env&quot; || PROMPT_COMMAND=&quot;${trimmed_prompt_command%\;};yem_env&quot;
+fi
+yem_env</code></pre>
+ </div>
+ </div>
+  <div class="content">
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+if you don't use zsh shell you can simplify it:    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">yem_env() {
+  eval $(yem env)
+}
+trimmed_prompt_command=&quot;${PROMPT_COMMAND%&quot;${PROMPT_COMMAND##*[![:space:]]}&quot;}&quot;
+[[ -z &quot;$trimmed_prompt_command&quot; ]] &amp;&amp; PROMPT_COMMAND=&quot;yem_env&quot; || PROMPT_COMMAND=&quot;${trimmed_prompt_command%\;};yem_env&quot;
+yem_env</code></pre>
+ </div>
+ </div>
+  </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>it is also recommended to set some default versions in <code>~/.yupiik/yem/rc</code></p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
  </div>
  </div>
  </div>
