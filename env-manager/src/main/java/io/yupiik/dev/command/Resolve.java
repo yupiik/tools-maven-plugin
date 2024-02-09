@@ -42,7 +42,7 @@ public class Resolve implements Runnable {
     @Override
     public void run() {
         try {
-            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false, false)
                     .thenAccept(matched -> {
                         final var resolved = matched.provider().resolve(conf.tool(), matched.version().identifier())
                                 .orElseThrow(() -> new IllegalArgumentException("No matching instance for " + conf.tool() + "@" + conf.version() + ", ensure to install it before resolving it."));

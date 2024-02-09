@@ -42,7 +42,7 @@ public class Delete implements Runnable {
     @Override
     public void run() {
         try {
-            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false)
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), false, false)
                     .thenAccept(matched -> {
                         matched.provider().delete(conf.tool(), matched.version().identifier());
                         logger.info(() -> "Deleted " + messageHelper.formatToolNameAndVersion(matched.candidate(), conf.tool(), matched.version().version()));

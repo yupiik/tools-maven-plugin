@@ -25,6 +25,7 @@ import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,11 +51,14 @@ public class RcService {
         this.registry = registry;
     }
 
-    public Properties loadPropertiesFrom(final String rcPath, final String defaultRcPath) {
+    public Props loadPropertiesFrom(final String rcPath, final String defaultRcPath) {
         final var defaultRc = Path.of(defaultRcPath);
         final var defaultProps = new Properties();
         if (Files.exists(defaultRc)) {
             readRc(defaultRc, defaultProps);
+            if (defaultRcPath.endsWith(".sdkmanrc")) {
+                rewritePropertiesFromSdkManRc(defaultProps);
+            }
         }
 
         final var isAuto = "auto".equals(rcPath);
@@ -75,7 +79,6 @@ public class RcService {
         }
 
         final var props = new Properties();
-        props.putAll(defaultProps);
         if (Files.exists(rcLocation)) {
             readRc(rcLocation, props);
             if (".sdkmanrc".equals(rcLocation.getFileName().toString())) {
@@ -85,7 +88,7 @@ public class RcService {
             return null; // no config at all
         }
 
-        return props;
+        return new Props(defaultProps, props);
     }
 
     public Path toBin(final Path value) {
@@ -96,15 +99,64 @@ public class RcService {
                 .orElse(value);
     }
 
-    public CompletionStage<List<MatchedPath>> toToolProperties(final Properties props) {
-        final var promises = props.stringPropertyNames().stream()
-                .filter(it -> it.endsWith(".version"))
-                .map(versionKey -> toToolProperties(props, versionKey))
+    /**
+     * @param props input properties sorted in overriding order (first overriding second, second overriding the third etc)
+     * @return matched paths for the aggregated set of incoming properties - env path var name being the identifier.
+     */
+    public CompletionStage<List<MatchedPath>> match(final Properties... props) {
+        if (props.length == 0 || Stream.of(props).allMatch(Properties::isEmpty)) {
+            return completedFuture(List.of());
+        }
+
+        final var toolProps = new ArrayList<ToolProperties>();
+        int index = 0;
+        for (final var it : props) {
+            if (it.isEmpty()) {
+                index++;
+                continue;
+            }
+            toolProps.addAll(toToolProperties(it, index++).stream()
+                    .filter(p -> toolProps.stream().noneMatch(existing -> Objects.equals(existing.envPathVarName(), p.envPathVarName())))
+                    .toList());
+        }
+
+        if (toolProps.isEmpty()) {
+            return completedFuture(List.of());
+        }
+        return doToolProperties(toolProps);
+    }
+
+    public String toOverridenEnvVar(final ToolProperties toolProperties) {
+        return "YEM_" + toolProperties.envPathVarName() + "_OVERRIDEN";
+    }
+
+    private ToolProperties toSingleToolProperties(final Properties props, final String versionKey, final int index) {
+        final var name = versionKey.substring(0, versionKey.lastIndexOf('.'));
+        final var baseEnvVar = name.toUpperCase(ROOT).replace('.', '_');
+        return new ToolProperties(
+                index,
+                props.getProperty(name + ".toolName", name),
+                props.getProperty(versionKey),
+                props.getProperty(name + ".provider"),
+                Boolean.parseBoolean(props.getProperty(name + ".relaxed", props.getProperty("relaxed"))),
+                props.getProperty(name + ".envVarName", baseEnvVar + "_HOME"),
+                props.getProperty(name + ".envVarVersionName", baseEnvVar + "_VERSION"),
+                Boolean.parseBoolean(props.getProperty(name + ".addToPath", props.getProperty("addToPath", "true"))),
+                Boolean.parseBoolean(props.getProperty(name + ".failOnMissing", props.getProperty("failOnMissing"))),
+                Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
+    }
+
+    private CompletableFuture<List<MatchedPath>> doToolProperties(final List<ToolProperties> props) {
+        if (props.isEmpty()) {
+            return completedFuture(List.of());
+        }
+
+        final var promises = props.stream()
                 .map(tool -> {
                     final var promise = registry.tryFindByToolVersionAndProvider(
                             tool.toolName(), tool.version(),
                             tool.provider() == null || tool.provider().isBlank() ? null : tool.provider(), tool.relaxed(),
-                            new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
+                            tool.installIfMissing(), new ProviderRegistry.Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()));
                     return promise.thenCompose(providerAndVersionOpt -> providerAndVersionOpt
                                     .map(providerVersion -> doResolveVersion(tool, providerVersion))
                                     .orElseGet(() -> {
@@ -121,6 +173,13 @@ public class RcService {
                 .thenApply(ok -> promises.stream()
                         .flatMap(p -> p.getNow(Optional.empty()).stream())
                         .toList());
+    }
+
+    public List<ToolProperties> toToolProperties(final Properties props, final int index) {
+        return props.stringPropertyNames().stream()
+                .filter(it -> it.endsWith(".version"))
+                .map(versionKey -> toSingleToolProperties(props, versionKey, index))
+                .toList();
     }
 
     private CompletableFuture<Optional<MatchedPath>> doResolveVersion(final ToolProperties tool,
@@ -162,6 +221,7 @@ public class RcService {
         return Objects.equals(tool.version(), version.version()) ?
                 tool :
                 new ToolProperties(
+                        tool.index(),
                         tool.toolName(),
                         version.version(),
                         tool.provider(),
@@ -171,21 +231,6 @@ public class RcService {
                         tool.addToPath(),
                         tool.failOnMissing(),
                         tool.installIfMissing());
-    }
-
-    private ToolProperties toToolProperties(final Properties props, final String versionKey) {
-        final var name = versionKey.substring(0, versionKey.lastIndexOf('.'));
-        final var baseEnvVar = name.toUpperCase(ROOT).replace('.', '_');
-        return new ToolProperties(
-                props.getProperty(name + ".toolName", name),
-                props.getProperty(versionKey),
-                props.getProperty(name + ".provider"),
-                Boolean.parseBoolean(props.getProperty(name + ".relaxed", props.getProperty("relaxed"))),
-                props.getProperty(name + ".envVarName", baseEnvVar + "_HOME"),
-                props.getProperty(name + ".envVarVersionName", baseEnvVar + "_VERSION"),
-                Boolean.parseBoolean(props.getProperty(name + ".addToPath", props.getProperty("addToPath", "true"))),
-                Boolean.parseBoolean(props.getProperty(name + ".failOnMissing", props.getProperty("failOnMissing"))),
-                Boolean.parseBoolean(props.getProperty(name + ".installIfMissing", props.getProperty("installIfMissing"))));
     }
 
     private void readRc(final Path rcLocation, final Properties props) {
@@ -215,6 +260,7 @@ public class RcService {
     }
 
     public record ToolProperties(
+            int index,
             String toolName,
             String version,
             String provider,
@@ -227,5 +273,8 @@ public class RcService {
     }
 
     public record MatchedPath(Path path, ToolProperties properties, Provider provider, Candidate candidate) {
+    }
+
+    public record Props(Properties global, Properties local) {
     }
 }

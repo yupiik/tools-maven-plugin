@@ -68,8 +68,8 @@ public class ProviderRegistry {
     }
 
     public CompletionStage<MatchedVersion> findByToolVersionAndProvider(final String tool, final String version, final String provider,
-                                                                        final boolean relaxed) {
-        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, new Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()))
+                                                                        final boolean relaxed, final boolean canBeRemote) {
+        return tryFindByToolVersionAndProvider(tool, version, provider, relaxed, canBeRemote, new Cache(new ConcurrentHashMap<>(), new ConcurrentHashMap<>()))
                 .thenApply(found -> found.orElseThrow(() -> new IllegalArgumentException(
                         "No provider for tool " + tool + "@" + version + "', available tools:\n" +
                                 providers().stream()
@@ -103,7 +103,7 @@ public class ProviderRegistry {
 
     public CompletionStage<Optional<MatchedVersion>> tryFindByToolVersionAndProvider(
             final String tool, final String version, final String provider, final boolean relaxed,
-            final Cache cache) {
+            final boolean testRemote, final Cache cache) {
         final var result = new CompletableFuture<Optional<MatchedVersion>>();
         final var promises = providers().stream()
                 .filter(it -> provider == null ||
@@ -122,18 +122,20 @@ public class ProviderRegistry {
                                 .findFirst()
                                 .map(Optional::of)
                                 .map(CompletableFuture::completedFuture)
-                                .orElseGet(() -> findRemoteVersions(tool, cache, it)
-                                        .thenApply(all -> all.stream()
-                                                .filter(v -> matchVersion(v, version, relaxed))
-                                                .findFirst()
-                                                .map(v -> new MatchedVersion(
-                                                        it,
-                                                        candidates.stream()
-                                                                .filter(c -> Objects.equals(c.tool(), tool))
-                                                                .findFirst()
-                                                                .orElse(null),
-                                                        v)))
-                                        .toCompletableFuture()));
+                                .orElseGet(() -> testRemote ?
+                                        findRemoteVersions(tool, cache, it)
+                                                .thenApply(all -> all.stream()
+                                                        .filter(v -> matchVersion(v, version, relaxed))
+                                                        .findFirst()
+                                                        .map(v -> new MatchedVersion(
+                                                                it,
+                                                                candidates.stream()
+                                                                        .filter(c -> Objects.equals(c.tool(), tool))
+                                                                        .findFirst()
+                                                                        .orElse(null),
+                                                                v)))
+                                                .toCompletableFuture() :
+                                        completedFuture(empty())));
                     }
                     return completedFuture(Optional.empty());
                 }))

@@ -60,7 +60,7 @@ public class Run implements Runnable {
     public void run() {
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
         try {
-            rc.toToolProperties(tools).thenAccept(resolved -> {
+            rc.match(tools.local(), tools.global()).thenAccept(resolved -> {
                 final int idx = args.args().indexOf("--");
                 final var command = new ArrayList<String>(8);
                 if (idx > 0) {
@@ -70,7 +70,8 @@ public class Run implements Runnable {
                 }
 
                 if (!command.isEmpty()) { // handle aliasing
-                    final var alias = tools.getProperty(command.get(0) + ".alias");
+                    final var aliasKey = command.get(0) + ".alias";
+                    final var alias = tools.local().getProperty(aliasKey, tools.global().getProperty(aliasKey));
                     if (alias != null) {
                         command.remove(0);
                         command.addAll(0, parseArgs(alias));

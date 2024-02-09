@@ -22,9 +22,13 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.logging.Handler;
@@ -67,7 +71,15 @@ public class Env implements Runnable {
         }
 
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
-        if (tools == null || tools.isEmpty()) { // nothing to do
+        final var inlineProps = new Properties();
+        if (conf.inlineRc() != null && !conf.inlineRc().isBlank()) {
+            try (final var reader = new StringReader(conf.inlineRc().replace("\\n", "\n"))) {
+                inlineProps.load(reader);
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        if (tools == null || (inlineProps.isEmpty() && tools.global().isEmpty() && tools.local().isEmpty())) { // nothing to do
             return;
         }
 
@@ -103,45 +115,8 @@ public class Env implements Runnable {
         logger.addHandler(tempHandler);
 
         try {
-            rc.toToolProperties(tools).thenAccept(resolved -> {
-                        final var toolVars = resolved.stream()
-                                .flatMap(e -> Stream.of(
-                                        export + e.properties().envPathVarName() + "=" + quote + quoted(e.path()) + quote + ";",
-                                        export + e.properties().envVersionVarName() + "=" + quote + e.properties().version() + quote + ";"))
-                                .sorted()
-                                .collect(joining("\n", "", "\n"));
-
-                        final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
-                                .or(() -> ofNullable(System.getenv(pathName)))
-                                .orElse("");
-                        final var pathsSeparator = hasTerm ? ":" : pathSeparator;
-                        final var pathVars = resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath) ?
-                                export + "YEM_ORIGINAL_PATH=" + quote + pathBase + quote + ";\n" +
-                                        export + pathName + "=" + quote + resolved.stream()
-                                        .filter(r -> r.properties().addToPath())
-                                        .map(r -> quoted(rc.toBin(r.path())))
-                                        .collect(joining(pathsSeparator, "", pathsSeparator)) + pathVar + quote + ";\n" :
-                                "";
-                        final var home = System.getProperty("user.home", "");
-                        final var echos = Boolean.parseBoolean(tools.getProperty("echo", "true")) ?
-                                resolved.stream()
-                                        // don't log too much, if it does not change, don't re-log it
-                                        .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
-                                        .map(e -> "echo \"[yem] Resolved " + messageHelper.formatToolNameAndVersion(
-                                                e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" +
-                                                e.path().toString().replace(home, "~") + "'\";")
-                                        .collect(joining("\n", "", "\n")) :
-                                "";
-
-                        final var script = messages.stream().map(m -> "echo \"[yem] " + m.replace("\"", "\"\\\"\"") + "\";").collect(joining("\n", "", "\n\n")) +
-                                pathVars + toolVars + echos + "\n" +
-                                comment + "To load a .yemrc configuration run:\n" +
-                                comment + "[ -f .yemrc ] && eval $(yem env --env-file .yemrc)\n" +
-                                comment + "\n" +
-                                comment + "See https://www.yupiik.io/tools-maven-plugin/yem.html#autopath for details\n" +
-                                "\n";
-                        System.out.println(script);
-                    })
+            rc.match(inlineProps, tools.local(), tools.global())
+                    .thenAccept(resolved -> createScript(resolved, export, quote, pathName, hasTerm, pathVar, tools, messages, comment))
                     .toCompletableFuture()
                     .get();
         } catch (final InterruptedException e) {
@@ -153,6 +128,64 @@ public class Env implements Runnable {
             logger.setUseParentHandlers(useParentHandlers);
             logger.removeHandler(tempHandler);
         }
+    }
+
+    private void createScript(final List<RcService.MatchedPath> rawResolved,
+                              final String export,
+                              final String quote, final String pathName, final boolean hasTerm, final String pathVar,
+                              final RcService.Props tools, final List<String> messages, final String comment) {
+        final var resolved = rawResolved.stream()
+                // ignore manually overriden vars
+                .filter(it -> {
+                    final var overridenEnvVar = rc.toOverridenEnvVar(it.properties());
+                    if (System.getenv(overridenEnvVar) != null) {
+                        logger.finest(() -> "Ignoring '" + it.properties().envPathVarName() + "' because '" + overridenEnvVar + "' is defined");
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+        final var toolVars = resolved.stream()
+                .flatMap(e -> Stream.concat(
+                        Stream.of(
+                                export + e.properties().envPathVarName() + "=" + quote + quoted(e.path()) + quote + ";",
+                                export + e.properties().envVersionVarName() + "=" + quote + e.properties().version() + quote + ";"),
+                        e.properties().index() == 0 /* custom override */ ?
+                                Stream.of(export + rc.toOverridenEnvVar(e.properties()) + "=" + quote + e.properties().version() + quote + ";") :
+                                Stream.empty()))
+                .sorted()
+                .collect(joining("\n", "", "\n"));
+
+        final var pathBase = ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
+                .or(() -> ofNullable(System.getenv(pathName)))
+                .orElse("");
+        final var pathsSeparator = hasTerm ? ":" : pathSeparator;
+        final var pathVars = resolved.stream().map(RcService.MatchedPath::properties).anyMatch(RcService.ToolProperties::addToPath) ?
+                export + "YEM_ORIGINAL_PATH=" + quote + pathBase + quote + ";\n" +
+                        export + pathName + "=" + quote + resolved.stream()
+                        .filter(r -> r.properties().addToPath())
+                        .map(r -> quoted(rc.toBin(r.path())))
+                        .collect(joining(pathsSeparator, "", pathsSeparator)) + pathVar + quote + ";\n" :
+                "";
+        final var home = System.getProperty("user.home", "");
+        final var echos = Boolean.parseBoolean(tools.global().getProperty("echo", tools.local().getProperty("echo", "true"))) ?
+                resolved.stream()
+                        // don't log too much, if it does not change, don't re-log it
+                        .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
+                        .map(e -> "echo \"[yem] Resolved " + messageHelper.formatToolNameAndVersion(
+                                e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" +
+                                e.path().toString().replace(home, "~") + "'\";")
+                        .collect(joining("\n", "", "\n")) :
+                "";
+
+        final var script = messages.stream().map(m -> "echo \"[yem] " + m.replace("\"", "\"\\\"\"") + "\";").collect(joining("\n", "", "\n\n")) +
+                pathVars + toolVars + echos + "\n" +
+                comment + "To load a .yemrc configuration run:\n" +
+                comment + "[ -f .yemrc ] && eval $(yem env --env-file .yemrc)\n" +
+                comment + "\n" +
+                comment + "See https://www.yupiik.io/tools-maven-plugin/yem.html#autopath for details\n" +
+                "\n";
+        System.out.println(script);
     }
 
     private String quoted(final Path path) {
@@ -181,6 +214,7 @@ public class Env implements Runnable {
     public record Conf(
             @Property(documentation = "By default if `YEM_ORIGINAL_PATH` exists in the environment variables it is used as `PATH` base to not keep appending path to the `PATH` indefinively. This can be disabled setting this property to `false`", defaultValue = "false") boolean skipReset,
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
+            @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDEN`)") String inlineRc,
             @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\"auto\"") String rc) {
     }
 }

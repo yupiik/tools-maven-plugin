@@ -46,7 +46,7 @@ public class Install implements Runnable {
     @Override
     public void run() {
         try {
-            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), conf.relaxed())
+            registry.findByToolVersionAndProvider(conf.tool(), conf.version(), conf.provider(), conf.relaxed(), true)
                     .thenCompose(matched -> matched.provider()
                             .install(conf.tool(), matched.version().identifier(), Boolean.parseBoolean(System.getenv("CI")) ? NOOP : this::onProgress)
                             .thenAccept(result -> logger.info(() -> "Installed " + messageHelper.formatToolNameAndVersion(
