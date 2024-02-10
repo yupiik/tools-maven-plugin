@@ -24,6 +24,7 @@ import io.yupiik.fusion.framework.build.api.event.OnEvent;
 import io.yupiik.fusion.framework.build.api.order.Order;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static java.util.Optional.ofNullable;
@@ -44,10 +45,12 @@ public class EnableSimpleOptionsArgs { // here the goal is to auto-complete shor
             return new Args(args);
         }
         final var prefix = "--" + args.get(0) + '-';
+        final var counter = new AtomicInteger();
         return new Args(args.stream()
+                .peek(it -> counter.getAndIncrement())
                 .flatMap(i -> !"--".equals(i) && i.startsWith("--") && !i.startsWith(prefix) ?
                         (i.substring("--".length()).contains("-") ?
-                                Stream.of(prefix + i.substring("--".length()), i) :
+                                Stream.of(prefix + i.substring("--".length()), args.size() > counter.get() ? args.get(counter.get()) : "", i) :
                                 Stream.of(prefix + i.substring("--".length()))) :
                         Stream.of(i))
                 .toList());

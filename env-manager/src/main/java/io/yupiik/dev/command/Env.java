@@ -18,6 +18,7 @@ package io.yupiik.dev.command;
 import io.yupiik.dev.shared.MessageHelper;
 import io.yupiik.dev.shared.Os;
 import io.yupiik.dev.shared.RcService;
+import io.yupiik.fusion.framework.api.main.Args;
 import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
@@ -34,12 +35,14 @@ import java.util.function.Predicate;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.io.File.pathSeparator;
 import static java.util.Optional.ofNullable;
 import static java.util.logging.Level.FINE;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 
 @Command(name = "env", description = "Creates a script you can eval in a shell to prepare the environment from a file. Often used as `eval $(yem env--env-rc .yemrc)`")
 public class Env implements Runnable {
@@ -48,12 +51,14 @@ public class Env implements Runnable {
     private final RcService rc;
     private final Os os;
     private final MessageHelper messageHelper;
+    private final Args args;
 
-    public Env(final Conf conf, final Os os, final RcService rc, final MessageHelper messageHelper) {
+    public Env(final Conf conf, final Os os, final RcService rc, final MessageHelper messageHelper, final Args args) {
         this.conf = conf;
         this.os = os;
         this.rc = rc;
         this.messageHelper = messageHelper;
+        this.args = args;
     }
 
     @Override
@@ -72,6 +77,24 @@ public class Env implements Runnable {
 
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
         final var inlineProps = new Properties();
+        // check if we have any --xxxx-version arg and if so we inject all args in props
+        // there is no real chance of conflict with default props so we can do it
+        if (args.args().size() > 1 /* "env" */ &&
+                args.args().stream().anyMatch(a -> a.startsWith("--") && !Objects.equals("--version", a) && a.endsWith("-version"))) {
+            final var params = args.args().subList(1, args.args().size());
+            if (!params.isEmpty()) {
+                inlineProps.putAll(IntStream.range(0, params.size() / 2)
+                        .boxed()
+                        .filter(f -> {
+                            final var key = params.get(2 * f);
+                            return key.startsWith("--env-") && key.lastIndexOf('-') > "--env-".length() /* default options */;
+                        })
+                        .collect(toMap(d -> {
+                            final var key = params.get(2 * d);
+                            return key.substring("--env-".length()).replace('-', '.');
+                        }, i -> params.get(2 * i + 1))));
+            }
+        }
         if (conf.inlineRc() != null && !conf.inlineRc().isBlank()) {
             try (final var reader = new StringReader(conf.inlineRc().replace("\\n", "\n"))) {
                 inlineProps.load(reader);
@@ -79,7 +102,8 @@ public class Env implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
-        if (tools == null || (inlineProps.isEmpty() && tools.global().isEmpty() && tools.local().isEmpty())) { // nothing to do
+
+        if ((tools == null || (tools.global().isEmpty() && tools.local().isEmpty())) && inlineProps.isEmpty()) { // nothing to do
             return;
         }
 
@@ -115,7 +139,7 @@ public class Env implements Runnable {
         logger.addHandler(tempHandler);
 
         try {
-            rc.match(inlineProps, tools.local(), tools.global())
+            (tools == null ? rc.match(inlineProps) : rc.match(inlineProps, tools.local(), tools.global()))
                     .thenAccept(resolved -> createScript(resolved, export, quote, pathName, hasTerm, pathVar, tools, messages, comment))
                     .toCompletableFuture()
                     .get();
@@ -168,7 +192,7 @@ public class Env implements Runnable {
                         .collect(joining(pathsSeparator, "", pathsSeparator)) + pathVar + quote + ";\n" :
                 "";
         final var home = System.getProperty("user.home", "");
-        final var echos = Boolean.parseBoolean(tools.global().getProperty("echo", tools.local().getProperty("echo", "true"))) ?
+        final var echos = tools == null || Boolean.parseBoolean(tools.global().getProperty("echo", tools.local().getProperty("echo", "true"))) ?
                 resolved.stream()
                         // don't log too much, if it does not change, don't re-log it
                         .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
@@ -214,7 +238,7 @@ public class Env implements Runnable {
     public record Conf(
             @Property(documentation = "By default if `YEM_ORIGINAL_PATH` exists in the environment variables it is used as `PATH` base to not keep appending path to the `PATH` indefinively. This can be disabled setting this property to `false`", defaultValue = "false") boolean skipReset,
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
-            @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDEN`)") String inlineRc,
+            @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDEN`). Note that you can also just set the values inline as args without that option: `eval $(yem env --java-version 17. --java-relaxed true ...)`.") String inlineRc,
             @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\"auto\"") String rc) {
     }
 }

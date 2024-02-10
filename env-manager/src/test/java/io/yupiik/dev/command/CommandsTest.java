@@ -138,6 +138,33 @@ class CommandsTest {
 
     @Test
     @DisabledOnOs(WINDOWS)
+    void envInline(@TempDir final Path work, final URI uri) {
+        final var out = captureOutput(work, uri,
+                "env",
+                "--skipReset", "true",
+                "--env-rc", work.resolve("missing_rc").toString(),
+                "--env-defaultRc", work.resolve("missing_defaultRc").toString(),
+                "--java-version", "21",
+                "--java-relaxed", "true",
+                "--java-installIfMissing", "true");
+        assertEquals(("""
+                        echo "[yem] Installing java@21.32.17-ca-jdk21.0.2";
+
+                        export YEM_ORIGINAL_PATH="...";
+                        export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
+                        export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
+                        export JAVA_VERSION="21.0.2";
+                        export YEM_JAVA_HOME_OVERRIDEN="21.0.2";
+                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
+                        .replace("$work", work.toString()),
+                out
+                        .replaceAll("#.*", "")
+                        .replaceFirst("export YEM_ORIGINAL_PATH=\"[^\"]+\"", "export YEM_ORIGINAL_PATH=\"...\"")
+                        .strip());
+    }
+
+    @Test
+    @DisabledOnOs(WINDOWS)
     void envSdkManRc(@TempDir final Path work, final URI uri) throws IOException {
         doInstall(work, uri);
 
