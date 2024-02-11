@@ -18,6 +18,7 @@ package io.yupiik.dev.test;
 import com.sun.net.httpserver.HttpServer;
 import io.yupiik.dev.shared.http.Cache;
 import io.yupiik.dev.shared.http.HttpConfiguration;
+import io.yupiik.dev.shared.http.ProxyConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -33,6 +34,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -43,6 +45,10 @@ import static java.util.Optional.ofNullable;
 import static org.junit.platform.commons.support.AnnotationSupport.findRepeatableAnnotations;
 
 public class HttpMockExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
+    public static final HttpConfiguration DEFAULT_HTTP_CONFIGURATION = new HttpConfiguration(
+            false, false, 10_000, 1, false, 30_000L, 30_000L, 0, "none",
+            new ProxyConfiguration("none", 3128, "none", "none", List.of()));
+
     private static final ExtensionContext.Namespace NAMESPACE = ExtensionContext.Namespace.create(HttpMockExtension.class);
 
     @Override
@@ -93,8 +99,7 @@ public class HttpMockExtension implements BeforeEachCallback, AfterEachCallback,
             return URI.create("http://localhost:" + context.getStore(NAMESPACE).get(HttpServer.class, HttpServer.class).getAddress().getPort() + "/2/");
         }
         if (YemHttpClient.class == parameterContext.getParameter().getType()) {
-            final var configuration = new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0, "none");
-            return new YemHttpClient(configuration, new Cache(configuration, null));
+            return new YemHttpClient(DEFAULT_HTTP_CONFIGURATION, new Cache(DEFAULT_HTTP_CONFIGURATION, null));
         }
         throw new ParameterResolutionException("Can't resolve " + parameterContext.getParameter().getType());
     }

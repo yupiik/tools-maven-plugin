@@ -26,12 +26,20 @@ import io.yupiik.fusion.httpclient.core.listener.impl.ExchangeLogger;
 import io.yupiik.fusion.httpclient.core.request.UnlockedHttpRequest;
 import io.yupiik.fusion.httpclient.core.response.StaticHttpResponse;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.Authenticator;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.ProxySelector;
 import java.net.Socket;
 import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
@@ -39,8 +47,12 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +73,8 @@ import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpResponse.BodyHandlers.ofByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Clock.systemDefaultZone;
+import static java.util.Map.entry;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 
@@ -70,7 +84,8 @@ public class YemHttpClient implements AutoCloseable {
 
     private final ExtendedHttpClient client;
     private final Cache cache;
-    private final Map<String, Boolean> state = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> state;
+    private final Map<AuthKey, Auth> authentications;
     private final int offlineTimeout;
     private final boolean offline;
 
@@ -79,9 +94,25 @@ public class YemHttpClient implements AutoCloseable {
         this.cache = null;
         this.offlineTimeout = 0;
         this.offline = false;
+        this.state = null;
+        this.authentications = null;
     }
 
     public YemHttpClient(final HttpConfiguration configuration, final Cache cache) {
+        this.offline = configuration.offlineMode();
+        this.offlineTimeout = configuration.offlineTimeout();
+        this.cache = cache;
+        this.state = new ConcurrentHashMap<>();
+        this.authentications = new ConcurrentHashMap<>();
+
+        if (configuration.ignoreSSLErrors()) {
+            // can be late but generally first one will enable it - FOR TESTING ONLY anyway
+            final var currentValue = System.getProperty("jdk.internal.httpclient.disableHostnameVerification");
+            if (!Boolean.parseBoolean(currentValue)) {
+                System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true");
+            }
+        }
+
         final var listeners = new ArrayList<RequestListener<?>>();
         if (configuration.log()) {
             listeners.add((new ExchangeLogger(
@@ -112,27 +143,81 @@ public class YemHttpClient implements AutoCloseable {
             }
         });
 
-        final var conf = new ExtendedHttpClientConfiguration()
-                .setDelegate(HttpClient.newBuilder()
-                        .followRedirects(ALWAYS)
-                        .version(HTTP_1_1)
-                        .executor(Executors.newFixedThreadPool(configuration.threads(), new ThreadFactory() {
-                            private final AtomicInteger counter = new AtomicInteger(1);
+        final var httpClientBuilder = HttpClient.newBuilder()
+                .followRedirects(ALWAYS)
+                .version(HTTP_1_1)
+                .executor(Executors.newFixedThreadPool(configuration.threads(), new ThreadFactory() {
+                    private final AtomicInteger counter = new AtomicInteger(1);
 
-                            @Override
-                            public Thread newThread(final Runnable r) {
-                                final var thread = new Thread(r, YemHttpClient.class.getName() + "-" + counter.getAndIncrement());
-                                thread.setContextClassLoader(YemHttpClient.class.getClassLoader());
-                                return thread;
+                    @Override
+                    public Thread newThread(final Runnable r) {
+                        final var thread = new Thread(r, YemHttpClient.class.getName() + "-" + counter.getAndIncrement());
+                        thread.setContextClassLoader(YemHttpClient.class.getClassLoader());
+                        return thread;
+                    }
+                }))
+                .connectTimeout(Duration.ofMillis(configuration.connectTimeout()));
+        if (configuration.ignoreSSLErrors()) {
+            httpClientBuilder.sslContext(unsafeSSLContext());
+        }
+
+        final var proxy = configuration.proxy();
+        if (proxy != null && proxy.host() != null && !"none".equals(proxy.host()) && !proxy.host().isBlank()) {
+            if (proxy.username() != null && !proxy.username().isBlank() && !"none".equals(proxy.username())) {
+                logger.finest(() -> "Enabling proxy authentication");
+                final var pa = new PasswordAuthentication(
+                        proxy.username(),
+                        requireNonNull(proxy.password(), "Missing http proxy password.").toCharArray());
+                httpClientBuilder.authenticator(new Authenticator() {
+                    @Override
+                    public PasswordAuthentication requestPasswordAuthenticationInstance(
+                            final String host, final InetAddress addr, final int port,
+                            final String protocol, final String prompt, final String scheme,
+                            final URL url, final RequestorType reqType) {
+                        if (reqType == RequestorType.PROXY && (proxy.ignoredHosts() == null || !proxy.ignoredHosts().contains(host))) {
+                            logger.finest(() -> "Using proxy for '" + url + "'");
+                            return super.requestPasswordAuthenticationInstance(host, addr, port, protocol, prompt, scheme, url, reqType);
+                        } else if (reqType == RequestorType.PROXY) {
+                            logger.finest(() -> "Skipping proxy for '" + url + "'");
+                        }
+
+                        if (reqType == RequestorType.SERVER) {
+                            final var auth = authentications.get(new AuthKey(host, port));
+                            if (auth != null && "authorization".equalsIgnoreCase(auth.header())) {
+                                final var decoded = new String(Base64.getDecoder().decode(auth.value()), UTF_8);
+                                if (decoded.length() > "basic ".length() && decoded.substring("basic ".length()).equalsIgnoreCase("basic ")) {
+                                    final int sep = decoded.indexOf(':');
+                                    if (sep > 0) {
+                                        final var user = decoded.substring("basic ".length(), sep);
+                                        logger.finest(() -> "Using user '" + user + "' for '" + url + "'");
+                                        return new PasswordAuthentication(user, decoded.substring(sep + 1).toCharArray());
+                                    } // else can it work?
+                                }
                             }
-                        }))
-                        .connectTimeout(Duration.ofMillis(configuration.connectTimeout()))
-                        .build())
+
+                            logger.finest(() -> "No authentication for '" + url + "'");
+                        }
+
+                        return null;
+                    }
+
+                    @Override
+                    protected PasswordAuthentication getPasswordAuthentication() {
+                        return pa;
+                    }
+                });
+            } else {
+                logger.finest(() -> "No proxy authentication");
+            }
+
+            logger.finest(() -> "Enabling proxy usage");
+            httpClientBuilder.proxy(ProxySelector.of(new InetSocketAddress(proxy.host(), proxy.port())));
+        }
+
+        final var conf = new ExtendedHttpClientConfiguration()
+                .setDelegate(httpClientBuilder.build())
                 .setRequestListeners(listeners);
 
-        this.offline = configuration.offlineMode();
-        this.offlineTimeout = configuration.offlineTimeout();
-        this.cache = cache;
         this.client = new ExtendedHttpClient(conf).onClose(c -> {
             final var executorService = (ExecutorService) conf.getDelegate().executor().orElseThrow();
             executorService.shutdown();
@@ -156,10 +241,27 @@ public class YemHttpClient implements AutoCloseable {
         this.client.close();
     }
 
+    public YemHttpClient registerAuthentication(final String host, final int port, final String rawHeader) {
+        if (rawHeader == null || rawHeader.isBlank()) {
+            return this;
+        }
+
+        final int nameEnd = rawHeader.indexOf(':');
+        if (nameEnd < 0) {
+            logger.warning(() -> "Header for " + host + ":" + port + " not using the syntax 'name: value', ignoring");
+            return this;
+        }
+
+        // we can computeIfAbsent() since it is not supposed to change when registered on global configuration
+        authentications.computeIfAbsent(new AuthKey(host, port), k -> new Auth(
+                rawHeader.substring(0, nameEnd).strip(), rawHeader.substring(nameEnd + 1).stripLeading()));
+        return this;
+    }
+
     public CompletionStage<HttpResponse<Path>> getFile(final HttpRequest request, final Path target, final Provider.ProgressListener listener) {
         logger.finest(() -> "Calling " + request);
         checkOffline(request.uri());
-        return sendWithProgress(request, listener, HttpResponse.BodyHandlers.ofFile(target))
+        return sendWithProgress(wrapRequest(request), listener, HttpResponse.BodyHandlers.ofFile(target))
                 .thenApply(response -> {
                     if (isGzip(response) && Files.exists(response.body())) {
                         final var tmp = response.body().getParent().resolve(response.body().getFileName() + ".degzip.tmp");
@@ -204,7 +306,7 @@ public class YemHttpClient implements AutoCloseable {
             }
             throw re;
         }
-        return client.sendAsync(request, ofByteArray())
+        return client.sendAsync(wrapRequest(request), ofByteArray())
                 .thenApply(response -> {
                     HttpResponse<String> result = null;
                     if (isGzip(response) && response.body() != null) {
@@ -225,6 +327,23 @@ public class YemHttpClient implements AutoCloseable {
                     }
                     return result;
                 });
+    }
+
+    private HttpRequest wrapRequest(final HttpRequest request) {
+        final var auth = authentications.get(new AuthKey(request.uri().getHost(), request.uri().getPort()));
+        if (auth != null && request.headers().firstValue(auth.header()).isEmpty()) {
+            logger.finest(() -> "Using authentication for '" + request.uri() + "'");
+            return new UnlockedHttpRequest(
+                    request.bodyPublisher(),
+                    request.method(), request.timeout(), request.expectContinue(), request.uri(),
+                    request.version(), HttpHeaders.of(Stream.concat(
+                            request.headers().map().entrySet().stream(),
+                            Stream.of(entry(auth.header(), List.of(auth.value()))))
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b)), (a, b) -> true));
+        }
+
+        logger.finest(() -> "No authentication for '" + request.uri() + "'");
+        return request;
     }
 
     private CompletableFuture<HttpResponse<String>> fromCache(final HttpRequest request, final Cache.CachedEntry entry) {
@@ -257,6 +376,37 @@ public class YemHttpClient implements AutoCloseable {
 
     private boolean isGzip(final HttpResponse<?> response) {
         return response.headers().allValues("content-encoding").stream().anyMatch(it -> it.contains("gzip"));
+    }
+
+    private SSLContext unsafeSSLContext() {
+        try {
+            final var sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(
+                    null,
+                    new TrustManager[]{
+                            new X509TrustManager() {
+                                @Override
+                                public void checkClientTrusted(final X509Certificate[] chain, final String authType) {
+                                    // no-op
+                                }
+
+                                @Override
+                                public void checkServerTrusted(final X509Certificate[] chain, final String authType) {
+                                    // no-op
+                                }
+
+                                @Override
+                                public X509Certificate[] getAcceptedIssuers() {
+                                    return null;
+                                }
+                            }
+                    },
+                    new SecureRandom());
+
+            return sslContext;
+        } catch (final GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private <A> CompletionStage<HttpResponse<A>> sendWithProgress(final HttpRequest request, final Provider.ProgressListener listener,
@@ -319,5 +469,11 @@ public class YemHttpClient implements AutoCloseable {
         public OfflineException() {
             super("Network is offline");
         }
+    }
+
+    private record AuthKey(String host, int port) {
+    }
+
+    private record Auth(String header, String value) {
     }
 }

@@ -13,14 +13,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.dev.provider.github;
+package io.yupiik.dev.shared.http;
 
 import io.yupiik.fusion.framework.build.api.configuration.Property;
-import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
-@RootConfiguration("github")
-public record GithubConfiguration(
-        @Property(documentation = "Base repository URL.", defaultValue = "\"https://api.github.com\"") String base,
-        @Property(documentation = "Header to add to every request (authorization one for example).") String header,
-        @Property(documentation = "Local repository path.", defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/github\"") String local) {
+import java.util.List;
+
+public record ProxyConfiguration(
+        @Property(documentation = "Proxy host. `none` means ignore.", defaultValue = "\"none\"") String host,
+        @Property(documentation = "Proxy port.", defaultValue = "3128") int port,
+        @Property(documentation = "Proxy username. `none` means ignore.", defaultValue = "\"none\"") String username,
+        @Property(documentation = "Proxy password. `none` means ignore.", defaultValue = "\"none\"") String password,
+        @Property(documentation = "Hosts to connect directly to (ignoring the proxy).", defaultValue = "java.util.List.of()") List<String> ignoredHosts) {
 }

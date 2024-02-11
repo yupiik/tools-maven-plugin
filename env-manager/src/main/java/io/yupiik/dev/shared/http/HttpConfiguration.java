@@ -20,6 +20,7 @@ import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 
 @RootConfiguration("http")
 public record HttpConfiguration(
+        @Property(documentation = "Should SSL errors be ignored.", defaultValue = "false") boolean ignoreSSLErrors,
         @Property(defaultValue = "false", documentation = "Force offline mode.") boolean offlineMode,
         @Property(defaultValue = "10_000", documentation = "Check offline timeout. Per uri a test is done to verify the system is offline.") int offlineTimeout,
         @Property(defaultValue = "4", documentation = "Number of NIO threads.") int threads,
@@ -27,7 +28,8 @@ public record HttpConfiguration(
         @Property(defaultValue = "60_000L", documentation = "Connection timeout in milliseconds.") long connectTimeout,
         @Property(defaultValue = "900_000L", documentation = "Request timeout in milliseconds.") long requestTimeout,
         @Property(defaultValue = "86_400_000L", documentation = "Cache validity of requests (1 day by default) in milliseconds. A negative or zero value will disable cache.") long cacheValidity,
-        @Property(defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/cache/http\"", documentation = "Where to cache slow updates (version fetching). `none` will disable cache.") String cache
+        @Property(defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/cache/http\"", documentation = "Where to cache slow updates (version fetching). `none` will disable cache.") String cache,
+        @Property(defaultValue = "new ProxyConfiguration()", documentation = "Proxy configuration if needed.") ProxyConfiguration proxy
 ) {
     public boolean isCacheEnabled() {
         return "none".equals(cache()) || cacheValidity() <= 0;

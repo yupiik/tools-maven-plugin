@@ -51,8 +51,8 @@ class CommandsTest {
     void config(@TempDir final Path work, final URI uri) {
         assertEquals("""
                         - apache-maven: enabled=false
-                        - central: base=http://localhost:$port/2//m2/, local=$work/.m2/repository, gavs=org.apache.maven:apache-maven:tar.gz:bin
-                        - github: base=http://localhost:$port/2//github/, local=/github
+                        - central: base=http://localhost:$port/2//m2/, local=$work/.m2/repository, gavs=org.apache.maven:apache-maven:tar.gz:bin, header=null
+                        - github: base=http://localhost:$port/2//github/, header=null, local=/github
                         - minikube: enabled=false
                         - sdkman: enabled=false, base=http://localhost:$port/2/, platform=linuxx64.tar.gz, local=$work/sdkman/candidates
                         - zulu: enabled=true, preferJre=false, base=http://localhost:$port/2/, preferApi=false, apiBase=https://api.azul.com, platform=linux64.tar.gz, local=$work/zulu"""

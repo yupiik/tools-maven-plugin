@@ -27,6 +27,7 @@ import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 import io.yupiik.fusion.framework.build.api.event.OnEvent;
 import io.yupiik.fusion.framework.build.api.order.Order;
 
+import java.net.URI;
 import java.util.Map;
 
 @ApplicationScoped
@@ -47,5 +48,9 @@ public class CentralProviderInit {
                 default -> Map.of();
             });
         })));
+        if (configuration.header() != null && !configuration.header().isBlank()) {
+            final var uri = URI.create(configuration.base());
+            client.registerAuthentication(uri.getHost(), uri.getPort(), configuration.header());
+        }
     }
 }

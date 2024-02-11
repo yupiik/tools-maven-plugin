@@ -174,7 +174,7 @@ public class SdkManClient implements Provider {
     }
 
     @Override // warn: zip for windows often and tar.gz for linux
-    public CompletionStage<Archive> download(final String tool, final String version, final Path target, final ProgressListener progressListener) { // todo: checksum (x-sdkman headers) etc
+    public CompletionStage<Archive> download(final String tool, final String version, final Path target, final ProgressListener progressListener) { // todo: checksum (x-sdkman header) etc
         if (!enabled) {
             throw new IllegalStateException("SDKMan support not enabled (by configuration)");
         }

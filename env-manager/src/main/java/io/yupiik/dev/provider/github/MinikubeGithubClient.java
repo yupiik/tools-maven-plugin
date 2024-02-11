@@ -73,6 +73,10 @@ public class MinikubeGithubClient implements Provider {
             case "macos" -> "darwin";
             default -> "linux";
         } + '-' + (os.isArm() ? "arm64" : "amd64") + ".tar.gz";
+
+        if (githubConfiguration.configuration().header() != null && !githubConfiguration.configuration().header().isBlank()) {
+            client.registerAuthentication(base.getHost(), base.getPort(), githubConfiguration.configuration().header());
+        }
     }
 
     @Override

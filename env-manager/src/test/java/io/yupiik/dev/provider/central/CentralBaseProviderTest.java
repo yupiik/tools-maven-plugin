@@ -20,7 +20,6 @@ import io.yupiik.dev.provider.model.Archive;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.http.Cache;
-import io.yupiik.dev.shared.http.HttpConfiguration;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.dev.test.Mock;
 import org.junit.jupiter.api.Test;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static io.yupiik.dev.test.HttpMockExtension.DEFAULT_HTTP_CONFIGURATION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -114,8 +114,8 @@ class CentralBaseProviderTest {
 
     private CentralBaseProvider newProvider(final URI uri, final YemHttpClient client, final Path local) {
         return new CentralBaseProvider(
-                client, new CentralConfiguration(uri.toASCIIString(), local.toString(), ""), new Archives(),
-                new Cache(new HttpConfiguration(false, 10_000, 1, false, 30_000L, 30_000L, 0, "none"), null),
+                client, new CentralConfiguration(uri.toASCIIString(), local.toString(), "", null), new Archives(),
+                new Cache(DEFAULT_HTTP_CONFIGURATION, null),
                 Gav.of("org.foo:bar:tar.gz:simple"), true, Map.of());
     }
 }
