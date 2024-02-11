@@ -128,7 +128,7 @@ class CommandsTest {
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
-                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
+                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'";""")
                         .replace("$work", work.toString()),
                 out
                         .replaceAll("#.*", "")
@@ -155,7 +155,7 @@ class CommandsTest {
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
                         export YEM_JAVA_HOME_OVERRIDEN="21.0.2";
-                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
+                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'";""")
                         .replace("$work", work.toString()),
                 out
                         .replaceAll("#.*", "")
@@ -175,7 +175,7 @@ class CommandsTest {
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
-                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'\";""")
+                        echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'";""")
                         .replace("$work", work.toString()),
                 out
                         .replaceAll("#.*", "")

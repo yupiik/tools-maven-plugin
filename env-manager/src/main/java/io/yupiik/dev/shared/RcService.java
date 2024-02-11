@@ -163,7 +163,7 @@ public class RcService {
                                         if (tool.failOnMissing()) {
                                             throw new IllegalStateException("Missing home for " + tool.toolName() + "@" + tool.version());
                                         }
-                                        logger.finest(() -> tool.toolName() + "@" + tool.version() + " not available");
+                                        logger.warning(() -> tool.toolName() + "@" + tool.version() + " not available");
                                         return completedFuture(Optional.empty());
                                     }))
                             .toCompletableFuture();

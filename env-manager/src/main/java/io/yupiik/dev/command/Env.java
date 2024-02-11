@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 import static java.io.File.pathSeparator;
 import static java.util.Optional.ofNullable;
 import static java.util.logging.Level.FINE;
+import static java.util.logging.Level.INFO;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
@@ -115,7 +116,7 @@ public class Env implements Runnable {
             public void publish(final LogRecord record) {
                 // capture to forward messages in the shell when init is done (thanks eval call)
                 if (logger.isLoggable(record.getLevel())) {
-                    messages.add(record.getMessage());
+                    messages.add(messageHelper.formatLog(record.getLevel(), record.getMessage()));
                 }
 
                 // enable to log at fine level for debug purposes
@@ -196,9 +197,9 @@ public class Env implements Runnable {
                 resolved.stream()
                         // don't log too much, if it does not change, don't re-log it
                         .filter(Predicate.not(it -> Objects.equals(it.path().toString(), System.getenv(it.properties().envPathVarName()))))
-                        .map(e -> "echo \"[yem] Resolved " + messageHelper.formatToolNameAndVersion(
+                        .map(e -> "echo \"[yem] " + messageHelper.formatLog(INFO, "Resolved " + messageHelper.formatToolNameAndVersion(
                                 e.candidate(), e.properties().toolName(), e.properties().version()) + " to '" +
-                                e.path().toString().replace(home, "~") + "'\";")
+                                e.path().toString().replace(home, "~") + "'") + "\";")
                         .collect(joining("\n", "", "\n")) :
                 "";
 
