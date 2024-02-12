@@ -103,6 +103,12 @@ public class Env implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
+        if (conf.enableAutoDetection() && (tools == null || (tools.local().isEmpty()) && inlineProps.isEmpty())) {
+            logger.finest(() -> "Try auto-detecting environment");
+            inlineProps.putAll(rc.autoDetectProperties(tools == null ? null : tools.global()));
+        } else {
+            logger.finest(() -> "No auto-detection");
+        }
 
         if ((tools == null || (tools.global().isEmpty() && tools.local().isEmpty())) && inlineProps.isEmpty()) { // nothing to do
             return;
@@ -111,7 +117,27 @@ public class Env implements Runnable {
         final var logger = Logger.getLogger("io.yupiik.dev");
         final var useParentHandlers = logger.getUseParentHandlers();
         final var messages = new ArrayList<String>();
-        final var tempHandler = new Handler() { // forward all standard messages to stderr and at debug level to avoid to break default behavior
+        final var tempHandler = captureLogHandler(logger, messages, useParentHandlers);
+        logger.setUseParentHandlers(false);
+        logger.addHandler(tempHandler);
+        try {
+            (tools == null ? rc.match(inlineProps) : rc.match(inlineProps, tools.local(), tools.global()))
+                    .thenAccept(resolved -> createScript(resolved, export, quote, pathName, hasTerm, pathVar, tools, messages, comment))
+                    .toCompletableFuture()
+                    .get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (final ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        } finally {
+            logger.setUseParentHandlers(useParentHandlers);
+            logger.removeHandler(tempHandler);
+        }
+    }
+
+    private Handler captureLogHandler(final Logger logger, final ArrayList<String> messages, final boolean useParentHandlers) {
+        return new Handler() { // forward all standard messages to stderr and at debug level to avoid to break default behavior
             @Override
             public void publish(final LogRecord record) {
                 // capture to forward messages in the shell when init is done (thanks eval call)
@@ -136,23 +162,6 @@ public class Env implements Runnable {
                 flush();
             }
         };
-        logger.setUseParentHandlers(false);
-        logger.addHandler(tempHandler);
-
-        try {
-            (tools == null ? rc.match(inlineProps) : rc.match(inlineProps, tools.local(), tools.global()))
-                    .thenAccept(resolved -> createScript(resolved, export, quote, pathName, hasTerm, pathVar, tools, messages, comment))
-                    .toCompletableFuture()
-                    .get();
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(e);
-        } catch (final ExecutionException e) {
-            throw new IllegalStateException(e.getCause());
-        } finally {
-            logger.setUseParentHandlers(useParentHandlers);
-            logger.removeHandler(tempHandler);
-        }
     }
 
     private void createScript(final List<RcService.MatchedPath> rawResolved,
@@ -237,6 +246,7 @@ public class Env implements Runnable {
 
     @RootConfiguration("env")
     public record Conf(
+            @Property(documentation = "EXPERIMENTAL. If enabled and no `.yemrc` nor `.sdkmanrc` setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a `pom.xml` and the compiler version can be extracted for example) and Maven (`pom.xml` presence). Note that it is done using `./` folder and bubbles up with a max of 10 levels.", defaultValue = "false") boolean enableAutoDetection,
             @Property(documentation = "By default if `YEM_ORIGINAL_PATH` exists in the environment variables it is used as `PATH` base to not keep appending path to the `PATH` indefinively. This can be disabled setting this property to `false`", defaultValue = "false") boolean skipReset,
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
             @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDEN`). Note that you can also just set the values inline as args without that option: `eval $(yem env --java-version 17. --java-relaxed true ...)`.") String inlineRc,

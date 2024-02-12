@@ -21,12 +21,20 @@ import io.yupiik.dev.provider.model.Candidate;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.http.YemHttpClient;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
+import org.xml.sax.Attributes;
+import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.parsers.SAXParserFactory;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
@@ -40,6 +48,7 @@ import java.util.stream.Stream;
 import static java.util.Locale.ROOT;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.logging.Level.FINEST;
 import static java.util.stream.Collectors.toMap;
 
 @ApplicationScoped
@@ -259,6 +268,101 @@ public class RcService {
                 .orElseGet(() -> from.resolve(".yemrc"));
     }
 
+    public Map<String, String> autoDetectProperties(final Properties globalConf) {
+        final var props = new HashMap<String, String>();
+        autoDetectMvn(props, Path.of("."), globalConf, false, false, null);
+        return props;
+    }
+
+    // todo: refine before enabling automatically
+    private void autoDetectMvn(final Map<String, String> props, final Path folder, final Properties globalConf,
+                               final boolean ignoreChildren, final boolean ignoreParent,
+                               final SAXParserFactory providedFactory) {
+        if (props.containsKey("maven.version")) { // already setup
+            return;
+        }
+
+        try {
+            SAXParserFactory saxParserFactory = providedFactory;
+
+            final var pom = folder.resolve("pom.xml");
+            if (!Files.exists(pom)) {
+                return;
+            }
+
+            if (saxParserFactory == null) {
+                saxParserFactory = SAXParserFactory.newInstance();
+                saxParserFactory.setNamespaceAware(false);
+                saxParserFactory.setValidating(false);
+            }
+
+            QuickMvnParser meta;
+            try (final var in = new BufferedInputStream(Files.newInputStream(pom))) {
+                meta = parsePom(saxParserFactory, in);
+            }
+
+            if (!ignoreParent && meta.parentRelativePath != null) {
+                autoDetectMvn(props, folder.resolve(meta.parentRelativePath), globalConf, true, false, saxParserFactory);
+            }
+
+            if (meta.requireMavenVersion != null) {
+                var version = meta.requireMavenVersion;
+                if (version.endsWith(",)") && version.startsWith("[")) { // only a minimum, no max
+                    version = version.substring(1, version.length() - ",)".length());
+                    props.put("maven.relaxed", "true");
+                    if (version.startsWith("2.")) {
+                        props.put("maven.version", "3."); // no joke, 2 is dead today
+                    } else {
+                        props.put("maven.version", version.length() > 2 ? version.substring(0, 2) : version);
+                    }
+                } else if (!version.contains("(") && !version.contains(")") && !version.contains("[") && !version.contains("]")) {
+                    props.put("maven.relaxed", "true");
+                    props.put("maven.version", version.length() > 2 ? version.substring(0, 2) : version);
+                } else if (globalConf == null || !globalConf.containsKey("maven.version")) {
+                    // todo: parse range? https://maven.apache.org/enforcer/enforcer-rules/versionRanges.html
+                    props.put("maven.version", "3.");
+                    props.put("maven.relaxed", "true");
+                }
+            }
+            if (meta.requireJavaVersion >= 8) {
+                final var existing = props.get("java.version");
+                props.put("java.version", Integer.toString(existing == null ?
+                        meta.requireJavaVersion :
+                        Math.max(meta.requireJavaVersion, Integer.parseInt(meta.requireMavenVersion))));
+                props.put("java.relaxed", "true");
+            }
+
+            if (!ignoreChildren && !meta.children.isEmpty()) {
+                for (final var child : meta.children) {
+                    autoDetectMvn(props, folder.resolve(child), globalConf, false, true, saxParserFactory);
+                }
+            }
+
+            if (!ignoreChildren && !ignoreParent) { // root
+                if (globalConf == null || !globalConf.containsKey("maven.version")) {
+                    props.putIfAbsent("maven.version", "3.");
+                    props.putIfAbsent("maven.relaxed", "true");
+                }
+                if (globalConf == null || !globalConf.containsKey("java.version")) {
+                    props.putIfAbsent("java.version", "");
+                    props.putIfAbsent("java.relaxed", "true");
+                }
+            }
+        } catch (final IOException ioe) {
+            logger.log(FINEST, ioe, ioe::getMessage);
+        }
+    }
+
+    private QuickMvnParser parsePom(final SAXParserFactory factory, final InputStream stream) {
+        final var handler = new QuickMvnParser();
+        try {
+            factory.newSAXParser().parse(stream, handler);
+        } catch (final Exception e) {
+            // no-op: not parseable so ignoring
+        }
+        return handler;
+    }
+
     public record ToolProperties(
             int index,
             String toolName,
@@ -276,5 +380,79 @@ public class RcService {
     }
 
     public record Props(Properties global, Properties local) {
+    }
+
+    private static class QuickMvnParser extends DefaultHandler {
+        private final LinkedList<String> tags = new LinkedList<>();
+        private final Map<String, String> properties = new HashMap<>();
+        private String currentPlugin;
+        private StringBuilder text;
+
+        private int requireJavaVersion = 0;
+        private String requireMavenVersion;
+        private String parentRelativePath = "..";
+        private final List<String> children = new ArrayList<>();
+
+        @Override
+        public void startElement(final String uri, final String localName,
+                                 final String qName, final Attributes attributes) {
+            if ("relativePath".equals(qName) ||
+                    "module".equals(qName) ||
+                    ("artifactId".equals(qName) && tags.size() >= 3) ||
+                    ("maven-compiler-plugin".equals(currentPlugin) && (
+                            "release".equals(qName) || "target".equals(qName) || "source".equals(qName))) ||
+                    (tags.size() == 2 && "properties".equals(tags.getLast())) ||
+                    (tags.size() > 4 && "requireMavenVersion".equals(tags.getLast()) && "version".equals(qName))) {
+                text = new StringBuilder();
+            }
+            tags.add(qName);
+        }
+
+        @Override
+        public void characters(final char[] ch, final int start, final int length) {
+            if (text != null) {
+                text.append(new String(ch, start, length));
+            }
+        }
+
+        @Override
+        public void endElement(final String uri, final String localName, final String qName) {
+            tags.removeLast();
+            if ("relativePath".equals(qName) && "parent".equals(tags.getLast()) && tags.size() == 2) {
+                parentRelativePath = text.isEmpty() ? ".." : text.toString().strip();
+            } else if ("module".equals(qName) && "modules".equals(tags.getLast()) && tags.size() == 2 && !text.isEmpty()) {
+                children.add(text.toString().strip());
+            } else if ("artifactId".equals(qName) && "plugin".equals(tags.getLast()) && (tags.size() == 4 || tags.size() == 5 /* mgt */)) {
+                currentPlugin = text.toString().strip();
+            } else if ("plugin".equals(qName)) {
+                currentPlugin = null;
+            } else if (tags.size() == 2 && "properties".equals(tags.getLast())) {
+                properties.put(qName, text.toString().strip());
+            } else if ("requireMavenVersion".equals(tags.getLast()) && "version".equals(qName)) {
+                requireMavenVersion = text.toString().strip();
+            } else if ("maven-compiler-plugin".equals(currentPlugin) && (
+                    "release".equals(qName) || "target".equals(qName) || "source".equals(qName))) {
+                var version = text.toString();
+                if (!version.isBlank()) {
+                    int iterations = 10;
+                    while (iterations-- > 0 && version.startsWith("${") && version.endsWith("}")) {
+                        version = properties.get(version.substring("${".length(), version.length() - 1));
+                    }
+                    if (version != null) {
+                        try {
+                            final var end = version.indexOf('.');
+                            requireJavaVersion = Math.max(
+                                    requireJavaVersion,
+                                    version.startsWith("1.8") ?
+                                            8 :
+                                            Integer.parseInt(version.substring(0, end < 0 ? version.length() : end)));
+                        } catch (final NumberFormatException nfe) {
+                            // no-op
+                        }
+                    }
+                }
+            }
+            text = null;
+        }
     }
 }
