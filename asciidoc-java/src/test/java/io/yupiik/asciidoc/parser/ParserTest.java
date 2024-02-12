@@ -36,7 +36,6 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
-import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
@@ -487,6 +486,31 @@ class ParserTest {
                                 List.of(
                                         new Text(List.of(), "item 1", Map.of()),
                                         new Text(List.of(), "item 2", Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void unorderedListUnCommonFormatting() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * something:
+                  Some description.
+                ** Parameters:
+                  *** --resolve-provider: ...
+                  *** --resolve-relaxed: ...
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Paragraph(List.of(
+                                                new Text(List.of(), "something: Some description.", Map.of()),
+                                                new UnOrderedList(List.of(
+                                                        new Paragraph(List.of(
+                                                                new Text(List.of(), "Parameters:", Map.of()),
+                                                                new UnOrderedList(List.of(
+                                                                        new Text(List.of(), "--resolve-provider: ...", Map.of()),
+                                                                        new Text(List.of(), "--resolve-relaxed: ...", Map.of())
+                                                                ), Map.of())), Map.of())), Map.of())), Map.of())),
                                 Map.of())),
                 body.children());
     }

@@ -37,7 +37,7 @@ import static java.io.File.pathSeparator;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 
-@Command(name = "run", description = "Similar to `env` spirit but for aliases or execution in the shell context of the `.yemrc` file.`." +
+@Command(name = "run", description = "Similar to `env` spirit but for aliases or execution in the shell context of the `.yemrc` file." +
         " Important: it is recommended to use `--` to separate yem args from the command: `yem run --rc .yemrc -- mvn clean package`." +
         " Note that the first arg after `--` will be tested against an alias in the `.yemrc` (or global one) so you can pre-define complex commands there." +
         " Ex: `build.alias = mvn package` in `.yemrc` will enable to run `yem run -- build` which will actually execute `mvn package` and if you configure maven version (`maven.version = 3.9.6` for example) the execution environment will use the right distribution.")

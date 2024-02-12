@@ -1137,17 +1137,18 @@ public class Parser {
                                             final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var children = new ArrayList<Element>(2);
         String next;
+        String nextStripped;
         final var buffer = new StringBuilder();
         Matcher matcher;
         final int currentLevel = prefix.length() - 1 /*ending space*/;
-        while ((next = reader.nextLine()) != null && (matcher = regex.matcher(next)).matches() && !next.isBlank()) {
+        while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped=next.strip()))).matches() && !next.isBlank()) {
             final var level = matcher.group(captureName).length();
             if (level < currentLevel) { // go back to parent
                 break;
             }
             if (level == currentLevel) { // a new item
                 buffer.setLength(0);
-                buffer.append(next.substring(prefix.length()).stripLeading());
+                buffer.append(nextStripped.substring(prefix.length()).stripLeading());
                 while ((next = reader.nextLine()) != null) {
                     if (next.isBlank()) {
                         break;
@@ -1156,7 +1157,7 @@ public class Parser {
                         buffer.append('\n');
                         continue;
                     }
-                    if (regex.matcher(next).matches()) {
+                    if (regex.matcher(next.strip()).matches()) {
                         break;
                     }
                     buffer.append('\n').append(next);
