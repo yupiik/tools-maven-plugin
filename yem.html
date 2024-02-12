@@ -141,6 +141,11 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>central.header</code> (<code>central_header</code>): Headers to add if the repository is authenticated. Syntax uses HTTP one: <code>--central-header 'Authorization: Basic xxxxx' for example</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>central.local</code> (<code>central_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.m2/repository&quot;</code>): Local repository path..</p>
  </div>
   </li>
@@ -166,6 +171,16 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>env.enableAutoDetection</code> (<code>env_enableAutoDetection</code>) (default: <code>false</code>): EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>env.inlineRc</code> (<code>env_inlineRc</code>): Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: <code>eval $(yem env --inlineRc 'java.version=17.\njava.relaxed = true')</code>. Note that to persist the change even if you automatically switch from the global <code>yemrc</code> file the context, we set <code>YEM_$TOOLPATHVARNAME_OVERRIDEN</code> environment variable. To reset the value to the global configuration just <code>unset</code> this variable (ex: <code>unset YEM_JAVA_PATH_OVERRIDEN</code>). Note that you can also just set the values inline as args without that option: <code>eval $(yem env --java-version 17. --java-relaxed true ...)</code>..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>env.rc</code> (<code>env_rc</code>) (default: <code>&quot;auto&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
  </div>
   </li>
@@ -181,7 +196,17 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>github.header</code> (<code>github_header</code>): Header to add to every request (authorization one for example)..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>github.local</code> (<code>github_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/github&quot;</code>): Local repository path..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.address</code> (<code>http_address</code>) (default: <code>&quot;localhost&quot;</code>): Binding address..</p>
  </div>
   </li>
   <li>
@@ -201,6 +226,11 @@
   </li>
   <li>
  <div class="paragraph">
+ <p><code>http.ignoreSSLErrors</code> (<code>http_ignoreSSLErrors</code>) (default: <code>false</code>): Should SSL errors be ignored..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
  <p><code>http.log</code> (<code>http_log</code>) (default: <code>false</code>): Should HTTP calls be logged..</p>
  </div>
   </li>
@@ -212,6 +242,41 @@
   <li>
  <div class="paragraph">
  <p><code>http.offlineTimeout</code> (<code>http_offlineTimeout</code>) (default: <code>10_000</code>): Check offline timeout. Per uri a test is done to verify the system is offline..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.open</code> (<code>http_open</code>) (default: <code>true</code>): Should the server be opened ASAP if possible on your system or just the server be launched..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.port</code> (<code>http_port</code>) (default: <code>0</code>): Port to open the server to, by default it is random..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.proxy.host</code> (<code>http_proxy_host</code>) (default: <code>&quot;none&quot;</code>): Proxy host. <code>none</code> means ignore..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.proxy.ignoredHosts</code> (<code>http_proxy_ignoredHosts</code>) (default: <code>java.util.List.of()</code>): Hosts to connect directly to (ignoring the proxy)..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.proxy.password</code> (<code>http_proxy_password</code>) (default: <code>&quot;none&quot;</code>): Proxy password. <code>none</code> means ignore..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.proxy.port</code> (<code>http_proxy_port</code>) (default: <code>3128</code>): Proxy port..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>http.proxy.username</code> (<code>http_proxy_username</code>) (default: <code>&quot;none&quot;</code>): Proxy username. <code>none</code> means ignore..</p>
  </div>
   </li>
   <li>
@@ -271,7 +336,12 @@
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.disableEmoji</code> (<code>messages_disableEmoji</code>) (default: <code>&quot;auto&quot;</code>): If <code>false</code> emoji are totally disabled. <code>auto</code> will test <code>/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf</code> presence to enable emojis. <code>true</code>/<code>false</code> disable/enable emoji whatever the available fonts..</p>
+ <p><code>messages.disableEmoji</code> (<code>messages_disableEmoji</code>) (default: <code>&quot;auto&quot;</code>): If <code>false</code> emoji are totally disabled. <code>auto</code> will test <code>/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf</code> and <code>/usr/share/fonts/google-noto-emoji/NotoColorEmoji.ttf</code> presence to enable emojis. <code>true</code>/<code>false</code> disable/enable emoji whatever the available fonts..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>messages.errorColor</code> (<code>messages_errorColor</code>) (default: <code>&quot;31&quot;</code>): Error message color..</p>
  </div>
   </li>
   <li>
@@ -282,6 +352,11 @@
   <li>
  <div class="paragraph">
  <p><code>messages.versionColor</code> (<code>messages_versionColor</code>) (default: <code>&quot;0;49;96&quot;</code>): When color are enabled the version color..</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>messages.warningColor</code> (<code>messages_warningColor</code>) (default: <code>&quot;33&quot;</code>): Warning message color..</p>
  </div>
   </li>
   <li>
@@ -413,8 +488,21 @@ env: Creates a script you can eval in a shell to prepare the environment from a 
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present. * --env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
+ <p>Parameters: * --env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --env-enableAutoDetection: EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels. * --env-inlineRc: Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17. java.relaxed = true')<code>. Note that to persist the change even if you automatically switch from the global</code>yemrc<code>file the context, we set</code>YEM<i>$TOOLPATHVARNAME</i>OVERRIDEN<code>environment variable. To reset the value to the global configuration just</code>unset<code>this variable (ex:</code>unset YEM<i>JAVA</i>PATH_OVERRIDEN<code>). Note that you can also just set the values inline as args without that option:</code>eval $(yem env --java-version 17. --java-relaxed true ...)`. * --env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present. * --env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
  </div>
+  </li>
+ </ul>
+ </div>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+http: Show configuration in a web browser. <div class="ulist">
+ <ul>
+  <li>
+ <p>
+Parameters: * --http-address: Binding address. * --http-open: Should the server be opened ASAP if possible on your system or just the server be launched. * --http-port: Port to open the server to, by default it is random.
+ </p>
   </li>
  </ul>
  </div>
