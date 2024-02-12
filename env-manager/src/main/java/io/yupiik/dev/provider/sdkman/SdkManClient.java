@@ -41,8 +41,8 @@ import java.util.Optional;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -54,14 +54,14 @@ import static java.util.stream.Collectors.toMap;
 
 @DefaultScoped
 public class SdkManClient implements Provider {
-    private final Logger logger = Logger.getLogger(getClass().getName());
     private final String platform;
     private final Archives archives;
     private final YemHttpClient client;
     private final URI base;
     private final Path local;
     private final boolean enabled;
-    private final Pattern oldVersionsSplitter = Pattern.compile("\\ +");
+    private final Pattern oldVersionsSplitter = Pattern.compile(" +");
+    private final Map<String, CompletionStage<HttpResponse<String>>> pendingRequests = new ConcurrentHashMap<>();
 
     public SdkManClient(final YemHttpClient client, final SdkManConfiguration configuration, final Os os, final Archives archives) {
         this.client = client;
@@ -221,14 +221,10 @@ public class SdkManClient implements Provider {
         // note: we could use ~/.sdkman/var/candidates too but
         //       this would assume sdkman keeps updating this list which is likely not true
 
-        return client.sendAsync(
-                        HttpRequest.newBuilder()
-                                .uri(base.resolve("candidates/list"))
-                                .build())
-                .thenApply(res -> {
-                    ensure200(res);
-                    return parseList(res.body());
-                });
+        return doListTools().thenApply(res -> {
+            ensure200(res);
+            return parseList(res.body());
+        });
     }
 
     @Override
@@ -236,14 +232,26 @@ public class SdkManClient implements Provider {
         if (!enabled) {
             return completedFuture(List.of());
         }
-        return client.sendAsync(
+        return doListVersions(tool).thenApply(res -> {
+            ensure200(res);
+            return parseVersions(tool, res.body());
+        });
+    }
+
+    private CompletionStage<HttpResponse<String>> doListTools() {
+        return pendingRequests.computeIfAbsent("list-tools", k -> client.sendAsync(
+                        HttpRequest.newBuilder()
+                                .uri(base.resolve("candidates/list"))
+                                .build()))
+                .whenComplete((ok, ko) -> pendingRequests.remove("list-tools"));
+    }
+
+    private CompletionStage<HttpResponse<String>> doListVersions(final String tool) {
+        return pendingRequests.computeIfAbsent("list-versions-" + tool, k -> client.sendAsync(
                         HttpRequest.newBuilder()
                                 .uri(base.resolve("candidates/" + tool + "/" + platform + "/versions/list?current=&installed="))
-                                .build())
-                .thenApply(res -> {
-                    ensure200(res);
-                    return parseVersions(tool, res.body());
-                });
+                                .build()))
+                .whenComplete((ok, ko) -> pendingRequests.remove("list-versions-" + tool));
     }
 
     private List<Version> parseVersions(final String tool, final String body) {
@@ -256,9 +264,7 @@ public class SdkManClient implements Provider {
 
         {
             String lastVendor = null;
-            final var from = lines.iterator();
-            while (from.hasNext()) {
-                final var next = from.next();
+            for (final var next : lines) {
                 if (Objects.equals(markerEnd, next)) {
                     break;
                 }
@@ -284,9 +290,7 @@ public class SdkManClient implements Provider {
                 data = data.subList(marker + 1, data.size());
             }
 
-            final var from = data.iterator();
-            while (from.hasNext()) {
-                final var next = from.next();
+            for (final var next : data) {
                 if (next.isBlank() || next.charAt(0) != ' ') {
                     continue;
                 }

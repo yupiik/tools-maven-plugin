@@ -1,0 +1,18 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "META-INF/resources/yem/js/app.css$"
+      },
+      {
+        "pattern": "META-INF/resources/yem/js/app.js$"
+      },
+      {
+        "pattern": "META-INF/resources/yem/index.html$"
+      },
+      {
+        "pattern": "META-INF/fusion/.+/.+\\.json$"
+      }
+    ]
+  }
+}

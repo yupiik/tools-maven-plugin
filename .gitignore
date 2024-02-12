@@ -9,3 +9,5 @@ target
 **/content/mojo
 .sdkmanrc
 generated
+.node
+node_modules

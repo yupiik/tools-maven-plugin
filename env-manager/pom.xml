@@ -94,6 +94,7 @@
             <id>default-compile</id>
             <configuration>
               <compilerArgs>
+                <compilerArg>-Afusion.generateNativeImage=false</compilerArg>
                 <compilerArg>-Afusion.moduleFqn=io.yupiik.dev.YemModule</compilerArg>
               </compilerArgs>
             </configuration>
@@ -132,6 +133,48 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
           <source>17</source>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/*.map</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>npm-install</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>npm-build</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run build</arguments>
+              <environmentVariables>
+                <OUTPUT>${project.build.outputDirectory}/META-INF/resources/yem/</OUTPUT>
+                <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
+                <BUILD_MARKER>${git.commit.id}</BUILD_MARKER>
+                <NODE_ENV>${node.environment}</NODE_ENV>
+              </environmentVariables>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <installDirectory>${project.parent.basedir}/.node</installDirectory>
+          <workingDirectory>${project.basedir}/src/main/frontend</workingDirectory>
         </configuration>
       </plugin>
 

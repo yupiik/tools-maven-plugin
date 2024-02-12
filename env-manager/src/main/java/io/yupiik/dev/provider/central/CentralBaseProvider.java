@@ -52,6 +52,8 @@ public class CentralBaseProvider implements Provider {
     private final boolean enabled;
     private final Map<String, String> meta;
 
+    private volatile CompletionStage<List<Version>> pendingRequest = null;
+
     public CentralBaseProvider(final YemHttpClient client,
                                final CentralConfiguration conf, // children must use SingletonCentralConfiguration to avoid multiple creations
                                final Archives archives,
@@ -219,6 +221,10 @@ public class CentralBaseProvider implements Provider {
             return completedFuture(parseVersions(entry.hit().payload()));
         }
 
+        return pendingRequest == null ? pendingRequest = doListVersions(entry) : pendingRequest;
+    }
+
+    private CompletionStage<List<Version>> doListVersions(final Cache.CachedEntry entry) {
         return client.sendAsync(HttpRequest.newBuilder()
                         .GET()
                         .uri(base
@@ -232,10 +238,11 @@ public class CentralBaseProvider implements Provider {
                     if (entry != null) {
                         cache.save(entry.key(), Map.of(), filtered.stream()
                                 .map(it -> "<version>" + it.version() + "</version>")
-                                .collect(joining("\n", "", "\n")));
+                                .collect(joining("\n", " " /* while (idx>0) */, "\n")));
                     }
                     return parseVersions(res.body());
-                });
+                })
+                .whenComplete((ok, ko) -> pendingRequest = null);
     }
 
     private String toName(final String artifactId) {

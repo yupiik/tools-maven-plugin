@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static java.util.Optional.ofNullable;
@@ -62,6 +63,7 @@ public class ZuluCdnClient implements Provider {
     private final boolean preferJre;
     private final boolean preferApi;
     private final JsonMapper jsonMapper;
+    private final Map<Integer, CompletionStage<List<Version>>> pendingRequests = new ConcurrentHashMap<>();
 
     public ZuluCdnClient(final YemHttpClient client, final ZuluCdnConfiguration configuration, final Os os, final Archives archives,
                          final Cache cache, final JsonMapper jsonMapper) {
@@ -237,41 +239,43 @@ public class ZuluCdnClient implements Provider {
                     });
         }
 
-        return client.sendAsync(HttpRequest.newBuilder().GET().uri(base).build())
-                .thenApply(res -> {
-                    ensure200(res);
+        return pendingRequests.computeIfAbsent(0, k -> client.sendAsync(HttpRequest.newBuilder().GET().uri(base).build())
+                        .thenApply(res -> {
+                            ensure200(res);
 
-                    final var filtered = parseVersions(res.body());
-                    if (entry != null) {
-                        cache.save(entry.key(), Map.of(), filtered.stream()
-                                .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
-                                .collect(joining("\n", "", "\n")));
-                    }
-                    return filtered;
-                });
+                            final var filtered = parseVersions(res.body());
+                            if (entry != null) {
+                                cache.save(entry.key(), Map.of(), filtered.stream()
+                                        .map(it -> "<a href=\"/zulu/bin/zulu" + it.identifier() + '-' + suffix + "\">zulu" + it.identifier() + '-' + suffix + "</a>")
+                                        .collect(joining("\n", "", "\n")));
+                            }
+                            return filtered;
+                        }))
+                .whenComplete((ok, ko) -> pendingRequests.remove(0));
     }
 
     private CompletionStage<List<Version>> fetchVersionPages(final int page, final String baseUrl,
                                                              final Type listOfVersionsType) {
-        return client.sendAsync(HttpRequest.newBuilder().GET()
-                        .uri(URI.create(baseUrl + "&page=" + page))
-                        .header("accept", "application/json")
-                        .build())
-                .thenCompose(res -> {
-                    ensure200(res);
+        return pendingRequests.computeIfAbsent(page, pageNumber -> client.sendAsync(HttpRequest.newBuilder().GET()
+                                .uri(URI.create(baseUrl + "&page=" + pageNumber))
+                                .header("accept", "application/json")
+                                .build())
+                        .thenCompose(res -> {
+                            ensure200(res);
 
-                    final List<APiVersion> apiVersions = jsonMapper.fromString(listOfVersionsType, res.body());
-                    final var pageVersions = apiVersions.stream().map(APiVersion::name).map(this::toProviderVersion).toList();
+                            final List<APiVersion> apiVersions = jsonMapper.fromString(listOfVersionsType, res.body());
+                            final var pageVersions = apiVersions.stream().map(APiVersion::name).map(this::toProviderVersion).toList();
 
-                    return res.headers()
-                            .firstValue("x-pagination")
-                            .map(p -> jsonMapper.fromString(Pagination.class, p.strip()))
-                            .filter(p -> p.last_page() <= page)
-                            .map(p -> completedFuture(pageVersions))
-                            .orElseGet(() -> fetchVersionPages(page + 1, baseUrl, listOfVersionsType)
-                                    .thenApply(newVersions -> Stream.concat(newVersions.stream(), pageVersions.stream()).toList())
-                                    .toCompletableFuture());
-                });
+                            return res.headers()
+                                    .firstValue("x-pagination")
+                                    .map(p -> jsonMapper.fromString(Pagination.class, p.strip()))
+                                    .filter(p -> p.last_page() <= page)
+                                    .map(p -> completedFuture(pageVersions))
+                                    .orElseGet(() -> fetchVersionPages(page + 1, baseUrl, listOfVersionsType)
+                                            .thenApply(newVersions -> Stream.concat(newVersions.stream(), pageVersions.stream()).toList())
+                                            .toCompletableFuture());
+                        }))
+                .whenComplete((ok, ko) -> pendingRequests.remove(page));
     }
 
     private void ensure200(final HttpResponse<?> res) {

@@ -38,6 +38,8 @@
     <jgit.version>6.8.0.202311291450-r</jgit.version>
     <johnzon.version>1.2.21</johnzon.version>
     <uship.version>1.0.9</uship.version>
+
+    <node.environment>production</node.environment>
   </properties>
 
   <modules>
@@ -197,6 +199,27 @@
     </extensions>
 
     <plugins>
+      <plugin>
+        <groupId>io.github.git-commit-id</groupId>
+        <artifactId>git-commit-id-maven-plugin</artifactId>
+        <version>7.0.0</version>
+        <executions>
+          <execution>
+            <id>get-the-git-infos</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <phase>initialize</phase>
+          </execution>
+        </executions>
+        <configuration>
+          <injectAllReactorProjects>true</injectAllReactorProjects>
+          <includeOnlyProperties>
+            <includeOnlyProperty>^git.build.time$</includeOnlyProperty>
+            <includeOnlyProperty>^git.commit.id$</includeOnlyProperty>
+          </includeOnlyProperties>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-clean-plugin</artifactId>
@@ -367,6 +390,30 @@ under the License.
               </excludes>
             </licenseSet>
           </licenseSets>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>1.15.0</version>
+        <executions>
+          <execution>
+            <id>install-node-npm</id>
+            <phase>generate-resources</phase>
+            <inherited>false</inherited>
+            <goals>
+              <goal>install-node-and-npm</goal>
+            </goals>
+            <configuration>
+              <installDirectory>${project.basedir}/.node</installDirectory>
+              <nodeVersion>v20.11.0</nodeVersion>
+              <npmVersion>10.2.4</npmVersion>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <installDirectory>${project.basedir}/.node</installDirectory>
+          <workingDirectory>${project.basedir}/src/main/frontend</workingDirectory>
         </configuration>
       </plugin>
     </plugins>
