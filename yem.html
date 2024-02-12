@@ -703,7 +703,7 @@ Parameters: <div class="ulist">
   </li>
   <li>
  <div class="paragraph">
-run: Similar to <code>env</code> spirit but for aliases or execution in the shell context of the <code>.yemrc</code> file.<code>. Important: it is recommended to use</code>--<code>to separate yem args from the command:</code>yem run --rc .yemrc -- mvn clean package<code>. Note that the first arg after</code>--<code>will be tested against an alias in the</code>.yemrc<code>(or global one) so you can pre-define complex commands there. Ex:</code>build.alias = mvn package<code>in</code>.yemrc<code>will enable to run</code>yem run -- build<code>which will actually execute</code>mvn package<code>and if you configure maven version (</code>maven.version = 3.9.6` for example) the execution environment will use the right distribution. <div class="ulist">
+run: Similar to <code>env</code> spirit but for aliases or execution in the shell context of the <code>.yemrc</code> file. Important: it is recommended to use <code>--</code> to separate yem args from the command: <code>yem run --rc .yemrc -- mvn clean package</code>. Note that the first arg after <code>--</code> will be tested against an alias in the <code>.yemrc</code> (or global one) so you can pre-define complex commands there. Ex: <code>build.alias = mvn package</code> in <code>.yemrc</code> will enable to run <code>yem run -- build</code> which will actually execute <code>mvn package</code> and if you configure maven version (<code>maven.version = 3.9.6</code> for example) the execution environment will use the right distribution. <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
