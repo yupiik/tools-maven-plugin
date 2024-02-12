@@ -475,7 +475,25 @@ delete: Delete a distribution. <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --delete-provider: Provider to use to delete the version (if not t is deduced from the tool/version parameters). * --delete-tool: Tool to delete. * --delete-version: Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance.</p>
+Parameters: <div class="ulist">
+ <ul>
+  <li>
+ <p>
+--delete-provider: Provider to use to delete the version (if not t is deduced from the tool/version parameters).
+ </p>
+  </li>
+  <li>
+ <p>
+--delete-tool: Tool to delete.
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--delete-version: Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
  </div>
   </li>
  </ul>
@@ -488,7 +506,35 @@ env: Creates a script you can eval in a shell to prepare the environment from a 
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --env-enableAutoDetection: EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels. * --env-inlineRc: Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17. java.relaxed = true')<code>. Note that to persist the change even if you automatically switch from the global</code>yemrc<code>file the context, we set</code>YEM<i>$TOOLPATHVARNAME</i>OVERRIDEN<code>environment variable. To reset the value to the global configuration just</code>unset<code>this variable (ex:</code>unset YEM<i>JAVA</i>PATH_OVERRIDEN<code>). Note that you can also just set the values inline as args without that option:</code>eval $(yem env --java-version 17. --java-relaxed true ...)`. * --env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present. * --env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
+Parameters: <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p>--env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--env-enableAutoDetection: EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--env-inlineRc: Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17. java.relaxed = true')<code>. Note that to persist the change even if you automatically switch from the global</code>yemrc<code>file the context, we set</code>YEM<i>$TOOLPATHVARNAME</i>OVERRIDEN<code>environment variable. To reset the value to the global configuration just</code>unset<code>this variable (ex:</code>unset YEM<i>JAVA</i>PATH_OVERRIDEN<code>). Note that you can also just set the values inline as args without that option:</code>eval $(yem env --java-version 17. --java-relaxed true ...)`.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
+ </div>
+  </li>
+ </ul>
+ </div>
  </div>
   </li>
  </ul>
@@ -500,9 +546,27 @@ env: Creates a script you can eval in a shell to prepare the environment from a 
 http: Show configuration in a web browser. <div class="ulist">
  <ul>
   <li>
+ <div class="paragraph">
+Parameters: <div class="ulist">
+ <ul>
+  <li>
  <p>
-Parameters: * --http-address: Binding address. * --http-open: Should the server be opened ASAP if possible on your system or just the server be launched. * --http-port: Port to open the server to, by default it is random.
+--http-address: Binding address.
  </p>
+  </li>
+  <li>
+ <p>
+--http-open: Should the server be opened ASAP if possible on your system or just the server be launched.
+ </p>
+  </li>
+  <li>
+ <p>
+--http-port: Port to open the server to, by default it is random.
+ </p>
+  </li>
+ </ul>
+ </div>
+ </div>
   </li>
  </ul>
  </div>
@@ -514,7 +578,35 @@ install: Install a distribution. <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --install-provider: Provider to use to install the version (if not t is deduced from the tool/version parameters). * --install-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>). * --install-skipProgress: Should progress bar be skipped (can be useful on CI for example). * --install-tool: Tool to install. * --install-version: Version of <code>tool</code> to install.</p>
+Parameters: <div class="ulist">
+ <ul>
+  <li>
+ <p>
+--install-provider: Provider to use to install the version (if not t is deduced from the tool/version parameters).
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--install-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>).</p>
+ </div>
+  </li>
+  <li>
+ <p>
+--install-skipProgress: Should progress bar be skipped (can be useful on CI for example).
+ </p>
+  </li>
+  <li>
+ <p>
+--install-tool: Tool to install.
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--install-version: Version of <code>tool</code> to install.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
  </div>
   </li>
  </ul>
@@ -526,9 +618,22 @@ install: Install a distribution. <div class="ulist">
 list: List remote (available) distributions. <div class="ulist">
  <ul>
   <li>
+ <div class="paragraph">
+Parameters: <div class="ulist">
+ <ul>
+  <li>
  <p>
-Parameters: * --list-providers: List of providers to use (comma separated). * --list-tools: List of tools to list (comma separated).
+--list-providers: List of providers to use (comma separated).
  </p>
+  </li>
+  <li>
+ <p>
+--list-tools: List of tools to list (comma separated).
+ </p>
+  </li>
+ </ul>
+ </div>
+ </div>
   </li>
  </ul>
  </div>
@@ -539,9 +644,17 @@ Parameters: * --list-providers: List of providers to use (comma separated). * --
 list-local: List local available distributions. <div class="ulist">
  <ul>
   <li>
+ <div class="paragraph">
+Parameters: <div class="ulist">
+ <ul>
+  <li>
  <p>
-Parameters: * --list-local-tool: Tool to filter.
+--list-local-tool: Tool to filter.
  </p>
+  </li>
+ </ul>
+ </div>
+ </div>
   </li>
  </ul>
  </div>
@@ -558,7 +671,30 @@ resolve: Resolve a distribution. <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --resolve-provider: Provider to use to resolve the version (if not t is deduced from the tool/version parameters). * --resolve-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>). * --resolve-tool: Tool to resolve. * --resolve-version: Version of <code>tool</code> to resolve.</p>
+Parameters: <div class="ulist">
+ <ul>
+  <li>
+ <p>
+--resolve-provider: Provider to use to resolve the version (if not t is deduced from the tool/version parameters).
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--resolve-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>).</p>
+ </div>
+  </li>
+  <li>
+ <p>
+--resolve-tool: Tool to resolve.
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--resolve-version: Version of <code>tool</code> to resolve.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
  </div>
   </li>
  </ul>
@@ -571,7 +707,20 @@ run: Similar to <code>env</code> spirit but for aliases or execution in the shel
  <ul>
   <li>
  <div class="paragraph">
- <p>Parameters: * --run-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. * --run-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
+Parameters: <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p>--run-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>--run-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
  </div>
   </li>
  </ul>
