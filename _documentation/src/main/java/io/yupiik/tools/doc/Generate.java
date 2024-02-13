@@ -77,7 +77,7 @@ public final class Generate {
                 "Last available 1.0.x release is 1.0.26.");
         configuration.setTitle("Yupiik Tools Plugin");
         configuration.setLogoSideText("Docs");
-        configuration.setLogo("//www.yupiik.io/images/favicon.png");
+        configuration.setLogo("//www.yupiik.io/images/logo.svg");
         configuration.setLinkedInCompany("yupiik");
         configuration.setUseDefaultAssets(true);
         configuration.setInjectYupiikTemplateExtensionPoints(true);

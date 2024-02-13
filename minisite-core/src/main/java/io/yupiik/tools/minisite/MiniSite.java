@@ -655,7 +655,9 @@ public class MiniSite implements Runnable {
         if (configuration.isUseDefaultAssets()) {
             Stream.of(
                             "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
-                            "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js")
+                            "yupiik-tools-maven-plugin/minisite/assets/css/theme-old.css",
+                            "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js",
+                            "yupiik-tools-maven-plugin/minisite/assets/images/logo.svg")
                     .forEach(resource -> {
                         final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
                         try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(Thread.currentThread().getContextClassLoader()
@@ -1184,7 +1186,7 @@ public class MiniSite implements Runnable {
                 .replace("{{logoText}}", getLogoText())
                 .replace("{{logoSideText}}", getLogoSideText())
                 .replace("{{base}}", configuration.getSiteBase())
-                .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("//www.yupiik.io/images/favicon.png"))
+                .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("//www.yupiik.io/images/logo.svg"))
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"));
         final String suffix = readTemplates(layout, configuration.getTemplateSuffixes())

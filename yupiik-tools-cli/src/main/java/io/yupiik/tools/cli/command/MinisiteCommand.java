@@ -44,7 +44,7 @@ public final class MinisiteCommand {
                                 @Option(value = "description", description = "Site description.") final String description,
                                 @Option(value = "logoText", description = "Site text next the logo.") final String logoText,
                                 @Option(value = "logoSideText", description = "Site text next the logo.") final String logoSideText,
-                                @Option(value = "logo", description = "Site logo.") @Default("//www.yupiik.io/images/favicon.png") final String logo,
+                                @Option(value = "logo", description = "Site logo.") @Default("//www.yupiik.io/images/logo.svg") final String logo,
                                 @Option(value = "indexText", description = "Site index content text.") final String indexText,
                                 @Option(value = "indexSubTitle", description = "Site index subtitle text.") final String indexSubTitle,
                                 @Option(value = "copyright", description = "Site copyright text.") final String copyright,

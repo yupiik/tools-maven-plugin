@@ -135,7 +135,7 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Logo url.
      */
-    @Parameter(property = "yupiik.minisite.logo", defaultValue = "//www.yupiik.io/images/favicon.png")
+    @Parameter(property = "yupiik.minisite.logo", defaultValue = "//www.yupiik.io/images/logo.svg")
     private String logo;
 
     /**

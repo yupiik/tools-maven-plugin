@@ -321,3 +321,35 @@ $(document).ready(function () {
     });
   });
 });
+
+(function () {
+  var anchors = document.querySelectorAll('h2');
+  if (!anchors || anchors.length === 0) {
+    document.querySelector('main > div').className = 'col-sm-12';
+    wrapper.className = '';
+    return;
+  }
+  var ul = document.createElement('ul');
+  ul.style.marginLeft = '0';
+  ul.style.listStyle = 'none';
+  var title = document.createElement('h2');
+  title.style.fontSize = '1.2rem';
+  title.style.paddingTop = '1rem';
+  title.innerHTML = 'Menu';
+  ul.append(title);
+  wrapper.append(ul);
+  function addLink(elt) {
+    var name = elt.innerHTML;
+    var id = elt.id;
+    if (!id) {
+      return;
+    }
+    var link = document.createElement('a');
+    link.href = (window.location.pathname || '') + '#' + id;
+    link.innerHTML = name;
+    var li = document.createElement('li');
+    li.append(link);
+    ul.append(li);
+  }
+  anchors.forEach(addLink);
+})();
