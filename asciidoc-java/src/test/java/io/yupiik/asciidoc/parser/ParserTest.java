@@ -743,6 +743,22 @@ class ParserTest {
     }
 
     @Test
+    void titleId() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                == Create a configuration model [[configuration_model]]
+                                
+                A configuration model is a record marked with RootConfiguration.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Section(
+                        2,
+                        new Text(List.of(), "Create a configuration model", Map.of("id", "configuration_model")),
+                        List.of(new Text(List.of(), "A configuration model is a record marked with RootConfiguration.", Map.of())),
+                        Map.of())),
+                body.children());
+    }
+
+    @Test
     void include() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""

@@ -1141,7 +1141,7 @@ public class Parser {
         final var buffer = new StringBuilder();
         Matcher matcher;
         final int currentLevel = prefix.length() - 1 /*ending space*/;
-        while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped=next.strip()))).matches() && !next.isBlank()) {
+        while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped = next.strip()))).matches() && !next.isBlank()) {
             final var level = matcher.group(captureName).length();
             if (level < currentLevel) { // go back to parent
                 break;
@@ -1211,7 +1211,29 @@ public class Parser {
     }
 
     private Element newText(final List<Text.Style> styles, final String value, final Map<String, String> options) {
-        return new Text(styles, value, options); // todo: check nested links, email - without escaping
+        // cheap handling of legacy syntax for anchors - for backward compat but only when at the beginning or end, not yet in the middle
+        String id = null;
+        String text = value;
+        if (value.startsWith("[[")) {
+            final int end = value.indexOf("]]");
+            if (end > 0) {
+                id = value.substring("[[".length(), end);
+                text = text.substring(end + "]]".length()).strip();
+            }
+        } else if (value.endsWith("]]")) {
+            final int start = value.lastIndexOf("[[");
+            if (start > 0) {
+                id = value.substring(start + "[[".length(), value.length() - "]]".length());
+                text = text.substring(0, start).strip();
+            }
+        }
+
+        if (id != null && !id.isBlank() && !options.containsKey("id")) {
+            final var opts = new HashMap<>(options);
+            opts.putIfAbsent("id", id);
+            return new Text(styles, text, opts);
+        }
+        return new Text(styles, text, options); // todo: check nested links, email - without escaping
     }
 
     private Map<String, String> parseOptions(final String options) {
