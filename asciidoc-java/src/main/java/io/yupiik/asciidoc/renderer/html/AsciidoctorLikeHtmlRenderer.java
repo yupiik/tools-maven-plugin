@@ -598,7 +598,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append("   <li>\n");
                 state.inCallOut = true;
                 state.nowrap = true;
-                visitElement(c.text());
+                if (c.text() instanceof Paragraph p && p.options().isEmpty()) {
+                    p.children().forEach(this::visitElement);
+                } else {
+                    visitElement(c.text());
+                }
                 state.inCallOut = false;
                 state.nowrap = nowrap;
                 builder.append("   </li>\n");

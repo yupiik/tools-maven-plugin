@@ -819,6 +819,20 @@ class ParserTest {
                 body.children());
     }
 
+    @Test
+    void tableOpts() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        [opts="header"]
+                        |===
+                        |c1
+                        |===
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Table(List.of(List.of(new Text(List.of(), "c1", Map.of()))), Map.of("opts", "header"))),
+                body.children());
+    }
 
     @Test
     void tableMultiple() {

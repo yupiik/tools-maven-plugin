@@ -146,6 +146,89 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void callout() {
+        assertRenderingContent("""
+                == Enums
+                                                            
+                Enumerations (de)serialization behavior can be customized by using some specific methods:
+                           
+                [source,java]
+                ----
+                public enum MyEnum {
+                    A, B;
+                           
+                    public String toJsonString() { <1>
+                        return this == A ? "first" : "second";
+                    }
+                           
+                    public static MyEnum fromJsonString(final String v) { <2>
+                        return switch (v) {
+                            case "first" -> MyEnum.A;
+                            case "second" -> MyEnum.B;
+                            default -> throw new IllegalArgumentException("Unsupported '" + v + "'");
+                        };
+                    }
+                }
+                ----
+                <.> `toJsonString` is an instance method with no parameter used to replace `.name()` call during serialization,
+                <.> `fromJsonString` is a static method with a `String` parameter used to replace `.valueOf(String)` call during deserialization.
+                """, """
+                 <div class="sect1" id="_enums">
+                  <h2>Enums</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                Enumerations (de)serialization behavior can be customized by using some specific methods:
+                 </p>
+                 </div>
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public enum MyEnum {
+                    A, B;
+                                
+                    public String toJsonString() { <b class="conum">(1)</b>
+                        return this == A ? &quot;first&quot; : &quot;second&quot;;
+                    }
+                                
+                    public static MyEnum fromJsonString(final String v) { <b class="conum">(2)</b>
+                        return switch (v) {
+                            case &quot;first&quot; -&gt; MyEnum.A;
+                            case &quot;second&quot; -&gt; MyEnum.B;
+                            default -&gt; throw new IllegalArgumentException(&quot;Unsupported '&quot; + v + &quot;'&quot;);
+                        };
+                    }
+                }</code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <ol>
+                   <li>
+                <code>toJsonString</code> <span>
+                 is an instance method with no parameter used to replace\s
+                 </span>
+                <code>.name()</code> <span>
+                 call during serialization,
+                 </span>
+                   </li>
+                   <li>
+                <code>fromJsonString</code> <span>
+                 is a static method with a\s
+                 </span>
+                <code>String</code> <span>
+                 parameter used to replace\s
+                 </span>
+                <code>.valueOf(String)</code> <span>
+                 call during deserialization.
+                 </span>
+                   </li>
+                  </ol>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void ol() {
         assertRenderingContent("""
                 . first
@@ -557,7 +640,7 @@ class AsciidoctorLikeHtmlRendererTest {
     void codeInSectionTitleComplex() {
         assertRenderingContent("""
                 == Title :: foo `bar.json`
-                
+                                
                 foo""", """
                  <div class="sect1" id="_title__foo_barjson">
                   <h2>Title :: foo <code>bar.json</code></h2>

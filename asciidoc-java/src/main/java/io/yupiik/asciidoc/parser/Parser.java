@@ -1219,7 +1219,7 @@ public class Parser {
                 .or(() -> mapIf("example", "exampleblock", "", options))
                 .or(() -> mapIf("verse", "verseblock", "", options))
                 .or(() -> mapIf("quote", "quoteblock", "attribution", options))
-                .orElseGet(() -> doParseOptions(options, ""));
+                .orElseGet(() -> doParseOptions(options, "", true));
     }
 
     private Optional<Map<String, String>> mapIf(final String matcher, final String role,
@@ -1230,7 +1230,7 @@ public class Parser {
         if (options.startsWith(matcher + ",")) {
             return of(merge(
                     role == null ? Map.of() : Map.of("role", role),
-                    doParseOptions(options.substring(matcher.length() + ",".length()).strip(), defaultKey)));
+                    doParseOptions(options.substring(matcher.length() + ",".length()).strip(), defaultKey, true)));
         }
 
         return empty();
@@ -1420,7 +1420,7 @@ public class Parser {
                 link.startsWith("mailto:");
     }
 
-    private Map<String, String> doParseOptions(final String options, final String defaultKey) {
+    private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport) {
         final var map = new HashMap<String, String>();
         final var key = new StringBuilder();
         final var value = new StringBuilder();
@@ -1448,9 +1448,11 @@ public class Parser {
         if (!key.isEmpty()) {
             flushOption(defaultKey, key, value, map);
         }
-        final var opts = map.remove("opts");
-        if (opts != null) {
-            map.putAll(doParseOptions(opts, "opts"));
+        if (nestedOptsSupport) {
+            final var opts = map.remove("opts");
+            if (opts != null) {
+                map.putAll(doParseOptions(opts, "opts", false));
+            }
         }
         return map;
     }
