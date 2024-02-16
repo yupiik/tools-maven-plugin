@@ -1,0 +1,7 @@
+= Page 1
+:minisite-nav-prev-label: Introduction
+// :minisite-nav-prev-link: introduction.html
+:minisite-nav-next-label: Getting Started
+// :minisite-nav-next-link: getting-started.html
+
+Content.

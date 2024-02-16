@@ -116,6 +116,7 @@ class VersionInjectorCommandTest {
                         "<p>Content.</p>\n" +
                         "</div>\n" +
                         "                \n" +
+                        "                \n" +
                         "            </div>\n" +
                         "        </div>",
                 extractContent(Files.readString(output.resolve("page.html"))).strip());

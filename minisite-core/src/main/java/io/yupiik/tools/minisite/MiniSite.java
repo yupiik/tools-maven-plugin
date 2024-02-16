@@ -64,6 +64,7 @@ import java.util.stream.Stream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ROOT;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Optional.of;
@@ -94,6 +95,7 @@ public class MiniSite implements Runnable {
             configuration.getAsciidoctorConfiguration().info().accept("Rendering (and upload) skipped");
             return;
         }
+
         final Object options = createOptions();
         configuration.getAsciidoc().withInstance(configuration.getAsciidoctorConfiguration(), a -> {
             executeInMinisiteClassLoader(() -> doRender(a, options));
@@ -141,7 +143,8 @@ public class MiniSite implements Runnable {
                                                       final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                       final boolean withLeftMenuIfConfigured,
                                                       final Function<String, String> postProcessor,
-                                                      final Function<String, String> customInterpolations) {
+                                                      final Function<String, String> customInterpolations,
+                                                      final Function<Page, String> footerNavTemplate) {
         final Path templates = getTemplatesDir();
         final String titleTemplate = findPageTemplate(templates, "page-title");
         final String contentTemplate = findPageTemplate(templates, "page-content");
@@ -161,7 +164,14 @@ public class MiniSite implements Runnable {
                     if ("title".equals(key)) {
                         return title;
                     }
-                    return getDefaultInterpolation(key, page, asciidoctor, options, customInterpolations);
+                    return getDefaultInterpolation(key, page, asciidoctor, options, k -> {
+                        switch (k) {
+                            case "pageFooterNav":
+                                return footerNavTemplate.apply(page);
+                            default:
+                                return getDefaultInterpolation(k, page, asciidoctor, options, customInterpolations);
+                        }
+                    });
                 }).replace(contentTemplate);
                 final String content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
@@ -543,7 +553,8 @@ public class MiniSite implements Runnable {
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
             final List<Consumer<Function<Page, String>>> pageToRender = new ArrayList<Consumer<Function<Page, String>>>();
-            pages.forEach(page -> pageToRender.add(onVisitedFile(page, asciidoctor, options, files, now, blog)));
+            final Function<Page, String> footerNavTemplate = loadNavTemplates();
+            pages.forEach(page -> pageToRender.add(onVisitedFile(page, asciidoctor, options, files, now, blog, footerNavTemplate)));
             hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
             template = createTemplate(options, asciidoctor, hasBlog);
             final Function<Page, String> tpl = template;
@@ -749,7 +760,8 @@ public class MiniSite implements Runnable {
     }
 
     protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoc.AsciidocInstance asciidoctor, final Object options,
-                                                             final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog) {
+                                                             final Map<Page, Path> files, final OffsetDateTime now, final List<BlogPage> blog,
+                                                             final Function<Page, String> footerNavTemplate) {
         if (page.attributes.containsKey("minisite-skip")) {
             return t -> {
             };
@@ -773,7 +785,7 @@ public class MiniSite implements Runnable {
             };
         } else {
             return template -> {
-                render(page, out, asciidoctor, options, true, identity(), null).accept(template);
+                render(page, out, asciidoctor, options, true, identity(), null, footerNavTemplate).accept(template);
                 configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
             };
         }
@@ -859,7 +871,7 @@ public class MiniSite implements Runnable {
                             default:
                                 return null;
                         }
-                    }).accept(template);
+                    }, p -> "").accept(template);
             configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + bp.page.relativePath + " to " + out);
         });
         return allCategories;
@@ -976,7 +988,7 @@ public class MiniSite implements Runnable {
                                         .collect(joining("\n"))),
                 baseBlog.resolve(singular + "/index.html"), asciidoctor, options,
                 false,
-                this::markPageAsBlog, null).accept(template);
+                this::markPageAsBlog, null, p -> "").accept(template);
         return perCriteria.keySet();
     }
 
@@ -1051,7 +1063,7 @@ public class MiniSite implements Runnable {
                                 }
                             }).replace(contentTemplate)),
                     output, asciidoctor, options, false,
-                    this::markPageAsBlog, null).accept(template);
+                    this::markPageAsBlog, null, p -> "").accept(template);
         });
 
         final Path indexRedirect = baseBlog.resolve(pageRelativeFolder + "index.html");
@@ -1080,6 +1092,27 @@ public class MiniSite implements Runnable {
 
     protected boolean hasSearch() {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
+    }
+
+    protected Function<Page, String> loadNavTemplates() {
+        final Path templatesDir = getTemplatesDir();
+        final String globalTemplate = readTemplates(templatesDir, List.of("page-footer-nav.html"));
+        final String linkTemplate = readTemplates(templatesDir, List.of("page-footer-nav-link.html"));
+        return page -> {
+            if (page.attributes == null) {
+                return "";
+            }
+
+            final NavLink prev = new NavLink(page.attributes, "minisite-nav-prev-");
+            final NavLink next = new NavLink(page.attributes, "minisite-nav-next-");
+            if (prev.link == null && next.link == null) {
+                return "";
+            }
+
+            return globalTemplate
+                    .replace("{{previousLink}}", prev.render(linkTemplate, "prev", "Previous"))
+                    .replace("{{nextLink}}", next.render(linkTemplate, "next", "Next"));
+        };
     }
 
     public Function<Page, String> createTemplate(final Object options,
@@ -1349,5 +1382,25 @@ public class MiniSite implements Runnable {
         private final String title;
         private final Map<String, String> attributes;
         private final String content;
+    }
+
+    private static class NavLink {
+        private final String label;
+        private final String link;
+
+        private NavLink(final Map<String, String> props, final String prefix) {
+            this.label = props.get(prefix + "label");
+            this.link = ofNullable(props.get(prefix + "link"))
+                    .filter(Predicate.not(String::isBlank))
+                    .orElseGet(() -> label == null || label.isBlank() ? null : label.toLowerCase(ROOT).replace(' ', '-') + ".html");
+        }
+
+        public String render(final String template, final String clazz, final String subLabel) {
+            return link == null || link.isBlank() ? "" : template
+                    .replace("{{class}}", "page-footer-nav-link-" + clazz)
+                    .replace("{{link}}", link)
+                    .replace("{{subLabel}}", subLabel)
+                    .replace("{{label}}", label);
+        }
     }
 }

@@ -28,6 +28,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
     @Test
+    void footerNav(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                   final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder.build()).run();
+        asserts.assertContains("page.html", " <nav class=\"page-footer-nav\" aria-label=\"Docs pages\">\n" +
+                "    <a href=\"introduction.html\" class=\"page-footer-nav-link-prev\">\n" +
+                "    <div>Previous</div>\n" +
+                "    <div>Introduction</div>\n" +
+                "</a>\n" +
+                "    <a href=\"getting-started.html\" class=\"page-footer-nav-link-next\">\n" +
+                "    <div>Next</div>\n" +
+                "    <div>Getting Started</div>\n" +
+                "</a>\n" +
+                "</nav>");
+    }
+
+    @Test
     void customTemplates(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                          final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         new MiniSite(builder

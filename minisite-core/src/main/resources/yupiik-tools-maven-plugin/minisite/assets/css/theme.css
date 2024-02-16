@@ -413,3 +413,43 @@ div.colist.arabic > ol > li > p {
     left: 1rem;
     top: 0.2rem;
 }
+
+/* for page-footer-nav templates */
+.page-footer-nav {
+  grid-gap: 1rem;
+  gap: 1rem;
+  margin-top: 3rem;
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+}
+.page-footer-nav > a {
+  border: 1px solid lightgrey;
+  border-radius: .4rem;
+  display: block;
+  height: 100%;
+  line-height: 1.65;
+  padding: 1rem;
+  transition: border-color 200ms cubic-bezier(0.08,0.52,0.52,1);
+  text-decoration: none;
+}
+.page-footer-nav > a > div:first-child {
+  color: grey;
+  font-size: .875rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+.page-footer-nav > a > div:last-child {
+  font-size: 1rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+.page-footer-nav > a.page-footer-nav-link-next {
+  grid-column: 2/3;
+  text-align: right;
+}
+.page-footer-nav > a.page-footer-nav-link-prev > div:last-child:before {
+  content: "« ";
+}
+.page-footer-nav > a.page-footer-nav-link-next > div:last-child:after {
+  content: " »";
+}
