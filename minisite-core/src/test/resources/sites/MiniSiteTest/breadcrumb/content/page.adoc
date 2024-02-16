@@ -1,0 +1,4 @@
+= Page 1
+:minisite-breadcrumb: Home[/] > Foo[foo.html] > Page 1
+
+Content.

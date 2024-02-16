@@ -297,6 +297,9 @@ Some specific attributes enables to customize the generation. Here is their list
 * `minisite-highlightjs-skip` enables to not setup highlight.js for the page (useful with swagger-ui for example).
 * `minisite-nav-prev-label`/`minisite-nav-next-label` enables to add a bottom page "previous"/"next" link to another page, this attribute defines its label.
 * `minisite-nav-prev-link`/`minisite-nav-next-link` enables to add a bottom page "previous"/"next" link to another page, this attribute defines its link (label is required), if label is defined but not the link, the link is the label lowercased with iphens instead of spaces and html extension.
+* `minisite-breadcrumb` enables to define a page breadcrumb (navigation tree) at the top of the content. Syntax is the following: `:minisite-breadcrumb: Home[#] > Another Page[link-to-another-page.html] > This page`. If there is a `[xxx]`, then `xxx` is considered as a link.
+
+TIP: for a good documentation it is highly recommended to use nav and breadcrumb features.
 
 === Index generation
 

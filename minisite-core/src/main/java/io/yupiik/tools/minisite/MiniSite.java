@@ -471,6 +471,54 @@ public class MiniSite implements Runnable {
                 return readingTimeComputer.toReadingTime(page.content);
             case "xyz": // passthrough
                 return "{{xyz}}";
+            case "breadcrumb":
+                String def = page.attributes.get("minisite-breadcrumb");
+                if (def == null || def.isBlank()) {
+                    return "";
+                }
+                // parse: Home[#] > Another Page[link-to-another-page.html] > This page
+                final StringBuilder out = new StringBuilder("<nav aria-label=\"breadcrumb\" style=\"padding-left: 0;\">\n" +
+                        "  <ol class=\"breadcrumb\" style=\"margin-left: 0;background-color: unset;padding-left: 0;\">\n");
+                int from = 0;
+                def = def.replace("&gt;", ">");
+                while (from < def.length()) {
+                    final int end = def.indexOf('>', from);
+                    final String segment;
+                    if (end < 0) {
+                        segment = def.substring(from).strip();
+                        from = def.length();
+                    } else {
+                        segment = def.substring(from, end).strip();
+                        from = end + 1;
+                    }
+
+                    out.append("    <li class=\"breadcrumb-item")
+                            .append(from == def.length() ? " active" : "").append("\"")
+                            .append(from == def.length() ? " aria-current=\"page\"" : "")
+                            .append(">");
+                    final int link = segment.indexOf('[');
+                    if (link < 0) {
+                        out.append(segment);
+                    } else {
+                        final int endLink = segment.indexOf(']', link);
+                        if (endLink < 0) {
+                            out.append(segment);
+                        } else {
+                            final String text = segment.substring(0, link).strip();
+                            out.append("<a href=\"").append(segment.substring(link + 1, endLink).strip()).append("\">")
+                                    .append("Home".equalsIgnoreCase(text) ? // home is worth an icon cause it is particular
+                                            "<svg viewBox=\"0 0 24 24\" " +
+                                                    "style=\"height: 1.4rem;position: relative;top: 1px;vertical-align: top;width: 1.1rem;\">" +
+                                                    "<path d=\"M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z\"" +
+                                                    " fill=\"currentColor\"></path>" +
+                                                    "</svg>" :
+                                            text)
+                                    .append("</a>");
+                        }
+                    }
+                    out.append("</li>\n");
+                }
+                return out.append("  </ol>\n</nav>").toString();
             default:
                 try {
                     return findPageTemplate(getTemplatesDir(), key);
