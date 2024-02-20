@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2023 - Yupiik SAS - https://www.yupiik.com
+ * Copyright (c) 2020 - present - Yupiik SAS - https://www.yupiik.com
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
@@ -52,7 +52,7 @@ class SlidesCommandTest {
                 "<meta name=\"mobile-web-app-capable\" content=\"yes\">" +
                 "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
                 "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css\" integrity=\"sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==\" crossorigin=\"anonymous\" />\n" +
-                "<link rel=\"stylesheet\" href=\"css/slides.generated.229142858.css\">\n" +
+                "<link rel=\"stylesheet\" href=\"css/slides.generated.1463448110.css\">\n" +
                 "</head><body><article class=\"deck\"><section class=\"title\" data-title=\"\"><h1>My Awesome Presentation</h1><p>Additional content for the title slide.</p><footer><p class=\"author\"><span class=\"personname\"><span class=\"firstname\">Yupiik</span> <span class=\"surname\"></span></span><span class=\"affiliation\"><span class=\"position\">Company</span> <span class=\"organization\">Yupiik</span></span><span class=\"contact\"><span class=\"twitter\">@yupiik</span> <span class=\"url\">yupiik.com</span></span></p></footer></section>\n" +
                 "<section><h2>First Topic</h2></section></article>\n" +
                 "<script src=\"//cdnjs.cloudflare.com/ajax/libs/bespoke.js/1.1.0/bespoke.min.js\"></script>\n" +
