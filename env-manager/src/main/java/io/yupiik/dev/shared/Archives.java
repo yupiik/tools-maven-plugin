@@ -122,7 +122,7 @@ public class Archives {
 
             final var name = entry.getName();
             final int rootFolderEnd = name.indexOf('/');
-            if (rootFolderEnd < 0 || rootFolderEnd == name.length() - 1) {
+            if ((rootFolderEnd < 0 || rootFolderEnd == name.length() - 1) || name.contains("..")) {
                 continue;
             }
             final var out = exploded.resolve(name.substring(rootFolderEnd + 1));
@@ -130,7 +130,11 @@ public class Archives {
                 Files.createDirectories(out);
             } else if (isLink.test(entry)) {
                 final var targetLinked = Paths.get(linkPath.apply(archive, entry));
-                if (Files.exists(out.getParent().resolve(targetLinked))) {
+                final var target = out.getParent().resolve(targetLinked);
+                if (exploded.relativize(target.toAbsolutePath().normalize()).toString().contains("..")) {
+                    continue;
+                }
+                if (Files.exists(target)) {
                     Files.createDirectories(out.getParent());
                     try {
                         Files.createSymbolicLink(out, targetLinked);
