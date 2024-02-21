@@ -17,6 +17,7 @@ package io.yupiik.dev.provider.central;
 
 import io.yupiik.dev.provider.Provider;
 import io.yupiik.dev.provider.model.Archive;
+import io.yupiik.dev.provider.model.Candidate;
 import io.yupiik.dev.provider.model.Version;
 import io.yupiik.dev.shared.Archives;
 import io.yupiik.dev.shared.http.Cache;
@@ -70,6 +71,15 @@ class CentralBaseProviderTest {
                         new Version("org.foo", "1.0.24", "bar", "1.0.24"),
                         new Version("org.foo", "1.0.25", "bar", "1.0.25")),
                 actual);
+    }
+
+    @Test
+    @Mock(uri = "/2/org/foo/bar/1.0.2/bar-1.0.2-simple.tar.gz", payload = "you got a tar.gz", format = "tar.gz")
+    void listLocal(final URI uri, @TempDir final Path work, final YemHttpClient client) throws IOException, ExecutionException, InterruptedException {
+        install(uri, work, client);
+        final var candidates = newProvider(uri, client, work.resolve("m2")).listLocal().toCompletableFuture().get();
+        assertEquals(1, candidates.size());
+        assertEquals("1.0.2", candidates.values().iterator().next().get(0).version());
     }
 
     @Test

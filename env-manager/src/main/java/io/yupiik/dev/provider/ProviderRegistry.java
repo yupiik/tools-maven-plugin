@@ -109,7 +109,8 @@ public class ProviderRegistry {
                 .filter(it -> provider == null ||
                         // enable "--install-provider zulu" for example
                         Objects.equals(provider, it.name()) ||
-                        it.getClass().getSimpleName().toLowerCase(ROOT).startsWith(provider.toLowerCase(ROOT)))
+                        it.getClass().getSimpleName().toLowerCase(ROOT).startsWith(provider.toLowerCase(ROOT)) ||
+                        (CentralBaseProvider.class == it.getClass() && "central".equals(provider)))
                 .map(it -> it.listTools().thenCompose(candidates -> {
                     if (candidates.stream().anyMatch(t -> tool.equals(t.tool()))) {
                         final var candidateListMap = cache.local.get(it);

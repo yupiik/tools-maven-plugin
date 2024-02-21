@@ -142,7 +142,12 @@ public class CentralBaseProvider implements Provider {
                                                 .filter(child -> child.getFileName().toString().endsWith("_exploded"))
                                                 .map(distro -> {
                                                     final var filename = distro.getFileName().toString();
-                                                    final var version = filename.substring(0, filename.length() - "_exploded".length());
+                                                    final var version = filename.substring(
+                                                            gav.artifactId().length() + 1,
+                                                            filename.length() -
+                                                                    "_exploded".length() -
+                                                                    (gav.classifier() != null && !gav.classifier().isBlank() ? gav.classifier().length() + 1 : 0) -
+                                                                    (gav.type().length() + 1));
                                                     return new Version(gav.groupId(), version, gav.artifactId(), version);
                                                 })
                                                 .toList() // materialize otherwise exploded will be closed and lazy evaluation will fail
