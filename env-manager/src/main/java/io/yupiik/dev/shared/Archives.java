@@ -109,7 +109,7 @@ public class Archives {
                         throw new IllegalStateException(ex);
                     }
                 } :
-                (a, e) -> TarArchiveEntry.class.cast(e).getLinkName();
+                (a, e) -> ((TarArchiveEntry) e).getLinkName();
 
         final var linksToCopy = new HashMap<Path, Path>();
         final var linksToRetry = new HashMap<Path, Path>();
@@ -129,8 +129,9 @@ public class Archives {
             if (entry.isDirectory()) {
                 Files.createDirectories(out);
             } else if (isLink.test(entry)) {
-                final Path targetLinked = Paths.get(linkPath.apply(archive, entry));
+                final var targetLinked = Paths.get(linkPath.apply(archive, entry));
                 if (Files.exists(out.getParent().resolve(targetLinked))) {
+                    Files.createDirectories(out.getParent());
                     try {
                         Files.createSymbolicLink(out, targetLinked);
                         setExecutableIfNeeded(out);
@@ -141,6 +142,7 @@ public class Archives {
                     linksToRetry.put(out, targetLinked);
                 }
             } else {
+                Files.createDirectories(out.getParent());
                 Files.copy(archive, out, StandardCopyOption.REPLACE_EXISTING);
                 Files.setLastModifiedTime(out, FileTime.fromMillis(entry.getLastModifiedDate().getTime()));
                 setExecutableIfNeeded(out);
