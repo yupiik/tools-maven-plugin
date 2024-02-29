@@ -177,6 +177,7 @@
         <configuration>
           <installDirectory>${project.parent.basedir}/.node</installDirectory>
           <workingDirectory>${project.basedir}/src/main/frontend</workingDirectory>
+          <skip>${settings.offline}</skip>
         </configuration>
       </plugin>
 

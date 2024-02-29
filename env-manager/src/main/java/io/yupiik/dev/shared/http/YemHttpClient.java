@@ -35,12 +35,15 @@ import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.PasswordAuthentication;
 import java.net.ProxySelector;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URL;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -56,6 +59,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -87,11 +91,14 @@ public class YemHttpClient implements AutoCloseable {
     private final Map<String, Boolean> state;
     private final Map<AuthKey, Auth> authentications;
     private final int offlineTimeout;
-    private final boolean offline;
+    private final int interfaces;
+
+    private volatile boolean offline;
 
     protected YemHttpClient() { // for subclassing proxy
         this.client = null;
         this.cache = null;
+        this.interfaces = 0;
         this.offlineTimeout = 0;
         this.offline = false;
         this.state = null;
@@ -99,7 +106,21 @@ public class YemHttpClient implements AutoCloseable {
     }
 
     public YemHttpClient(final HttpConfiguration configuration, final Cache cache) {
-        this.offline = configuration.offlineMode();
+        List<NetworkInterface> interfaces;
+        try {
+            interfaces = NetworkInterface.networkInterfaces().filter(n -> {
+                try {
+                    return !n.isLoopback() && !n.isVirtual();
+                } catch (final SocketException e) {
+                    return false;
+                }
+            }).toList();
+        } catch (SocketException e) {
+            interfaces = List.of();
+        }
+
+        this.interfaces = interfaces.size();
+        this.offline = configuration.offlineMode() || detectIsOffline(interfaces);
         this.offlineTimeout = configuration.offlineTimeout();
         this.cache = cache;
         this.state = new ConcurrentHashMap<>();
@@ -235,6 +256,16 @@ public class YemHttpClient implements AutoCloseable {
         });
     }
 
+    private boolean detectIsOffline(final List<NetworkInterface> networkInterfaces) {
+        return networkInterfaces.stream().noneMatch(n -> {
+            try {
+                return n.isUp();
+            } catch (final SocketException e) {
+                return false;
+            }
+        });
+    }
+
     @Destroy
     @Override
     public void close() {
@@ -326,6 +357,18 @@ public class YemHttpClient implements AutoCloseable {
                         cache.save(entry.key(), result);
                     }
                     return result;
+                })
+                .exceptionally(e -> {
+                    if (e instanceof CompletionException ce && ce.getCause() instanceof HttpConnectTimeoutException) {
+                        offline = true;
+                        if (entry != null && entry.hit() != null && entry.hit().headers() != null && entry.hit().payload() != null) {
+                            // refresh the cached entry for next runs
+                            logger.info(() -> "Keeping cached entry for '" + request.uri() + "' metadata since system is offline");
+                            cache.save(entry.key(), entry.hit().headers(), entry.hit().payload());
+                        }
+                        throw ce;
+                    }
+                    throw new IllegalStateException(e);
                 });
     }
 
@@ -361,6 +404,10 @@ public class YemHttpClient implements AutoCloseable {
             throw OfflineException.INSTANCE;
         }
         if (state.computeIfAbsent(uri.getHost() + ":" + uri.getPort(), k -> {
+            if (interfaces == 1 && !state.isEmpty()) {
+                return state.values().iterator().next();
+            }
+
             try (final var socket = new Socket()) {
                 final var address = new InetSocketAddress(uri.getHost(), uri.getPort() >= 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80));
                 socket.connect(address, offlineTimeout);
