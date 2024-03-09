@@ -2509,6 +2509,13 @@ div.anchors > div {
     margin-bottom: 0;
 }
 
+.card-body {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    padding: 1.25rem;
+}
+
 .deck .content {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -2525,11 +2532,18 @@ div.anchors > div {
     margin: 15px;
 }
 
-.card-body {
-    -webkit-box-flex: 1;
-    -ms-flex: 1 1 auto;
-    flex: 1 1 auto;
-    padding: 1.25rem;
+/* pagination nav */
+.page-navigation-left {
+    width: 300px;
+    border-right: solid lightgrey 1px;
+}
+.page-navigation-left ul {
+    list-style-type: none;
+    margin: 0;
+}
+.page-navigation-left,
+.page-navigation-right {
+    padding: 1rem;
 }
 
 .page-navigation-left li {
@@ -2546,6 +2560,10 @@ div.anchors > div {
     color: var(--yupiik-blue1) !important;
     font-size: 1.0em;
     width: 1.75em;
+}
+
+.page-navigation-right {
+    width: 300px;
 }
 
 .page-navigation-right ul {
@@ -2878,19 +2896,7 @@ span.theme-icon-holder > i.fas {
         max-width: 1140px !important;
     }
 }
-.page-navigation-left {
-    min-width: 250px;
-    border-right: solid lightgrey 1px;
-}
-.page-navigation-left ul {
-    list-style-type: none;
-    margin: 0;
-}
-.page-navigation-left,
-.page-navigation-right {
-    padding: 1rem;
-    max-width: 400px;
-}
+
 @media (max-width: 799px) {
     .page-navigation-left,
     .page-navigation-right {
