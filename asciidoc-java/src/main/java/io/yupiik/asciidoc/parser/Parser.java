@@ -95,7 +95,7 @@ public class Parser {
 
     private static final Pattern CALLOUT_REF = Pattern.compile("<(?<number>\\d+)>");
     private static final Pattern CALLOUT = Pattern.compile("^<(?<number>[\\d+.]+)> (?<description>.+)$");
-    private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>[^:]+)(?<marker>::+)(?<content>.*)");
+    private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>(?!::).*)(?<marker>::+)(?<content>.*)");
     private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^[0-9]*(?<dots>\\.+) .+");
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");

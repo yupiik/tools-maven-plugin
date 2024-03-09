@@ -61,6 +61,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ParserTest {
     @Test
+    void definitionList() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                generate-frisby-skeleton.output (env: `GENERATE_FRISBY_SKELETON_OUTPUT`)::
+                Where to generate the skeleton. Default: `hcms-frisby`.
+                hcms.database-init.enabled (env: `HCMS_DATABASE_INIT_ENABLED`)::
+                Should database be initialized at startup. Default: `true`.""".split("\n"))), null);
+        assertEquals(List.of(
+                new DescriptionList(Map.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "generate-frisby-skeleton.output (env: ", Map.of()),
+                                new Code("GENERATE_FRISBY_SKELETON_OUTPUT", List.of(), Map.of(), true),
+                                new Text(List.of(), ")", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Where to generate the skeleton. Default: ", Map.of()),
+                                new Code("hcms-frisby", List.of(), Map.of(), true),
+                                new Text(List.of(), ".", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "hcms.database-init.enabled (env: ", Map.of()),
+                                new Code("HCMS_DATABASE_INIT_ENABLED", List.of(), Map.of(), true),
+                                new Text(List.of(), ")", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Should database be initialized at startup. Default: ", Map.of()),
+                                new Code("true", List.of(), Map.of(), true),
+                                new Text(List.of(), ".", Map.of())), Map.of())), Map.of())
+        ), body.children());
+    }
+
+    @Test
     void parseHeader() {
         final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":attr-1: v1", ":attr-2: v2", "", "content")));
         assertEquals("Title", header.title());
