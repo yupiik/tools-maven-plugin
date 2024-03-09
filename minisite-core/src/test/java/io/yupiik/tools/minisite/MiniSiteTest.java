@@ -90,7 +90,7 @@ class MiniSiteTest {
                         "blog/category/simple/index.html", "blog/category/simple/page-1.html",
                         "blog/index.html", "blog/page-1.html", "blog/page-2.html",
                         "blog1.html", "blog2.html", "blog3.html",
-                        "css/theme.css", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
+                        "css/theme.css", "images/logo.svg", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
                 files.keySet().stream().sorted().collect(toList())));
         asserts.assertContains("blog/page-1.html", "" +
                 "<div class=\"card shadow-sm\">\n" +
