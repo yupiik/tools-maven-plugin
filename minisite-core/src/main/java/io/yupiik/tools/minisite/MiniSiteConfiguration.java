@@ -145,7 +145,7 @@ public class MiniSiteConfiguration {
         templateExtensionPoints.putIfAbsent("copyrightLine", "" +
                 "<small class=\"copyright\">{{copyright}}</small>" + (injectYupiikTemplateExtensionPoints ? "" +
                 // add terms of service and privacy policy
-                " | <a href=\"https://www.{{linkedInCompany}}.com/terms-of-service/\">Terms of service</a> | " +
+                " | <a href=\"https://www.{{linkedInCompany}}.com/terms-of-use/\">Terms of use</a> | " +
                 "<a href=\"https://www.{{linkedInCompany}}.com/privacy-policy/\">Privacy policy</a>" : ""));
         templateExtensionPoints.putIfAbsent("socialLinksFooter", templateExtensionPoints.get("socialLinks"));
     }
