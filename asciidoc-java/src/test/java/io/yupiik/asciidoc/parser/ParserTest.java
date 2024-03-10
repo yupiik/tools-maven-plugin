@@ -257,6 +257,23 @@ class ParserTest {
     }
 
     @Test
+    void linkNoOpt() {
+        assertEquals(
+                List.of(new Link("https://yupiik.io", "https://yupiik.io", Map.of())),
+                new Parser().parseBody(new Reader(List.of("https://yupiik.io")), null).children());
+        assertEquals(
+                List.of(new Paragraph(
+                        List.of(
+                                new Text(List.of(), "in a sentence ", Map.of()),
+                                new Link("https://yupiik.io", "https://yupiik.io", Map.of()),
+                                new Text(List.of(), " and multiple ", Map.of()),
+                                new Link("https://www.yupiik.io", "https://www.yupiik.io", Map.of()),
+                                new Text(List.of(), " links.", Map.of())),
+                        Map.of())),
+                new Parser().parseBody(new Reader(List.of("in a sentence https://yupiik.io and multiple https://www.yupiik.io links.")), null).children());
+    }
+
+    @Test
     void linkInCode() {
         final var body = new Parser().parseBody(new Reader(List.of("`https://yupiik.io[Yupiik OSS]`")), null);
         assertEquals(

@@ -100,6 +100,7 @@ public class Parser {
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
+    private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
 
     private final Map<String, String> globalAttributes;
 
@@ -1435,11 +1436,7 @@ public class Parser {
     }
 
     private boolean isLink(final String link) {
-        return link.startsWith("http://") || link.startsWith("https://") ||
-                link.startsWith("ftp://") || link.startsWith("ftps://") ||
-                link.startsWith("irc://") ||
-                link.startsWith("file://") ||
-                link.startsWith("mailto:");
+        return LINK_PREFIXES.stream().anyMatch(link::startsWith);
     }
 
     private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport) {
@@ -1514,9 +1511,42 @@ public class Parser {
     }
 
     private void flushText(final Collection<Element> elements, final String content) {
-        if (!content.isEmpty()) {
-            elements.add(newText(List.of(), content, Map.of()));
+        if (content.isEmpty()) {
+            return;
         }
+        int start = 0;
+        while (start < content.length()) {
+            final int next = findNextLink(content, start);
+            if (next < 0) {
+                elements.add(newText(List.of(), start == 0 ? content : content.substring(start), Map.of()));
+                break;
+            }
+
+            final int end = Stream.of(" ", "\t")
+                    .mapToInt(s -> content.indexOf(s, next))
+                    .filter(i -> i > next)
+                    .min()
+                    .orElseGet(content::length);
+
+            if (start != next) {
+                elements.add(newText(List.of(), content.substring(start, next), Map.of()));
+            }
+
+            final var link = content.substring(next, end);
+            elements.add(new Link(link, link, Map.of()));
+            if (end == content.length()) {
+                break;
+            }
+            start = end;
+        }
+    }
+
+    private int findNextLink(final String line, final int from) {
+        return LINK_PREFIXES.stream()
+                .mapToInt(p -> line.indexOf(p, from))
+                .filter(i -> i >= from)
+                .min()
+                .orElse(-1);
     }
 
     private List<Element> flattenTexts(final List<Element> elements) {

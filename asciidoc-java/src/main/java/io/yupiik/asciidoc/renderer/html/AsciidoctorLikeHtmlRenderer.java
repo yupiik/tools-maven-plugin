@@ -409,8 +409,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(element.label());
         } else {
             var label = element.label();
-            if (label.contains("://") && attr("hide-uri-scheme", element.options()) != null) {
-                label = label.substring(label.indexOf("://") + "://".length());
+            if (attr("hide-uri-scheme", element.options()) != null) {
+                if (label.contains("://")) {
+                    label = label.substring(label.indexOf("://") + "://".length());
+                } else if (label.contains(":")) { // mailto for ex
+                    label = label.substring(label.indexOf(":") + 1);
+                }
             }
             builder.append(escape(label));
         }
