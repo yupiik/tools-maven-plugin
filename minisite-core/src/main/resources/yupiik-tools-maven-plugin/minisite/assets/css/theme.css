@@ -521,12 +521,6 @@ small {
     line-height: inherit
 }
 
-code {
-    font-family: "Droid Sans Mono", "DejaVu Sans Mono", monospace;
-    font-weight: 400;
-    color: var(--yupiik-blue3);
-}
-
 ul,
 ol,
 dl {
@@ -739,7 +733,7 @@ h6 strong {
     letter-spacing: 0;
     padding: .1em .5ex;
     word-spacing: -.15em;
-    background-color: #f7f7f8;
+    background-color: var(--yupiik-color-emphasis-300);
     -webkit-border-radius: 4px;
     border-radius: 4px;
     line-height: 1.45;
@@ -2684,9 +2678,12 @@ caption {
     height: 100px;
     margin: -70px 0 0;
 }
+
 code {
-    background: #ECF5FF;
-    color: #007bff;
+    background: var(--yupiik-color-emphasis-300);
+    font-family: "Droid Sans Mono", "DejaVu Sans Mono", monospace;
+    font-weight: 400;
+    color: var(--yupiik-blue2);
     padding: 0.25rem 0.375rem;
     border-radius: .25rem;
     font-size: 15px !important

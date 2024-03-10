@@ -1184,8 +1184,8 @@ public class MiniSite implements Runnable {
                 .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
                 .replace("{{logoText}}", getLogoText())
                 .replace("{{logoSideText}}", getLogoSideText())
-                .replace("{{base}}", configuration.getSiteBase())
                 .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("{{base}}/images/logo.svg"))
+                .replace("{{base}}", configuration.getSiteBase())
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"));
         final String suffix = readTemplates(layout, configuration.getTemplateSuffixes())
