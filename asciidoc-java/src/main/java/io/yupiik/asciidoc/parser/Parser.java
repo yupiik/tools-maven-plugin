@@ -583,7 +583,7 @@ public class Parser {
                     }
                 }
 
-                {
+                if (line.startsWith("*")) {
                     final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("wildcard").length() == 1) {
                         reader.rewind();
@@ -594,7 +594,7 @@ public class Parser {
                     }
                 }
 
-                {
+                if (line.contains("::")) {
                     final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("marker").length() == 2 &&
                             // and is not a macro
