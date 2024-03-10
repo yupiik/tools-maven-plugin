@@ -662,7 +662,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("   <tr>\n");
             firstRow.forEach(it -> {
                 builder.append("    <th>\n");
-                visitElement(it);
+                visitElement(it instanceof Code c ? new Text(List.of(), c.value(), c.options()) : it);
                 builder.append("    </th>\n");
             });
             builder.append("   </tr>\n");
