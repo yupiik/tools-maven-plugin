@@ -30,6 +30,49 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AsciidoctorLikeHtmlRendererTest {
     @Test
+    void passthroughIncludeJson(@TempDir final Path work) throws IOException {
+        final var json = "{\n  \"openapi\":\"3.0.1\"\n}\n";
+        Files.writeString(work.resolve("openapi.json"), json);
+        assertRenderingContent("""
+                ++++
+                SwaggerUIBundle({
+                    spec:
+                include::openapi.json[]
+                ,
+                    dom_id: '#swagger-ui',
+                    deepLinking: true,
+                    presets: [
+                      SwaggerUIBundle.presets.apis,
+                      SwaggerUIBundle.SwaggerUIStandalonePreset,
+                    ],
+                    plugins: [
+                      SwaggerUIBundle.plugins.DownloadUrl,
+                    ],
+                });
+                ++++
+                """, """
+                                
+                SwaggerUIBundle({
+                    spec:
+                {
+                  "openapi":"3.0.1"
+                }
+                                
+                ,
+                    dom_id: '#swagger-ui',
+                    deepLinking: true,
+                    presets: [
+                      SwaggerUIBundle.presets.apis,
+                      SwaggerUIBundle.SwaggerUIStandalonePreset,
+                    ],
+                    plugins: [
+                      SwaggerUIBundle.plugins.DownloadUrl,
+                    ],
+                });
+                """, work);
+    }
+
+    @Test
     void metaInPreamble() {
         // this is not a strict preamble as of today but this concept should likely be revisited since
         // it fakes rendering too much in style and enforces an undesired id in several cases
@@ -705,7 +748,11 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     private void assertRenderingContent(final String adoc, final String html) {
-        final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        assertRenderingContent(adoc, html, null);
+    }
+
+    private void assertRenderingContent(final String adoc, final String html, final Path work) {
+        final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(work != null ? work : Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals(html, renderer.result());

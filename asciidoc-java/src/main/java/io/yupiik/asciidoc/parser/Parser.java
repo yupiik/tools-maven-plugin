@@ -226,7 +226,7 @@ public class Parser {
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
-                elements.add(new Listing(parsePassthrough(reader, options, "....").value(), options));
+                elements.add(new Listing(parsePassthrough(reader, options, "....", resolver).value(), options));
                 options = null;
             } else if (next.startsWith(".") && !next.startsWith("..") && !next.startsWith(". ")) {
                 options = merge(options, Map.of("title", next.substring(1).strip()));
@@ -247,7 +247,7 @@ public class Parser {
                 elements.add(parseTable(reader, options, resolver, attributes, stripped));
                 options = null;
             } else if (Objects.equals("++++", stripped)) {
-                elements.add(parsePassthrough(reader, options, "++++"));
+                elements.add(parsePassthrough(reader, options, "++++", resolver));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options));
@@ -286,7 +286,8 @@ public class Parser {
                 .toList();
     }
 
-    private PassthroughBlock parsePassthrough(final Reader reader, final Map<String, String> options, final String marker) {
+    private PassthroughBlock parsePassthrough(final Reader reader, final Map<String, String> options, final String marker,
+                                              final ContentResolver resolver) {
         final var content = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
@@ -298,7 +299,27 @@ public class Parser {
         if (next != null && !next.startsWith(marker)) {
             reader.rewind();
         }
-        return new PassthroughBlock(content.toString(), options == null ? Map.of() : options);
+
+        final var text = content.toString();
+        final var actualOpts = options == null ? Map.<String, String>of() : options;
+        if (!text.contains("include::")) {
+            return new PassthroughBlock(text, actualOpts);
+        }
+
+        final var filtered = Stream.of(text.split("\n"))
+                .map(it -> {
+                    try {
+                        return it.startsWith("include::") ?
+                                handleIncludes(it, resolver, actualOpts, false).stream()
+                                        .map(e -> e instanceof Text t ? t.value() : "")
+                                        .collect(joining("")) :
+                                it;
+                    } catch (final RuntimeException re) {
+                        return it;
+                    }
+                })
+                .collect(joining("\n"));
+        return new PassthroughBlock(filtered, actualOpts);
     }
 
     private OpenBlock parseOpenBlock(final Reader reader, final Map<String, String> options,
