@@ -17,8 +17,8 @@
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.2-SNAPSHOT">
 </head>
 <body>
     <header class="header fixed-top">
@@ -217,7 +217,7 @@ Here is the related documentation.
     <th>
 Name    </th>
     <th>
-<code>Type</code>    </th>
+Type    </th>
     <th>
 Description    </th>
    </tr>
@@ -800,7 +800,35 @@ Some specific attributes enables to customize the generation. Here is their list
  <p><code>minisite-highlightjs-skip</code> enables to not setup highlight.js for the page (useful with swagger-ui for example).</p>
  </div>
   </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-nav-prev-label</code>/<code>minisite-nav-next-label</code> enables to add a bottom page &quot;previous&quot;/&quot;next&quot; link to another page, this attribute defines its label.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-nav-prev-link</code>/<code>minisite-nav-next-link</code> enables to add a bottom page &quot;previous&quot;/&quot;next&quot; link to another page, this attribute defines its link (label is required), if label is defined but not the link, the link is the label lowercased with iphens instead of spaces and html extension.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>minisite-breadcrumb</code> enables to define a page breadcrumb (navigation tree) at the top of the content. Syntax is the following: <code>:minisite-breadcrumb: Home[#] &gt; Another Page[link-to-another-page.html] &gt; This page</code>. If there is a <code>[xxx]</code>, then <code>xxx</code> is considered as a link.</p>
+ </div>
+  </li>
  </ul>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+for a good documentation it is highly recommended to use nav and breadcrumb features.    </td>
+   </tr>
+      </tbody>
+  </table>
  </div>
  </div>
  </div>
@@ -1270,6 +1298,7 @@ Configuration is:
  </div>
  </div>
                 
+                
             </div>
         </div>
     <div class="page-navigation-right">
@@ -1277,13 +1306,12 @@ Configuration is:
         <nav class="generated-nav-menu"></nav>
     </div>
     </div>
-    <hr />
     <footer class="footer pb-5">
-	    <div class="footer-bottom text-center">
+	    <div class="text-center">
 		    <ul class="social-list list-unstyled">
                 <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
-            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
+            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-use/">Terms of use</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
     </footer>
 
@@ -1325,7 +1353,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.2-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>

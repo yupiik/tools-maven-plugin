@@ -2,106 +2,106 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
     <url>
         <loc>/tools-maven-plugin/ascii2svg.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/asciidoc-java.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/cli.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojos.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/yem.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/yupiik-tools-maven-plugin.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/asciidoc.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/audit.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/crypt-properties.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/crypt-value.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/cucumber2asciidoc.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/decrypt-properties.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/decrypt-value.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/generate-blog-post-releases.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/git-report.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/inject-version.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/list-github-releases.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/minisite.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/pdf.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/script-cli-skeleton.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/serve-minisite.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/serve-slides.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/simple-dependencies.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/slides.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/synchronize-github-releases.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
     <url>
         <loc>/tools-maven-plugin/mojo/watch-pdf.html</loc>
-        <lastmod>2024-02-12</lastmod>
+        <lastmod>2024-03-22</lastmod>
     </url>
 </urlset>

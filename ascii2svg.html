@@ -17,8 +17,8 @@
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.1-SNAPSHOT">
     
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.2-SNAPSHOT">
 </head>
 <body>
     <header class="header fixed-top">
@@ -75,7 +75,8 @@
             </div>
             <div class="page-content-body">
                 <div class="paragraph">
- <p>The module <code>ascii2svg</code> is a fork of the go https://github.com/asciitosvg/asciitosvg library rewritten in Java. It enables to convert a string graph in SVG.</p>
+ <p>The module <code>ascii2svg</code> is a fork of the go  <a href="https://github.com/asciitosvg/asciitosvg">https://github.com/asciitosvg/asciitosvg</a>
+ library rewritten in Java. It enables to convert a string graph in SVG.</p>
  </div>
  <div class="paragraph">
  <p>
@@ -98,13 +99,16 @@ Will be rendered as:
  </p>
  </div>
  <div class="paragraph">
- <p>image:data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' </p>
+ <p>image:data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' ' <a href="http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg">http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg</a>
+ width='306px' height='112px' version='1.1' xmlns=' <a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a>
+ xmlns:xlink=' <a href="http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter">http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter</a>
+ id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' </p>
  </div>
  <div class="paragraph">
- <p>
-More on the syntax there: https://github.com/asciitosvg/asciitosvg.
- </p>
+ <p>More on the syntax there:  <a href="https://github.com/asciitosvg/asciitosvg.">https://github.com/asciitosvg/asciitosvg.</a>
+</p>
  </div>
+                
                 
             </div>
         </div>
@@ -113,13 +117,12 @@ More on the syntax there: https://github.com/asciitosvg/asciitosvg.
         <nav class="generated-nav-menu"></nav>
     </div>
     </div>
-    <hr />
     <footer class="footer pb-5">
-	    <div class="footer-bottom text-center">
+	    <div class="text-center">
 		    <ul class="social-list list-unstyled">
                 <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
 	        </ul>
-            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-service/">Terms of service</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
+            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-use/">Terms of use</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
 	    </div>
     </footer>
 
@@ -161,7 +164,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.1-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.2-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
