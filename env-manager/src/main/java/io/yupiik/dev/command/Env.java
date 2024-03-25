@@ -136,7 +136,7 @@ public class Env implements Runnable {
         }
     }
 
-    private Handler captureLogHandler(final Logger logger, final ArrayList<String> messages, final boolean useParentHandlers) {
+    private Handler captureLogHandler(final Logger logger, final List<String> messages, final boolean useParentHandlers) {
         return new Handler() { // forward all standard messages to stderr and at debug level to avoid to break default behavior
             @Override
             public void publish(final LogRecord record) {
@@ -170,22 +170,38 @@ public class Env implements Runnable {
                               final RcService.Props tools, final List<String> messages, final String comment) {
         final var resolved = rawResolved.stream()
                 // ignore manually overriden vars
-                .filter(it -> {
-                    final var overridenEnvVar = rc.toOverridenEnvVar(it.properties());
-                    if (System.getenv(overridenEnvVar) != null) {
-                        logger.finest(() -> "Ignoring '" + it.properties().envPathVarName() + "' because '" + overridenEnvVar + "' is defined");
-                        return false;
+                .map(it -> {
+                    if (it.properties().index() == 0) { // manual so always forced
+                        return it;
                     }
-                    return true;
+
+                    final var overridenEnvVar = rc.toOverridenEnvVar(it.properties());
+                    final var overriden = System.getenv(overridenEnvVar);
+                    if (overriden != null) {
+                        logger.finest(() -> "Ignoring '" + it.properties().envPathVarName() + "' because '" + overridenEnvVar + "' is defined");
+                        final int sep = overriden.indexOf('|');
+                        return new RcService.MatchedPath(
+                                Path.of(overriden.substring(sep + 1)),
+                                // this is likely partly wrong but will be sufficient for now - var names will match for ex
+                                // todo: serialize the state as json when saving it? see "custom override" section in next loop
+                                new RcService.ToolProperties(
+                                        0, it.properties().toolName(), overriden.substring(0, sep),
+                                        it.properties().provider(), false,
+                                        it.properties().envPathVarName(), it.properties().envVersionVarName(),
+                                        true, false, false),
+                                it.provider(), it.candidate());
+                    }
+                    return it;
                 })
                 .toList();
         final var toolVars = resolved.stream()
                 .flatMap(e -> Stream.concat(
                         Stream.of(
                                 export + e.properties().envPathVarName() + "=" + quote + quoted(e.path()) + quote + ";",
+                                // todo: we don't keep track of this one when manually override so this becomes wrong
                                 export + e.properties().envVersionVarName() + "=" + quote + e.properties().version() + quote + ";"),
                         e.properties().index() == 0 /* custom override */ ?
-                                Stream.of(export + rc.toOverridenEnvVar(e.properties()) + "=" + quote + e.properties().version() + quote + ";") :
+                                Stream.of(export + rc.toOverridenEnvVar(e.properties()) + "=" + quote + e.properties().version() + '|' + e.path() + quote + ";") :
                                 Stream.empty()))
                 .sorted()
                 .collect(joining("\n", "", "\n"));

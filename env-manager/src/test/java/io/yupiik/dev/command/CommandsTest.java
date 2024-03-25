@@ -29,6 +29,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
@@ -154,9 +155,9 @@ class CommandsTest {
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
-                        export YEM_JAVA_HOME_OVERRIDEN="21.0.2";
+                        export YEM_JAVA_HOME_OVERRIDEN="21.0.2|$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'";""")
-                        .replace("$work", work.toString()),
+                        .replace("$work", work.toString().replace(File.pathSeparatorChar, '/')),
                 out
                         .replaceAll("#.*", "")
                         .replaceFirst("export YEM_ORIGINAL_PATH=\"[^\"]+\"", "export YEM_ORIGINAL_PATH=\"...\"")
