@@ -73,7 +73,7 @@ public class Env implements Runnable {
         final var quote = windows ? "" : "\"";
 
         if (!conf.skipReset()) {
-            resetOriginalPath(export, pathName, windows);
+            resetOriginalPath(export, pathName, windows, quote);
         }
 
         final var tools = rc.loadPropertiesFrom(conf.rc(), conf.defaultRc());
@@ -175,17 +175,17 @@ public class Env implements Runnable {
                         return it;
                     }
 
-                    final var overridenEnvVar = rc.toOverridenEnvVar(it.properties());
-                    final var overriden = System.getenv(overridenEnvVar);
-                    if (overriden != null) {
-                        logger.finest(() -> "Ignoring '" + it.properties().envPathVarName() + "' because '" + overridenEnvVar + "' is defined");
-                        final int sep = overriden.indexOf('|');
+                    final var overriddenEnvVar = rc.toOverriddenEnvVar(it.properties());
+                    final var overridden = System.getenv(overriddenEnvVar);
+                    if (overridden != null) {
+                        logger.finest(() -> "Ignoring '" + it.properties().envPathVarName() + "' because '" + overriddenEnvVar + "' is defined");
+                        final int sep = overridden.indexOf('|');
                         return new RcService.MatchedPath(
-                                Path.of(overriden.substring(sep + 1)),
+                                Path.of(overridden.substring(sep + 1)),
                                 // this is likely partly wrong but will be sufficient for now - var names will match for ex
                                 // todo: serialize the state as json when saving it? see "custom override" section in next loop
                                 new RcService.ToolProperties(
-                                        0, it.properties().toolName(), overriden.substring(0, sep),
+                                        0, it.properties().toolName(), overridden.substring(0, sep),
                                         it.properties().provider(), false,
                                         it.properties().envPathVarName(), it.properties().envVersionVarName(),
                                         true, false, false),
@@ -201,7 +201,7 @@ public class Env implements Runnable {
                                 // todo: we don't keep track of this one when manually override so this becomes wrong
                                 export + e.properties().envVersionVarName() + "=" + quote + e.properties().version() + quote + ";"),
                         e.properties().index() == 0 /* custom override */ ?
-                                Stream.of(export + rc.toOverridenEnvVar(e.properties()) + "=" + quote + e.properties().version() + '|' + e.path() + quote + ";") :
+                                Stream.of(export + rc.toOverriddenEnvVar(e.properties()) + "=" + quote + e.properties().version() + '|' + e.path() + quote + ";") :
                                 Stream.empty()))
                 .sorted()
                 .collect(joining("\n", "", "\n"));
@@ -246,7 +246,7 @@ public class Env implements Runnable {
                 .replace("\"", "\\\"");
     }
 
-    private void resetOriginalPath(final String export, final String pathName, final boolean windows) {
+    private void resetOriginalPath(final String export, final String pathName, final boolean windows, final String quote) {
         // just check we have YEM_ORIGINAL_PATH and reset PATH if needed
         ofNullable(System.getenv("YEM_ORIGINAL_PATH"))
                 .filter(it -> !"skip".equals(it))
@@ -256,7 +256,7 @@ public class Env implements Runnable {
                     } else {
                         System.out.println("unset YEM_ORIGINAL_PATH;");
                     }
-                    System.out.println(export + " " + pathName + "=\"" + value + "\";");
+                    System.out.println(export + " " + pathName + "=" + quote + value + quote + ";");
                 });
     }
 
@@ -265,7 +265,7 @@ public class Env implements Runnable {
             @Property(documentation = "EXPERIMENTAL. If enabled and no `.yemrc` nor `.sdkmanrc` setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a `pom.xml` and the compiler version can be extracted for example) and Maven (`pom.xml` presence). Note that it is done using `./` folder and bubbles up with a max of 10 levels.", defaultValue = "false") boolean enableAutoDetection,
             @Property(documentation = "By default if `YEM_ORIGINAL_PATH` exists in the environment variables it is used as `PATH` base to not keep appending path to the `PATH` indefinively. This can be disabled setting this property to `false`", defaultValue = "false") boolean skipReset,
             @Property(documentation = "Should `~/.yupiik/yem/rc` be ignored or not. If present it defines default versions and uses the same syntax than `yemrc`.", defaultValue = "System.getProperty(\"user.home\") + \"/.yupiik/yem/rc\"") String defaultRc,
-            @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDEN`). Note that you can also just set the values inline as args without that option: `eval $(yem env --java-version 17. --java-relaxed true ...)`.") String inlineRc,
+            @Property(documentation = "Enables to set inline a rc file, ex: `eval $(yem env --inlineRc 'java.version=17.0.9')`, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17.\\njava.relaxed = true')`. Note that to persist the change even if you automatically switch from the global `yemrc` file the context, we set `YEM_$TOOLPATHVARNAME_OVERRIDDEN` environment variable. To reset the value to the global configuration just `unset` this variable (ex: `unset YEM_JAVA_PATH_OVERRIDDEN`). Note that you can also just set the values inline as args without that option: `eval $(yem env --java-version 17. --java-relaxed true ...)`.") String inlineRc,
             @Property(documentation = "Env file location to read to generate the script. Note that `auto` will try to pick `.yemrc` and if not there will use `.sdkmanrc` if present.", defaultValue = "\"auto\"") String rc) {
     }
 }

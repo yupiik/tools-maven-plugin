@@ -77,7 +77,7 @@ public class CentralBaseProvider implements Provider {
 
     @Override
     public String name() {
-        return gav.groupId() + ":" + gav.artifactId(); // assume it is sufficient for now, else it can be overriden
+        return gav.groupId() + ":" + gav.artifactId(); // assume it is sufficient for now, else it can be overridden
     }
 
     @Override

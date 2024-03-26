@@ -135,8 +135,12 @@ public class RcService {
         return doToolProperties(toolProps);
     }
 
-    public String toOverridenEnvVar(final ToolProperties toolProperties) {
-        return "YEM_" + toolProperties.envPathVarName() + "_OVERRIDEN";
+    public boolean isOverriddenEnvVar(final String key) {
+        return key.startsWith("YEM_") && key.endsWith("_OVERRIDDEN");
+    }
+
+    public String toOverriddenEnvVar(final ToolProperties toolProperties) {
+        return "YEM_" + toolProperties.envPathVarName() + "_OVERRIDDEN";
     }
 
     private ToolProperties toSingleToolProperties(final Properties props, final String versionKey, final int index) {

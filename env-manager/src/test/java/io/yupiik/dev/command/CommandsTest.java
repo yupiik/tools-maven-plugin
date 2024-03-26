@@ -23,6 +23,7 @@ import io.yupiik.fusion.framework.api.container.bean.ProvidedInstanceBean;
 import io.yupiik.fusion.framework.api.main.Args;
 import io.yupiik.fusion.framework.api.main.ArgsConfigSource;
 import io.yupiik.fusion.framework.api.main.Awaiter;
+import io.yupiik.fusion.framework.api.main.Launcher;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -36,12 +37,15 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
+import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
 @Mock(uri = "/2/", payload = "<td><a href=\"/zulu/bin/zulu21.32.17-ca-jdk21.0.2-linux64.tar.gz\">zulu21.32.17-ca-jdk21.0.2-linux64.tar.gz</a></td>")
@@ -119,6 +123,26 @@ class CommandsTest {
 
     @Test
     @DisabledOnOs(WINDOWS)
+    void unsetTools() throws IOException, InterruptedException {
+        final var out = captureForkedOutput(
+                new String[]{ "unset", "--tools", "java,maven"},
+                new String[]{ "YEM_MAVEN_HOME_OVERRIDDEN", "...." });
+        assertEquals("unset YEM_MAVEN_HOME_OVERRIDDEN;", out.strip());
+    }
+
+    @Test
+    @DisabledOnOs(WINDOWS)
+    void unsetAll() throws IOException, InterruptedException {
+        final var out = captureForkedOutput(
+                new String[]{ "unset", "--all", "true"},
+                new String[]{ "YEM_ORIGINAL_PATH", "<original>" });
+        assertEquals("""
+                unset YEM_ORIGINAL_PATH;
+                export PATH="<original>";""", out.strip());
+    }
+
+    @Test
+    @DisabledOnOs(WINDOWS)
     void env(@TempDir final Path work, final URI uri) throws IOException {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
         final var out = captureOutput(work, uri, "env", "--skipReset", "true", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
@@ -155,7 +179,7 @@ class CommandsTest {
                         export PATH="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded:$PATH";
                         export JAVA_HOME="$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         export JAVA_VERSION="21.0.2";
-                        export YEM_JAVA_HOME_OVERRIDEN="21.0.2|$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
+                        export YEM_JAVA_HOME_OVERRIDDEN="21.0.2|$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded";
                         echo "[yem] Resolved java @ 21.0.2 to '$work/zulu/21.32.17-ca-jdk21.0.2/distribution_exploded'";""")
                         .replace("$work", work.toString().replace(File.pathSeparatorChar, '/')),
                 out
@@ -210,6 +234,39 @@ class CommandsTest {
             System.setOut(oldOut);
         }
         final var stdout = out.toString(UTF_8);
+        return sanitizeOutput(stdout);
+    }
+
+    private String captureForkedOutput(final String[] command, final String[] env) throws InterruptedException, IOException {
+        final var cp = System.getProperty("surefire.class.path", System.getProperty("java.class.path", ""));
+        final var builder = new ProcessBuilder(
+                Stream.concat(
+                                Stream.of(Path.of(System.getProperty("java.home")).resolve("bin/java").toString(),
+                                        "-cp", cp,
+                                        // to debug: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005",
+                                        Launcher.class.getName()),
+                                Stream.of(command))
+                        .toList());
+        builder.environment()
+                .putAll(IntStream.range(0, env.length / 2)
+                        .boxed()
+                        .collect(toMap(i -> env[2 * i], i -> env[2 * i + 1])));
+
+        final var process = builder.start();
+        assertEquals(0, process.waitFor(), () -> {
+            try (final var stream = process.getErrorStream() == null ? process.getInputStream() : process.getErrorStream()) {
+                return new String(stream.readAllBytes(), UTF_8);
+            } catch (final IOException e) {
+                return fail(e);
+            }
+        });
+
+        try (final var out = process.getInputStream()) {
+            return sanitizeOutput(new String(out.readAllBytes(), UTF_8));
+        }
+    }
+
+    private String sanitizeOutput(final String stdout) {
         return stdout.replaceAll("\\p{Digit}+.* \\[INFO]\\[io.yupiik.dev.command.[^]]+] ", "").strip();
     }
 
