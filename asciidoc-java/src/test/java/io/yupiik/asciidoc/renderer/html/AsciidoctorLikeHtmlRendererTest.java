@@ -30,6 +30,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AsciidoctorLikeHtmlRendererTest {
     @Test
+    void inlineCodeInDefinitionLst() {
+        assertRenderingContent("""
+                `scheduler.tasks` (env: `SCHEDULER_TASKS`)::
+                Default tasks to run. Key is the command and value the frequency. `once_a_day` is supported today and means at 11:00AM, `at_startup` means at startup of the server whenever it is. Default: `check-zulu-releases = once_a_day`.""",
+                """
+                         <dl>
+                          <dt> <div class="paragraph">
+                        <code>scheduler.tasks</code> (env: <code>SCHEDULER_TASKS</code>) </div>
+                        </dt>
+                          <dd>
+                         <div class="paragraph">
+                         <p>Default tasks to run. Key is the command and value the frequency. <code>once_a_day</code> is supported today and means at 11:00AM, <code>at_startup</code> means at startup of the server whenever it is. Default: <code>check-zulu-releases = once_a_day</code>.</p>
+                         </div>
+                        </dd>
+                         </dl>
+                        """);
+    }
+
+    @Test
     void passthroughIncludeJson(@TempDir final Path work) throws IOException {
         final var json = "{\n  \"openapi\":\"3.0.1\"\n}\n";
         Files.writeString(work.resolve("openapi.json"), json);

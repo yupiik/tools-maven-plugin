@@ -637,7 +637,7 @@ public class Parser {
 
             switch (c) {
                 case ':' ->
-                        inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i - 1) != ' ';
+                        inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i - 1) != ' ' && line.indexOf('[', i + 1) > i;
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
