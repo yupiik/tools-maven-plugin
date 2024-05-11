@@ -1111,16 +1111,22 @@ public class Parser {
                 if (!content.isBlank()) {
                     buffer.add(content);
                 }
+                String needed = null;
                 while ((next = reader.nextLine()) != null &&
-                        !DESCRIPTION_LIST_PREFIX.matcher(next).matches() &&
-                        !next.isBlank()) {
+                        ((!DESCRIPTION_LIST_PREFIX.matcher(next).matches() &&
+                                !next.isBlank()) || needed != null)) {
                     buffer.add(next);
+                    if (Objects.equals(needed, next)) {
+                        needed = null;
+                    } else if ("----".equals(next) || "```".equals(next) || "--".equals(next) || "++++".equals(next)) {
+                        needed = next;
+                    }
                 }
                 if (next != null) {
                     reader.rewind();
                 }
-                final var element = parseParagraph(new Reader(buffer), Map.of(), resolver, currentAttributes, true);
-                final var unwrapped = unwrapElementIfPossible(element);
+                final var element = doParse(new Reader(buffer), s -> true, resolver, currentAttributes, true);
+                final var unwrapped = unwrapElementIfPossible(element.size() == 1 && element.get(0) instanceof Paragraph p ? p : new Paragraph(element, Map.of()));
                 final var key = doParse(new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false);
                 children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
                 last = unwrapped;

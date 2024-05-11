@@ -491,6 +491,32 @@ class ParserTest {
     }
 
     @Test
+    void codeIncludeNested(@TempDir final Path work) throws IOException {
+        final var code = "foo::\nbar\ndummy::\nsomething\n[source]\n----\ntest\n\n----\n\nother::\nend";
+        Files.writeString(work.resolve("content.properties"), code);
+        final var body = new Parser(Map.of("partialsdir", work.toString())).parseBody(new Reader(List.of("""
+                include::{partialsdir}/content.properties[]
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new DescriptionList(Map.of(
+                                new Text(List.of(), "foo", Map.of()),
+                                new Text(List.of(), "bar", Map.of()),
+                                new Text(List.of(), "dummy", Map.of()),
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "something", Map.of()),
+                                        new Code("test\n\n", List.of(), Map.of(), false)
+                                ), Map.of())
+                        ), Map.of()),
+                        new DescriptionList(Map.of(
+                                new Text(List.of(), "other", Map.of()),
+                                new Text(List.of(), "end", Map.of())
+                        ), Map.of())
+                ), Map.of())),
+                body.children());
+    }
+
+    @Test
     void codeWithCallout() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 [source,java,.hljs]
