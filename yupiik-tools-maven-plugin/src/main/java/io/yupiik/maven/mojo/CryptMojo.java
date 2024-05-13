@@ -23,7 +23,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 /**
  * Enables to crypt a value and log it.
  */
-@Mojo(name = "crypt-value", threadSafe = true)
+@Mojo(name = "crypt-value", threadSafe = true, requiresProject = false)
 public class CryptMojo extends BaseCryptMojo {
     /**
      * Value to crypt.

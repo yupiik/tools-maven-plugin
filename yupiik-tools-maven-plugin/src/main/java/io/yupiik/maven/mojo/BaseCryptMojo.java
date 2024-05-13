@@ -35,7 +35,7 @@ public abstract class BaseCryptMojo extends AbstractMojo {
     /**
      * Should AES256 GCM be used else AES/CBC/PKCS5Padding is used.
      */
-    @Parameter(property = "yupiik.crypt.useAES256GCM", defaultValue = "fase")
+    @Parameter(property = "yupiik.crypt.useAES256GCM", defaultValue = "false")
     protected boolean useAES256GCM;
 
     protected Codec codec() {

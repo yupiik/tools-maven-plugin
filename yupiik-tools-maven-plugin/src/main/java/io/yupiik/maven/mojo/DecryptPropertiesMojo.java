@@ -26,7 +26,7 @@ import static java.util.stream.Collectors.toMap;
 /**
  * Enables to decrypt an encrypted properties file.
  */
-@Mojo(name = "decrypt-properties", threadSafe = true)
+@Mojo(name = "decrypt-properties", threadSafe = true, requiresProject = false)
 public class DecryptPropertiesMojo extends BaseCryptPropertiesMojo {
     @Override
     protected void transform(final Codec codec, final Properties from, final Properties to) {

@@ -27,7 +27,7 @@ import java.util.Properties;
 /**
  * Enables to crypt a properties file.
  */
-@Mojo(name = "crypt-properties", threadSafe = true)
+@Mojo(name = "crypt-properties", threadSafe = true, requiresProject = false)
 public class CryptPropertiesMojo extends BaseCryptPropertiesMojo {
     /**
      * If true and output exists, it will be read to compare the encrypted values and keep them if they didnt change.

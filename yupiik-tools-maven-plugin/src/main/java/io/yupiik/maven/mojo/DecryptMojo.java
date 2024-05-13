@@ -23,7 +23,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 /**
  * Enables to decrypt a value.
  */
-@Mojo(name = "decrypt-value", threadSafe = true)
+@Mojo(name = "decrypt-value", threadSafe = true, requiresProject = false)
 public class DecryptMojo extends BaseCryptMojo {
     /**
      * Value to decrypt.
