@@ -710,11 +710,15 @@ public class Parser {
                         }
                         end = line.indexOf(']', end + 1);
                     }
+
                     if (end > 0 && (end == (line.length() - 1) || !isInlineOptionContentMarker(line.charAt(end + 1)))) { // check it is maybe a link
+                        final var subLine = line.substring(start).strip();
+                        final var canBeLink = isLink(subLine) || subLine.startsWith("link:");
+
                         final int backward;
                         final int previousSemicolon = line.lastIndexOf(':', i);
-                        if (previousSemicolon > 0) {
-                            final int antepenultimateSemicolon = line.lastIndexOf(':', previousSemicolon - 1);
+                        if (previousSemicolon > 0 || canBeLink) {
+                            final int antepenultimateSemicolon = line.indexOf(':', start);
                             backward = line.lastIndexOf(' ', antepenultimateSemicolon > 0 ? antepenultimateSemicolon : previousSemicolon) + 1;
                         } else {
                             backward = -1;
