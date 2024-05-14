@@ -73,8 +73,11 @@
 }
 
 body {
+    min-height: 100vh;
     height: 100% !important;
+    display: flex;
     padding-top: 70px !important;
+    flex-direction: column;
 }
 
 main {
@@ -860,11 +863,14 @@ p a > code:hover {
 }
 
 .footer {
-    height: 120px;
+    display: flex;
+    height: fit-content;
+    justify-content: space-evenly;
+    margin-top: auto;
+    position: unset;
+    bottom: unset;
     padding-top: 30px;
     padding-bottom: 20px;
-    position: fixed;
-    bottom: 0;
     width: 100%;
 }
 
@@ -2667,7 +2673,7 @@ div.anchors > div {
 .page {
     display: flex;
     justify-content: center;
-    margin-bottom: 130px;
+    margin-bottom: 80px;
 }
 caption {
     color: #74B5FC !important;
