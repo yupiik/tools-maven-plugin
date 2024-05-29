@@ -2,9 +2,16 @@
 
 :root {
     /* YUPIIK colors (from dark to light) */
-    --yupiik-blue1: #0b4672;
-    --yupiik-blue2: #0075ba;
-    --yupiik-blue3: #50aee2;
+    --yupiik-site-green: #46F72F;
+    --yupiik-site-purple: #D858FF;
+    --yupiik-site-blue-light: #02ABEA;
+    --yupiik-site-blue-dark: #056EBB;
+    --yupiik-site-grey-light: #F4F4F4;
+    --yupiik-site-grey-dark: #212121;
+
+    --yupiik-blue1: var(--yupiik-site-blue-dark);
+    --yupiik-blue2: var(--yupiik-site-blue-dark);
+    --yupiik-blue3: var(--yupiik-site-blue-dark);
 
     --yupiik-color-white: #fff;
     --yupiik-color-black: #000;
@@ -76,7 +83,7 @@ body {
     min-height: 100vh;
     height: 100% !important;
     display: flex;
-    padding-top: 70px !important;
+    padding-top: 58px !important;
     flex-direction: column;
 }
 
@@ -1137,7 +1144,7 @@ body.toc2 #header > h1:nth-last-child(2) {
 
 #footer {
     max-width: 100%;
-    background-color: #212c4a;
+    background-color: var(--yupiik-site-blue-light);
     padding: 1.25em
 }
 
@@ -2408,7 +2415,11 @@ p.tableblock {
 }
 
 footer, header.fixed-top {
-    background-color: #212c4a !important;
+    background-color: var(--yupiik-site-blue-dark) !important;
+    /*
+    background: rgb(2,171,234) !important;
+    background: linear-gradient(90deg, rgba(2,171,234,1) 20%, rgba(5,110,187,1) 100%) !important;
+    */
 }
 
 .footer .copyright {
@@ -2984,7 +2995,7 @@ div.colist.arabic > ol > li > p {
 
 .blog-links ul {
     list-style-type: none;
-    display: flex;
+    display: flex;background-color
     margin: auto;
     width: 50%;
 }
