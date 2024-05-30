@@ -1239,7 +1239,7 @@ public class MiniSite implements Runnable {
                         .replace("{{metaAuthor}}", getDefaultInterpolation("metaAuthor", page, null, null, null))
                         .replace("{{metaKeywords}}", getDefaultInterpolation("metaKeywords", page, null, null, null))
                         .replace("{{highlightJsCss}}", page.attributes == null || !page.attributes.containsKey("minisite-highlightjs-skip") ?
-                                "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css\" integrity=\"sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==\" crossorigin=\"anonymous\" />" :
+                                "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css\" integrity=\"sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==\" crossorigin=\"anonymous\" />" :
                                 "")
                         .replace("{{description}}", ofNullable(page.attributes)
                                 .map(a -> a.get("minisite-description"))
