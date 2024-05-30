@@ -21,7 +21,7 @@
   <parent>
     <groupId>io.yupiik.maven</groupId>
     <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4-SNAPSHOT</version>
   </parent>
 
   <groupId>io.yupiik.dev</groupId>
