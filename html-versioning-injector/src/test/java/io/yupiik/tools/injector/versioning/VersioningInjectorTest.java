@@ -126,7 +126,7 @@ class VersioningInjectorTest {
                             "            </ul>\n" +
                             "        </div>\n" +
                             "\n" +
-                            "        <div id=\"page-html-container\" class=\"container page-content page-html\">\n" +
+                            "        <div id=\"page-html-container\" class=\"container page-content page-html \">\n" +
                             "                        <div class=\"page-header\">\n" +
                             "                <h1>Page 1</h1>\n" +
                             "            </div>\n" +

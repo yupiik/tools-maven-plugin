@@ -2918,7 +2918,6 @@ div.colist.arabic > ol > li > p {
     list-style-type: none;
     display: flex;background-color
     margin: auto;
-    width: 50%;
 }
 .blog-links ul > li {
     flex: 1;
