@@ -59,6 +59,7 @@ public class MiniSiteConfiguration {
     private String rssFeedFile;
     private String logoText;
     private String logo;
+    private String favicon;
     private String indexText;
     private String indexSubTitle;
     private String copyright;

@@ -1185,6 +1185,7 @@ public class MiniSite implements Runnable {
                 .replace("{{logoText}}", getLogoText())
                 .replace("{{logoSideText}}", getLogoSideText())
                 .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("{{base}}/images/logo.svg"))
+                .replace("{{favicon}}", ofNullable(configuration.getFavicon()).orElse("{{base}}/images/favicon.png"))
                 .replace("{{base}}", configuration.getSiteBase())
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"));
