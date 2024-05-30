@@ -303,7 +303,7 @@ public class Parser {
         final var text = content.toString();
         final var actualOpts = options == null ? Map.<String, String>of() : options;
         if (!text.contains("include::")) {
-            return new PassthroughBlock(text, actualOpts);
+            return new PassthroughBlock(subs(text, actualOpts), actualOpts);
         }
 
         final var filtered = Stream.of(text.split("\n"))
@@ -319,7 +319,19 @@ public class Parser {
                     }
                 })
                 .collect(joining("\n"));
-        return new PassthroughBlock(filtered, actualOpts);
+        return new PassthroughBlock(subs(filtered, actualOpts), actualOpts);
+    }
+
+    private String subs(final String value, final Map<String, String> opts) {
+        final var subs = opts.get("subs");
+        var out = value;
+        if (subs == null) {
+            return out;
+        }
+        if (subs.contains("attributes") && !subs.contains("-attributes")) {
+            out = earlyAttributeReplacement(out, opts);
+        }
+        return out;
     }
 
     private OpenBlock parseOpenBlock(final Reader reader, final Map<String, String> options,
@@ -462,7 +474,7 @@ public class Parser {
 
         final var contentWithCallouts = parseWithCallouts(code);
         if (contentWithCallouts.callOutReferences().isEmpty()) {
-            return new Code(code, List.of(), codeOptions, false);
+            return new Code(subs(code, codeOptions), List.of(), codeOptions, false);
         }
 
         final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
@@ -495,7 +507,7 @@ public class Parser {
             throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
         }
 
-        return new Code(contentWithCallouts.content(), callOuts, codeOptions, false);
+        return new Code(subs(contentWithCallouts.content(), codeOptions), callOuts, codeOptions, false);
     }
 
     private ContentWithCalloutIndices parseWithCallouts(final String snippet) {

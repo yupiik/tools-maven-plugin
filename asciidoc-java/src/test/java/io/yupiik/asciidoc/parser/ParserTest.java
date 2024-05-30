@@ -476,6 +476,32 @@ class ParserTest {
     }
 
     @Test
+    void passthroughAttributeSubs() {
+        final var body = new Parser(Map.of("foo-version", "1")).parseBody(new Reader(List.of("""
+                [subs=attributes]
+                ++++
+                <script defer src="/js/test.js?v={foo-version}"></script>
+                ++++
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new PassthroughBlock("<script defer src=\"/js/test.js?v=1\"></script>", Map.of("subs", "attributes"))),
+                body.children());
+    }
+
+    @Test
+    void codeAttributeSubs() {
+        final var body = new Parser(Map.of("foo-version", "1")).parseBody(new Reader(List.of("""
+                [subs=attributes]
+                ----
+                <script defer src="/js/test.js?v={foo-version}"></script>
+                ----
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("<script defer src=\"/js/test.js?v=1\"></script>\n", List.of(), Map.of("subs", "attributes"), false)),
+                body.children());
+    }
+
+    @Test
     void codeAfterListContinuation() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * foo
