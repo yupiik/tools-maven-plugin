@@ -1122,7 +1122,7 @@ public class Parser {
                     buffer.add(next);
                     if (Objects.equals(needed, next)) {
                         needed = null;
-                    } else if ("----".equals(next) || "```".equals(next) || "--".equals(next) || "++++".equals(next)) {
+                    } else if (isBlock(next)) {
                         needed = next;
                     }
                 }
@@ -1180,23 +1180,7 @@ public class Parser {
             }
             if (level == currentLevel) { // a new item
                 buffer.setLength(0);
-                buffer.append(nextStripped.substring(prefix.length()).stripLeading());
-                while ((next = reader.nextLine()) != null) {
-                    if (next.isBlank()) {
-                        break;
-                    }
-                    if ("+".equals(next.strip())) { // continuation
-                        buffer.append('\n');
-                        continue;
-                    }
-                    if (regex.matcher(next.strip()).matches()) {
-                        break;
-                    }
-                    buffer.append('\n').append(next);
-                }
-                if (next != null) {
-                    reader.rewind();
-                }
+                readContinuation(reader, prefix, regex, buffer, nextStripped);
 
                 final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true);
                 children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
@@ -1214,6 +1198,37 @@ public class Parser {
             reader.rewind();
         }
         return factory.apply(children, options == null ? Map.of() : parseOptions(options));
+    }
+
+    private void readContinuation(final Reader reader, final String prefix,
+                                  final Pattern regex, final StringBuilder buffer,
+                                  final String nextStripped) {
+        buffer.append(nextStripped.substring(prefix.length()).stripLeading());
+
+        String next;
+        String needed = null;
+        while ((next = reader.nextLine()) != null) {
+            if (Objects.equals(needed, next)) {
+                needed = null;
+            } else if (isBlock(next)) {
+                needed = next;
+            } else if (needed == null && next.isBlank()) {
+                break;
+            } else if ("+".equals(next.strip())) { // continuation
+                buffer.append('\n');
+                continue;
+            } else if (needed == null && regex.matcher(next.strip()).matches()) {
+                break;
+            }
+            buffer.append('\n').append(next);
+        }
+        if (next != null) {
+            reader.rewind();
+        }
+    }
+
+    private boolean isBlock(final String strippedLine) {
+        return "----".equals(strippedLine) || "```".equals(strippedLine) || "--".equals(strippedLine) || "++++".equals(strippedLine);
     }
 
     private void addTextElements(final String line, final int i, final int end,

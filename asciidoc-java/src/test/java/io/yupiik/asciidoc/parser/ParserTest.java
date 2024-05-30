@@ -476,6 +476,49 @@ class ParserTest {
     }
 
     @Test
+    void codeAfterListContinuation() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * foo
+                +
+                [source,java,.hljs]
+                ----
+                public record Foo() {
+                                
+                }
+                ----
+                +
+                * bar
+                +
+                ----
+                public record Bar() {
+                                
+                }
+                ----
+                +
+                * end
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new UnOrderedList(
+                        List.of(
+                                new Paragraph(
+                                        List.of(
+                                                new Text(List.of(), "foo", Map.of()),
+                                                new Code("public record Foo() {\n\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)
+                                        ),
+                                        Map.of()),
+                                new Paragraph(
+                                        List.of(
+                                                new Text(List.of(), "bar", Map.of()),
+                                                new Code("public record Bar() {\n\n}\n", List.of(), Map.of(), false)
+                                        ),
+                                        Map.of()),
+                                new Text(List.of(), "end", Map.of())),
+                        Map.of()
+                )),
+                body.children());
+    }
+
+    @Test
     void codeInclude(@TempDir final Path work) throws IOException {
         final var code = "test = value\nmultiline = true\n";
         Files.writeString(work.resolve("content.properties"), code);
