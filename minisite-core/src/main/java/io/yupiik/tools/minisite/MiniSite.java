@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -725,6 +726,22 @@ public class MiniSite implements Runnable {
             try (final BufferedWriter rss = Files.newBufferedWriter(out, UTF_8)) {
                 final String rssContent = generateRssFeed(files, options);
                 rss.write(rssContent);
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        if (configuration.isCreateADefault404Page() && !Files.exists(output.resolve("404.html"))) {
+            if (template == null) {
+                template = createTemplate(options, asciidoctor, false);
+            }
+            try {
+                String base = URI.create(configuration.getSiteBase()).getPath();
+                if (!base.endsWith("/")) {
+                    base += '/';
+                }
+                final String content404 = template.apply(new Page("404.html", "Page not found", Map.of(), "# Page not found\n\nGo back on link:" + base +  "[home].\n"));
+                Files.writeString(output.resolve("404.html"), content404);
+                configuration.getAsciidoctorConfiguration().debug().accept("Generated 404.html");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }

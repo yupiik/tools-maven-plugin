@@ -99,6 +99,7 @@ public class MiniSiteConfiguration {
     private OffsetDateTime runtimeBlogPublicationDate;
     private GravatarConfiguration gravatar = new GravatarConfiguration();
     private boolean addCodeCopyButton = true;
+    private boolean createADefault404Page = true;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems

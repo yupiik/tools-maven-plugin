@@ -79,6 +79,7 @@ public final class MinisiteCommand {
                                 @Option(value = "requires", description = "Custom ruby requires (asciidoctor dependencies).") @Default("auto") final List<String> requires,
                                 @Option(value = "preActions", description = "PreAction to execute in properties format (type and configuration as keys, configuration value being properties again).") final List<PreAction> preActions,
                                 @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one.") final boolean useYupiikAsciidoc,
+                                @Option(value = "createADefault404Page", description = "If `true` a `404.html` will be generated with the minisite theme - useful on github pages for example.") final boolean createADefault404Page,
                                 @Out final PrintStream stdout,
                                 @Err final PrintStream stderr,
                                 final AsciidoctorProvider asciidoctorProvider) {
@@ -130,6 +131,7 @@ public final class MinisiteCommand {
                 .logoSideText(logoSideText)
                 .injectYupiikTemplateExtensionPoints(injectYupiikTemplateExtensionPoints)
                 .templateExtensionPoints(templateExtensionPoints)
+                .createADefault404Page(createADefault404Page)
                 .build())
                 .run();
     }

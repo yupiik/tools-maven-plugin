@@ -28,8 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
     @Test
+    void pageNotFound404(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder.createADefault404Page(true).build()).run();
+        asserts.assertContains("404.html", "<p>Go back on <a href=\"/\">home</a>.</p>\n");
+    }
+
+    @Test
     void breadcrumb(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
-                   final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+                    final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         new MiniSite(builder.build()).run();
         asserts.assertContains("page.html", "<nav aria-label=\"breadcrumb\" style=\"padding-left: 0;\">\n" +
                 "  <ol class=\"breadcrumb\" style=\"margin-left: 0;background-color: unset;padding-left: 0;\">\n" +
@@ -69,7 +76,7 @@ class MiniSiteTest {
 
     @Test
     void notIndexedPages(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
-              final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         // ignore blog pages and keep index.html only
         new MiniSite(builder
                 .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
