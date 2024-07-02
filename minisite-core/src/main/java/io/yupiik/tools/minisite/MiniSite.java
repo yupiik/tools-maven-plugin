@@ -739,6 +739,9 @@ public class MiniSite implements Runnable {
                 if (!base.endsWith("/")) {
                     base += '/';
                 }
+
+                // todo: here we use a real link assuming we can find home from the sitebase but we could also check if we can find a ref
+                //       /!\ some page are virtual and not a adoc so xref does not always work so we must keep a link fallback if we do
                 final String content404 = template.apply(new Page("404.html", "Page not found", Map.of(), "# Page not found\n\nGo back on link:" + base +  "[home].\n"));
                 Files.writeString(output.resolve("404.html"), content404);
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated 404.html");
