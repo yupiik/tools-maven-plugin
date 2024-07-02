@@ -774,7 +774,7 @@ public class Parser {
                                             doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
                                             macro.options()));
                                     case "ifeval" -> elements.add(new ConditionalBlock(
-                                            new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), currentAttributes)),
+                                            new ConditionalBlock.Ifeval(parseCondition(macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip(), currentAttributes)),
                                             doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
                                             macro.options()));
                                     default -> elements.add(macro);
