@@ -476,6 +476,22 @@ class ParserTest {
     }
 
     @Test
+    void codeIndented() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                    [source,xml]
+                    ----
+                    <dependency>
+                        <groupId>io.quarkiverse.qute.web</groupId>
+                        <artifactId>quarkus-qute-web</artifactId>
+                    </dependency>
+                    ----
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("    <dependency>\n        <groupId>io.quarkiverse.qute.web</groupId>\n        <artifactId>quarkus-qute-web</artifactId>\n    </dependency>\n", List.of(), Map.of("language", "xml"), false)),
+                body.children());
+    }
+
+    @Test
     void passthroughAttributeSubs() {
         final var body = new Parser(Map.of("foo-version", "1")).parseBody(new Reader(List.of("""
                 [subs=attributes]

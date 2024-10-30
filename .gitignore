@@ -1,6 +1,6 @@
 target
 .idea
-!.idea/icon.svg
+!.idea/icon.png
 *.iml
 *.ipr
 *.iws

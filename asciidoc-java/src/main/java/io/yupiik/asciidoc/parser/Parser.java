@@ -222,15 +222,15 @@ public class Parser {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
-                    options = merge(options, parseOptions(next.substring(1, next.length() - 1)));
+                    options = merge(options, parseOptions(stripped.substring(1, stripped.length() - 1)));
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(reader, options, "....", resolver).value(), options));
                 options = null;
-            } else if (next.startsWith(".") && !next.startsWith("..") && !next.startsWith(". ")) {
-                options = merge(options, Map.of("title", next.substring(1).strip()));
-            } else if (next.startsWith("=")) {
+            } else if (stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
+                options = merge(options, Map.of("title", stripped.substring(1).strip()));
+            } else if (stripped.startsWith("=")) {
                 reader.rewind();
                 elements.add(parseSection(reader, options, resolver, attributes));
                 options = null;
@@ -462,7 +462,7 @@ public class Parser {
                                 final String marker) {
         final var builder = new StringBuilder();
         String next;
-        while (!Objects.equals(marker, next = reader.nextLine())) {
+        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
             builder.append(next).append('\n');
         }
 
