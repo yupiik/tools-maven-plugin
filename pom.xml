@@ -29,6 +29,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.outputTimestamp>2024-11-04T10:49:01Z</project.build.outputTimestamp>
 
     <fusion.version>1.0.14</fusion.version>
     <mvn.version>3.6.3</mvn.version>
