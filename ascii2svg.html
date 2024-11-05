@@ -10,15 +10,95 @@
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
-    <link rel="shortcut icon" href="//www.yupiik.io/images/favicon.png">
+    <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
 
     <link href="//fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Montserrat:300,400,500,700" rel="stylesheet">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
+    <style>
+        :root {
+            /* YUPIIK colors (from dark to light) */
+            --yupiik-site-green: #46F72F;
+            --yupiik-site-purple: #D858FF;
+            --yupiik-site-blue-light: #02ABEA;
+            --yupiik-site-blue-dark: #056EBB;
+            --yupiik-site-grey-light: #F4F4F4;
+            --yupiik-site-grey-dark: #212121;
+
+            --yupiik-blue1: var(--yupiik-site-blue-dark);
+            --yupiik-blue2: var(--yupiik-site-blue-dark);
+            --yupiik-blue3: var(--yupiik-site-blue-dark);
+
+            --yupiik-color-white: #fff;
+            --yupiik-color-black: #000;
+
+            --yupiik-color-gray-0: var(--yupiik-color-white);
+            --yupiik-color-gray-100: #f5f6f7;
+            --yupiik-color-gray-200: #ebedf0;
+            --yupiik-color-gray-300: #dadde1;
+            --yupiik-color-gray-400: #ccd0d5;
+            --yupiik-color-gray-500: #bec3c9;
+            --yupiik-color-gray-600: #8d949e;
+            --yupiik-color-gray-700: #606770;
+            --yupiik-color-gray-800: #444950;
+            --yupiik-color-gray-900: #1c1e21;
+            --yupiik-color-gray-1000: var(--yupiik-color-black);
+
+            --yupiik-color-emphasis-0: var(--yupiik-color-gray-0);
+            --yupiik-color-emphasis-100: var(--yupiik-color-gray-100);
+            --yupiik-color-emphasis-200: var(--yupiik-color-gray-200);
+            --yupiik-color-emphasis-300: var(--yupiik-color-gray-300);
+            --yupiik-color-emphasis-400: var(--yupiik-color-gray-400);
+            --yupiik-color-emphasis-500: var(--yupiik-color-gray-500);
+            --yupiik-color-emphasis-600: var(--yupiik-color-gray-600);
+            --yupiik-color-emphasis-700: var(--yupiik-color-gray-700);
+            --yupiik-color-emphasis-800: var(--yupiik-color-gray-800);
+            --yupiik-color-emphasis-900: var(--yupiik-color-gray-900);
+            --yupiik-color-emphasis-1000: var(--yupiik-color-gray-1000);
+            --yupiik-color-content: var(--yupiik-color-emphasis-900);
+
+            --yupiik-font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+            --yupiik-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --yupiik-font-size-base: 100%;
+
+            --yupiik-font-weight-light: 300;
+            --yupiik-font-weight-normal: 400;
+            --yupiik-font-weight-semibold: 500;
+            --yupiik-font-weight-bold: 700;
+
+            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
+            --yupiik-line-height-base: 1.65;
+            --yupiik-font-weight-light: 300;
+            --yupiik-font-weight-normal: 400;
+            --yupiik-font-weight-semibold: 500;
+            --yupiik-font-weight-bold: 700;
+
+            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
+            --yupiik-line-height-base: 1.65;
+
+            --yupiik-global-spacing: 1rem;
+            --yupiik-spacing-vertical: var(--yupiik-global-spacing);
+            --yupiik-spacing-horizontal: var(--yupiik-global-spacing);
+
+            --yupiik-h1-font-size: 2rem;
+            --yupiik-h2-font-size: 1.5rem;
+            --yupiik-h3-font-size: 1.25rem;
+            --yupiik-h4-font-size: 1rem;
+            --yupiik-h5-font-size: 0.875rem;
+            --yupiik-h6-font-size: 0.85rem;
+
+            --yupiik-heading-color: var(--yupiik-blue1);
+            --yupiik-heading-margin-top: 0;
+            --yupiik-heading-margin-bottom: var(--yupiik-spacing-vertical);
+            --yupiik-heading-font-family: var(--yupiik-font-family-base);
+            --yupiik-heading-font-weight: var(--yupiik-font-weight-bold);
+            --yupiik-heading-line-height: 1.25;
+        }
+    </style>
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.2-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.4-SNAPSHOT">
 </head>
 <body>
     <header class="header fixed-top">
@@ -69,7 +149,7 @@
             </ul>
         </div>
 
-        <div id="ascii2svg-html-container" class="container page-content ascii2svg-html">
+        <div id="ascii2svg-html-container" class="container page-content ascii2svg-html ">
                         <div class="page-header">
                 <h1>Ascii2SVG</h1>
             </div>
@@ -98,12 +178,7 @@ For example:
 Will be rendered as:
  </p>
  </div>
- <div class="paragraph">
- <p>image:data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' ' <a href="http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg">http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg</a>
- width='306px' height='112px' version='1.1' xmlns=' <a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a>
- xmlns:xlink=' <a href="http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter">http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter</a>
- id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' </p>
- </div>
+ <img src="data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' style='font-family:monospace;font-size:15.2px' %3E%3Ctext id='obj2' x='13.5' y='24.0' fill='%23fff'%3E%5BRed Box%5D%3C/text%3E%3Ctext id='obj3' x='166.5' y='24.0' fill='%23000'%3E%5BBlue Box%5D%3C/text%3E%3C/g%3E%3C/svg%3E%0A" alt="data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' style='font-family:monospace;font-size:15.2px' %3E%3Ctext id='obj2' x='13.5' y='24.0' fill='%23fff'%3E%5BRed Box%5D%3C/text%3E%3Ctext id='obj3' x='166.5' y='24.0' fill='%23000'%3E%5BBlue Box%5D%3C/text%3E%3C/g%3E%3C/svg%3E%0A">
  <div class="paragraph">
  <p>More on the syntax there:  <a href="https://github.com/asciitosvg/asciitosvg.">https://github.com/asciitosvg/asciitosvg.</a>
 </p>
@@ -164,7 +239,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.2-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.4-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
