@@ -21,7 +21,7 @@
 
   <groupId>io.yupiik.maven</groupId>
   <artifactId>yupiik-tools-maven-plugin-parent</artifactId>
-  <version>1.2.4</version>
+  <version>1.2.5-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Yupiik Tools</name>
   <description>Yupiik Tools</description>
@@ -29,7 +29,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.build.outputTimestamp>2024-11-07T20:49:38Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2024-11-07T20:51:57Z</project.build.outputTimestamp>
 
     <fusion.version>1.0.14</fusion.version>
     <mvn.version>3.6.3</mvn.version>
@@ -159,7 +159,7 @@
     <connection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</connection>
     <developerConnection>scm:git:https://github.com/yupiik/tools-maven-plugin.git</developerConnection>
     <url>https://github.com/yupiik/tools-maven-plugin.git</url>
-    <tag>yupiik-tools-maven-plugin-parent-1.2.4</tag>
+    <tag>yupiik-tools-maven-plugin-parent-1.1.7</tag>
   </scm>
 
   <distributionManagement>
