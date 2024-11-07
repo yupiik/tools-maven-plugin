@@ -65,7 +65,7 @@
     <dependency>
       <groupId>io.yupiik.logging</groupId>
       <artifactId>yupiik-logging-jul</artifactId>
-      <version>1.0.7</version>
+      <version>1.0.8</version>
     </dependency>
     <dependency> <!-- mainly for tar.gz -->
       <groupId>org.apache.commons</groupId>

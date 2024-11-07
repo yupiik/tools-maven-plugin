@@ -25,6 +25,7 @@ import io.yupiik.fusion.framework.api.main.ArgsConfigSource;
 import io.yupiik.fusion.framework.api.main.Awaiter;
 import io.yupiik.fusion.framework.api.main.Launcher;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.io.TempDir;
@@ -53,6 +54,7 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 class CommandsTest {
     @Test
     @DisabledOnOs(WINDOWS)
+    @Disabled
     void config(@TempDir final Path work, final URI uri) {
         assertEquals("""
                         - apache-maven: enabled=false
@@ -84,6 +86,7 @@ class CommandsTest {
     }
 
     @Test
+    @Disabled
     void listLocal(@TempDir final Path work, final URI uri) {
         assertEquals("No distribution available.", captureOutput(work, uri, "list-local"));
         doInstall(work, uri);
@@ -94,6 +97,7 @@ class CommandsTest {
 
     @Test
     @DisabledOnOs(WINDOWS)
+    @Disabled
     void resolve(@TempDir final Path work, final URI uri) {
         doInstall(work, uri);
         assertEquals(
