@@ -244,7 +244,8 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                             .thenApply(commits -> commits.stream()
                                     // todo: config?
                                     .filter(c -> !c.getCommit().getMessage().startsWith("[maven-release-plugin]") &&
-                                            !c.getCommit().getMessage().startsWith("skip changelog"))
+                                            !c.getCommit().getMessage().startsWith("skip changelog") &&
+                                            !c.getCommit().getMessage().startsWith("Merge pull request #"))
                                     .sorted(comparing(it -> OffsetDateTime.parse(it.getCommit().getCommitter().getDate())))
                                     .map(c -> {
                                         final var author1 = c.getCommit().getAuthor();
