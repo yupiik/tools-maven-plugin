@@ -902,8 +902,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
 
         builder.append(" <img src=\"").append(element.label())
-                .append("\" alt=\"").append(element.options().getOrDefault("", element.options().getOrDefault("alt", element.label())))
+                .append("\" alt=\"").append(element.options().getOrDefault("alt", element.options().getOrDefault("", element.label())))
                 .append('"');
+        if (element.options().containsKey("width")) {
+            builder.append(" width=\"").append(element.options().get("width")).append('"');
+        }
+        if (element.options().containsKey("height")) {
+            builder.append(" height=\"").append(element.options().get("height")).append('"');
+        }
         writeCommonAttributes(element.options(), null);
         builder.append(">\n");
     }

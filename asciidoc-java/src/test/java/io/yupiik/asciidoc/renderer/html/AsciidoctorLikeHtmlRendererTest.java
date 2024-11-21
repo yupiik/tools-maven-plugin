@@ -602,6 +602,54 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void imageWidthAndHeight() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                image::img.png[logo,width=80,height=150,.center.w80]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
+                 <img src="img.png" alt="logo" width="80" height="150" class="center w80">
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void imageNoDefaultAlt() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                image::img.png[alt=logo, TUTU]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
+                 <img src="img.png" alt="logo">
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
     void imageRole() {
         final var doc = new Parser().parseBody("""
                 = Test
