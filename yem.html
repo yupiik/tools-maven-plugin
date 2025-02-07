@@ -98,7 +98,7 @@
         }
     </style>
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.4-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.6-SNAPSHOT">
 </head>
 <body>
     <header class="header fixed-top">
@@ -211,332 +211,332 @@
  <ul>
   <li>
  <div class="paragraph">
- <p><code>central.base</code> (<code>central_base</code>) (default: <code>&quot;https://repo.maven.apache.org/maven2/&quot;</code>): Base repository URL..</p>
+ <p><code>central.base</code> (<code>CENTRAL_BASE</code>) (default: <code>&quot;https://repo.maven.apache.org/maven2/&quot;</code>): Base repository URL.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>central.gavs</code> (<code>central_gavs</code>) (default: <code>&quot;org.apache.maven:apache-maven:tar.gz:bin&quot;</code>): List of GAV to register (comma separated). Such a provider can be enabled/disabled using <code>artifactId.enabled</code> property..</p>
+ <p><code>central.gavs</code> (<code>CENTRAL_GAVS</code>) (default: <code>&quot;org.apache.maven:apache-maven:tar.gz:bin&quot;</code>): List of GAV to register (comma separated). Such a provider can be enabled/disabled using <code>artifactId.enabled</code> property.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>central.header</code> (<code>central_header</code>): Headers to add if the repository is authenticated. Syntax uses HTTP one: <code>--central-header 'Authorization: Basic xxxxx' for example</code>.</p>
+ <p><code>central.header</code> (<code>CENTRAL_HEADER</code>): Headers to add if the repository is authenticated. Syntax uses HTTP one: <code>--central-header 'Authorization: Basic xxxxx' for example</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>central.local</code> (<code>central_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.m2/repository&quot;</code>): Local repository path..</p>
+ <p><code>central.local</code> (<code>CENTRAL_LOCAL</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.m2/repository&quot;</code>): Local repository path.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>delete.provider</code> (<code>delete_provider</code>): Provider to use to delete the version (if not t is deduced from the tool/version parameters)..</p>
+ <p><code>delete.provider</code> (<code>DELETE_PROVIDER</code>): Provider to use to delete the version (if not t is deduced from the tool/version parameters).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>delete.tool</code> (<code>delete_tool</code>)*: Tool to delete..</p>
+ <p><code>delete.tool</code> (<code>DELETE_TOOL</code>)*: Tool to delete.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>delete.version</code> (<code>delete_version</code>)*: Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance..</p>
+ <p><code>delete.version</code> (<code>DELETE_VERSION</code>)*: Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.defaultRc</code> (<code>env_defaultRc</code>) (default: <code>System.getProperty(&quot;user.home&quot;) + &quot;/.yupiik/yem/rc&quot;</code>): Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>..</p>
+ <p><code>env.defaultRc</code> (<code>ENV_DEFAULTRC</code>) (default: <code>System.getProperty(&quot;user.home&quot;) + &quot;/.yupiik/yem/rc&quot;</code>): Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.enableAutoDetection</code> (<code>env_enableAutoDetection</code>) (default: <code>false</code>): EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels..</p>
+ <p><code>env.enableAutoDetection</code> (<code>ENV_ENABLEAUTODETECTION</code>) (default: <code>false</code>): EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.inlineRc</code> (<code>env_inlineRc</code>): Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: <code>eval $(yem env --inlineRc 'java.version=17.\njava.relaxed = true')</code>. Note that to persist the change even if you automatically switch from the global <code>yemrc</code> file the context, we set <code>YEM_$TOOLPATHVARNAME_OVERRIDDEN</code> environment variable. To reset the value to the global configuration just <code>unset</code> this variable (ex: <code>unset YEM_JAVA_PATH_OVERRIDDEN</code>). Note that you can also just set the values inline as args without that option: <code>eval $(yem env --java-version 17. --java-relaxed true ...)</code>..</p>
+ <p><code>env.inlineRc</code> (<code>ENV_INLINERC</code>): Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: <code>eval $(yem env --inlineRc 'java.version=17.\njava.relaxed = true')</code>. Note that to persist the change even if you automatically switch from the global <code>yemrc</code> file the context, we set <code>YEM_$TOOLPATHVARNAME_OVERRIDDEN</code> environment variable. To reset the value to the global configuration just <code>unset</code> this variable (ex: <code>unset YEM_JAVA_PATH_OVERRIDDEN</code>). Note that you can also just set the values inline as args without that option: <code>eval $(yem env --java-version 17. --java-relaxed true ...)</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.rc</code> (<code>env_rc</code>) (default: <code>&quot;auto&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ <p><code>env.rc</code> (<code>ENV_RC</code>) (default: <code>&quot;auto&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>env.skipReset</code> (<code>env_skipReset</code>) (default: <code>false</code>): By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code>.</p>
+ <p><code>env.skipReset</code> (<code>ENV_SKIPRESET</code>) (default: <code>false</code>): By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>github.base</code> (<code>github_base</code>) (default: <code>&quot;https://api.github.com&quot;</code>): Base repository URL..</p>
+ <p><code>github.base</code> (<code>GITHUB_BASE</code>) (default: <code>&quot;https://api.github.com&quot;</code>): Base repository URL.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>github.header</code> (<code>github_header</code>): Header to add to every request (authorization one for example)..</p>
+ <p><code>github.header</code> (<code>GITHUB_HEADER</code>): Header to add to every request (authorization one for example).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>github.local</code> (<code>github_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/github&quot;</code>): Local repository path..</p>
+ <p><code>github.local</code> (<code>GITHUB_LOCAL</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/github&quot;</code>): Local repository path.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.address</code> (<code>http_address</code>) (default: <code>&quot;localhost&quot;</code>): Binding address..</p>
+ <p><code>http.address</code> (<code>HTTP_ADDRESS</code>) (default: <code>&quot;localhost&quot;</code>): Binding address.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.cacheValidity</code> (<code>http_cacheValidity</code>) (default: <code>86_400_000L</code>): Cache validity of requests (1 day by default) in milliseconds. A negative or zero value will disable cache..</p>
+ <p><code>http.cacheValidity</code> (<code>HTTP_CACHEVALIDITY</code>) (default: <code>86_400_000L</code>): Cache validity of requests (1 day by default) in milliseconds. A negative or zero value will disable cache.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.cache</code> (<code>http_cache</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/cache/http&quot;</code>): Where to cache slow updates (version fetching). <code>none</code> will disable cache..</p>
+ <p><code>http.cache</code> (<code>HTTP_CACHE</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/cache/http&quot;</code>): Where to cache slow updates (version fetching). <code>none</code> will disable cache.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.connectTimeout</code> (<code>http_connectTimeout</code>) (default: <code>10_000L</code>): Connection timeout in milliseconds, in case of offline mode it should stay low enough to not block any new command too long when set up automatically. You can set in <code>~/.yupiik/yem/rc</code> the line <code>http.offlineMode=true</code> or <code>http.connectTimeout = 3000</code> to limit this effect..</p>
+ <p><code>http.connectTimeout</code> (<code>HTTP_CONNECTTIMEOUT</code>) (default: <code>10_000L</code>): Connection timeout in milliseconds, in case of offline mode it should stay low enough to not block any new command too long when set up automatically. You can set in <code>~/.yupiik/yem/rc</code> the line <code>http.offlineMode=true</code> or <code>http.connectTimeout = 3000</code> to limit this effect.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.ignoreSSLErrors</code> (<code>http_ignoreSSLErrors</code>) (default: <code>false</code>): Should SSL errors be ignored..</p>
+ <p><code>http.ignoreSSLErrors</code> (<code>HTTP_IGNORESSLERRORS</code>) (default: <code>false</code>): Should SSL errors be ignored.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.log</code> (<code>http_log</code>) (default: <code>false</code>): Should HTTP calls be logged..</p>
+ <p><code>http.log</code> (<code>HTTP_LOG</code>) (default: <code>false</code>): Should HTTP calls be logged.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.offlineMode</code> (<code>http_offlineMode</code>) (default: <code>false</code>): Force offline mode..</p>
+ <p><code>http.offlineMode</code> (<code>HTTP_OFFLINEMODE</code>) (default: <code>false</code>): Force offline mode.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.offlineTimeout</code> (<code>http_offlineTimeout</code>) (default: <code>5_000</code>): Check offline timeout. Per uri a test is done to verify the system is offline..</p>
+ <p><code>http.offlineTimeout</code> (<code>HTTP_OFFLINETIMEOUT</code>) (default: <code>5_000</code>): Check offline timeout. Per uri a test is done to verify the system is offline.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.open</code> (<code>http_open</code>) (default: <code>true</code>): Should the server be opened ASAP if possible on your system or just the server be launched..</p>
+ <p><code>http.open</code> (<code>HTTP_OPEN</code>) (default: <code>true</code>): Should the server be opened ASAP if possible on your system or just the server be launched.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.port</code> (<code>http_port</code>) (default: <code>0</code>): Port to open the server to, by default it is random..</p>
+ <p><code>http.port</code> (<code>HTTP_PORT</code>) (default: <code>0</code>): Port to open the server to, by default it is random.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.proxy.host</code> (<code>http_proxy_host</code>) (default: <code>&quot;none&quot;</code>): Proxy host. <code>none</code> means ignore..</p>
+ <p><code>http.proxy.host</code> (<code>HTTP_PROXY_HOST</code>) (default: <code>&quot;none&quot;</code>): Proxy host. <code>none</code> means ignore.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.proxy.ignoredHosts</code> (<code>http_proxy_ignoredHosts</code>) (default: <code>java.util.List.of()</code>): Hosts to connect directly to (ignoring the proxy)..</p>
+ <p><code>http.proxy.ignoredHosts</code> (<code>HTTP_PROXY_IGNOREDHOSTS</code>) (default: <code>java.util.List.of()</code>): Hosts to connect directly to (ignoring the proxy).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.proxy.password</code> (<code>http_proxy_password</code>) (default: <code>&quot;none&quot;</code>): Proxy password. <code>none</code> means ignore..</p>
+ <p><code>http.proxy.password</code> (<code>HTTP_PROXY_PASSWORD</code>) (default: <code>&quot;none&quot;</code>): Proxy password. <code>none</code> means ignore.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.proxy.port</code> (<code>http_proxy_port</code>) (default: <code>3128</code>): Proxy port..</p>
+ <p><code>http.proxy.port</code> (<code>HTTP_PROXY_PORT</code>) (default: <code>3128</code>): Proxy port.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.proxy.username</code> (<code>http_proxy_username</code>) (default: <code>&quot;none&quot;</code>): Proxy username. <code>none</code> means ignore..</p>
+ <p><code>http.proxy.username</code> (<code>HTTP_PROXY_USERNAME</code>) (default: <code>&quot;none&quot;</code>): Proxy username. <code>none</code> means ignore.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.requestTimeout</code> (<code>http_requestTimeout</code>) (default: <code>900_000L</code>): Request timeout in milliseconds..</p>
+ <p><code>http.requestTimeout</code> (<code>HTTP_REQUESTTIMEOUT</code>) (default: <code>900_000L</code>): Request timeout in milliseconds.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>http.threads</code> (<code>http_threads</code>) (default: <code>4</code>): Number of NIO threads..</p>
+ <p><code>http.threads</code> (<code>HTTP_THREADS</code>) (default: <code>4</code>): Number of NIO threads.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>install.provider</code> (<code>install_provider</code>): Provider to use to install the version (if not t is deduced from the tool/version parameters)..</p>
+ <p><code>install.provider</code> (<code>INSTALL_PROVIDER</code>): Provider to use to install the version (if not t is deduced from the tool/version parameters).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>install.relaxed</code> (<code>install_relaxed</code>) (default: <code>false</code>): Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>)..</p>
+ <p><code>install.relaxed</code> (<code>INSTALL_RELAXED</code>) (default: <code>false</code>): Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>install.skipProgress</code> (<code>install_skipProgress</code>) (default: <code>System.getenv(&quot;CI&quot;) != null</code>): Should progress bar be skipped (can be useful on CI for example)..</p>
+ <p><code>install.skipProgress</code> (<code>INSTALL_SKIPPROGRESS</code>) (default: <code>System.getenv(&quot;CI&quot;) != null</code>): Should progress bar be skipped (can be useful on CI for example).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>install.tool</code> (<code>install_tool</code>)*: Tool to install..</p>
+ <p><code>install.tool</code> (<code>INSTALL_TOOL</code>)*: Tool to install.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>install.version</code> (<code>install_version</code>)*: Version of <code>tool</code> to install..</p>
+ <p><code>install.version</code> (<code>INSTALL_VERSION</code>)*: Version of <code>tool</code> to install.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>list-local.tool</code> (<code>list_local_tool</code>): Tool to filter..</p>
+ <p><code>list-local.tool</code> (<code>LIST_LOCAL_TOOL</code>): Tool to filter.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>list.providers</code> (<code>list_providers</code>): List of providers to use (comma separated)..</p>
+ <p><code>list.providers</code> (<code>LIST_PROVIDERS</code>): List of providers to use (comma separated).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>list.tools</code> (<code>list_tools</code>): List of tools to list (comma separated)..</p>
+ <p><code>list.tools</code> (<code>LIST_TOOLS</code>): List of tools to list (comma separated).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.disableColors</code> (<code>messages_disableColors</code>) (default: <code>&quot;auto&quot;</code>): Are colors disabled for the terminal..</p>
+ <p><code>messages.disableColors</code> (<code>MESSAGES_DISABLECOLORS</code>) (default: <code>&quot;auto&quot;</code>): Are colors disabled for the terminal.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.disableEmoji</code> (<code>messages_disableEmoji</code>) (default: <code>&quot;auto&quot;</code>): If <code>false</code> emoji are totally disabled. <code>auto</code> will test <code>/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf</code> and <code>/usr/share/fonts/google-noto-emoji/NotoColorEmoji.ttf</code> presence to enable emojis. <code>true</code>/<code>false</code> disable/enable emoji whatever the available fonts..</p>
+ <p><code>messages.disableEmoji</code> (<code>MESSAGES_DISABLEEMOJI</code>) (default: <code>&quot;auto&quot;</code>): If <code>false</code> emoji are totally disabled. <code>auto</code> will test <code>/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf</code> and <code>/usr/share/fonts/google-noto-emoji/NotoColorEmoji.ttf</code> presence to enable emojis. <code>true</code>/<code>false</code> disable/enable emoji whatever the available fonts.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.errorColor</code> (<code>messages_errorColor</code>) (default: <code>&quot;31&quot;</code>): Error message color..</p>
+ <p><code>messages.errorColor</code> (<code>MESSAGES_ERRORCOLOR</code>) (default: <code>&quot;31&quot;</code>): Error message color.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.toolColor</code> (<code>messages_toolColor</code>) (default: <code>&quot;0;49;34&quot;</code>): When color are enabled the tool name color..</p>
+ <p><code>messages.toolColor</code> (<code>MESSAGES_TOOLCOLOR</code>) (default: <code>&quot;0;49;34&quot;</code>): When color are enabled the tool name color.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.versionColor</code> (<code>messages_versionColor</code>) (default: <code>&quot;0;49;96&quot;</code>): When color are enabled the version color..</p>
+ <p><code>messages.versionColor</code> (<code>MESSAGES_VERSIONCOLOR</code>) (default: <code>&quot;0;49;96&quot;</code>): When color are enabled the version color.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>messages.warningColor</code> (<code>messages_warningColor</code>) (default: <code>&quot;33&quot;</code>): Warning message color..</p>
+ <p><code>messages.warningColor</code> (<code>MESSAGES_WARNINGCOLOR</code>) (default: <code>&quot;33&quot;</code>): Warning message color.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>minikube.enabled</code> (<code>minikube_enabled</code>) (default: <code>false</code>): Is Minikube (Github) support enabled. It is disabled by default cause it also depends on local dependencies (docker or cri depending how you plan to run - driver)..</p>
+ <p><code>minikube.enabled</code> (<code>MINIKUBE_ENABLED</code>) (default: <code>false</code>): Is Minikube (Github) support enabled. It is disabled by default cause it also depends on local dependencies (docker or cri depending how you plan to run - driver).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>resolve.provider</code> (<code>resolve_provider</code>): Provider to use to resolve the version (if not t is deduced from the tool/version parameters)..</p>
+ <p><code>resolve.provider</code> (<code>RESOLVE_PROVIDER</code>): Provider to use to resolve the version (if not t is deduced from the tool/version parameters).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>resolve.relaxed</code> (<code>resolve_relaxed</code>) (default: <code>false</code>): Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>)..</p>
+ <p><code>resolve.relaxed</code> (<code>RESOLVE_RELAXED</code>) (default: <code>false</code>): Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>).</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>resolve.tool</code> (<code>resolve_tool</code>)*: Tool to resolve..</p>
+ <p><code>resolve.tool</code> (<code>RESOLVE_TOOL</code>)*: Tool to resolve.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>resolve.version</code> (<code>resolve_version</code>)*: Version of <code>tool</code> to resolve..</p>
+ <p><code>resolve.version</code> (<code>RESOLVE_VERSION</code>)*: Version of <code>tool</code> to resolve.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>run.defaultRc</code> (<code>run_defaultRc</code>) (default: <code>System.getProperty(&quot;user.home&quot;) + &quot;/.yupiik/yem/rc&quot;</code>): Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>..</p>
+ <p><code>run.defaultRc</code> (<code>RUN_DEFAULTRC</code>) (default: <code>System.getProperty(&quot;user.home&quot;) + &quot;/.yupiik/yem/rc&quot;</code>): Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>run.rc</code> (<code>run_rc</code>) (default: <code>&quot;.yemrc&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present..</p>
+ <p><code>run.rc</code> (<code>RUN_RC</code>) (default: <code>&quot;.yemrc&quot;</code>): Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>sdkman.base</code> (<code>sdkman_base</code>) (default: <code>&quot;https://api.sdkman.io/2/&quot;</code>): Base URL for SDKMan API..</p>
+ <p><code>sdkman.base</code> (<code>SDKMAN_BASE</code>) (default: <code>&quot;https://api.sdkman.io/2/&quot;</code>): Base URL for SDKMan API.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>sdkman.enabled</code> (<code>sdkman_enabled</code>) (default: <code>true</code>): Is SDKMan support enabled..</p>
+ <p><code>sdkman.enabled</code> (<code>SDKMAN_ENABLED</code>) (default: <code>true</code>): Is SDKMan support enabled.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>sdkman.local</code> (<code>sdkman_local</code>) (default: <code>java.util.Optional.ofNullable(System.getenv(&quot;SDKMAN_DIR&quot;)).map(b -&gt; java.nio.file.Path.of(b).resolve(&quot;candidates&quot;).toString()).orElseGet(() -&gt; System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.sdkman/candidates&quot;)</code>): SDKMan local candidates directory, generally <code>$HOME/.sdkman/candidates</code>..</p>
+ <p><code>sdkman.local</code> (<code>SDKMAN_LOCAL</code>) (default: <code>java.util.Optional.ofNullable(System.getenv(&quot;SDKMAN_DIR&quot;)).map(b -&gt; java.nio.file.Path.of(b).resolve(&quot;candidates&quot;).toString()).orElseGet(() -&gt; System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.sdkman/candidates&quot;)</code>): SDKMan local candidates directory, generally <code>$HOME/.sdkman/candidates</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>sdkman.platform</code> (<code>sdkman_platform</code>) (default: <code>&quot;auto&quot;</code>): SDKMan platform value - if <code>auto</code> it will be computed..</p>
+ <p><code>sdkman.platform</code> (<code>SDKMAN_PLATFORM</code>) (default: <code>&quot;auto&quot;</code>): SDKMan platform value - if <code>auto</code> it will be computed.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>unset.all</code> (<code>unset_all</code>) (default: <code>false</code>): Will unset all overridden versions..</p>
+ <p><code>unset.all</code> (<code>UNSET_ALL</code>) (default: <code>false</code>): Will unset all overridden versions.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>unset.tools</code> (<code>unset_tools</code>) (default: <code>java.util.List.of()</code>): List of tools to reset overridden environment..</p>
+ <p><code>unset.tools</code> (<code>UNSET_TOOLS</code>) (default: <code>java.util.List.of()</code>): List of tools to reset overridden environment.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.apiBase</code> (<code>zulu_apiBase</code>) (default: <code>&quot;https://api.azul.com&quot;</code>): This property is the Zulu API base URI..</p>
+ <p><code>zulu.apiBase</code> (<code>ZULU_APIBASE</code>) (default: <code>&quot;https://api.azul.com&quot;</code>): This property is the Zulu API base URI.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.base</code> (<code>zulu_base</code>) (default: <code>&quot;https://cdn.azul.com/zulu/bin/&quot;</code>): Base URL for zulu CDN archives..</p>
+ <p><code>zulu.base</code> (<code>ZULU_BASE</code>) (default: <code>&quot;https://cdn.azul.com/zulu/bin/&quot;</code>): Base URL for zulu CDN archives.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.enabled</code> (<code>zulu_enabled</code>) (default: <code>true</code>): Is Zulu CDN support enabled..</p>
+ <p><code>zulu.enabled</code> (<code>ZULU_ENABLED</code>) (default: <code>true</code>): Is Zulu CDN support enabled.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.local</code> (<code>zulu_local</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/zulu&quot;</code>): Local cache of distributions..</p>
+ <p><code>zulu.local</code> (<code>ZULU_LOCAL</code>) (default: <code>System.getProperty(&quot;user.home&quot;, &quot;&quot;) + &quot;/.yupiik/yem/zulu&quot;</code>): Local cache of distributions.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.platform</code> (<code>zulu_platform</code>) (default: <code>&quot;auto&quot;</code>): Zulu platform value - if <code>auto</code> it will be computed..</p>
+ <p><code>zulu.platform</code> (<code>ZULU_PLATFORM</code>) (default: <code>&quot;auto&quot;</code>): Zulu platform value - if <code>auto</code> it will be computed.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.preferApi</code> (<code>zulu_preferApi</code>) (default: <code>true</code>): YEM is able to scrape the CDN index page but it is slow when not cached so by default we prefer the Zulu API. This property enables to use the scrapping by being set to <code>false</code>..</p>
+ <p><code>zulu.preferApi</code> (<code>ZULU_PREFERAPI</code>) (default: <code>true</code>): YEM is able to scrape the CDN index page but it is slow when not cached so by default we prefer the Zulu API. This property enables to use the scrapping by being set to <code>false</code>.</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><code>zulu.preferJre</code> (<code>zulu_preferJre</code>) (default: <code>false</code>): Should JRE be preferred over JDK..</p>
+ <p><code>zulu.preferJre</code> (<code>ZULU_PREFERJRE</code>) (default: <code>false</code>): Should JRE be preferred over JDK.</p>
  </div>
   </li>
  </ul>
@@ -1092,7 +1092,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.4-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.6-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>

@@ -98,7 +98,7 @@
         }
     </style>
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.4-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.6-SNAPSHOT">
 </head>
 <body>
     <header class="header fixed-top">
@@ -157,20 +157,78 @@
                 <div class="sect1" id="_goals">
   <h2>Goals</h2>
  <div class="sectionbody">
+ <div class="ulist">
+ <ul>
+  <li>
  <div class="paragraph">
--  <a href="asciidoc.html">asciidoc</a>
-: uses the Yupiik asciidoc implementation to render an asciidoc file in HTML. -  <a href="audit.html">audit</a>
-: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes. -  <a href="crypt-properties.html">crypt-properties</a>
-: enables to crypt a properties file. -  <a href="crypt-value.html">crypt-value</a>
-: enables to crypt a value and log it. -  <a href="cucumber2asciidoc.html">cucumber2asciidoc</a>
-: convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals. -  <a href="decrypt-properties.html">decrypt-properties</a>
-: enables to decrypt an encrypted properties file. -  <a href="decrypt-value.html">decrypt-value</a>
-: enables to decrypt a value. -  <a href="generate-blog-post-releases.html">generate-blog-post-releases</a>
-: fetch releases from github repo to generate a blog post. The search is between 2 dates. -  <a href="git-report.html">git-report</a>
-: generates a report from a .git folder. -  <a href="inject-version.html">inject-version</a>
-: injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything. -  <a href="list-github-releases.html">list-github-releases</a>
-: fetch github releases between two dates. -  <a href="minisite.html">minisite</a>
-: minisite goal. Enables to generate a small website.  It needs a &quot;documentation&quot; module, it uses the following default layout:   <div class="ulist">
+ <p> <a href="asciidoc.html">asciidoc</a>
+: uses the Yupiik asciidoc implementation to render an asciidoc file in HTML.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="audit.html">audit</a>
+: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="crypt-properties.html">crypt-properties</a>
+: enables to crypt a properties file.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="crypt-value.html">crypt-value</a>
+: enables to crypt a value and log it.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="cucumber2asciidoc.html">cucumber2asciidoc</a>
+: convert cucumber JSON report(s) into an asciidoc file which can be rendered with PDF or HTML goals.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="decrypt-properties.html">decrypt-properties</a>
+: enables to decrypt an encrypted properties file.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="decrypt-value.html">decrypt-value</a>
+: enables to decrypt a value.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="generate-blog-post-releases.html">generate-blog-post-releases</a>
+: fetch releases from github repo to generate a blog post. The search is between 2 dates.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="git-report.html">git-report</a>
+: generates a report from a .git folder.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="inject-version.html">inject-version</a>
+: injects a select in an already generated website - like minisite one - enabling to switch between listed version from a folder. It can be combined with some javascript to switch between the websites without regenerating everything.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="list-github-releases.html">list-github-releases</a>
+: fetch github releases between two dates.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <a href="minisite.html">minisite</a>
+: minisite goal. Enables to generate a small website.  It needs a &quot;documentation&quot; module, it uses the following default layout: <div class="ulist">
  <ul>
   <li>
  <p>
@@ -183,20 +241,63 @@ src/main/doc/assets: contains a set of files moved &quot;as this&quot; to site o
  </p>
   </li>
   <li>
+ <p>
+src/main/doc/templates: contains the templates for the layout and pages of the website
+ </p>
+  </li>
+ </ul>
+ </div>
+ </div>
+  </li>
+  <li>
  <div class="paragraph">
- <p>src/main/doc/templates: contains the templates for the layout and pages of the website -  <a href="pdf.html">pdf</a>
-: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes. -  <a href="script-cli-skeleton.html">script-cli-skeleton</a>
-: seed a simple bash CLI. -  <a href="serve-minisite.html">serve-minisite</a>
-: minisite goa with HTTP server. -  <a href="serve-slides.html">serve-slides</a>
-: custom attributes. -  <a href="simple-dependencies.html">simple-dependencies</a>
-: which format to use to dump them. -  <a href="slides.html">slides</a>
-: custom attributes. -  <a href="synchronize-github-releases.html">synchronize-github-releases</a>
-: fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts. -  <a href="watch-pdf.html">watch-pdf</a>
+ <p> <a href="pdf.html">pdf</a>
+: custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="script-cli-skeleton.html">script-cli-skeleton</a>
+: seed a simple bash CLI.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="serve-minisite.html">serve-minisite</a>
+: minisite goa with HTTP server.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="serve-slides.html">serve-slides</a>
+: custom attributes.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="simple-dependencies.html">simple-dependencies</a>
+: which format to use to dump them.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="slides.html">slides</a>
+: custom attributes.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="synchronize-github-releases.html">synchronize-github-releases</a>
+: fetch versions of the defined artifacts on a nexus and ensures it is set as github release artifacts.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p> <a href="watch-pdf.html">watch-pdf</a>
 : custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.</p>
  </div>
   </li>
  </ul>
- </div>
  </div>
  </div>
  </div>
@@ -256,7 +357,7 @@ function addCopyButtons(clipboard) {
   document.querySelectorAll('pre > code').forEach(function (codeBlock) {
   var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
 if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.4-SNAPSHOT"></script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.6-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
