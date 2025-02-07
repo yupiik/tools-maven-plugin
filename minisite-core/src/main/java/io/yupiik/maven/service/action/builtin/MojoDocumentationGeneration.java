@@ -112,9 +112,9 @@ public class MojoDocumentationGeneration implements Runnable {
                             "\n" +
                             goals.stream()
                                     .sorted(comparing(Goal::getName))
-                                    .map(it -> "- xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + decapitalize(
+                                    .map(it -> "* xref:" + it.getName() + ".adoc[" + it.getName() + "]: " + decapitalize(
                                             sanitizeDescription(it.getDescription()).replace("\n", " ").strip()
-                                                    .replace("* ", inlineDescriptionOnGoals ? ", " : "\n* ")))
+                                                    .replace("* ", inlineDescriptionOnGoals ? ", " : "\n** ")))
                                     .collect(joining("\n")) + "\n")
                             .getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
