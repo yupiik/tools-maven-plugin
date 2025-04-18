@@ -102,7 +102,7 @@ class MojoDocumentationGenerationTest {
                         "\n" +
                         "== Goals\n" +
                         "\n" +
-                        "- xref:foo.adoc[foo]: open a bar.",
+                        "* xref:foo.adoc[foo]: open a bar.",
                 Files.readString(output.resolve("super-maven-plugin.adoc")).trim());
     }
 }
