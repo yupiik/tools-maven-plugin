@@ -98,6 +98,7 @@ public class Parser {
     private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>(?!::).*)(?<marker>::+)(?<content>.*)");
     private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^[0-9]*(?<dots>\\.+) .+");
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
+    private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
@@ -621,7 +622,18 @@ public class Parser {
                     final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("wildcard").length() == 1) {
                         reader.rewind();
-                        elements.add(parseUnorderedList(reader, null, "* ", resolver, currentAttributes));
+                        elements.add(parseUnorderedList(reader, null, "* ", resolver, currentAttributes, UNORDERED_LIST_PREFIX));
+                        i = line.length();
+                        start = i;
+                        break;
+                    }
+                }
+
+                if (line.startsWith("-")) {
+                    final var matcher = UNORDERED_LIST2_PREFIX.matcher(line);
+                    if (matcher.matches() && matcher.group("wildcard").length() == 1) {
+                        reader.rewind();
+                        elements.add(parseUnorderedList(reader, null, "- ", resolver, currentAttributes, UNORDERED_LIST2_PREFIX));
                         i = line.length();
                         start = i;
                         break;
@@ -1177,9 +1189,10 @@ public class Parser {
     }
 
     private UnOrderedList parseUnorderedList(final Reader reader, final String options, final String prefix,
-                                             final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                                             final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                             final Pattern pattern) {
         return parseList(
-                reader, options, prefix, UNORDERED_LIST_PREFIX, "wildcard",
+                reader, options, prefix, pattern, "wildcard",
                 UnOrderedList::children, UnOrderedList::new, resolver, currentAttributes);
     }
 
