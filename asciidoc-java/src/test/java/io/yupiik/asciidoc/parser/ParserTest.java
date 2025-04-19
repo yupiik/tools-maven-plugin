@@ -88,6 +88,26 @@ class ParserTest {
                                 new Text(List.of(), ".", Map.of())), Map.of())), Map.of())
         ), body.children());
     }
+
+    @Test
+    void listWithInlineCode() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of(
+                        "- `alveolus.name`: name of the alveolus the descriptor comes from,",
+                        "- `descriptor.name`: name of the descriptor,")), null);
+        assertEquals(List.of(
+                new UnOrderedList(List.of(
+                        new Paragraph(List.of(
+                                new Code("alveolus.name", List.of(), Map.of(), true),
+                                new Text(List.of(), ": name of the alveolus the descriptor comes from,", Map.of())),
+                                Map.of()),
+                        new Paragraph(List.of(
+                                new Code("descriptor.name", List.of(), Map.of(), true),
+                                new Text(List.of(), ": name of the descriptor,", Map.of())),
+                                Map.of())), Map.of())
+        ), body.children());
+    }
+
     @Test
     void xrefInParenthesisInList() {
         final var body = new Parser().parseBody(
