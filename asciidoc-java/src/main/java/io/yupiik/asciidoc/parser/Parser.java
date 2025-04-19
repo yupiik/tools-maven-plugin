@@ -731,7 +731,23 @@ public class Parser {
                         final int previousSemicolon = line.lastIndexOf(':', i);
                         if (previousSemicolon > 0 || canBeLink) {
                             final int antepenultimateSemicolon = line.indexOf(':', start);
-                            backward = line.lastIndexOf(' ', antepenultimateSemicolon > 0 ? antepenultimateSemicolon : previousSemicolon) + 1;
+                            var from = (antepenultimateSemicolon > 0 ? antepenultimateSemicolon : previousSemicolon) - 1;
+                            if (from >= 0 && line.charAt(from) == ':') {
+                                from--;
+                            }
+                            while (from > -1) {
+                                final var previousChar = line.charAt(from);
+
+                                // we should do that but we want to tolerate way more for links cases
+                                //if (!Character.isDigit(previousChar) && !Character.isAlphabetic(previousChar)) { // space, parenthesis, comma, ...
+                                // so we just whitelist some chars for now
+                                if (previousChar == '(' || previousChar == ' ' ||
+                                        previousChar == ',' || previousChar == ';') {
+                                    break;
+                                }
+                                from--;
+                            }
+                            backward = from + 1;
                         } else {
                             backward = -1;
                         }

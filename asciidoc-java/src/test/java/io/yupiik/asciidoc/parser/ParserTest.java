@@ -54,6 +54,7 @@ import static io.yupiik.asciidoc.model.Admonition.Level.WARNING;
 import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
 import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
+import static io.yupiik.asciidoc.model.Text.Style.BOLD;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
@@ -85,6 +86,19 @@ class ParserTest {
                                 new Text(List.of(), "Should database be initialized at startup. Default: ", Map.of()),
                                 new Code("true", List.of(), Map.of(), true),
                                 new Text(List.of(), ".", Map.of())), Map.of())), Map.of())
+        ), body.children());
+    }
+    @Test
+    void xrefInParenthesisInList() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("* *foo-bar-dummy* (xref:other.adoc[other]): some description.")), null);
+        assertEquals(List.of(
+                new UnOrderedList(List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(BOLD), "foo-bar-dummy", Map.of()),
+                                new Text(List.of(), " (", Map.of()),
+                                new Macro("xref", "other.adoc", Map.of("", "other"), true),
+                                new Text(List.of(), "): some description.", Map.of())), Map.of())), Map.of())
         ), body.children());
     }
 
