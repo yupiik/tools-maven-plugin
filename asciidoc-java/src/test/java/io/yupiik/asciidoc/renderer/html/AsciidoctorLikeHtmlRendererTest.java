@@ -835,6 +835,70 @@ class AsciidoctorLikeHtmlRendererTest {
                         """);
     }
 
+    @Test
+    void jsonSchemaMinisiteGeneratorSupport() {
+        assertRenderingContent("= io.yupiik.test.MyRootObject\n" +
+                        "\n" +
+                        "[cols=\"2a,2m,1,5\", options=\"header\"]\n" +
+                        ".io.yupiik.test.MyRootObject\n" +
+                        "|===\n" +
+                        "|Name|JSON Name|Type|Description\n" +
+                        "|<<io.yupiik.test.MyObject>>|aliases|array of object|-\n" +
+                        "|===\n" +
+                        "\n" +
+                        "[#io.yupiik.test.MyObject]\n" +
+                        "== io.yupiik.test.MyObject\n",
+                """
+                         <div class="sect0" id="_ioyupiiktestmyrootobject">
+                          <h1>io.yupiik.test.MyRootObject</h1>
+                         <div class="sectionbody">
+                         <table class="tableblock frame-all grid-all stretch">
+                          <caption class="title">io.yupiik.test.MyRootObject</caption>
+                          <colgroup>
+                           <col width="20%">
+                           <col width="20%">
+                           <col width="10%">
+                           <col width="50%">
+                          </colgroup>
+                          <thead>
+                           <tr>
+                            <th>
+                        Name    </th>
+                            <th>
+                        JSON Name    </th>
+                            <th>
+                        Type    </th>
+                            <th>
+                        Description    </th>
+                           </tr>
+                          </thead>
+                          <tbody>
+                           <tr>
+                            <td>
+                         <div class="paragraph">
+                         <p> <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
+                        </p>
+                         </div>
+                            </td>
+                            <td>
+                        <code>aliases</code>    </td>
+                            <td>
+                        array of object    </td>
+                            <td>
+                        -    </td>
+                           </tr>
+                          </tbody>
+                         </table>
+                         <div class="sect1" id="io.yupiik.test.MyObject">
+                          <h2>io.yupiik.test.MyObject</h2>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
