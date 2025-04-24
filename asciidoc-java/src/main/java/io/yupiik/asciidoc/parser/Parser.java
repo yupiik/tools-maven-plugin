@@ -403,9 +403,14 @@ public class Parser {
                                 return (Function<List<String>, Element>) c ->
                                         new Text(List.of(), String.join("\n", c), Map.of("role", "header"));
                             }
-                            // contains("d") == default
-                            return (Function<List<String>, Element>) c ->
-                                    new Text(List.of(), String.join("\n", c), Map.of());
+                            // contains("d") == default, all inline markup
+                            return (Function<List<String>, Element>) c -> {
+                                final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, false);
+                                if (content.size() == 1) {
+                                    return content.get(0);
+                                }
+                                return new Paragraph(content, Map.of());
+                            };
                         })
                         .toList())
                 .orElse(List.of());
