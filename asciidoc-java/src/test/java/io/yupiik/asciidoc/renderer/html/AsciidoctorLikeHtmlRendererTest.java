@@ -417,6 +417,28 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void admonitionBlock() {
+        assertRenderingContent("[WARNING]\n" +
+                "====\n" +
+                "An admonition block may contain complex content.\n" +
+                "====", """
+                 <div class="admonitionblock warning">
+                  <table>
+                    <tbody>
+                     <tr>
+                      <td class="icon">
+                     <div class="title">WARNING</div>
+                       </td>
+                      <td class="content">
+                An admonition block may contain complex content.    </td>
+                   </tr>
+                      </tbody>
+                  </table>
+                 </div>
+                """);
+    }
+
+    @Test
     void table() {
         assertRenderingContent("""
                 [cols="1,1"]

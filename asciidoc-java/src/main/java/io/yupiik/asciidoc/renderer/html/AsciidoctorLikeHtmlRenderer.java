@@ -722,31 +722,38 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitOpenBlock(final OpenBlock element) {
-        state.stackChain(element.children(), () -> {
-            boolean skipDiv = false;
-            if (element.options().get("abstract") != null) {
-                builder.append(" <div");
-                writeCommonAttributes(element.options(), c -> "abstract quoteblock" + (c == null ? "" : (' ' + c)));
+        switch (element.options().getOrDefault("", "")) {
+            case "NOTE" -> visitAsAdmonition(Admonition.Level.NOTE, element);
+            case "TIP" -> visitAsAdmonition(Admonition.Level.TIP, element);
+            case "IMPORTANT" -> visitAsAdmonition(Admonition.Level.IMPORTANT, element);
+            case "WARNING" -> visitAsAdmonition(Admonition.Level.WARNING, element);
+            case "CAUTION" -> visitAsAdmonition(Admonition.Level.CAUTION, element);
+            default -> state.stackChain(element.children(), () -> {
+                boolean skipDiv = false;
+                if (element.options().get("abstract") != null) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "abstract quoteblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                } else if (element.options().get("partintro") != null) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "openblock " + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                } else {
+                    skipDiv = true;
+                }
+                writeBlockTitle(element.options());
+                builder.append("  <div");
+                if (skipDiv) {
+                    writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+                }
                 builder.append(">\n");
-            } else if (element.options().get("partintro") != null) {
-                builder.append(" <div");
-                writeCommonAttributes(element.options(), c -> "openblock " + (c == null ? "" : (' ' + c)));
-                builder.append(">\n");
-            } else {
-                skipDiv = true;
-            }
-            writeBlockTitle(element.options());
-            builder.append("  <div");
-            if (skipDiv) {
-                writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
-            }
-            builder.append(">\n");
-            Visitor.super.visitOpenBlock(element);
-            builder.append("  </div>\n");
-            if (!skipDiv) {
-                builder.append(" </div>\n");
-            }
-        });
+                Visitor.super.visitOpenBlock(element);
+                builder.append("  </div>\n");
+                if (!skipDiv) {
+                    builder.append(" </div>\n");
+                }
+            });
+        }
     }
 
     @Override
@@ -1130,6 +1137,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         } catch (final NumberFormatException nfe) {
             return 1;
         }
+    }
+
+    private void visitAsAdmonition(final Admonition.Level level, final OpenBlock element) {
+        visitAdmonition(new Admonition(
+                level, element.children().size() == 1 ?
+                element.children().get(0) :
+                new Paragraph(element.children(),
+                        element.options().size() == 1 ?
+                                Map.of() :
+                                element.options().entrySet().stream()
+                                        .filter(it -> !"".equals(it.getKey()))
+                                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)))));
     }
 
     @Getter
