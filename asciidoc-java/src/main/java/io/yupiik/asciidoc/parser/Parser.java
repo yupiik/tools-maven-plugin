@@ -231,6 +231,9 @@ public class Parser {
                 options = null;
             } else if (stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
+            } else if (Objects.equals("====", stripped)) {
+                elements.add(parseOpenBlock(reader, options, resolver, attributes, "===="));
+                options = null;
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
                 elements.add(parseSection(reader, options, resolver, attributes));
@@ -242,7 +245,7 @@ public class Parser {
                 elements.add(parseCodeBlock(reader, options, resolver, attributes, "```"));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
-                elements.add(parseOpenBlock(reader, options, resolver, attributes));
+                elements.add(parseOpenBlock(reader, options, resolver, attributes, "--"));
                 options = null;
             } else if (stripped.startsWith("|===")) {
                 elements.add(parseTable(reader, options, resolver, attributes, stripped));
@@ -336,13 +339,14 @@ public class Parser {
     }
 
     private OpenBlock parseOpenBlock(final Reader reader, final Map<String, String> options,
-                                     final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                                     final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                     final String end) {
         final var content = new ArrayList<String>();
         String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals("--", next.strip())) {
+        while ((next = reader.nextLine()) != null && !Objects.equals(end, next.strip())) {
             content.add(next);
         }
-        if (next != null && !next.startsWith("--")) {
+        if (next != null && !next.startsWith(end)) {
             reader.rewind();
         }
         return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes, true), options == null ? Map.of() : options);
@@ -1274,7 +1278,7 @@ public class Parser {
     }
 
     private boolean isBlock(final String strippedLine) {
-        return "----".equals(strippedLine) || "```".equals(strippedLine) || "--".equals(strippedLine) || "++++".equals(strippedLine);
+        return "====".equals(strippedLine) || "----".equals(strippedLine) || "```".equals(strippedLine) || "--".equals(strippedLine) || "++++".equals(strippedLine);
     }
 
     private void addTextElements(final String line, final int i, final int end,
