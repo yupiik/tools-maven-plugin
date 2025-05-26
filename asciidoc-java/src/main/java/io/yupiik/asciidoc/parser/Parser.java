@@ -186,7 +186,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
-        return new Body(doParse(reader, line -> true, resolver, new HashMap<>(), true));
+        return new Body(doParse(reader, line -> true, resolver, new HashMap<>(), true, false));
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -197,7 +197,8 @@ public class Parser {
 
     private List<Element> doParse(final Reader reader, final Predicate<String> continueTest,
                                   final ContentResolver resolver, final Map<String, String> attributes,
-                                  final boolean supportComplexStructures) {
+                                  final boolean supportComplexStructures,
+                                  final boolean skipTitle) {
         final var elements = new ArrayList<Element>(8);
         String next;
 
@@ -229,7 +230,7 @@ public class Parser {
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(reader, options, "....", resolver).value(), options));
                 options = null;
-            } else if (stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
+            } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
             } else if (Objects.equals("====", stripped)) {
                 elements.add(parseOpenBlock(reader, options, resolver, attributes, "===="));
@@ -265,7 +266,7 @@ public class Parser {
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
-                elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures), options == null ? Map.of() : options));
+                elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.endsWith(" +")) {
                 elements.addAll(parseLine(reader, stripped.substring(0, stripped.length()-2), resolver, attributes, supportComplexStructures));
@@ -353,7 +354,7 @@ public class Parser {
         if (next != null && !next.startsWith(end)) {
             reader.rewind();
         }
-        return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes, true), options == null ? Map.of() : options);
+        return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
     private Quote parseQuote(final Reader reader, final Map<String, String> options,
@@ -366,7 +367,7 @@ public class Parser {
         if (next != null && !next.startsWith("> ")) {
             reader.rewind();
         }
-        return new Quote(doParse(new Reader(content), l -> true, resolver, currentAttributes, true), options == null ? Map.of() : options);
+        return new Quote(doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
     private Table parseTable(final Reader reader,
@@ -383,7 +384,7 @@ public class Parser {
                         .map(i -> {
                             if (i.contains("a")) { // asciidoc
                                 return (Function<List<String>, Element>) c -> {
-                                    final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, true);
+                                    final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, true, false);
                                     if (content.size() == 1) {
                                         return content.get(0);
                                     }
@@ -413,7 +414,7 @@ public class Parser {
                             }
                             // contains("d") == default, all inline markup
                             return (Function<List<String>, Element>) c -> {
-                                final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, false);
+                                final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, false, false);
                                 if (content.size() == 1) {
                                     return content.get(0);
                                 }
@@ -510,7 +511,7 @@ public class Parser {
                 reader.rewind();
             }
 
-            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true);
+            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true, false);
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null && !next.isBlank()) {
@@ -689,7 +690,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var attributeName = line.substring(i + 1, end);
-                        elements.add(new Attribute(attributeName, value -> doParse(new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true)));
+                        elements.add(new Attribute(attributeName, value -> doParse(new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true, false)));
                         i = end;
                         start = end + 1;
                     }
@@ -808,15 +809,15 @@ public class Parser {
                                             elements.addAll(doInclude(macro, resolver, currentAttributes, true));
                                     case "ifdef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifdef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     case "ifndef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifndef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     case "ifeval" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifeval(parseCondition(macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip(), currentAttributes)),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false),
+                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     default -> elements.add(macro);
                                 }
@@ -1116,7 +1117,7 @@ public class Parser {
         }
 
         if (parse) {
-            return doParse(new Reader(content), l -> true, resolver, currentAttributes, true);
+            return doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false);
         }
         return List.of(new Text(List.of(), String.join("\n", content) + '\n', Map.of()));
     }
@@ -1182,9 +1183,9 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                final var element = doParse(new Reader(buffer), s -> true, resolver, currentAttributes, true);
+                final var element = doParse(new Reader(buffer), s -> true, resolver, currentAttributes, true, false);
                 final var unwrapped = unwrapElementIfPossible(element.size() == 1 && element.get(0) instanceof Paragraph p ? p : new Paragraph(element, Map.of()));
-                final var key = doParse(new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false);
+                final var key = doParse(new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false, false);
                 children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
                 last = unwrapped;
             } else { // nested
@@ -1236,7 +1237,7 @@ public class Parser {
                 buffer.setLength(0);
                 readContinuation(reader, prefix, regex, buffer, nextStripped);
 
-                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true);
+                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
                 children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
             } else { // nested
                 reader.rewind();
@@ -1398,7 +1399,7 @@ public class Parser {
         return new Section(
                 i,
                 titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
-                doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true),
+                doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true, false),
                 options == null ? Map.of() : options);
     }
 
