@@ -24,6 +24,7 @@ import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
@@ -1263,4 +1264,19 @@ class ParserTest {
                 List.of(new Macro("icon", "heart", Map.of("size", "2x"), true)),
                 new Parser().parseBody(new Reader(List.of("icon:heart[size=2x]")), null).children());
     }
+
+    @Test
+    void hardbreak() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                Rubies are red, +
+                Topazes are blue.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Text(List.of(), "Rubies are red,", Map.of()),
+                        new LineBreak(),
+                        new Text(List.of(), "Topazes are blue.", Map.of())),
+                body.children());
+    }
+
+
 }
