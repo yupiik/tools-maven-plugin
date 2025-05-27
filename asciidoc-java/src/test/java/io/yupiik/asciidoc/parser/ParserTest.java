@@ -682,6 +682,21 @@ class ParserTest {
     }
 
     @Test
+    void unorderedListWithDot() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * .item 1
+                * .item 2
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Text(List.of(), ".item 1", Map.of()),
+                                        new Text(List.of(), ".item 2", Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
     void unorderedListUnCommonFormatting() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * something:
@@ -1277,6 +1292,4 @@ class ParserTest {
                         new Text(List.of(), "Topazes are blue.", Map.of())),
                 body.children());
     }
-
-
 }
