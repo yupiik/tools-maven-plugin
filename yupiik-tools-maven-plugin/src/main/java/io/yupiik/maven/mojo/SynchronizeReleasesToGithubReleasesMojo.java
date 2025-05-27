@@ -122,9 +122,6 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     @Parameter(property = "yupiik.synchronize-github-releases.tagPattern")
     private String tagPattern;
 
-    @Parameter(property = "yupiik.synchronize-github-releases.targetCommitish", defaultValue = "master")
-    private String targetCommitish;
-
     @Parameter(property = "yupiik.synchronize-github-releases.dryRun")
     private boolean dryRun;
 
@@ -171,14 +168,15 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             final var workDir = Files.createDirectories(Paths.get(workdir));
             findTags(httpClient, jsonb, "")
                     .thenCompose(tags -> findExistingReleases(httpClient, jsonb, "")
-                            .thenCompose(releases -> allOf(artifacts.stream()
-                                    .map(spec -> safe(() -> updateArtifact(httpClient, threadPool, jsonb, spec, workDir, tags, releases)))
-                                    .toArray(CompletableFuture<?>[]::new))
-                                    .whenComplete((r, e) -> {
-                                        if (e != null) {
-                                            getLog().error(e);
-                                        }
-                                    })))
+                            .thenCompose(releases -> findBranches(httpClient, jsonb, "")
+                                .thenCompose(branches -> allOf(artifacts.stream()
+                                        .map(spec -> safe(() -> updateArtifact(httpClient, threadPool, jsonb, spec, workDir, tags, releases, branches)))
+                                        .toArray(CompletableFuture<?>[]::new))
+                                        .whenComplete((r, e) -> {
+                                            if (e != null) {
+                                                getLog().error(e);
+                                            }
+                                        }))))
                     .toCompletableFuture().get();
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -200,6 +198,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     private CompletableFuture<?> synchronizeReleases(final HttpClient httpClient, final Jsonb jsonb,
                                                      final ReleaseSpec spec, final String version,
                                                      final Map<String, GithubRelease> githubExistingReleases,
+                                                     final Map<String, GithubBranch> githubBranches,
                                                      final Map<String, GithubTag> tags, final Path workDir) {
         final var existing = dryRun ? null : githubExistingReleases.get(version);
         if (!force && existing != null && !attachIfExists) {
@@ -233,7 +232,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             release.setDraft(false);
             release.setPrerelease(false);
             release.setTagName(tagName);
-            release.setTargetCommitish(targetCommitish);
+            release.setTargetCommitish(githubBranches.keySet().stream().filter("main"::equals).findAny().orElse("master"));
 
             final var url = URI.create(
                     githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/releases" +
@@ -545,11 +544,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
 
     private CompletableFuture<?> updateArtifact(final HttpClient httpClient, final ExecutorService executorService, final Jsonb jsonb,
                                                 final ReleaseSpec spec, final Path workDir,
-                                                final Map<String, GithubTag> tags, final Map<String, GithubRelease> ghReleases) {
+                                                final Map<String, GithubTag> tags, final Map<String, GithubRelease> ghReleases, final Map<String, GithubBranch> ghBranches) {
         final var availableVersions = findAvailableVersions(httpClient, spec);
         return availableVersions
                 .thenComposeAsync(versions -> allOf(versions.stream()
-                                .map(it -> synchronizeReleases(httpClient, jsonb, spec, it, ghReleases, tags, workDir))
+                                .map(it -> synchronizeReleases(httpClient, jsonb, spec, it, ghReleases, ghBranches, tags, workDir))
                                 .toArray(CompletableFuture<?>[]::new)),
                         executorService);
     }
@@ -578,6 +577,33 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                     .thenApply(added -> Stream.concat(releaseNames.entrySet().stream(), added.entrySet().stream())
                                             .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))))
                             .orElseGet(() -> completedFuture(releaseNames));
+                });
+    }
+
+    private CompletableFuture<Map<String, GithubBranch>> findBranches(final HttpClient httpClient, final Jsonb jsonb, final String nextUrl) {
+        if (nextUrl == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        final var url = URI.create(nextUrl.isBlank() ?
+                githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/branches?per_page=100" :
+                nextUrl);
+        final var reqBuilder = HttpRequest.newBuilder();
+        findServer(githubServerId).ifPresent(s -> reqBuilder.header("Authorization", toAuthorizationHeaderValue(s)));
+        return httpClient.sendAsync(reqBuilder
+                                .GET()
+                                .uri(url)
+                                .header("accept", "application/vnd.github.v3+json")
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString())
+                .thenCompose(r -> {
+                    ensure200(url, r);
+                    final List<GithubBranch> versions = jsonb.fromJson(r.body().trim(), new JohnzonParameterizedType(List.class, GithubBranch.class));
+                    final var versionNames = versions.stream().collect(toMap(GithubBranch::getName, identity()));
+                    return findNextLink(r.headers().firstValue("Link").orElse(null))
+                            .map(next -> findBranches(httpClient, jsonb, next)
+                                    .thenApply(added -> Stream.concat(versionNames.entrySet().stream(), added.entrySet().stream())
+                                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))))
+                            .orElseGet(() -> completedFuture(versionNames));
                 });
     }
 
@@ -801,5 +827,13 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         private final int major;
         private final int minor;
         private final int patch;
+    }
+
+    @Data
+    public static class GithubBranch {
+        private String name;
+        private GithubTagCommit commit;
+        @JsonbProperty("protected")
+        private boolean protectedBranch;
     }
 }
