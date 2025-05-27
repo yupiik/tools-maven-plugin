@@ -122,6 +122,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     @Parameter(property = "yupiik.synchronize-github-releases.tagPattern")
     private String tagPattern;
 
+    @Parameter(property = "yupiik.synchronize-github-releases.targetCommitish", defaultValue = "master")
+    private String targetCommitish;
+
     @Parameter(property = "yupiik.synchronize-github-releases.dryRun")
     private boolean dryRun;
 
@@ -230,7 +233,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
             release.setDraft(false);
             release.setPrerelease(false);
             release.setTagName(tagName);
-            release.setTargetCommitish("master");
+            release.setTargetCommitish(targetCommitish);
 
             final var url = URI.create(
                     githubBaseApi + (githubBaseApi.endsWith("/") ? "" : "/") + "repos/" + githubRepository + "/releases" +
@@ -732,7 +735,7 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
         private String tagName;
 
         @JsonbProperty("target_commitish")
-        private String targetCommitish = "master";
+        private String targetCommitish;
 
         private List<GithubAsset> assets;
     }
