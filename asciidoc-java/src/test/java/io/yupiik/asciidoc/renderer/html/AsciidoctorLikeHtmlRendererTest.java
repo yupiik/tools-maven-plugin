@@ -16,6 +16,7 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,6 +25,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -826,6 +829,29 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void imagesDirs() {
+        assertRenderingContent(
+                """
+                        = Foo
+                        :imagesdir: /assets/
+                        
+                        image::relative.png[]
+                        """,
+                """
+                         <div class="sect0" id="_foo">
+                          <h1>Foo</h1>
+                         <div class="sectionbody">
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="/assets/relative.png" alt="relative.png">
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
     void callouts() {
         assertRenderingContent("""
                         [source,properties]
@@ -934,7 +960,11 @@ class AsciidoctorLikeHtmlRendererTest {
 
     private void assertRenderingContent(final String adoc, final String html, final Path work) {
         final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(work != null ? work : Path.of("target/missing"))));
-        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        final var attributes = new Parser().parseHeader(new Reader(List.of(adoc.split("\n")))).attributes();
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(new HashMap<>(attributes) {{
+                    put("noheader", "true");
+                }}));
         renderer.visitBody(doc);
         assertEquals(html, renderer.result());
     }

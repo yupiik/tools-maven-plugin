@@ -88,6 +88,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final boolean dataUri;
     protected final DataResolver resolver;
     protected final State state = new State(); // this is why we are not thread safe
+    protected final String imagesDir;
 
     public AsciidoctorLikeHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -101,6 +102,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         this.resolver = dataUri ?
                 (configuration.getResolver() == null ? new DataResolver(assetsDir(configuration, "imagesdir")) : configuration.getResolver()) :
                 null;
+        this.imagesDir = configuration.getAttributes().getOrDefault("imagesdir", "");
     }
 
     private Path assetsDir(final Configuration configuration, final String attribute) {
@@ -908,7 +910,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        builder.append(" <img src=\"").append(element.label())
+        builder.append(" <img src=\"")
+                .append(imagesDir)
+                .append(element.label())
                 .append("\" alt=\"").append(element.options().getOrDefault("alt", element.options().getOrDefault("", element.label())))
                 .append('"');
         if (element.options().containsKey("width")) {
