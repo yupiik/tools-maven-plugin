@@ -131,13 +131,18 @@ public class Parser {
     public Document parse(final List<String> input, final ParserContext context) {
         final var reader = new Reader(input);
         try {
-            return new Document(parseHeader(reader), parseBody(reader, context.resolver()));
+            final var header = parseHeader(reader, context);
+            return new Document(header, parseBody(reader, context.resolver(), new HashMap<>(header.attributes())));
         } catch (final RuntimeException re) {
             throw new IllegalStateException("Invalid state at line #" + reader.getLineNumber(), re);
         }
     }
 
     public Header parseHeader(final Reader reader) {
+        return parseHeader(reader, null);
+    }
+
+    public Header parseHeader(final Reader reader, final ParserContext context) {
         final var firstLine = reader.skipCommentsAndEmptyLines();
         if (firstLine == null) {
             reader.reset();
@@ -173,7 +178,7 @@ public class Parser {
             }
         }
 
-        final var attributes = readAttributes(reader);
+        final var attributes = readAttributes(reader, context == null ? null : context.resolver());
         return new Header(title, author, revision, attributes);
     }
 
@@ -186,7 +191,11 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
-        return new Body(doParse(reader, line -> true, resolver, new HashMap<>(), true, false));
+        return parseBody(reader, resolver, new HashMap<>());
+    }
+
+    public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
+        return new Body(doParse(reader, line -> true, resolver, attributes, true, false));
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -1428,7 +1437,7 @@ public class Parser {
         return new Revision(revisionLine.substring(0, firstSep).strip(), revisionLine.substring(firstSep + 1, secondSep).strip(), revisionLine.substring(secondSep + 1).strip());
     }
 
-    private Map<String, String> readAttributes(final Reader reader) {
+    private Map<String, String> readAttributes(final Reader reader, final ContentResolver resolver) {
         Map<String, String> attributes = new LinkedHashMap<>();
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
@@ -1472,6 +1481,9 @@ public class Parser {
                             }) {
                                 reader.insert(block);
                             }
+                            continue;
+                        } else if ("include".equals(macro.name())) {
+                            doInclude(macro, resolver, attributes, true);
                             continue;
                         }
                     }

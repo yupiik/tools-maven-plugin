@@ -39,6 +39,7 @@ import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1007,6 +1008,29 @@ class ParserTest {
                         1, new Text(List.of(), "My title", Map.of()),
                         List.of(new Link("https://yupiik.io", "Yupiik", Map.of())), Map.of())),
                 body.children());
+    }
+
+    @Test
+    void includeAttributesAfterAttributes() {
+        final var doc = new Parser().parse(
+                """
+                        = My title
+                        
+                        :title: Yupiik
+                        include::attributes.adoc[]
+                        
+                        {url}[{title}]
+                        """,
+                new Parser.ParserContext(
+                        (ref, encoding) -> switch (ref) {
+                            case "attributes.adoc" -> Optional.of(List.of(":url: https://yupiik.io"));
+                            default -> Optional.empty();
+                        }));
+        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io"), doc.header().attributes());
+
+        assertEquals(
+                List.of(new Link("https://yupiik.io", "Yupiik", Map.of())),
+                doc.body().children());
     }
 
     @Test
