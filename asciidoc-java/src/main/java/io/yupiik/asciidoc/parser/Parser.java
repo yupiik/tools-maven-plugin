@@ -152,29 +152,32 @@ public class Parser {
         final String title;
         if (firstLine.startsWith("= ") || firstLine.startsWith("# ")) {
             title = firstLine.substring(2).strip();
+        } else if (ATTRIBUTE_DEFINITION.matcher(firstLine).matches()) {
+            title = "";
+            reader.rewind();
         } else {
             reader.reset();
             return NO_HEADER;
         }
-
         var author = NO_AUTHOR;
         var revision = NO_REVISION;
+        if (!title.isEmpty()) {
+            final var authorLine = reader.nextLine();
+            if (authorLine != null && !authorLine.isBlank() && !reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
+                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches()) { // author line
+                    author = parseAuthorLine(authorLine);
 
-        final var authorLine = reader.nextLine();
-        if (authorLine != null && !authorLine.isBlank() && !reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
-            if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches()) { // author line
-                author = parseAuthorLine(authorLine);
-
-                final var revisionLine = reader.nextLine();
-                if (revisionLine != null && !revisionLine.isBlank() && !reader.isComment(revisionLine) && canBeHeaderLine(revisionLine)) {
-                    if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches()) { // author line
-                        revision = parseRevisionLine(revisionLine);
-                    } else {
-                        reader.rewind();
+                    final var revisionLine = reader.nextLine();
+                    if (revisionLine != null && !revisionLine.isBlank() && !reader.isComment(revisionLine) && canBeHeaderLine(revisionLine)) {
+                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches()) { // author line
+                            revision = parseRevisionLine(revisionLine);
+                        } else {
+                            reader.rewind();
+                        }
                     }
+                } else {
+                    reader.rewind();
                 }
-            } else {
-                reader.rewind();
             }
         }
 

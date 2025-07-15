@@ -880,15 +880,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitXref(final Macro element) {
+        final var outFileSuffix = configuration.getAttributes().getOrDefault("outfilesuffix", ".html");
+        final var relFilePrefix = configuration.getAttributes().getOrDefault("relfileprefix", "");
+        final var relFileSuffix = configuration.getAttributes().getOrDefault("relfilesuffix", outFileSuffix);
         var target = element.label();
         final int anchor = target.lastIndexOf('#');
         if (anchor > 0) {
             final var page = target.substring(0, anchor);
             if (page.endsWith(".adoc")) {
-                target = page.substring(0, page.length() - ".adoc".length()) + ".html" + target.substring(anchor);
+                target = relFilePrefix + page.substring(0, page.length() - ".adoc".length()) + relFileSuffix + target.substring(anchor);
             }
         } else if (target.endsWith(".adoc")) {
-            target = target.substring(0, target.length() - ".adoc".length()) + ".html";
+            target = relFilePrefix + target.substring(0, target.length() - ".adoc".length()) + relFileSuffix;
         }
         final var label = element.options().get("");
         builder.append(" <a href=\"").append(target).append("\">").append(label == null ? element.label() : label).append("</a>\n");

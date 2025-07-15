@@ -132,6 +132,13 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithoutTitle() {
+        final var header = new Parser().parseHeader(new Reader(List.of(":attr-1: v1", ":attr-2: v2", "", "content")));
+        assertEquals("", header.title());
+        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2"), header.attributes());
+    }
+
+    @Test
     void parseHeaderWithConditionalBlocks() {
         final var content = List.of("""
                 = Title
