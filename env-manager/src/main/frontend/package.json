@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "esbuild": "0.20.0",
+    "esbuild": "0.25.0",
     "esbuild-plugin-eslint": "^0.3.7",
     "eslint-config-react-app": "^7.0.1",
     "postcss-preset-env": "^9.1.0",
