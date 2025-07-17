@@ -100,7 +100,7 @@ public class Parser {
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
-    private static final Pattern BLOCK_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
+    private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
 
@@ -212,7 +212,7 @@ public class Parser {
     }
 
     private boolean isBlockMacro(final String line) {
-        return line.contains("::") && BLOCK_MACRO.matcher(line).matches();
+        return line.contains("::") && HEADER_MACRO.matcher(line).matches();
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"

@@ -982,6 +982,45 @@ class AsciidoctorLikeHtmlRendererTest {
                         """);
     }
 
+    @Test
+    void noHeaderAndShowTitle() {
+        final var doc = new Parser().parse("""
+                = Test
+                                
+                Hello
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "showtitle", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <h1>Test</h1>
+                 <div class="paragraph">
+                 <p>
+                Hello
+                 </p>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void noHeaderWithoutShowTitle() {
+        final var doc = new Parser().parse("""
+                = Test
+                                
+                Hello
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <div class="paragraph">
+                 <p>
+                Hello
+                 </p>
+                 </div>
+                """, renderer.result());
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();

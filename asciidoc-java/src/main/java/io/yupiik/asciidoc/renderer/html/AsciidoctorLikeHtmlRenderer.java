@@ -296,9 +296,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitHeader(final Header header) {
-        var showTitle = Boolean.parseBoolean(header.attributes().getOrDefault("showtitle", "false"))
-                        && !header.attributes().containsKey("notitle");
-        var noHeader = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
+        var showTitle = Boolean.parseBoolean(attr("showtitle", "false"))
+                        && attr("notitle", (String) null) == null;
+        var noHeader = Boolean.parseBoolean(attr("noheader", "false"));
 
         // showTitle has priority over noHeader (noTitle and showTitle are supposed to be mutually exclusive)
         if ((showTitle || !noHeader) && !header.title().isBlank()) {
