@@ -88,7 +88,6 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final boolean dataUri;
     protected final DataResolver resolver;
     protected final State state = new State(); // this is why we are not thread safe
-    protected final String imagesDir;
 
     public AsciidoctorLikeHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -102,7 +101,6 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         this.resolver = dataUri ?
                 (configuration.getResolver() == null ? new DataResolver(assetsDir(configuration, "imagesdir")) : configuration.getResolver()) :
                 null;
-        this.imagesDir = configuration.getAttributes().getOrDefault("imagesdir", "");
     }
 
     private Path assetsDir(final Configuration configuration, final String attribute) {
@@ -299,7 +297,6 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitHeader(final Header header) {
         if (header.attributes().get("notitle") == null &&
-                !Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false")) &&
                 !header.title().isBlank()) {
             builder.append(" <h1>").append(escape(header.title())).append("</h1>\n");
         }
@@ -880,9 +877,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitXref(final Macro element) {
-        final var outFileSuffix = configuration.getAttributes().getOrDefault("outfilesuffix", ".html");
-        final var relFilePrefix = configuration.getAttributes().getOrDefault("relfileprefix", "");
-        final var relFileSuffix = configuration.getAttributes().getOrDefault("relfilesuffix", outFileSuffix);
+        final var outFileSuffix = attr("outfilesuffix", ".html");
+        final var relFilePrefix = attr("relfileprefix", "");
+        final var relFileSuffix = attr("relfilesuffix", outFileSuffix);
         var target = element.label();
         final int anchor = target.lastIndexOf('#');
         if (anchor > 0) {
@@ -899,6 +896,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitImage(final Macro element) {
+        String imagesDir = attr("imagesdir", "");
         if (dataUri && !element.label().startsWith("data:") && !element.options().containsKey("skip-data-uri")) {
             visitImage(new Macro(
                     element.name(), resolver.apply(element.label()).base64(),
@@ -913,9 +911,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
+        String resolvedSrc = imagesDir.endsWith("/") ? imagesDir + element.label() : imagesDir + "/" + element.label();
+
         builder.append(" <img src=\"")
-                .append(imagesDir)
-                .append(element.label())
+                .append(resolvedSrc)
                 .append("\" alt=\"").append(element.options().getOrDefault("alt", element.options().getOrDefault("", element.label())))
                 .append('"');
         if (element.options().containsKey("width")) {
@@ -1110,6 +1109,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     protected String escape(final String name) {
         return HtmlEscaping.INSTANCE.apply(name);
+    }
+
+    protected String attr(final String key, final String defaultValue) {
+        return attr(key, key, defaultValue, state.document.header().attributes());
     }
 
     protected String attr(final String key, final String defaultKey, final String defaultValue, final Map<String, String> mainMap) {
