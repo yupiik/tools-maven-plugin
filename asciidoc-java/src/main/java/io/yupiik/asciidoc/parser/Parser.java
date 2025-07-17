@@ -100,7 +100,7 @@ public class Parser {
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
-    private static final Pattern MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
+    private static final Pattern BLOCK_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
 
@@ -169,8 +169,7 @@ public class Parser {
                 return new Header(title, author, revision, Map.of());
             }
             if (!reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
-                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !MACRO.matcher(authorLine)
-                        .matches()) { // author line
+                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isBlockMacro(authorLine)) { // author line
                     author = parseAuthorLine(authorLine);
 
                     final var revisionLine = reader.nextLine();
@@ -180,8 +179,7 @@ public class Parser {
                     }
                     if (!reader.isComment(revisionLine) && canBeHeaderLine(
                             revisionLine) && !authorLine.startsWith(":")) {
-                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !MACRO.matcher(revisionLine)
-                                .matches()) { // author line
+                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !isBlockMacro(revisionLine)) { // author line
                             revision = parseRevisionLine(revisionLine);
                         } else {
                             reader.rewind();
@@ -211,6 +209,10 @@ public class Parser {
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
         return new Body(doParse(reader, line -> true, resolver, attributes, true, false));
+    }
+
+    private boolean isBlockMacro(final String line) {
+        return line.contains("::") && BLOCK_MACRO.matcher(line).matches();
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -1464,7 +1466,7 @@ public class Parser {
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
                 attributes.put(matcher.group("name"), value);
-            } else if (MACRO.matcher(line).matches()) {
+            } else if (isBlockMacro(line)) {
                 // simplistic macro handling, mainly for conditional blocks since we still are in headers
                 final var stripped = line.strip();
                 final int options = stripped.indexOf("[]");

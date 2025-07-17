@@ -845,6 +845,29 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 """
                         = Foo
+                        :imagesdir: /assets
+                        
+                        image::relative.png[]
+                        """,
+                """
+                         <div class="sect0" id="_foo">
+                          <h1>Foo</h1>
+                         <div class="sectionbody">
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="/assets/relative.png" alt="relative.png">
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void imagesDirsTrailingSlash() {
+        assertRenderingContent(
+                """
+                        = Foo
                         :imagesdir: /assets/
                         
                         image::relative.png[]

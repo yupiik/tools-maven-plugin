@@ -911,7 +911,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        String resolvedSrc = imagesDir.endsWith("/") ? imagesDir + element.label() : imagesDir + "/" + element.label();
+        String resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
 
         builder.append(" <img src=\"")
                 .append(resolvedSrc)

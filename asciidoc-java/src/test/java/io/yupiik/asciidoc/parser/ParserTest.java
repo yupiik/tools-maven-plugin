@@ -1022,9 +1022,30 @@ class ParserTest {
         final var doc = new Parser().parse(
                 """
                         = My title
-                        
                         :title: Yupiik
                         include::attributes.adoc[]
+                        
+                        {url}[{title}]
+                        """,
+                new Parser.ParserContext(
+                        (ref, encoding) -> switch (ref) {
+                            case "attributes.adoc" -> Optional.of(List.of(":url: https://yupiik.io"));
+                            default -> Optional.empty();
+                        }));
+        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io"), doc.header().attributes());
+
+        assertEquals(
+                List.of(new Link("https://yupiik.io", "Yupiik", Map.of())),
+                doc.body().children());
+    }
+
+    @Test
+    void includeAttributesBeforeAttributes() {
+        final var doc = new Parser().parse(
+                """
+                        = My title
+                        include::attributes.adoc[]
+                        :title: Yupiik
                         
                         {url}[{title}]
                         """,
