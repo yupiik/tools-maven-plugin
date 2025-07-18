@@ -878,6 +878,29 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 """
                         = Foo
+                        :imagesdir: /assets
+                        
+                        image::relative.png[]
+                        """,
+                """
+                         <div class="sect0" id="_foo">
+                          <h1>Foo</h1>
+                         <div class="sectionbody">
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="/assets/relative.png" alt="relative.png">
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void imagesDirsTrailingSlash() {
+        assertRenderingContent(
+                """
+                        = Foo
                         :imagesdir: /assets/
                         
                         image::relative.png[]
@@ -990,6 +1013,45 @@ class AsciidoctorLikeHtmlRendererTest {
                          </div>
                          </div>
                         """);
+    }
+
+    @Test
+    void noHeaderAndShowTitle() {
+        final var doc = new Parser().parse("""
+                = Test
+                                
+                Hello
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "showtitle", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <h1>Test</h1>
+                 <div class="paragraph">
+                 <p>
+                Hello
+                 </p>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void noHeaderWithoutShowTitle() {
+        final var doc = new Parser().parse("""
+                = Test
+                                
+                Hello
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <div class="paragraph">
+                 <p>
+                Hello
+                 </p>
+                 </div>
+                """, renderer.result());
     }
 
     private void assertRendering(final String adoc, final String html) {

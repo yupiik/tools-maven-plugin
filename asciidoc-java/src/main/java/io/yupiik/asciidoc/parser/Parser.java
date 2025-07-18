@@ -102,6 +102,7 @@ public class Parser {
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
+    private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
 
@@ -177,13 +178,22 @@ public class Parser {
         var revision = NO_REVISION;
         if (!title.isEmpty()) {
             final var authorLine = reader.nextLine();
-            if (authorLine != null && !authorLine.isBlank() && !reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
-                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches()) { // author line
+            if (authorLine == null || authorLine.isBlank()) {
+                // First empty line after title is the end of header
+                return new Header(title, author, revision, Map.of());
+            }
+            if (!reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
+                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isBlockMacro(authorLine)) { // author line
                     author = parseAuthorLine(authorLine);
 
                     final var revisionLine = reader.nextLine();
-                    if (revisionLine != null && !revisionLine.isBlank() && !reader.isComment(revisionLine) && canBeHeaderLine(revisionLine)) {
-                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches()) { // author line
+                    if (revisionLine == null || revisionLine.isBlank()) {
+                        // First empty line after title is the end of header
+                        return new Header(title, author, revision, Map.of());
+                    }
+                    if (!reader.isComment(revisionLine) && canBeHeaderLine(
+                            revisionLine) && !authorLine.startsWith(":")) {
+                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !isBlockMacro(revisionLine)) { // author line
                             revision = parseRevisionLine(revisionLine);
                         } else {
                             reader.rewind();
@@ -213,6 +223,10 @@ public class Parser {
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
         return new Body(doParse(null, reader, line -> true, resolver, attributes, true, false));
+    }
+
+    private boolean isBlockMacro(final String line) {
+        return line.contains("::") && HEADER_MACRO.matcher(line).matches();
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -1481,10 +1495,7 @@ public class Parser {
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
                 attributes.put(matcher.group("name"), value);
-            } else if (attributes.isEmpty()) {
-                reader.rewind();
-                break;
-            } else {
+            } else if (isBlockMacro(line)) {
                 // simplistic macro handling, mainly for conditional blocks since we still are in headers
                 final var stripped = line.strip();
                 final int options = stripped.indexOf("[]");
@@ -1523,6 +1534,9 @@ public class Parser {
 
                 // missing empty line separator
                 throw new IllegalArgumentException("Unknown line: '" + line + "'");
+            } else if (attributes.isEmpty()) {
+                reader.rewind();
+                break;
             }
         }
         return attributes;
