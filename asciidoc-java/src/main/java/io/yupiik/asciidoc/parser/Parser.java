@@ -44,11 +44,13 @@ import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.parser.resolver.RelativeContentResolver;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -124,18 +126,26 @@ public class Parser {
         }
     }
 
-    public Document parse(final BufferedReader reader, final ParserContext context) {
-        return parse(reader.lines().toList(), context);
+    public Document parse(final Path document, final BufferedReader reader, final ParserContext context) {
+        return parse(document, reader.lines().toList(), context);
     }
 
-    public Document parse(final List<String> input, final ParserContext context) {
+    public Document parse(final BufferedReader reader, final ParserContext context) {
+        return parse(null, reader.lines().toList(), context);
+    }
+
+    public Document parse(final Path document, final List<String> input, final ParserContext context) {
         final var reader = new Reader(input);
         try {
-            final var header = parseHeader(reader, context);
+            final var header = parseHeader(document, reader, context);
             return new Document(header, parseBody(reader, context.resolver(), new HashMap<>(header.attributes())));
         } catch (final RuntimeException re) {
             throw new IllegalStateException("Invalid state at line #" + reader.getLineNumber(), re);
         }
+    }
+
+    public Document parse(final List<String> input, final ParserContext context) {
+        return parse(null, input, context);
     }
 
     public Header parseHeader(final Reader reader) {
@@ -143,6 +153,10 @@ public class Parser {
     }
 
     public Header parseHeader(final Reader reader, final ParserContext context) {
+        return parseHeader(null, reader, context);
+    }
+
+    public Header parseHeader(final Path enclosingElement, final Reader reader, final ParserContext context) {
         final var firstLine = reader.skipCommentsAndEmptyLines();
         if (firstLine == null) {
             reader.reset();
@@ -181,7 +195,7 @@ public class Parser {
             }
         }
 
-        final var attributes = readAttributes(reader, context == null ? null : context.resolver());
+        final var attributes = readAttributes(enclosingElement, reader, context == null ? null : context.resolver());
         return new Header(title, author, revision, attributes);
     }
 
@@ -198,7 +212,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
-        return new Body(doParse(reader, line -> true, resolver, attributes, true, false));
+        return new Body(doParse(null, reader, line -> true, resolver, attributes, true, false));
     }
 
     private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
@@ -207,7 +221,7 @@ public class Parser {
                 line.startsWith("++") || line.startsWith("|==") || line.startsWith("> ") || line.startsWith("__"));
     }
 
-    private List<Element> doParse(final Reader reader, final Predicate<String> continueTest,
+    private List<Element> doParse(final Path enclosingDocument, final Reader reader, final Predicate<String> continueTest,
                                   final ContentResolver resolver, final Map<String, String> attributes,
                                   final boolean supportComplexStructures,
                                   final boolean skipTitle) {
@@ -240,48 +254,48 @@ public class Parser {
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
-                elements.add(new Listing(parsePassthrough(reader, options, "....", resolver).value(), options));
+                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver).value(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
             } else if (Objects.equals("====", stripped)) {
-                elements.add(parseOpenBlock(reader, options, resolver, attributes, "===="));
+                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
                 options = null;
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
-                elements.add(parseSection(reader, options, resolver, attributes));
+                elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
                 options = null;
             } else if (Objects.equals("----", stripped)) {
-                elements.add(parseCodeBlock(reader, options, resolver, attributes, "----"));
+                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, "----"));
                 options = null;
             } else if (Objects.equals("```", stripped)) {
-                elements.add(parseCodeBlock(reader, options, resolver, attributes, "```"));
+                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, "```"));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
-                elements.add(parseOpenBlock(reader, options, resolver, attributes, "--"));
+                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "--"));
                 options = null;
             } else if (stripped.startsWith("|===")) {
-                elements.add(parseTable(reader, options, resolver, attributes, stripped));
+                elements.add(parseTable(enclosingDocument, reader, options, resolver, attributes, stripped));
                 options = null;
             } else if (Objects.equals("++++", stripped)) {
-                elements.add(parsePassthrough(reader, options, "++++", resolver));
+                elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options));
                 options = null;
             } else if (stripped.startsWith("> ")) {
                 reader.rewind();
-                elements.add(parseQuote(reader, options, resolver, attributes));
+                elements.add(parseQuote(enclosingDocument, reader, options, resolver, attributes));
                 options = null;
             } else if (stripped.startsWith("____")) {
                 final var buffer = new ArrayList<String>();
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
-                elements.add(new Quote(doParse(new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
+                elements.add(new Quote(doParse(enclosingDocument, new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.endsWith(" +")) {
-                elements.addAll(parseLine(reader, stripped.substring(0, stripped.length()-2), resolver, attributes, supportComplexStructures));
+                elements.addAll(parseLine(enclosingDocument, reader, stripped.substring(0, stripped.length() - 2), resolver, attributes, supportComplexStructures));
                 elements.add(new LineBreak());
                 options = null;
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
@@ -298,7 +312,7 @@ public class Parser {
                 }
             } else {
                 reader.rewind();
-                elements.add(unwrapElementIfPossible(parseParagraph(reader, options, resolver, attributes, supportComplexStructures)));
+                elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
                 options = null;
             }
         }
@@ -307,7 +321,8 @@ public class Parser {
                 .toList();
     }
 
-    private PassthroughBlock parsePassthrough(final Reader reader, final Map<String, String> options, final String marker,
+    private PassthroughBlock parsePassthrough(final Path enclosingDocument,
+                                              final Reader reader, final Map<String, String> options, final String marker,
                                               final ContentResolver resolver) {
         final var content = new StringBuilder();
         String next;
@@ -331,7 +346,7 @@ public class Parser {
                 .map(it -> {
                     try {
                         return it.startsWith("include::") ?
-                                handleIncludes(it, resolver, actualOpts, false).stream()
+                                handleIncludes(enclosingDocument, it, resolver, actualOpts, false).stream()
                                         .map(e -> e instanceof Text t ? t.value() : "")
                                         .collect(joining("")) :
                                 it;
@@ -355,7 +370,7 @@ public class Parser {
         return out;
     }
 
-    private OpenBlock parseOpenBlock(final Reader reader, final Map<String, String> options,
+    private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                      final ContentResolver resolver, final Map<String, String> currentAttributes,
                                      final String end) {
         final var content = new ArrayList<String>();
@@ -366,10 +381,10 @@ public class Parser {
         if (next != null && !next.startsWith(end)) {
             reader.rewind();
         }
-        return new OpenBlock(doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+        return new OpenBlock(doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
-    private Quote parseQuote(final Reader reader, final Map<String, String> options,
+    private Quote parseQuote(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                              final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = new ArrayList<String>();
         String next;
@@ -379,10 +394,10 @@ public class Parser {
         if (next != null && !next.startsWith("> ")) {
             reader.rewind();
         }
-        return new Quote(doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+        return new Quote(doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
-    private Table parseTable(final Reader reader,
+    private Table parseTable(final Path enclosingDocument, final Reader reader,
                              final Map<String, String> options,
                              final ContentResolver resolver,
                              final Map<String, String> currentAttributes,
@@ -396,7 +411,7 @@ public class Parser {
                         .map(i -> {
                             if (i.contains("a")) { // asciidoc
                                 return (Function<List<String>, Element>) c -> {
-                                    final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, true, false);
+                                    final var content = doParse(enclosingDocument, new Reader(c), line -> true, resolver, currentAttributes, true, false);
                                     if (content.size() == 1) {
                                         return content.get(0);
                                     }
@@ -413,7 +428,7 @@ public class Parser {
                             }
                             if (i.contains("l") || i.contains("m")) { // literal or monospace
                                 return (Function<List<String>, Element>) c -> {
-                                    final var elements = handleIncludes(String.join("\n", c), resolver, currentAttributes, true)
+                                    final var elements = handleIncludes(enclosingDocument, String.join("\n", c), resolver, currentAttributes, true)
                                             .stream()
                                             .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
                                             .collect(joining());
@@ -426,7 +441,7 @@ public class Parser {
                             }
                             // contains("d") == default, all inline markup
                             return (Function<List<String>, Element>) c -> {
-                                final var content = doParse(new Reader(c), line -> true, resolver, currentAttributes, false, false);
+                                final var content = doParse(enclosingDocument, new Reader(c), line -> true, resolver, currentAttributes, false, false);
                                 if (content.size() == 1) {
                                     return content.get(0);
                                 }
@@ -484,7 +499,8 @@ public class Parser {
         return new Table(rows, options == null ? Map.of() : options);
     }
 
-    private Code parseCodeBlock(final Reader reader, final Map<String, String> options,
+    private Code parseCodeBlock(final Path enclosingDocument,
+                                final Reader reader, final Map<String, String> options,
                                 final ContentResolver resolver, final Map<String, String> currentAttributes,
                                 final String marker) {
         final var builder = new StringBuilder();
@@ -495,7 +511,7 @@ public class Parser {
 
         // todo: better support of the code features/syntax config
         final var content = builder.toString();
-        final var snippet = handleIncludes(content, resolver, currentAttributes, false);
+        final var snippet = handleIncludes(enclosingDocument, content, resolver, currentAttributes, false);
         final var code = snippet.stream().filter(Text.class::isInstance).map(Text.class::cast).map(Text::value).collect(joining());
         final var codeOptions = options == null ? Map.<String, String>of() : options;
 
@@ -523,7 +539,7 @@ public class Parser {
                 reader.rewind();
             }
 
-            final var elements = doParse(new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true, false);
+            final var elements = doParse(enclosingDocument, new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true, false);
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null && !next.isBlank()) {
@@ -566,7 +582,8 @@ public class Parser {
         return out == null ? new ContentWithCalloutIndices(snippet.stripTrailing(), List.of()) : new ContentWithCalloutIndices(out.toString(), callOuts);
     }
 
-    private List<Element> handleIncludes(final String content,
+    private List<Element> handleIncludes(final Path enclosingDocument,
+                                         final String content,
                                          final ContentResolver resolver,
                                          final Map<String, String> currentAttributes,
                                          final boolean parse) {
@@ -582,7 +599,9 @@ public class Parser {
         if (end < 0) {
             return List.of(new Text(List.of(), content, Map.of()));
         }
-        final var include = doInclude(new Macro(
+        final var include = doInclude(
+                enclosingDocument,
+                new Macro(
                         "include",
                         earlyAttributeReplacement(content.substring(start + "include::".length(), opts), currentAttributes),
                         parseOptions(content.substring(opts + 1, end)), false),
@@ -593,7 +612,7 @@ public class Parser {
                 .toList();
     }
 
-    private Paragraph parseParagraph(final Reader reader, final Map<String, String> options,
+    private Paragraph parseParagraph(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                      final ContentResolver resolver, final Map<String, String> currentAttributes,
                                      final boolean supportComplexStructures /* title case for ex */) {
         final var elements = new ArrayList<Element>();
@@ -604,7 +623,7 @@ public class Parser {
                 reader.rewind();
                 break;
             }
-            elements.addAll(parseLine(reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures));
+            elements.addAll(parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures));
         }
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
@@ -612,7 +631,7 @@ public class Parser {
         return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
     }
 
-    private List<Element> parseLine(final Reader reader, final String line,
+    private List<Element> parseLine(final Path enclosingDocument, final Reader reader, final String line,
                                     final ContentResolver resolver, final Map<String, String> currentAttributes,
                                     final boolean supportComplexStructures) {
         final var elements = new ArrayList<Element>();
@@ -625,7 +644,7 @@ public class Parser {
                     break;
                 }
 
-                final var admonition = parseAdmonition(reader, line, resolver, currentAttributes);
+                final var admonition = parseAdmonition(enclosingDocument, reader, line, resolver, currentAttributes);
                 if (admonition.isPresent()) {
                     elements.add(admonition.orElseThrow());
                     i = line.length();
@@ -637,7 +656,7 @@ public class Parser {
                     final var matcher = ORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("dots").length() == 1) {
                         reader.rewind();
-                        elements.add(parseOrderedList(reader, null, ". ", resolver, currentAttributes));
+                        elements.add(parseOrderedList(enclosingDocument, reader, null, ". ", resolver, currentAttributes));
                         i = line.length();
                         start = i;
                         break;
@@ -648,7 +667,7 @@ public class Parser {
                     final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("wildcard").length() == 1) {
                         reader.rewind();
-                        elements.add(parseUnorderedList(reader, null, "* ", resolver, currentAttributes, UNORDERED_LIST_PREFIX));
+                        elements.add(parseUnorderedList(enclosingDocument, reader, null, "* ", resolver, currentAttributes, UNORDERED_LIST_PREFIX));
                         i = line.length();
                         start = i;
                         break;
@@ -659,7 +678,7 @@ public class Parser {
                     final var matcher = UNORDERED_LIST2_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("wildcard").length() == 1) {
                         reader.rewind();
-                        elements.add(parseUnorderedList(reader, null, "- ", resolver, currentAttributes, UNORDERED_LIST2_PREFIX));
+                        elements.add(parseUnorderedList(enclosingDocument, reader, null, "- ", resolver, currentAttributes, UNORDERED_LIST2_PREFIX));
                         i = line.length();
                         start = i;
                         break;
@@ -672,7 +691,7 @@ public class Parser {
                             // and is not a macro
                             (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
                         reader.rewind();
-                        elements.add(parseDescriptionList(reader, ":: ", resolver, currentAttributes));
+                        elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver, currentAttributes));
                         i = line.length();
                         start = i;
                         break;
@@ -702,7 +721,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var attributeName = line.substring(i + 1, end);
-                        elements.add(new Attribute(attributeName, value -> doParse(new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true, false)));
+                        elements.add(new Attribute(attributeName, value -> doParse(enclosingDocument, new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true, false)));
                         i = end;
                         start = end + 1;
                     }
@@ -713,7 +732,7 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(line, i, end, elements, BOLD, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, BOLD, null, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
                     }
@@ -724,7 +743,7 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(line, i, end, elements, ITALIC, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, ITALIC, null, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
                     }
@@ -735,7 +754,7 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(line, i, end, elements, SUB, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, SUB, null, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
                     }
@@ -746,7 +765,7 @@ public class Parser {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(line, i, end, elements, SUP, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, SUP, null, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
                     }
@@ -818,18 +837,18 @@ public class Parser {
                                 final var macro = new Macro(type, label, "stem".equals(type) ? Map.of() : options, inlined);
                                 switch (macro.name()) {
                                     case "include" ->
-                                            elements.addAll(doInclude(macro, resolver, currentAttributes, true));
+                                            elements.addAll(doInclude(enclosingDocument, macro, resolver, currentAttributes, true));
                                     case "ifdef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifdef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
+                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     case "ifndef" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifndef(macro.label()),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
+                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     case "ifeval" -> elements.add(new ConditionalBlock(
                                             new ConditionalBlock.Ifeval(parseCondition(macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip(), currentAttributes)),
-                                            doParse(new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
+                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
                                     default -> elements.add(macro);
                                 }
@@ -850,7 +869,7 @@ public class Parser {
                                     if (start != i) {
                                         flushText(elements, line.substring(start, i));
                                     }
-                                    addTextElements(line, contentMarkerStart, end2, elements, null, line.substring(i + 1, end), resolver, currentAttributes);
+                                    addTextElements(enclosingDocument, line, contentMarkerStart, end2, elements, null, line.substring(i + 1, end), resolver, currentAttributes);
                                     i = end2;
                                     start = end2 + 1;
                                 }
@@ -890,7 +909,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
 
-                        addTextElements(line, i + endString.length() - 1, end, elements, MARK, options, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i + endString.length() - 1, end, elements, MARK, options, resolver, currentAttributes);
                         start = end + endString.length();
                         i = start - 1;
                     }
@@ -903,7 +922,8 @@ public class Parser {
                         }
                         final var content = line.substring(i + 1, end);
                         if (isLink(content)) { // this looks like a bad practise but can happen
-                            final var link = unwrapElementIfPossible(parseParagraph(new Reader(List.of(content)), Map.of(), resolver, Map.of(), false));
+                            final var link = unwrapElementIfPossible(parseParagraph(
+                                    enclosingDocument, new Reader(List.of(content)), Map.of(), resolver, Map.of(), false));
                             if (link instanceof Link l) {
                                 elements.add(l.options().getOrDefault("role", "").contains("inline-code") ?
                                         l :
@@ -1049,22 +1069,26 @@ public class Parser {
     }
 
     // include::target[leveloffset=offset,lines=ranges,tag(s)=name(s),indent=depth,encoding=encoding,opts=optional]
-    private List<Element> doInclude(final Macro macro,
-                                    final ContentResolver resolver,
-                                    final Map<String, String> currentAttributes,
-                                    final boolean parse) {
-        var content = resolver.resolve(
-                        macro.label(),
-                        ofNullable(macro.options().get("encoding"))
-                                .map(Charset::forName)
-                                .orElse(UTF_8))
+    protected List<Element> doInclude(final Path enclosingDocument,
+                                      final Macro macro,
+                                      final ContentResolver resolver,
+                                      final Map<String, String> currentAttributes,
+                                      final boolean parse) {
+        final var encoding = ofNullable(macro.options().get("encoding"))
+                .map(Charset::forName)
+                .orElse(UTF_8);
+        var resolved = (resolver instanceof RelativeContentResolver r ?
+                r.resolve(enclosingDocument, macro.label(), encoding) :
+                resolver.resolve(macro.label(), encoding).map(it -> new RelativeContentResolver.Resolved(enclosingDocument, it)))
                 .orElse(null);
-        if (content == null) {
+        if (resolved == null) {
             if (macro.options().containsKey("optional")) {
                 return List.of();
             }
             throw new IllegalArgumentException("Missing include: '" + macro.label() + "'");
         }
+
+        var content = resolved.content();
 
         final var lines = macro.options().get("lines");
         if (lines != null && !lines.isBlank()) {
@@ -1129,7 +1153,7 @@ public class Parser {
         }
 
         if (parse) {
-            return doParse(new Reader(content), l -> true, resolver, currentAttributes, true, false);
+            return doParse(resolved.path(), new Reader(content), l -> true, resolver, currentAttributes, true, false);
         }
         return List.of(new Text(List.of(), String.join("\n", content) + '\n', Map.of()));
     }
@@ -1140,7 +1164,8 @@ public class Parser {
                 sep : -1;
     }
 
-    private Optional<Admonition> parseAdmonition(final Reader reader,
+    private Optional<Admonition> parseAdmonition(final Path enclosingDocument,
+                                                 final Reader reader,
                                                  final String line,
                                                  final ContentResolver resolver,
                                                  final Map<String, String> currentAttributes) {
@@ -1157,11 +1182,12 @@ public class Parser {
                     if (next != null) {
                         reader.rewind();
                     }
-                    return new Admonition(level, unwrapElementIfPossible(parseParagraph(new Reader(buffer), null, resolver, currentAttributes, true)));
+                    return new Admonition(level, unwrapElementIfPossible(parseParagraph(
+                            enclosingDocument, new Reader(buffer), null, resolver, currentAttributes, true)));
                 });
     }
 
-    private DescriptionList parseDescriptionList(final Reader reader, final String prefix,
+    private DescriptionList parseDescriptionList(final Path enclosingDocument, final Reader reader, final String prefix,
                                                  final ContentResolver resolver,
                                                  final Map<String, String> currentAttributes) {
         final var children = new LinkedHashMap<Element, Element>(2);
@@ -1195,14 +1221,14 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                final var element = doParse(new Reader(buffer), s -> true, resolver, currentAttributes, true, false);
+                final var element = doParse(enclosingDocument, new Reader(buffer), s -> true, resolver, currentAttributes, true, false);
                 final var unwrapped = unwrapElementIfPossible(element.size() == 1 && element.get(0) instanceof Paragraph p ? p : new Paragraph(element, Map.of()));
-                final var key = doParse(new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false, false);
+                final var key = doParse(enclosingDocument, new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false, false);
                 children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
                 last = unwrapped;
             } else { // nested
                 reader.rewind();
-                final var nestedList = parseDescriptionList(reader, prefix.charAt(0) + prefix, resolver, currentAttributes);
+                final var nestedList = parseDescriptionList(enclosingDocument, reader, prefix.charAt(0) + prefix, resolver, currentAttributes);
                 if (!nestedList.children().isEmpty() && last != null) {
                     addCollapsingChildOnParent(List.of(last), nestedList);
                 }
@@ -1214,22 +1240,24 @@ public class Parser {
         return new DescriptionList(children, currentAttributes == null ? Map.of() : currentAttributes);
     }
 
-    private UnOrderedList parseUnorderedList(final Reader reader, final String options, final String prefix,
+    private UnOrderedList parseUnorderedList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,
                                              final ContentResolver resolver, final Map<String, String> currentAttributes,
                                              final Pattern pattern) {
         return parseList(
+                enclosingDocument,
                 reader, options, prefix, pattern, "wildcard",
                 UnOrderedList::children, UnOrderedList::new, resolver, currentAttributes);
     }
 
-    private OrderedList parseOrderedList(final Reader reader, final String options, final String prefix,
+    private OrderedList parseOrderedList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,
                                          final ContentResolver resolver, final Map<String, String> currentAttributes) {
         return parseList(
+                enclosingDocument,
                 reader, options, prefix, ORDERED_LIST_PREFIX, "dots",
                 OrderedList::children, OrderedList::new, resolver, currentAttributes);
     }
 
-    private <T extends Element> T parseList(final Reader reader, final String options, final String prefix,
+    private <T extends Element> T parseList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,
                                             final Pattern regex, final String captureName,
                                             final Function<T, List<Element>> childrenAccessor,
                                             final BiFunction<List<Element>, Map<String, String>, T> factory,
@@ -1249,11 +1277,12 @@ public class Parser {
                 buffer.setLength(0);
                 readContinuation(reader, prefix, regex, buffer, nextStripped);
 
-                final var elements = doParse(new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
+                final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
                 children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
             } else { // nested
                 reader.rewind();
                 final var nestedList = parseList(
+                        enclosingDocument,
                         reader, null, prefix.charAt(0) + prefix,
                         regex, captureName, childrenAccessor, factory, resolver, currentAttributes);
                 if (!childrenAccessor.apply(nestedList).isEmpty()) {
@@ -1298,11 +1327,11 @@ public class Parser {
         return "====".equals(strippedLine) || "----".equals(strippedLine) || "```".equals(strippedLine) || "--".equals(strippedLine) || "++++".equals(strippedLine);
     }
 
-    private void addTextElements(final String line, final int i, final int end,
+    private void addTextElements(final Path enclosingDocument, final String line, final int i, final int end,
                                  final List<Element> collector, final Text.Style style, final String options,
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = line.substring(i + 1, end);
-        final var sub = parseLine(null, content, resolver, currentAttributes, true);
+        final var sub = parseLine(enclosingDocument, null, content, resolver, currentAttributes, true);
         final var opts = options != null ? parseOptions(options) : Map.<String, String>of();
         if (sub.size() == 1 && sub.get(0) instanceof Text t) {
             if (!t.style().isEmpty()) {
@@ -1389,7 +1418,7 @@ public class Parser {
         }
     }
 
-    private Element parseSection(final Reader reader, final Map<String, String> options,
+    private Element parseSection(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var title = reader.skipCommentsAndEmptyLines();
         int i = 0;
@@ -1407,11 +1436,11 @@ public class Parser {
 
         final var prefix = IntStream.rangeClosed(0, i).mapToObj(idx -> "=").collect(joining());
         final var lineContent = title.substring(i).strip();
-        final var titleElement = parseLine(new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
+        final var titleElement = parseLine(enclosingDocument, new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
         return new Section(
                 i,
                 titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
-                doParse(reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true, false),
+                doParse(enclosingDocument, reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true, false),
                 options == null ? Map.of() : options);
     }
 
@@ -1440,7 +1469,7 @@ public class Parser {
         return new Revision(revisionLine.substring(0, firstSep).strip(), revisionLine.substring(firstSep + 1, secondSep).strip(), revisionLine.substring(secondSep + 1).strip());
     }
 
-    private Map<String, String> readAttributes(final Reader reader, final ContentResolver resolver) {
+    private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver) {
         Map<String, String> attributes = new LinkedHashMap<>();
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
@@ -1486,7 +1515,7 @@ public class Parser {
                             }
                             continue;
                         } else if ("include".equals(macro.name())) {
-                            doInclude(macro, resolver, attributes, true);
+                            doInclude(enclosingElement, macro, resolver, attributes, true);
                             continue;
                         }
                     }

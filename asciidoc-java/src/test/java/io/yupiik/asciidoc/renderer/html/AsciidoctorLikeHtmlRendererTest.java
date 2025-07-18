@@ -33,6 +33,39 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AsciidoctorLikeHtmlRendererTest {
     @Test
+    void relativeResolution(@TempDir final Path srcPath) throws IOException {
+        final var partials = srcPath.resolve("_partials");
+        Files.createDirectories(partials);
+        Files.writeString(partials.resolve("i1.adoc"), """
+                partial 1
+                
+                include::i2.adoc[]
+                """);
+        Files.writeString(partials.resolve("i2.adoc"), """
+                partial 2
+                """);
+        final var doc = new Parser().parse(
+                """
+                        = Index
+                        
+                        include::_partials/i1.adoc[]
+                        """,
+                new Parser.ParserContext(ContentResolver.of(srcPath)));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        Files.writeString(Path.of("/tmp/out.html"), renderer.result());
+        assertEquals(
+                """
+                         <div class="paragraph">
+                         <p>
+                        partial 1 partial 2
+                         </p>
+                         </div>
+                        """,
+                renderer.result());
+    }
+    @Test
     void renderInlineSvg() {
         final var doc = new Parser().parseBody(
                 " image:data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' style='font-family:monospace;font-size:15.2px' %3E%3Ctext id='obj2' x='13.5' y='24.0' fill='%23fff'%3E%5BRed Box%5D%3C/text%3E%3Ctext id='obj3' x='166.5' y='24.0' fill='%23000'%3E%5BBlue Box%5D%3C/text%3E%3C/g%3E%3C/svg%3E%0A[alt=\"svg\"] test",
