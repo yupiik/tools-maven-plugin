@@ -900,7 +900,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // todo: enhance
     protected void visitImage(final Macro element) {
-        String imagesDir = attr("imagesdir", "");
+
         if (dataUri && !element.label().startsWith("data:") && !element.options().containsKey("skip-data-uri")) {
             visitImage(new Macro(
                     element.name(), resolver.apply(element.label()).base64(),
@@ -915,7 +915,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        String resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
+
+        final String resolvedSrc;
+        if (element.label().startsWith("data:")) {
+            resolvedSrc = element.label();
+        } else {
+            String imagesDir = attr("imagesdir", "");
+            resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
+        }
 
         builder.append(" <img src=\"")
                 .append(resolvedSrc)
