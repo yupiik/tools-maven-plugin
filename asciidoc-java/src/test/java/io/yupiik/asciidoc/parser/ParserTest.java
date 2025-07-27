@@ -289,10 +289,10 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Link("https://yupiik.io", "Yupiik OSS", Map.of("role", "external", "window", "_blank")),
+                        new Link("https://yupiik.io", new Text(List.of(), "Yupiik OSS", Map.of("role", "external", "nowrap", "true", "window", "_blank", "", "Yupiik OSS")), Map.of("role", "external", "window", "_blank")),
                         new Paragraph(List.of(
                                 new Text(List.of(), "This can be in a sentence about ", Map.of()),
-                                new Link("https://yupiik.io", "Yupiik OSS", Map.of()),
+                                new Link("https://yupiik.io", new Text(List.of(), "Yupiik OSS", Map.of("nowrap", "true", "", "Yupiik OSS")), Map.of()),
                                 new Text(List.of(), ".", Map.of())
                         ), Map.of())
                 ),
@@ -302,15 +302,15 @@ class ParserTest {
     @Test
     void linkNoOpt() {
         assertEquals(
-                List.of(new Link("https://yupiik.io", "https://yupiik.io", Map.of())),
+                List.of(new Link("https://yupiik.io", new Text(List.of(), "https://yupiik.io", Map.of("nowrap", "true")), Map.of())),
                 new Parser().parseBody(new Reader(List.of("https://yupiik.io")), null).children());
         assertEquals(
                 List.of(new Paragraph(
                         List.of(
                                 new Text(List.of(), "in a sentence ", Map.of()),
-                                new Link("https://yupiik.io", "https://yupiik.io", Map.of()),
+                                new Link("https://yupiik.io", new Text(List.of(), "https://yupiik.io", Map.of("nowrap", "true")), Map.of()),
                                 new Text(List.of(), " and multiple ", Map.of()),
-                                new Link("https://www.yupiik.io", "https://www.yupiik.io", Map.of()),
+                                new Link("https://www.yupiik.io", new Text(List.of(), "https://www.yupiik.io", Map.of("nowrap", "true")), Map.of()),
                                 new Text(List.of(), " links.", Map.of())),
                         Map.of())),
                 new Parser().parseBody(new Reader(List.of("in a sentence https://yupiik.io and multiple https://www.yupiik.io links.")), null).children());
@@ -327,7 +327,7 @@ class ParserTest {
     @Test
     void linkMacroWithRole() {
         assertEquals(
-                List.of(new Macro("link", "foo", Map.of("role", "test"), true)),
+                List.of(new Link( "foo", new Text(List.of(), "foo", Map.of("role", "test", "nowrap", "true")), Map.of("role", "test", "nowrap", "true"))),
                 new Parser().parseBody(new Reader(List.of("link:foo[role=\"test\"]")), null).children());
     }
 
@@ -335,7 +335,7 @@ class ParserTest {
     void linksAttribute() {
         final var body = new Parser().parseBody(new Reader(List.of(":url: https://yupiik.io", "", "{url}[Yupiik OSS]")), null);
         assertEquals(
-                List.of(new Link("https://yupiik.io", "Yupiik OSS", Map.of())),
+                List.of(new Link("https://yupiik.io", new Text(List.of(), "Yupiik OSS", Map.of("", "Yupiik OSS", "nowrap", "true")), Map.of())),
                 body.children());
     }
 
@@ -1035,7 +1035,7 @@ class ParserTest {
         assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io"), doc.header().attributes());
 
         assertEquals(
-                List.of(new Link("https://yupiik.io", "Yupiik", Map.of())),
+                List.of(new Link("https://yupiik.io", new Text(List.of(), "Yupiik", Map.of("", "Yupiik", "nowrap", "true")), Map.of())),
                 doc.body().children());
     }
 
