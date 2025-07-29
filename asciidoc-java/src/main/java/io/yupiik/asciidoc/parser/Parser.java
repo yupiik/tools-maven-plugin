@@ -70,6 +70,7 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.yupiik.asciidoc.model.Element.ElementType.LINK;
 import static io.yupiik.asciidoc.model.Text.Style.BOLD;
 import static io.yupiik.asciidoc.model.Text.Style.EMPHASIS;
 import static io.yupiik.asciidoc.model.Text.Style.ITALIC;
@@ -864,10 +865,41 @@ public class Parser {
                                             new ConditionalBlock.Ifeval(parseCondition(macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip(), currentAttributes)),
                                             doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
                                             macro.options()));
-                                    default -> elements.add(macro);
+                                    default -> {
+                                        var linkLabel = unwrapElementIfPossible(parseParagraph(
+                                                enclosingDocument,
+                                                new Reader(List.of(options.getOrDefault("", label))),
+                                                Stream.of(options.entrySet(), Map.of("nowrap", "true").entrySet())
+                                                        .flatMap(Collection::stream)
+                                                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)), resolver, currentAttributes, supportComplexStructures));
+                                        if (linkLabel.type() == LINK) {
+                                            final var l = (Link) linkLabel;
+                                            linkLabel = l.label();
+                                        }
+                                        elements.add("link".equals(macro.name()) ?
+                                                new Link(macro.label(),
+                                                        linkLabel,
+                                                        Stream.of(macro.options().entrySet(), Map.of("nowrap", "true").entrySet())
+                                                                .flatMap(Collection::stream)
+                                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))) :
+                                                macro);
+                                    }
                                 }
                             } else {
-                                elements.add(new Link(optionsPrefix, options.getOrDefault("", optionsPrefix), removeEmptyKey(options)));
+                                final var label = options.getOrDefault("", optionsPrefix);
+                                var linkLabel = unwrapElementIfPossible(parseParagraph(
+                                        enclosingDocument, new Reader(List.of(label)),
+                                        Stream.of(options.entrySet(), Map.of("nowrap", "true").entrySet())
+                                                .flatMap(Collection::stream)
+                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)), resolver, currentAttributes, supportComplexStructures));
+                                if (linkLabel.type() == LINK) {
+                                    final var l = (Link) linkLabel;
+                                    linkLabel = l.label();
+                                }
+                                elements.add(new Link(
+                                        optionsPrefix,
+                                        linkLabel,
+                                        removeEmptyKey(options)));
                             }
                             i = end;
                             start = end + 1;
@@ -1692,7 +1724,7 @@ public class Parser {
             }
 
             final var link = content.substring(next, end);
-            elements.add(new Link(link, link, Map.of()));
+            elements.add(new Link(link, new Text(List.of(), link, Map.of("nowrap", "true")), Map.of()));
             if (end == content.length()) {
                 break;
             }

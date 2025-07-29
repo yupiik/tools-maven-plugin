@@ -874,6 +874,23 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void linkWithCode() {
+        assertRenderingContent(
+                "link:http://foo.bar[`test`]",
+                " <a href=\"http://foo.bar\"><code>test</code></a>\n");
+    }
+
+    @Test
+    void simpleLink() {
+        assertRenderingContent(
+                "http://foo.bar",
+                " <a href=\"http://foo.bar\">http://foo.bar</a>\n");
+        assertRenderingContent(
+                "link:http://foo.bar[http://foo.bar]",
+                " <a href=\"http://foo.bar\">http://foo.bar</a>\n");
+    }
+
+    @Test
     void imagesDirs() {
         assertRenderingContent(
                 """

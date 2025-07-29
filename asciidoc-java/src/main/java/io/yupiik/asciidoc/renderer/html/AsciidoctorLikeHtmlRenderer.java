@@ -265,14 +265,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     public void visitParagraph(final Paragraph element) {
         state.stackChain(element.children(), () -> {
             final boolean preambleWasHandled = false;
-            handlePreamble(true, element, () -> {
-                if (!state.nowrap) {
+            final boolean nowrap = Boolean.parseBoolean(element.options().getOrDefault("nowrap", "false"));
+            handlePreamble(!nowrap, element, () -> {
+                if (!state.nowrap && !nowrap) {
                     builder.append(" <div");
                     writeCommonAttributes(element.options(), c -> "paragraph" + (c != null ? ' ' + c : ""));
                     builder.append(">\n");
                 }
 
-                final boolean addP = !state.nowrap && !preambleWasHandled && state.sawPreamble && element.children().stream()
+                final boolean addP = !state.nowrap && !nowrap && !preambleWasHandled && state.sawPreamble && element.children().stream()
                         .allMatch(e -> e.type() == TEXT ||
                                 e.type() == ATTRIBUTE ||
                                 e.type() == LINK ||
@@ -287,7 +288,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append("</p>\n");
                 }
 
-                if (!state.nowrap) {
+                if (!state.nowrap && !nowrap) {
                     builder.append(" </div>\n");
                 }
             });
@@ -408,18 +409,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
 
         builder.append(">");
-        if (element.options().containsKey("unsafeHtml")) {
-            builder.append(element.label());
-        } else {
-            var label = element.label();
-            if (attr("hide-uri-scheme", element.options()) != null) {
-                if (label.contains("://")) {
-                    label = label.substring(label.indexOf("://") + "://".length());
-                } else if (label.contains(":")) { // mailto for ex
-                    label = label.substring(label.indexOf(":") + 1);
-                }
+        var label = element.label();
+        if (label instanceof Text t && attr("hide-uri-scheme", element.options()) != null) {
+            if (t.value().contains("://")) {
+                label = new Text(t.style(), t.value().substring(t.value().indexOf("://") + "://".length()), t.options());
+            } else if (t.value().contains(":")) { // mailto for ex
+                label = new Text(t.style(), t.value().substring(t.value().indexOf(":") + 1), t.options());
             }
-            builder.append(escape(label));
+        }
+        if (label instanceof Text t && t.style().isEmpty() && (t.options().isEmpty() || Map.of("nowrap", "true").equals(t.options()))) {
+            builder.append(escape(t.value()));
+        } else {
+            visitElement(label);
         }
         builder.append("</a>\n");
 
@@ -712,7 +713,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitAnchor(final Anchor element) {
-        visitLink(new Link("#" + element.value(), element.label() == null || element.label().isBlank() ? element.value() : element.label(), Map.of()));
+        visitLink(new Link("#" + element.value(), new Text(List.of(), element.label() == null || element.label().isBlank() ? element.value() : element.label(), Map.of()), Map.of()));
     }
 
     @Override
@@ -817,7 +818,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                         final var parser = new Parser(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
                         final var body = parser.parseBody(new Reader(List.of(label)), new LocalContextResolver(configuration.getAssetsBase()));
                         if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
-                            visitLink(new Link(element.label(), t.value(), element.options()));
+                            visitLink(new Link(element.label(), new Text(List.of(), t.value(), Map.of()), element.options()));
                         } else {
                             final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
                             nested.state.sawPreamble = true;
@@ -833,14 +834,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                                     .forEach(nested::visitElement);
 
                             final var html = nested.result();
-                            visitLink(new Link(element.label(), html, Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
+                            visitLink(new Link(element.label(), new Text(List.of(), html, Map.of()), Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
                                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
                         }
                     } catch (final RuntimeException re) {
-                        visitLink(new Link(element.label(), label, element.options()));
+                        visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
                     }
                 } else {
-                    visitLink(new Link(element.label(), label, element.options()));
+                    visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
                 }
             }
             // todo: menu, doublefootnote, footnote

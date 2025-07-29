@@ -15,9 +15,14 @@
  */
 package io.yupiik.asciidoc.model;
 
+import java.util.List;
 import java.util.Map;
 
-public record Link(String url, String label, Map<String, String> options) implements Element {
+public record Link(String url, Element label, Map<String, String> options) implements Element {
+    public Link(final String url, final String label, final Map<String, String> options) {
+        this(url, new Text(List.of(), label, Map.of("", label, "nowrap", "true")), options);
+    }
+
     @Override
     public ElementType type() {
         return ElementType.LINK;
