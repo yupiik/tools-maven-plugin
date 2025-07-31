@@ -700,11 +700,11 @@ public class Parser {
                     }
                 }
 
-                if (line.contains("::")) {
+                if (line.contains("::") &&
+                        // and is not a macro
+                        (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
                     final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && matcher.group("marker").length() == 2 &&
-                            // and is not a macro
-                            (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
+                    if (matcher.matches() && matcher.group("marker").length() == 2) {
                         reader.rewind();
                         elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver, currentAttributes));
                         i = line.length();
