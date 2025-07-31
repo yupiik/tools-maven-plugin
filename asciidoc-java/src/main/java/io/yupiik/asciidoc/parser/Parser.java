@@ -700,9 +700,10 @@ public class Parser {
                     }
                 }
 
-                if (line.contains("::") &&
+                int doubleColons = line.indexOf("::");
+                if (doubleColons > 0 &&
                         // and is not a macro
-                        (line.endsWith("::") || line.substring(line.indexOf("::") + "::".length()).startsWith(" "))) {
+                        (line.endsWith("::") || line.substring(doubleColons + "::".length()).startsWith(" "))) {
                     final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("marker").length() == 2) {
                         reader.rewind();
