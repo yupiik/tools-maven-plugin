@@ -274,7 +274,17 @@ public class Parser {
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
             } else if (Objects.equals("====", stripped)) {
-                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
+                Optional<Admonition.Level> level;
+                final var potentialLevel = options== null ? "" : options.getOrDefault("", "");
+                if (!potentialLevel.isBlank() &&
+                        (potentialLevel.length() == 3 || potentialLevel.length() == 4 || potentialLevel.length() == 7 || potentialLevel.length() == 9) &&
+                        (level = Stream.of(Admonition.Level.values())
+                                .filter(it -> Objects.equals(it.name(), potentialLevel))
+                                .findFirst()).isPresent()) {
+                    elements.add(parseAdmonitionBlock(enclosingDocument, reader, level.orElseThrow(), resolver, attributes));
+                } else {
+                    elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
+                }
                 options = null;
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
@@ -397,6 +407,25 @@ public class Parser {
             reader.rewind();
         }
         return new OpenBlock(doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+    }
+
+    private Admonition parseAdmonitionBlock(final Path enclosingDocument,
+                                            final Reader reader,
+                                            final Admonition.Level level,
+                                            final ContentResolver resolver,
+                                            final Map<String, String> currentAttributes) {
+        final var content = new ArrayList<String>();
+        String next;
+        while ((next = reader.nextLine()) != null && !Objects.equals("====", next.strip())) {
+            content.add(next);
+        }
+        if (next != null && !next.startsWith("====")) {
+            reader.rewind();
+        }
+        final var elements = doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false);
+        return new Admonition(
+                level,
+                elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of()));
     }
 
     private Quote parseQuote(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1371,7 +1400,9 @@ public class Parser {
     }
 
     private boolean isBlock(final String strippedLine) {
-        return "====".equals(strippedLine) || "----".equals(strippedLine) || "```".equals(strippedLine) || "--".equals(strippedLine) || "++++".equals(strippedLine);
+        return "====".equals(strippedLine) || "----".equals(strippedLine) ||
+                "```".equals(strippedLine) || "--".equals(strippedLine) ||
+                "++++".equals(strippedLine);
     }
 
     private void addTextElements(final Path enclosingDocument, final String line, final int i, final int end,
