@@ -942,6 +942,23 @@ class ParserTest {
     }
 
     @Test
+    void admonitionBlock() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [WARNING]
+                ====
+                Wolpertingers are known to nest in server racks.
+                Enter at your own risk.
+                ====
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Admonition(WARNING, new Text(
+                        List.of(),
+                        "Wolpertingers are known to nest in server racks. Enter at your own risk.",
+                        Map.of()))),
+                body.children());
+    }
+
+    @Test
     void anchor() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 The section <<anchors>> describes how automatic anchors work.
