@@ -77,6 +77,13 @@
     </dependency>
 
     <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-handlebars</artifactId>
+      <version>1.0.29</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <groupId>io.yupiik.batch</groupId>
       <artifactId>simple-configuration</artifactId>
       <version>1.0.0</version>
