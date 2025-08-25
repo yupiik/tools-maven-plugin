@@ -52,8 +52,10 @@ import java.util.Map;
 
 import static java.lang.ClassLoader.getSystemClassLoader;
 import static java.util.Collections.emptyList;
+import static java.util.Map.entry;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_RUNTIME;
 
 /**
@@ -338,6 +340,8 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Actions to execute before any rendering.
      * Typically used to generate some content.
+     * Note that `maven-secret:` can be used in configuration values to lookup a server secret password
+     * from maven settings.xml.
      */
     @Parameter
     private List<PreAction> preActions;
@@ -532,7 +536,22 @@ public class MiniSiteMojo extends BaseMojo {
                 .templatePrefixes(templatePrefixes)
                 .templateAddLeftMenu(templateAddLeftMenu)
                 .templateSuffixes(templateSuffixes)
-                .preActions(preActions)
+                .preActions(preActions == null ? null : preActions.stream()
+                        .map(it -> {
+                            final var copy = new PreAction();
+                            copy.setType(it.getType());
+                            copy.setConfiguration(it.getConfiguration() == null || it.getConfiguration().isEmpty() ?
+                                    it.getConfiguration() :
+                                    it.getConfiguration().entrySet().stream()
+                                            .map(e -> e.getValue().startsWith("maven-secret:") ?
+                                                    entry(e.getKey(), ofNullable(decryptServer(e.getValue().substring("maven-secret:".length())))
+                                                            .map(Server::getPassword)
+                                                            .orElseGet(e::getValue)):
+                                                    e)
+                                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
+                            return copy;
+                        })
+                        .collect(toList()))
                 .skipRendering(skipRendering)
                 .customGems(customGems)
                 .requires(requires)
