@@ -42,6 +42,7 @@ import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
+import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
@@ -88,6 +89,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final boolean dataUri;
     protected final DataResolver resolver;
     protected final State state = new State(); // this is why we are not thread safe
+    protected final Parser subParser;
+    protected final ContentResolver subResolver;
 
     public AsciidoctorLikeHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -101,6 +104,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         this.resolver = dataUri ?
                 (configuration.getResolver() == null ? new DataResolver(assetsDir(configuration, "imagesdir")) : configuration.getResolver()) :
                 null;
+        this.subParser = new Parser(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
+        this.subResolver = new LocalContextResolver(configuration.getAssetsBase());
     }
 
     private Path assetsDir(final Configuration configuration, final String attribute) {
@@ -815,25 +820,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 final var label = element.options().getOrDefault("", element.label());
                 if (label.contains("image:")) { // FIXME: ...we don't want options to be parsed but this looks required
                     try {
-                        final var parser = new Parser(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
-                        final var body = parser.parseBody(new Reader(List.of(label)), new LocalContextResolver(configuration.getAssetsBase()));
+                        final var body = subParser.parseBody(new Reader(List.of(label)), subResolver);
                         if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
                             visitLink(new Link(element.label(), new Text(List.of(), t.value(), Map.of()), element.options()));
                         } else {
-                            final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
-                            nested.state.sawPreamble = true;
-                            (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
-                                    p.children() :
-                                    body.children()).stream()
-                                    .map(e -> e instanceof Text t ?
-                                            new Text(t.style(), t.value(), Stream.concat(
-                                                            t.options().entrySet().stream(),
-                                                            Stream.of(entry("nowrap", "true")))
-                                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))) :
-                                            e)
-                                    .forEach(nested::visitElement);
-
-                            final var html = nested.result();
+                            final var html = render(body).result();
                             visitLink(new Link(element.label(), new Text(List.of(), html, Map.of()), Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
                                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
                         }
@@ -896,7 +887,36 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             target = relFilePrefix + target.substring(0, target.length() - ".adoc".length()) + relFileSuffix;
         }
         final var label = element.options().get("");
-        builder.append(" <a href=\"").append(target).append("\">").append(label == null ? element.label() : label).append("</a>\n");
+        builder.append(" <a href=\"").append(target).append("\">").append(label == null ? element.label() : parseLabel(label)).append("</a>\n");
+    }
+
+    // FIXME: should it be done in Parser? but macro label isn't supposed to be interpreted in parser....
+    private String parseLabel(final String label) {
+        try {
+            final var body = subParser.parseBody(new Reader(List.of(label)), subResolver);
+            if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
+                return label;
+            }
+            return render(body).result();
+        } catch (final RuntimeException re) {
+            return label;
+        }
+    }
+
+    private AsciidoctorLikeHtmlRenderer render(final Body body) {
+        final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
+        nested.state.sawPreamble = true;
+        (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
+                p.children() :
+                body.children()).stream()
+                .map(e -> e instanceof Text t ?
+                        new Text(t.style(), t.value(), Stream.concat(
+                                        t.options().entrySet().stream(),
+                                        Stream.of(entry("nowrap", "true")))
+                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))) :
+                        e)
+                .forEach(nested::visitElement);
+        return nested;
     }
 
     // todo: enhance
