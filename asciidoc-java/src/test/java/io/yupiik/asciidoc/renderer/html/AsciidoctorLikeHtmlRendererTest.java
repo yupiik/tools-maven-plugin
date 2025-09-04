@@ -881,6 +881,13 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void xrefWithCode() {
+        assertRenderingContent(
+                "xref:foo.adoc[`test`]",
+                " <a href=\"foo.html\"><code>test</code></a>\n");
+    }
+
+    @Test
     void simpleLink() {
         assertRenderingContent(
                 "http://foo.bar",
