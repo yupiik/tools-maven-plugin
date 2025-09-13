@@ -500,6 +500,26 @@ public class Parser {
         while (!Objects.equals(token, next = reader.skipCommentsAndEmptyLines()) && next != null) {
             next = next.strip();
             final var cells = new ArrayList<Element>();
+            if (!next.startsWith("|") && !rows.isEmpty() && !rows.get(rows.size() - 1).isEmpty()) {
+                final var lastRow = rows.get(rows.size() - 1);
+                final var line = cellParser.size() > lastRow.size() - 1
+                        ? cellParser.get(lastRow.size() - 1).apply(List.of(next))
+                        : new Text(List.of(), next, Map.of());
+                final var last = lastRow.get(lastRow.size() - 1);
+                final Element replacement;
+                if (last instanceof Text lt && line instanceof Text le) {
+                    replacement = mergeTexts(List.of(lt, le));
+                } else if (last instanceof Paragraph lt && line instanceof Paragraph le) {
+                    replacement = new Paragraph(Stream.concat(lt.children().stream(), le.children().stream()).toList(), lt.options());
+                } else if (last instanceof Paragraph lp) {
+                    replacement = new Paragraph(Stream.concat(lp.children().stream(), Stream.of(line)).toList(), lp.options());
+                } else {
+                    replacement = unwrapElementIfPossible(new Paragraph(List.of(last, line), Map.of("nowrap", "true")));
+                }
+                lastRow.set(lastRow.size() - 1, replacement);
+                continue;
+            }
+
             if (next.indexOf("|", 2) > 0) { // single line row
                 int cellIdx = 0;
                 int last = 1; // line starts with '|'
@@ -854,11 +874,17 @@ public class Parser {
                             backward = -1;
                         }
 
+                        var offset = 0;
                         if (backward >= 0 && backward < i) { // start by assuming it a link then fallback on a macro
-                            final var optionsPrefix = line.substring(backward, i);
+                            var optionsPrefix = line.substring(backward, i);
                             var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
                                 flushText(elements, line.substring(start, backward));
+                            }
+
+                            if (optionsPrefix.startsWith("__") && line.substring(end).startsWith("]__")) {
+                                optionsPrefix = optionsPrefix.substring(2);
+                                offset = 2;
                             }
 
                             final int macroMarker = optionsPrefix.indexOf(":");
@@ -931,8 +957,8 @@ public class Parser {
                                         linkLabel,
                                         removeEmptyKey(options)));
                             }
-                            i = end;
-                            start = end + 1;
+                            i = end + offset;
+                            start = i + 1;
                             continue;
                         }
 
@@ -1485,15 +1511,23 @@ public class Parser {
         final var keyValue = key.toString();
         if (value.isEmpty()) {
             if (keyValue.startsWith(".")) {
-                collector.put("role", keyValue.substring(1));
+                collector.put("role", keyValue.substring(1).replace('.', ' '));
             } else if (keyValue.startsWith("#")) {
                 collector.put("id", keyValue.substring(1));
             } else {
-                collector.put(defaultKey, keyValue);
+                collector.put(defaultKey, dropLegacyPassthroughMarkers(keyValue));
             }
         } else {
-            collector.put(keyValue, value.toString());
+            collector.put(
+                    keyValue,
+                    dropLegacyPassthroughMarkers(value.toString()));
         }
+    }
+
+    private static String dropLegacyPassthroughMarkers(final String v) {
+        return v.length() > 3 && v.startsWith("$$") && v.endsWith("$$") ?
+                v.substring(2, v.length() - 2) :
+                v;
     }
 
     private Element parseSection(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
