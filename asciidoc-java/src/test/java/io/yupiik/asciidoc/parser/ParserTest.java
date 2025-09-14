@@ -60,8 +60,51 @@ import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class ParserTest {
+    @Test
+    public void doubleDollarAndQuotingForMacro() {
+        final var body = new Parser()
+                .parseBody("xref:foo[$$bar$$]\n__link:https://foo.bar[$$dummy$$]__", new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Paragraph(
+                                List.of(
+                                        new Macro("xref", "foo", Map.of("", "bar"), true),
+                                        new Link("https://foo.bar", new Text(List.of(), "dummy", Map.of("nowrap", "true", "", "dummy")), Map.of("", "dummy", "nowrap", "true"))
+                                ), Map.of())),
+                body.children());
+    }
+
+    // crd-ref-docs uses this kind of formatting
+    @Test
+    public void tableWithContinuation() {
+        var body = new Parser().parseBody(
+                """
+                        [cols="20a,50a,15a,15a", options="header"]
+                        |===
+                        | Field | Description | Default | Validation
+                        | *`foo`* string | Foo. |  | MaxLength: 10
+                        MinLength: 3
+                        Pattern: `^[A-Z]$`
+                        
+                        | *`bar`* string | Bar. |  | MaxLength: 10
+                        MinLength: 3
+                        Pattern: `^[A-Z]$`
+                        
+                        |===
+                        """,
+                new Parser.ParserContext(null)
+        );
+        assertEquals(1, body.children().size());
+        final var table = assertInstanceOf(Table.class, body.children().get(0));
+        assertEquals(3, table.elements().size());
+        for (final var it : table.elements()) {
+            assertEquals(4, it.size());
+        }
+    }
+
     @Test
     void definitionList() {
         final var body = new Parser().parseBody(new Reader(List.of("""
