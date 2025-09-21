@@ -91,7 +91,8 @@ class MiniSiteTest {
     void blog(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
         asserts.assertThat(files -> assertEquals(
                 List.of(
-                        "blog/author/index.html", "blog/author/romain-manni-bucau/index.html", "blog/author/romain-manni-bucau/page-1.html",
+                        "404.html", "blog/author/index.html",
+                        "blog/author/romain-manni-bucau/index.html", "blog/author/romain-manni-bucau/page-1.html",
                         "blog/category/index.html",
                         "blog/category/others/index.html", "blog/category/others/page-1.html",
                         "blog/category/simple/index.html", "blog/category/simple/page-1.html",
