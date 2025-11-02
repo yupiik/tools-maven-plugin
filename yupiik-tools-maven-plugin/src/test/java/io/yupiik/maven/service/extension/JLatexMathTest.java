@@ -18,6 +18,7 @@ package io.yupiik.maven.service.extension;
 import io.yupiik.maven.mojo.BaseMojo;
 import io.yupiik.maven.service.AsciidoctorInstance;
 import io.yupiik.maven.test.MavenTest;
+import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,7 +28,7 @@ class JLatexMathTest {
     void block(final BaseMojo mojo, final AsciidoctorInstance instance) {
         assertTrue(
                 instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", OptionsBuilder.options())).startsWith("" +
+                        a.convert("= Result\n\n[jlatexmath]\n--\nx^n + y^n = z^n\n--", Options.builder().build())).startsWith("" +
                         "<div class=\"openblock\">\n" +
                         "<div class=\"content\">\n" +
                         "<div class=\"imageblock\">\n" +
@@ -39,7 +40,7 @@ class JLatexMathTest {
     void inline(final BaseMojo mojo, final AsciidoctorInstance instance) {
         assertTrue(
                 instance.withAsciidoc(mojo, a ->
-                        a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", OptionsBuilder.options())).startsWith("" +
+                        a.convert("= Result\n\nSome image: jmath:_[x^n + y^n = z^n]", Options.builder().build())).startsWith("" +
                         "<div class=\"paragraph\">\n" +
                         "<p>Some image: <span class=\"image\"><img src=\"data:image/png;base64"));
     }

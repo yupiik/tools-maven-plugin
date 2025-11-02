@@ -36,8 +36,10 @@ public class AsciidoctorAsciidoc implements Asciidoc {
                 .attribute("source-highlighter", "highlightjs")
                 .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1")
                 .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css")
-                .attribute("imagesdir", "images")
-                .attributes(configuration.getAttributes() == null ? Map.of() : configuration.getAttributes());
+                .attribute("imagesdir", "images");
+        if (configuration.getAttributes() != null && !configuration.getAttributes().isEmpty()) {
+            configuration.getAttributes().forEach(attributes::attribute);
+        }
         if (configuration.getProjectVersion() != null && (configuration.getAttributes() == null || !configuration.getAttributes().containsKey("projectVersion"))) {
             attributes.attribute("projectVersion", configuration.getProjectVersion());
         }
@@ -45,7 +47,7 @@ public class AsciidoctorAsciidoc implements Asciidoc {
                 .safe(UNSAFE)
                 .backend("html5")
                 .inPlace(false)
-                .headerFooter(false)
+                .standalone(false)
                 .baseDir(configuration.getSource().resolve("content").getParent().toAbsolutePath().normalize().toFile())
                 .attributes(attributes.build());
         if (configuration.getTemplateDirs() != null && !configuration.getTemplateDirs().isEmpty()) {
@@ -79,7 +81,7 @@ public class AsciidoctorAsciidoc implements Asciidoc {
         @Override
         public String convert(final String content, final Object options) {
             return instance.convert(content, options == null ?
-                    Options.builder().safe(UNSAFE).backend("html5").inPlace(false).headerFooter(false).build() :
+                    Options.builder().safe(UNSAFE).backend("html5").inPlace(false).standalone(false).build() :
                     (Options) options);
         }
     }

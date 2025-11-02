@@ -18,6 +18,7 @@ package io.yupiik.maven.service.extension;
 import io.yupiik.maven.mojo.BaseMojo;
 import io.yupiik.maven.service.AsciidoctorInstance;
 import io.yupiik.maven.test.MavenTest;
+import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -4879,6 +4880,6 @@ class ExcelTableMacroTest {
                         "</tr>\n" +
                         "</tbody>\n" +
                         "</table>",
-                instance.withAsciidoc(mojo, a -> a.convert("= Result\n\n[excel]\n--\n" + xls + "\n--", OptionsBuilder.options())));
+                instance.withAsciidoc(mojo, a -> a.convert("= Result\n\n[excel]\n--\n" + xls + "\n--", Options.builder().build())));
     }
 }

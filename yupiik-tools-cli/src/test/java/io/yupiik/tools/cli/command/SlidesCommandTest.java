@@ -47,7 +47,7 @@ class SlidesCommandTest {
                 "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
                 "<title>My Awesome Presentation</title>" +
                 "<meta name=\"author\" content=\"Yupiik\">" +
-                "<meta name=\"generator\" content=\"Asciidoctor 2.0.16 (Bespoke.js converter)\">" +
+                "<meta name=\"generator\" content=\"Asciidoctor 2.0.23 (Bespoke.js converter)\">" +
                 "<link rel=\"shortcut icon\" href=\"img/favicon.ico\" type=\"image/x-icon\">" +
                 "<meta name=\"mobile-web-app-capable\" content=\"yes\">" +
                 "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +

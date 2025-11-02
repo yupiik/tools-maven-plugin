@@ -20,6 +20,7 @@ import io.yupiik.maven.service.AsciidoctorInstance;
 import org.apache.maven.model.Build;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.project.MavenProject;
+import org.asciidoctor.Options;
 import org.asciidoctor.OptionsBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -78,7 +79,7 @@ class XsltMacroTest {
                         "</div>\n" +
                         "</div>",
                 instance.withAsciidoc(newFakeMojo(fakeProject), a ->
-                        a.convert("= Result\n\n[maven_xslt,xslt=surefire]\n--\n--", OptionsBuilder.options())));
+                        a.convert("= Result\n\n[maven_xslt,xslt=surefire]\n--\n--", Options.builder().build())));
     }
 
     private BaseMojo newFakeMojo(final MavenProject fakeProject) {
