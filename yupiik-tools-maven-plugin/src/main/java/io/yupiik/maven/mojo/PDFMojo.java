@@ -22,6 +22,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.asciidoctor.Asciidoctor;
 import org.asciidoctor.Attributes;
+import org.asciidoctor.AttributesBuilder;
 import org.asciidoctor.Options;
 import org.asciidoctor.SafeMode;
 
@@ -125,7 +126,7 @@ public class PDFMojo extends BaseMojo {
 
     private void doRender(final Path src, final Options options, final Asciidoctor adoc) {
         try {
-            options.setToFile(targetDirectory.toPath()
+            options.setToFile(targetDirectory.toPath().toAbsolutePath()
                     .resolve(src.getFileName().toString().replaceFirst(".adoc$", ".pdf"))
                     .toString());
             adoc.convert(String.join("\n", Files.readAllLines(src)), options);
@@ -136,29 +137,31 @@ public class PDFMojo extends BaseMojo {
     }
 
     protected Options createOptions(final Path theme, final Path src) {
+        AttributesBuilder attribute = Attributes.builder()
+                .docType("book")
+                .icons("font")
+                .hiddenUriScheme(true)
+                .dataUri(true)
+                .setAnchors(true)
+                .attribute("stem")
+                .attribute("idprefix")
+                .attribute("pdf-theme", "yupiik")
+                .attribute("pdf-themesdir", theme.toAbsolutePath().normalize().toString())
+                .attribute("partialsdir", src.resolve("_partials").toAbsolutePath().normalize().toString())
+                .attribute("imagesdir", src.resolve("images").toAbsolutePath().normalize().toString())
+                .attribute("idseparator", "-")
+                .attribute("source-highlighter", "rouge")
+                // .attribute("rouge-style", "igorpro") the closest of the one we want
+                .attribute("rouge-style", "yupiik");
+        if (attributes != null && !attributes.isEmpty()) {
+            attributes.forEach(attribute::attribute);
+        }
         return Options.builder()
                 .safe(SafeMode.UNSAFE)
                 .backend("pdf")
                 .inPlace(false)
-                .baseDir(sourceDirectory)
-                .attributes(Attributes.builder()
-                        .docType("book")
-                        .icons("font")
-                        .hiddenUriScheme(true)
-                        .dataUri(true)
-                        .setAnchors(true)
-                        .attribute("stem")
-                        .attribute("idprefix")
-                        .attribute("pdf-theme", "yupiik")
-                        .attribute("pdf-themesdir", theme.toAbsolutePath().normalize().toString())
-                        .attribute("partialsdir", src.resolve("_partials").toAbsolutePath().normalize().toString())
-                        .attribute("imagesdir", src.resolve("images").toAbsolutePath().normalize().toString())
-                        .attribute("idseparator", "-")
-                        .attribute("source-highlighter", "rouge")
-                        .attribute("rouge-style", "yupiik")
-                        // .attribute("rouge-style", "igorpro") the closest of the one we want
-                        .attributes(attributes == null ? emptyMap() : attributes)
-                        .build())
+                .baseDir(sourceDirectory.toPath().toAbsolutePath().toFile())
+                .attributes(attribute.build())
                 .build();
     }
 }

@@ -18,6 +18,7 @@ package io.yupiik.maven.service.extension;
 import lombok.NoArgsConstructor;
 import org.asciidoctor.ast.ContentModel;
 import org.asciidoctor.ast.ContentNode;
+import org.asciidoctor.ast.PhraseNode;
 import org.asciidoctor.ast.StructuralNode;
 import org.asciidoctor.extension.BlockProcessor;
 import org.asciidoctor.extension.Contexts;
@@ -91,7 +92,7 @@ public interface JLatexMath {
         public Object process(final StructuralNode parent, final Reader reader, final Map<String, Object> attributes) {
             return createBlock(parent, "open", "" +
                     "image::" +
-                    Render.render(String.join("\n", reader.lines()).trim(),
+                    Render.render(String.join("\n", reader.getLines()).trim(),
                             Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
                             Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "0")))) +
                     "[" + attributes.entrySet().stream()
@@ -104,7 +105,7 @@ public interface JLatexMath {
     @Name("jmath")
     class Inline extends InlineMacroProcessor {
         @Override
-        public Object process(final ContentNode parent, final String target, final Map<String, Object> attributes) {
+        public PhraseNode process(final StructuralNode parent, final String target, final Map<String, Object> attributes) {
             final String image = Render.render(extractString(attributes),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("size", "30"))),
                     Integer.parseInt(String.valueOf(attributes.getOrDefault("style", "2"))));
