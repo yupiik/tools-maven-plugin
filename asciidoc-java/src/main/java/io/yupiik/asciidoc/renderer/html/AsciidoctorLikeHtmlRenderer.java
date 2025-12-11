@@ -422,7 +422,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append("nofollow");
             }
             if (noOpener) {
-                if (noFollow) builder.append(" ");
+                if (noFollow) {
+                    builder.append(" ");
+                }
                 builder.append("noopener");
             }
 
