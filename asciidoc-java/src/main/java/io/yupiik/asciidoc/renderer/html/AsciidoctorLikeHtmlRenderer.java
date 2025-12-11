@@ -978,7 +978,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 this.visitLink(link);
                 this.state.visitingWrapperLink = false;
 
-                // Do no render the image : it will be rendered as part of the link element
+                // Do not render the image yet : it will be rendered as part of the link element
                 return;
             }
 
