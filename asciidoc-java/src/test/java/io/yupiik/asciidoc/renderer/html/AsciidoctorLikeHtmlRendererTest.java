@@ -18,6 +18,7 @@ package io.yupiik.asciidoc.renderer.html;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -786,7 +787,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="imageblock">
                  <div class="content">
                  <a href="www.website.com">
-                 <img src="img.png" alt="logo">
+                  <img src="img.png" alt="logo">
                  </a>
                  </div>
                  </div>
@@ -807,7 +808,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="imageblock">
                  <div class="content">
                  <a href="www.website.com">
-                 <img src="img.png" alt="LogoWithMacro">
+                  <img src="img.png" alt="LogoWithMacro">
                  </a>
                  </div>
                  </div>
@@ -826,8 +827,8 @@ class AsciidoctorLikeHtmlRendererTest {
         assertEquals("""
                  <div class="imageblock">
                  <div class="content">
-                 <a href="www.website.com" target="blank" rel="noopener">
-                 <img src="img.png" alt="MyImage">
+                 <a href="www.website.com" target="_blank" rel="noopener">
+                  <img src="img.png" alt="MyImage">
                  </a>
                  </div>
                  </div>
@@ -835,7 +836,7 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void imageWithLinkOptions() {
+    void imageWithLinkNoFollowOption() {
         final var doc = new Parser().parseBody("""
                 image::img.png[MyImage,link=www.website.com,opts=nofollow]
                 """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
@@ -847,7 +848,31 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="imageblock">
                  <div class="content">
                  <a href="www.website.com" rel="nofollow">
-                 <img src="img.png" alt="MyImage">
+                  <img src="img.png" alt="MyImage">
+                 </a>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    /**
+     * TODO : this case is not managed yet
+     */
+    @Disabled
+    @Test
+    void imageWithLinkAllOptions() {
+        final var doc = new Parser().parseBody("""
+                image::img.png[MyImage,link=www.website.com,opts=nofollow,noopener]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                                                               .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+
+        assertEquals("""
+                 <div class="imageblock">
+                 <div class="content">
+                 <a href="www.website.com" rel="nofollow noopener">
+                  <img src="img.png" alt="MyImage">
                  </a>
                  </div>
                  </div>
