@@ -991,6 +991,13 @@ class ParserTest {
     }
 
     @Test
+    void imageWithLinkBlank() {
+        var body = new Parser().parseBody(new Reader(List.of("""
+            image::test.jpg[Foo,link="www.website.com",window=_blank]
+            """.split("\n"))), null);
+    }
+
+    @Test
     void admonition() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 WARNING: Wolpertingers are known to nest in server racks.

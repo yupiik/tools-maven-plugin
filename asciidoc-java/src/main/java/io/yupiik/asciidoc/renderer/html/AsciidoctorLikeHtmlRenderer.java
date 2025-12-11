@@ -949,7 +949,20 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (hasLink) {
             builder.append(" <a href=\"")
               .append(element.options().get("link"))
-              .append("\">\n");
+              .append("\"");
+
+            // _blank is the only allowed value for "window"
+            if ("_blank".equals(element.options().get("window"))) {
+                // noopener is automatically set
+                builder.append(" target=\"blank\" rel=\"noopener\"");
+            } else {
+                // Options : nofollow or noopener
+                if (element.options().containsKey("opts")) {
+                    builder.append(" rel=\"").append(element.options().get("opts")).append("\"");
+                }
+            }
+
+            builder.append(">\n");
         }
 
         builder.append(" <img src=\"")
