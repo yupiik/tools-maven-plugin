@@ -407,7 +407,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var optsAttribute = element.options().get("opts");
         if (optsAttribute != null) {
             for (var optValue : optsAttribute.split(",")) {
-                switch (optValue.trim().toLowerCase()) {
+                switch (optValue) {
                     case "nofollow" -> noFollow = true;
                     case "noopener" -> noOpener = true;
                 }
@@ -418,7 +418,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
             builder.append(" rel=\"");
 
-            if (noFollow) builder.append("nofollow");
+            if (noFollow) {
+                builder.append("nofollow");
+            }
             if (noOpener) {
                 if (noFollow) builder.append(" ");
                 builder.append("noopener");
