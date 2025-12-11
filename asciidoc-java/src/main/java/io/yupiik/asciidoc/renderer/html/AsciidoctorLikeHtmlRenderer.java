@@ -943,15 +943,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         if (dataUri && !element.label().startsWith("data:") && !element.options().containsKey("skip-data-uri")) {
             visitImage(new Macro(
-              element.name(), resolver.apply(element.label()).base64(),
-              !element.options().containsKey("") ?
-                Stream.of(element.options(), Map.of("", element.label()))
-                  .map(Map::entrySet)
-                  .flatMap(Collection::stream)
-                  .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)) :
-                element.options(),
-              element.inline()
-            ));
+                    element.name(), resolver.apply(element.label()).base64(),
+                    !element.options().containsKey("") ?
+                          Stream.of(element.options(), Map.of("", element.label()))
+                                    .filter(Objects::nonNull)
+                                    .map(Map::entrySet)
+                                    .flatMap(Collection::stream)
+                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)) :
+                          element.options(),
+                    element.inline()));
             return;
         }
 
