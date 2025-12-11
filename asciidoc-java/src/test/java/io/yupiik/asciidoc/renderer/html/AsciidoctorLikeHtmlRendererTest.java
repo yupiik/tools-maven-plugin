@@ -774,6 +774,59 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void imageLink() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                image::img.png[logo,link=www.website.com]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                                                               .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
+                 <a href="www.website.com">
+                 <img src="img.png" alt="logo">
+                 </a>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void imageLinkMacro() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                [link=www.website.com]
+                image::img.png[LogoWithMacro]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                                                               .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+
+        assertEquals("""
+                 <div class="sect0" id="_test">
+                  <h1>Test</h1>
+                 <div class="sectionbody">
+                 <div class="imageblock">
+                 <div class="content">
+                 <a href="www.website.com">
+                 <img src="img.png" alt="LogoWithMacro">
+                 </a>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
     void carbonNowImage() {
         final var doc = new Parser().parseBody("""
                 = Test

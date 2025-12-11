@@ -945,6 +945,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
         }
 
+        boolean hasLink = element.options().containsKey("link");
+        if (hasLink) {
+            builder.append(" <a href=\"")
+              .append(element.options().get("link"))
+              .append("\">\n");
+        }
+
         builder.append(" <img src=\"")
                 .append(resolvedSrc)
                 .append("\" alt=\"").append(element.options().getOrDefault("alt", element.options().getOrDefault("", element.label())))
@@ -957,6 +964,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
         writeCommonAttributes(element.options(), null);
         builder.append(">\n");
+
+        if (hasLink) {
+            builder.append(" </a>\n");
+        }
     }
 
     protected void visitAudio(final Macro element) {
