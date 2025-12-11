@@ -974,7 +974,7 @@ class ParserTest {
     void imageWithLink() {
         var body = new Parser().parseBody(new Reader(List.of("""
             image::as-a-block.jpg[Foo,link="www.website.com"]
-        """.split("\n"))), null);
+            """.split("\n"))), null);
 
         System.out.println(body);
     }
