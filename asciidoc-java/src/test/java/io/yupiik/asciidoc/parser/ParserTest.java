@@ -973,10 +973,21 @@ class ParserTest {
     @Test
     void imageWithLink() {
         var body = new Parser().parseBody(new Reader(List.of("""
-            image::as-a-block.jpg[Foo,link="www.website.com"]
+            image::test.jpg[Foo,link="www.website.com"]
             """.split("\n"))), null);
 
-        System.out.println(body);
+        assertEquals(List.of(
+                       new Macro("image", "test.jpg", Map.of("", "Foo", "link", "www.website.com"), false)),
+                     body.children());
+
+        var body2 = new Parser().parseBody(new Reader(List.of("""
+            [link="www.website.com"]
+            image::test.jpg[Foo]
+            """.split("\n"))), null);
+
+        assertEquals(List.of(
+                       new Macro("image", "test.jpg", Map.of("", "Foo", "link", "www.website.com"), false)),
+                     body2.children());
     }
 
     @Test
