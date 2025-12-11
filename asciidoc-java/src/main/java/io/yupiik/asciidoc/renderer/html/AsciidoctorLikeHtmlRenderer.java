@@ -400,7 +400,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         var noOpener = false;
         final var window = element.options().get("window");
         if (window != null) {
-            if ("_blank".equals(window)) noOpener = true;
+            if ("_blank".equals(window)) {
+                noOpener = true;
+            }
             builder.append(" target=\"").append(window).append("\"");
         }
 
