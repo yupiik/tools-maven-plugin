@@ -396,24 +396,49 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(" <a href=\"").append(element.url()).append("\"");
         writeCommonAttributes(element.options(), null);
 
+        var noFollow = false;
+        var noOpener = false;
         final var window = element.options().get("window");
         if (window != null) {
+            if ("_blank".equals(window)) {
+                noOpener = true;
+            }
             builder.append(" target=\"").append(window).append("\"");
         }
 
-        final var nofollow = element.options().get("nofollow");
-        final boolean noopener = "_blank".equals(window) || element.options().get("noopener") != null;
-        if (nofollow != null) {
-            builder.append(" rel=\"nofollow");
-            if (noopener) {
-                builder.append(" noopener");
+        final var optsAttribute = element.options().get("opts");
+        if (optsAttribute != null) {
+            for (var optValue : optsAttribute.split(",")) {
+                switch (optValue) {
+                    case "nofollow" -> noFollow = true;
+                    case "noopener" -> noOpener = true;
+                }
             }
+        }
+
+        if (noFollow || noOpener) {
+
+            builder.append(" rel=\"");
+
+            if (noFollow) {
+                builder.append("nofollow");
+            }
+            if (noOpener) {
+                if (noFollow) {
+                    builder.append(" ");
+                }
+                builder.append("noopener");
+            }
+
             builder.append("\"");
-        } else if (noopener) {
-            builder.append(" rel=\"noopener\"");
         }
 
         builder.append(">");
+
+        if (state.visitingWrapperLink) {
+            builder.append("\n ");
+        }
+
         var label = element.label();
         if (label instanceof Text t && attr("hide-uri-scheme", element.options()) != null) {
             if (t.value().contains("://")) {
@@ -936,13 +961,27 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-
         final String resolvedSrc;
         if (element.label().startsWith("data:")) {
             resolvedSrc = element.label();
         } else {
             String imagesDir = attr("imagesdir", "");
             resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
+        }
+
+        if (!this.state.visitingWrapperLink) {
+            String linkValue = element.options().get("link");
+            if (linkValue != null) {
+                this.state.visitingWrapperLink = true;
+                Macro image = new Macro(element.name(), element.label(), element.options(), true);
+                Link link = new Link(linkValue, image, element.options());
+                this.visitLink(link);
+                this.state.visitingWrapperLink = false;
+
+                // Do not render the image yet : it will be rendered as part of the link element
+                return;
+            }
+
         }
 
         builder.append(" <img src=\"")
@@ -957,6 +996,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
         writeCommonAttributes(element.options(), null);
         builder.append(">\n");
+
+        if (state.visitingWrapperLink) {
+            builder.append(" ");
+        }
     }
 
     protected void visitAudio(final Macro element) {
@@ -1258,6 +1301,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         protected boolean nowrap = false;
         protected boolean sawPreamble = false;
         protected boolean inCallOut = false;
+
+        // Indicates that we currently are visiting a link wrapping an element (like an image)
+        protected boolean visitingWrapperLink = false;
+
         protected final List<Element> lastElement = new ArrayList<>(4);
 
         @Override

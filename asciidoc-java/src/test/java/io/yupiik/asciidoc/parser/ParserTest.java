@@ -971,6 +971,33 @@ class ParserTest {
     }
 
     @Test
+    void imageWithLink() {
+        var body = new Parser().parseBody(new Reader(List.of("""
+            image::test.jpg[Foo,link="www.website.com"]
+            """.split("\n"))), null);
+
+        assertEquals(List.of(
+                       new Macro("image", "test.jpg", Map.of("", "Foo", "link", "www.website.com"), false)),
+                     body.children());
+
+        var body2 = new Parser().parseBody(new Reader(List.of("""
+            [link="www.website.com"]
+            image::test.jpg[Foo]
+            """.split("\n"))), null);
+
+        assertEquals(List.of(
+                       new Macro("image", "test.jpg", Map.of("", "Foo", "link", "www.website.com"), false)),
+                     body2.children());
+    }
+
+    @Test
+    void imageWithLinkBlank() {
+        var body = new Parser().parseBody(new Reader(List.of("""
+            image::test.jpg[Foo,link="www.website.com",window=_blank]
+            """.split("\n"))), null);
+    }
+
+    @Test
     void admonition() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 WARNING: Wolpertingers are known to nest in server racks.
