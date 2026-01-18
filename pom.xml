@@ -31,7 +31,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.build.outputTimestamp>2025-12-16T13:23:46Z</project.build.outputTimestamp>
 
-    <fusion.version>1.0.33-SNAPSHOT</fusion.version>
+    <fusion.version>1.0.33</fusion.version>
     <mvn.version>3.9.11</mvn.version>
     <jruby.version>9.4.8.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
