@@ -15,10 +15,12 @@
  */
 package io.yupiik.tools.doc;
 
+import io.yupiik.fusion.documentation.CliDocumentationGenerator;
 import io.yupiik.fusion.documentation.DocumentationGenerator;
 import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import io.yupiik.tools.generator.generic.GenericStaticGenerator;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
@@ -39,8 +41,8 @@ import static lombok.AccessLevel.PRIVATE;
 @NoArgsConstructor(access = PRIVATE)
 public final class Generate {
     public static void main(final String... args) throws Exception {
-        final var doc = Path.of(args.length == 0 ? "src/main/minisite" : args[0]);
-        final var out = Path.of(args.length == 0 ? "target/minisite" : args[1]);
+        final var doc = Path.of(args.length == 0 ? "src/main/minisite" : args[0]).toAbsolutePath();
+        final var out = Path.of(args.length == 0 ? "target/minisite" : args[1]).toAbsolutePath();
         final var projectName = args.length < 3 ? "Yupiik Tools" : args[2];
         final var projectArtifact = args.length < 4 ? "yupiik-tools" : args[3];
         final var projectVersion = args.length < 5 ? "dev" : args[4];
@@ -67,6 +69,15 @@ public final class Generate {
         final var generateEnvManagerCommands = new PreAction();
         generateEnvManagerCommands.setType(YemCommands.class.getName());
 
+        final var generateHelpers = new PreAction();
+        generateHelpers.setType(StaticGenerator.class.getName());
+
+        final var cliGenerator = new PreAction();
+        cliGenerator.setType(CliDocumentationGenerator.class.getName());
+        cliGenerator.setConfiguration(Map.of(
+                "package", GenericStaticGenerator.class.getPackageName(),
+                "outputBase", doc.resolve("content/cli/generic-site-generator").toString()));
+
         final var configuration = new MiniSiteConfiguration();
         configuration.setIndexText("Yupiik Tools");
         configuration.setIndexSubTitle("adoc:" +
@@ -91,7 +102,12 @@ public final class Generate {
         configuration.setSource(doc);
         configuration.setTarget(out);
         configuration.setSiteBase("/tools-maven-plugin");
-        configuration.setPreActions(List.of(mojoAction, generateEnvManagerConfiguration, generateEnvManagerCommands));
+        configuration.setPreActions(List.of(
+                mojoAction,
+                generateEnvManagerConfiguration,
+                generateEnvManagerCommands,
+                cliGenerator,
+                generateHelpers));
         configuration.setGenerateSiteMap(true);
         configuration.setGenerateIndex(true);
         configuration.setProjectName(projectName);

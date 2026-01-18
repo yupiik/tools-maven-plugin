@@ -7,6 +7,7 @@ target
 .settings
 .classpath
 **/content/mojo
+**/content/cli
 .sdkmanrc
 generated
 .node
