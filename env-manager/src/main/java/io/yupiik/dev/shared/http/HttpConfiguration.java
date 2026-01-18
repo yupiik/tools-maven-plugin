@@ -29,7 +29,7 @@ public record HttpConfiguration(
         @Property(defaultValue = "900_000L", documentation = "Request timeout in milliseconds.") long requestTimeout,
         @Property(defaultValue = "86_400_000L", documentation = "Cache validity of requests (1 day by default) in milliseconds. A negative or zero value will disable cache.") long cacheValidity,
         @Property(defaultValue = "System.getProperty(\"user.home\", \"\") + \"/.yupiik/yem/cache/http\"", documentation = "Where to cache slow updates (version fetching). `none` will disable cache.") String cache,
-        @Property(defaultValue = "new ProxyConfiguration()", documentation = "Proxy configuration if needed.") ProxyConfiguration proxy
+        @Property(documentation = "Proxy configuration if needed.") ProxyConfiguration proxy
 ) {
     public boolean isCacheEnabled() {
         return "none".equals(cache()) || cacheValidity() <= 0;

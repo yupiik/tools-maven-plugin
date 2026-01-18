@@ -34,8 +34,8 @@ import org.asciidoctor.extension.Postprocessor;
 import org.asciidoctor.extension.Preprocessor;
 import org.asciidoctor.extension.Treeprocessor;
 import org.asciidoctor.jruby.internal.JRubyAsciidoctor;
+import org.eclipse.sisu.PreDestroy;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Named;
 import javax.inject.Singleton;
 import java.io.IOException;
