@@ -42,8 +42,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static io.yupiik.tools.generator.generic.io.IO.loadFromFileOrIdentity;
+import static java.util.Map.entry;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
@@ -149,8 +151,8 @@ public class GenericStaticGenerator implements Runnable {
                             new HandlebarsCompiler.Settings()
                                     .helpers(helpers)
                                     .partials(configuration.partials().isEmpty() ?
-                                            Map.of():
-                                            configuration.partials().entrySet().stream()
+                                            Map.of() :
+                                            processPartials(configuration.partials()).entrySet().stream()
                                                     .collect(toMap(Map.Entry::getKey, it -> loadFromFileOrIdentity(it.getValue())))),
                             loadFromFileOrIdentity(configuration.template())))
                     .render(context);
@@ -184,13 +186,41 @@ public class GenericStaticGenerator implements Runnable {
         }
     }
 
+    private Map<String, String> processPartials(final Map<String, String> partials) {
+        return partials.entrySet().stream()
+                .flatMap(it -> {
+                    if (it.getKey().endsWith("/*.hb")) {
+                        try (final var list = Files.list(Path.of(it.getKey().substring(0, it.getKey().length() - "/*.hb".length())))) {
+                            return list
+                                    .filter(p -> p.getFileName().toString().endsWith(".hb"))
+                                    .map(p -> {
+                                        final var name = p.getFileName().toString();
+                                        try {
+                                            return entry(name.substring(0, name.length() - ".hb".length()), Files.readString(p));
+                                        } catch (final IOException e) {
+                                            throw new IllegalArgumentException("Can't load '" + p + "'", e);
+                                        }
+                                    })
+                                    .toList() // materialize before closing the list
+                                    .stream();
+                        } catch (final IOException e) {
+                            throw new IllegalArgumentException("Can't load directory (for partials): '" + it.getKey() + "'", e);
+                        }
+                    }
+                    return Stream.of(it);
+                })
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     @RootConfiguration("-")
     public record GenericStaticGeneratorConfiguration(
             @Property(documentation = "Where to write the output. `STDOUT` and `STDERR` are two specific values for the standard outputs.", defaultValue = "\"STDOUT\"")
             String output,
             @Property(required = true, documentation = "Handlebars template to render once the context is built. If starting with `file:` the end of the path is a file path used as source.")
             String template,
-            @Property(documentation = "Partials handlebars. If a value is starting with `file:` the end of the path is a file path used as source.", defaultValue = "java.util.Map.of()")
+            @Property(documentation = "Partials handlebars. " +
+                    "If a value is starting with `file:` the end of the path is a file path used as source. " +
+                    "If a key ends with `/*.hb`, all files in the directory are loaded as this - value is ignored.", defaultValue = "java.util.Map.of()")
             Map<String, String> partials,
             @Property(documentation = "Size of the thread pool to run contribution in.", defaultValue = "1")
             int threads,
