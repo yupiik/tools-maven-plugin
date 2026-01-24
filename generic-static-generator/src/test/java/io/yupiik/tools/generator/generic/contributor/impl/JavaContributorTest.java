@@ -43,4 +43,35 @@ class JavaContributorTest {
             assertEquals(Map.of("result", "junit"), data);
         }
     }
+    @Test
+    void runWithClasspathDependency() throws ExecutionException, InterruptedException {
+        try (final var container = ConfiguringContainer.of().disableAutoDiscovery(true).start()) {
+            final var data = new JavaContributor(container).contribute(
+                            Map.of(
+                                    "packageName", "io.yupiik.tools.generator.generic.contributor.impl",
+                                    "imports",
+                                    """
+                                            import io.yupiik.tools.generator.generic.contributor.impl.JavaContributorTest;
+                                            """,
+                                    "code",
+                                    """
+                                            return completedFuture(
+                                                Map.of(
+                                                    "result",
+                                                    new JavaContributorTest.MyDep().toString()));
+                                            """,
+                                    "test", "tinuj"),
+                            Runnable::run)
+                    .toCompletableFuture()
+                    .get();
+            assertEquals(Map.of("result", "Dependency"), data);
+        }
+    }
+
+    public static class MyDep {
+        @Override
+        public String toString() {
+            return "Dependency";
+        }
+    }
 }
