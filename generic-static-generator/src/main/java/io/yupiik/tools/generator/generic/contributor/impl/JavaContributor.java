@@ -115,7 +115,7 @@ public class JavaContributor implements ContextContributor {
                                         
                                             @Override
                                             public String name() {
-                                                return "";
+                                                return "java";
                                             }
                                         
                                             @Override
@@ -130,7 +130,8 @@ public class JavaContributor implements ContextContributor {
                                 ofNullable(conf.imports())
                                         .map(it -> "\n" + it.strip() + "\n")
                                         .orElse(""),
-                                className, className, loadFromFileOrIdentity(requireNonNull(conf.code(), "No code set for java contributor")).indent(8));
+                                className, className,
+                                loadFromFileOrIdentity(requireNonNull(conf.code(), "No code set for java contributor")).indent(8));
 
                 final var compiler = ToolProvider.getSystemJavaCompiler();
                 if (compiler == null) {
