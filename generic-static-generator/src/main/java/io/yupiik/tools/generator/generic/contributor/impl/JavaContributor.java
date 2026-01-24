@@ -134,7 +134,7 @@ public class JavaContributor implements ContextContributor {
                                         .orElse(""),
                                 className, className,
                                 loadFromFileOrIdentity(requireNonNull(conf.code(), "No code set for java contributor")).indent(8));
-                System.out.println(code);
+
                 final var compiler = ToolProvider.getSystemJavaCompiler();
                 if (compiler == null) {
                     throw new IllegalStateException("No compiler found. Are you running a JRE instead of a JDK?");
