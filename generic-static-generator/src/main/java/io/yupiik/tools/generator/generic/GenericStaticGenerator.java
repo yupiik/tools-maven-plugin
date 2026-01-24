@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static io.yupiik.tools.generator.generic.io.IO.loadFromFileOrIdentity;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
@@ -147,8 +148,11 @@ public class GenericStaticGenerator implements Runnable {
                     .compile(new HandlebarsCompiler.CompilationContext(
                             new HandlebarsCompiler.Settings()
                                     .helpers(helpers)
-                                    .partials(configuration.partials()),
-                            configuration.template()))
+                                    .partials(configuration.partials().isEmpty() ?
+                                            Map.of():
+                                            configuration.partials().entrySet().stream()
+                                                    .collect(toMap(Map.Entry::getKey, it -> loadFromFileOrIdentity(it.getValue())))),
+                            loadFromFileOrIdentity(configuration.template())))
                     .render(context);
 
             try (final var out = switch (configuration.output()) {
@@ -184,9 +188,9 @@ public class GenericStaticGenerator implements Runnable {
     public record GenericStaticGeneratorConfiguration(
             @Property(documentation = "Where to write the output. `STDOUT` and `STDERR` are two specific values for the standard outputs.", defaultValue = "\"STDOUT\"")
             String output,
-            @Property(required = true, documentation = "Handlebars template to render once the context is built.")
+            @Property(required = true, documentation = "Handlebars template to render once the context is built. If starting with `file:` the end of the path is a file path used as source.")
             String template,
-            @Property(documentation = "Partials handlebars.", defaultValue = "java.util.Map.of()")
+            @Property(documentation = "Partials handlebars. If a value is starting with `file:` the end of the path is a file path used as source.", defaultValue = "java.util.Map.of()")
             Map<String, String> partials,
             @Property(documentation = "Size of the thread pool to run contribution in.", defaultValue = "1")
             int threads,
