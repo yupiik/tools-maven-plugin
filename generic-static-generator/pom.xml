@@ -85,6 +85,7 @@
               <shadedClassifierName>fatjar</shadedClassifierName>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>io.yupiik.fusion.framework.api.main.Launcher</mainClass>
                 </transformer>
