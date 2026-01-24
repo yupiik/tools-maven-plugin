@@ -21,6 +21,7 @@ import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 import io.yupiik.tools.generator.generic.contributor.ContextContributor;
 import io.yupiik.tools.generator.generic.contributor.ContributorDocumentation;
+import io.yupiik.tools.generator.generic.io.IO;
 
 import javax.tools.DiagnosticCollector;
 import javax.tools.FileObject;
@@ -130,6 +131,7 @@ public class JavaContributor implements ContextContributor {
                                         .replace('\n', ' '),
                                 pck,
                                 ofNullable(conf.imports())
+                                        .map(IO::loadFromFileOrIdentity)
                                         .map(it -> it.strip().replace('\n', ' '))
                                         .orElse(""),
                                 className, className,
