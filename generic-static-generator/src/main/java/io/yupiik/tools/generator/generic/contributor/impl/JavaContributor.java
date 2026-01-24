@@ -58,6 +58,7 @@ import java.util.stream.Stream;
 
 import static io.yupiik.tools.generator.generic.io.IO.loadFromFileOrIdentity;
 import static java.util.Collections.list;
+import static java.util.Objects.requireNonNull;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
@@ -132,7 +133,7 @@ public class JavaContributor implements ContextContributor {
                                 ofNullable(conf.imports())
                                         .map(it -> "\n" + it.strip() + "\n")
                                         .orElse(""),
-                                className, className, loadFromFileOrIdentity(conf.code()).indent(8));
+                                className, className, loadFromFileOrIdentity(requireNonNull(conf.code(), "No code set for java contributor")).indent(8));
 
                 final var compiler = ToolProvider.getSystemJavaCompiler();
                 if (compiler == null) {

@@ -25,11 +25,11 @@ public final class IO {
     }
 
     public static String loadFromFileOrIdentity(final String pathOrContent) {
-        if (pathOrContent.startsWith("file:")) {
+        if (pathOrContent != null && pathOrContent.startsWith("file:")) {
             try {
                 return Files.readString(Path.of(pathOrContent.substring("file:".length())));
             } catch (IOException e) {
-                throw new IllegalArgumentException("Can't read: " + pathOrContent, e);
+                throw new IllegalArgumentException("Can't read: '" + pathOrContent + "'", e);
             }
         }
         return pathOrContent;
