@@ -125,14 +125,16 @@ public class JavaContributor implements ContextContributor {
                                         %s
                                             }
                                         }
-                                        """,
+                                        """
+                                        // try to preserve script lines at least when an error pops up
+                                        .replace('\n', ' '),
                                 pck,
                                 ofNullable(conf.imports())
-                                        .map(it -> "\n" + it.strip() + "\n")
+                                        .map(it -> it.strip().replace('\n', ' '))
                                         .orElse(""),
                                 className, className,
                                 loadFromFileOrIdentity(requireNonNull(conf.code(), "No code set for java contributor")).indent(8));
-
+                System.out.println(code);
                 final var compiler = ToolProvider.getSystemJavaCompiler();
                 if (compiler == null) {
                     throw new IllegalStateException("No compiler found. Are you running a JRE instead of a JDK?");
