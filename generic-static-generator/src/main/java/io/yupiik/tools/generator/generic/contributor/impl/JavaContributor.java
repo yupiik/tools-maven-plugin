@@ -148,7 +148,10 @@ public class JavaContributor implements ContextContributor {
                         List.of("-classpath", classpath.stream().map(File::getAbsolutePath).collect(joining(File.pathSeparator))),
                         null, List.of(source)).call();
                 if (!success) {
-                    result.completeExceptionally(new IllegalStateException("Invalid code:\n" + diagnostics.getDiagnostics().stream()
+                    result.completeExceptionally(new IllegalStateException("Invalid code:\n" +
+                            code +
+                            "\n\nErrors:\n" +
+                            diagnostics.getDiagnostics().stream()
                             .map(it -> "- " + it)
                             .collect(joining("\n"))));
                     return;
