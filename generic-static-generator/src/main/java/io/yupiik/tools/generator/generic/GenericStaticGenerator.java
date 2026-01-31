@@ -99,7 +99,7 @@ public class GenericStaticGenerator implements Runnable {
                 if (executorServiceRef.get() == null) {
                     synchronized (executorServiceRef) {
                         if (executorServiceRef.get() == null) {
-                            executorServiceRef.set(Executors.newFixedThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
+                            executorServiceRef.set(Executors.newScheduledThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
                                 private final AtomicInteger counter = new AtomicInteger();
 
                                 @Override
