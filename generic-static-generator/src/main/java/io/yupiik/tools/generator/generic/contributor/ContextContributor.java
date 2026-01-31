@@ -20,6 +20,8 @@ import io.yupiik.fusion.framework.api.configuration.Configuration;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.Optional.ofNullable;
 
@@ -50,5 +52,16 @@ public interface ContextContributor {
     default Configuration configuration(final Map<String, String> configuration) {
         final var prefix = "contributors." + name() + ".";
         return k -> ofNullable(configuration.get(k.startsWith(prefix) ? k.substring(prefix.length()) : k));
+    }
+    /**
+     * Mainly a helper to create a {@link T} instance from the configuration.
+     * It is neat to use with generated configuration factories for example.
+     *
+     * @param configuration input.
+     * @param factory instance factory - intended for fusion configuration models.
+     * @return the configuration.
+     */
+    default <T> T configuration(final Map<String, String> configuration, final Function<Configuration, Supplier<T>> factory) {
+        return factory.apply(configuration(configuration)).get();
     }
 }
