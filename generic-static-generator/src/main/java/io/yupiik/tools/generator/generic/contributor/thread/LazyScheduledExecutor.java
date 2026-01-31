@@ -25,6 +25,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
+
+import static java.util.logging.Level.SEVERE;
 
 public class LazyScheduledExecutor implements ScheduledExecutorService, AutoCloseable {
     private final Supplier<ScheduledExecutorService> factory;
@@ -49,7 +52,14 @@ public class LazyScheduledExecutor implements ScheduledExecutorService, AutoClos
 
     @Override
     public ScheduledFuture<?> schedule(final Runnable command, final long delay, final TimeUnit unit) {
-        return delegate().schedule(command, delay, unit);
+        return delegate().schedule(() -> {
+            try {
+                command.run();
+            } catch (final RuntimeException re) {
+                Logger.getLogger(getClass().getName()).log(SEVERE, re, re::getMessage);
+                throw re;
+            }
+        }, delay, unit);
     }
 
     @Override
@@ -143,7 +153,14 @@ public class LazyScheduledExecutor implements ScheduledExecutorService, AutoClos
 
     @Override
     public void execute(final Runnable command) {
-        delegate().execute(command);
+        delegate().execute(() -> {
+            try {
+                command.run();
+            } catch (final RuntimeException re) {
+                Logger.getLogger(getClass().getName()).log(SEVERE, re, re::getMessage);
+                throw re;
+            }
+        });
     }
 
     @Override

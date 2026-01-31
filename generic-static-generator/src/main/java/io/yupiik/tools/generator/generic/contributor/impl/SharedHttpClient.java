@@ -31,7 +31,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import static java.time.Clock.systemUTC;
@@ -58,8 +58,7 @@ public class SharedHttpClient implements AutoCloseable {
                             .build();
                     if (configuration.maxHttp2Concurrency() > 0) {
                         delegate = new DelegatingHttpClient(delegate) {
-                            private final Semaphore semaphore = new Semaphore(configuration.maxHttp2Concurrency());
-                            private final Queue<CompletableFuture<Void>> waitingQueue = new ConcurrentLinkedQueue<>();
+                            private final AsyncSemaphore semaphore = new AsyncSemaphore(configuration.maxHttp2Concurrency());
 
                             @Override
                             public <T> CompletableFuture<HttpResponse<T>> sendAsync(final HttpRequest request,
@@ -73,36 +72,10 @@ public class SharedHttpClient implements AutoCloseable {
                                     return super.sendAsync(request, responseBodyHandler);
                                 }
 
-                                return acquireAsync()
+                                return semaphore
+                                        .acquire()
                                         .thenCompose(v -> super.sendAsync(request, responseBodyHandler))
-                                        .whenComplete((ok, ko) -> release());
-                            }
-
-                            private CompletableFuture<Void> acquireAsync() {
-                                if (semaphore.tryAcquire()) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-
-                                final var future = new CompletableFuture<Void>();
-                                waitingQueue.offer(future);
-                                if (semaphore.tryAcquire() && waitingQueue.remove(future)) {
-                                    future.complete(null);
-                                }
-
-                                return future;
-                            }
-
-                            private void release() {
-                                semaphore.release();
-
-                                CompletableFuture<Void> waiting;
-                                if ((waiting = waitingQueue.poll()) != null) {
-                                    if (semaphore.tryAcquire()) {
-                                        waiting.complete(null);
-                                    } else {
-                                        waitingQueue.offer(waiting);
-                                    }
-                                }
+                                        .whenComplete((ok, ko) -> semaphore.release());
                             }
                         };
                     }
@@ -131,5 +104,60 @@ public class SharedHttpClient implements AutoCloseable {
             @Property(value = "max-http2-concurrency", documentation = "Allowed max concurrency if using HTTP/2.0. This is mainly to align on `MAX_CONCURRENT_STREAMS` value. Negative means unbounded.", defaultValue = "-1")
             int maxHttp2Concurrency
     ) {
+    }
+
+    // FIXME: to replace by fusion once upgraded to 1.0.34
+    private static final class AsyncSemaphore {
+        private int permits;
+        private final Queue<CompletableFuture<Permit>> waiters = new ConcurrentLinkedQueue<>();
+
+        private AsyncSemaphore(final int permits) {
+            if (permits <= 0) {
+                throw new IllegalArgumentException("permits <= 0: " + permits);
+            }
+            this.permits = permits;
+        }
+
+        private CompletableFuture<Permit> acquire() {
+            CompletableFuture<Permit> cf;
+            synchronized (this) {
+                if (permits > 0) {
+                    permits--;
+                    return CompletableFuture.completedFuture(new Permit(this));
+                }
+
+                cf = new CompletableFuture<>();
+            }
+            waiters.add(cf);
+            return cf;
+        }
+
+        private void release() {
+            CompletableFuture<Permit> next;
+            synchronized (this) {
+                next = waiters.poll();
+                if (next == null) {
+                    permits++;
+                    return;
+                }
+            }
+            next.complete(new Permit(this));
+        }
+
+        private static final class Permit implements AutoCloseable {
+            private final AsyncSemaphore semaphore;
+            private final AtomicBoolean released = new AtomicBoolean(false);
+
+            private Permit(final AsyncSemaphore semaphore) {
+                this.semaphore = semaphore;
+            }
+
+            @Override
+            public void close() {
+                if (released.compareAndSet(false, true)) {
+                    semaphore.release();
+                }
+            }
+        }
     }
 }

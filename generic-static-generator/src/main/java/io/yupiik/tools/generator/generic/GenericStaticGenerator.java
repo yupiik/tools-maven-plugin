@@ -36,12 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -58,7 +55,7 @@ import static java.util.stream.Collectors.toMap;
         description = """
                 Simple extensible generic static generator.
                 
-                Base concept is to create a _context_ based on _ContextContributors_ 
+                Base concept is to create a _context_ based on _ContextContributors_
                 and pass this context to some handlebars template to render a text file (can be a HTML or not content).
                 
                 A `ContextContributor` must implement `io.yupiik.tools.generator.generic.contributor.ContextContributor` interface
@@ -93,8 +90,7 @@ public class GenericStaticGenerator implements Runnable {
 
     @Override
     public void run() {
-        final var executorServiceRef = new AtomicReference<ExecutorService>();
-        final var lazyExecutorService = new LazyScheduledExecutor(() -> Executors.newScheduledThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
+        try (final var lazyExecutorService = new LazyScheduledExecutor(() -> Executors.newScheduledThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
             private final AtomicInteger counter = new AtomicInteger();
 
             @Override
@@ -103,8 +99,7 @@ public class GenericStaticGenerator implements Runnable {
                 thread.setContextClassLoader(GenericStaticGenerator.class.getClassLoader());
                 return thread;
             }
-        }));
-        try {
+        }))) {
             final var contributorIndex = contributors.stream().collect(toMap(ContextContributor::name, identity()));
             final var contributions = configuration.contributors().stream()
                     .map(it -> {
@@ -164,14 +159,10 @@ public class GenericStaticGenerator implements Runnable {
             }) {
                 out.write(content);
             }
-        } catch (final IOException e) {
+        } catch (final RuntimeException e) {
+            throw e;
+        } catch (final Exception e) {
             throw new IllegalStateException(e);
-        } finally {
-            final var executorService = executorServiceRef.get();
-            if (executorService != null && !executorService.isShutdown() && !executorService.isTerminated()) {
-                // no need to await, we just awaited before the rendering
-                executorService.shutdownNow();
-            }
         }
     }
 
@@ -211,7 +202,7 @@ public class GenericStaticGenerator implements Runnable {
                     "If a value is starting with `file:` the end of the path is a file path used as source. " +
                     "If a key ends with `/*.hb`, all files in the directory are loaded as this - value is ignored.", defaultValue = "java.util.Map.of()")
             Map<String, String> partials,
-            @Property(documentation = "Size of the thread pool to run contribution in.", defaultValue = "1")
+            @Property(documentation = "Size of the thread pool to run contribution in. Note that it is a scheduled executor so if executors use scheduled tasks it can need > 1.", defaultValue = "2")
             int threads,
             @Property(documentation = "List of contributors to generate the output.", defaultValue = "java.util.List.of()")
             List<ContributorConfiguration> contributors
