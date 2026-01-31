@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -140,7 +141,7 @@ public class GitlabService {
         return fetch(
                 gitlab, executor,
                 URI.create(gitlab.baseUrl()).resolve("/api/v4/projects/" + projectId + "/repository/commits?" + query),
-                false, true, 0, this::flatten);
+                true, true, 0, this::flatten);
     }
 
     @SuppressWarnings("unchecked")
@@ -150,8 +151,8 @@ public class GitlabService {
             final Executor executor) {
         return fetch(
                 gitlab, executor,
-                URI.create(gitlab.baseUrl()).resolve("/api/v4/projects/" + projectId + "/environments"), false, true, 0,
-                this::flatten)
+                URI.create(gitlab.baseUrl()).resolve("/api/v4/projects/" + projectId + "/environments"),
+                true, true, 0, this::flatten)
                 .thenComposeAsync(
                         it -> {
                             if (!details) {
@@ -189,7 +190,6 @@ public class GitlabService {
             gitlab.headers().forEach(builder::header);
         }
         final var req = builder.build();
-        logger.info(() -> "GET " + uri);
         try {
             final var promise = http
                     .getOrCreate(executor)
@@ -203,8 +203,11 @@ public class GitlabService {
                                         try {
                                             final var l = Long.parseLong(reset);
                                             final var now = Clock.systemUTC().instant().getEpochSecond();
-                                            final var wait = l - now;
-                                            if (wait > 0 && execution < MAX_RETRIES && executor instanceof ScheduledExecutorService ses) {
+                                            // if we just use wait we retry too much at once
+                                            final var backoff = (1L << execution) * 1_000;
+                                            final var jitter = ThreadLocalRandom.current().nextLong(backoff / 2);
+                                            final var wait = Math.max(l - now, Math.max(backoff + jitter, 60_000L));
+                                            if (execution < MAX_RETRIES && executor instanceof ScheduledExecutorService ses) {
                                                 logger.warning(() -> it + " will be retried in " + wait + " ms");
                                                 return rescheduleAfter(
                                                         ses, wait,

@@ -23,6 +23,7 @@ import io.yupiik.fusion.framework.handlebars.HandlebarsCompiler;
 import io.yupiik.fusion.framework.handlebars.compiler.accessor.MapAccessor;
 import io.yupiik.tools.generator.generic.contributor.ContextContributor;
 import io.yupiik.tools.generator.generic.contributor.ContributorRegistry;
+import io.yupiik.tools.generator.generic.contributor.thread.LazyScheduledExecutor;
 import io.yupiik.tools.generator.generic.helper.HelperRegistry;
 
 import java.io.BufferedWriter;
@@ -93,28 +94,16 @@ public class GenericStaticGenerator implements Runnable {
     @Override
     public void run() {
         final var executorServiceRef = new AtomicReference<ExecutorService>();
-        final var lazyExecutorService = new Executor() {
-            @Override
-            public void execute(final Runnable command) {
-                if (executorServiceRef.get() == null) {
-                    synchronized (executorServiceRef) {
-                        if (executorServiceRef.get() == null) {
-                            executorServiceRef.set(Executors.newScheduledThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
-                                private final AtomicInteger counter = new AtomicInteger();
+        final var lazyExecutorService = new LazyScheduledExecutor(() -> Executors.newScheduledThreadPool(Math.max(1, configuration.threads()), new ThreadFactory() {
+            private final AtomicInteger counter = new AtomicInteger();
 
-                                @Override
-                                public Thread newThread(final Runnable r) {
-                                    final var thread = new Thread(r, GenericStaticGenerator.class.getName() + "-" + counter.getAndIncrement());
-                                    thread.setContextClassLoader(GenericStaticGenerator.class.getClassLoader());
-                                    return thread;
-                                }
-                            }));
-                        }
-                    }
-                }
-                executorServiceRef.get().execute(command);
+            @Override
+            public Thread newThread(final Runnable r) {
+                final var thread = new Thread(r, GenericStaticGenerator.class.getName() + "-" + counter.getAndIncrement());
+                thread.setContextClassLoader(GenericStaticGenerator.class.getClassLoader());
+                return thread;
             }
-        };
+        }));
         try {
             final var contributorIndex = contributors.stream().collect(toMap(ContextContributor::name, identity()));
             final var contributions = configuration.contributors().stream()
