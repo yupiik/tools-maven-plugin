@@ -206,7 +206,7 @@ public class GitlabService {
                                             // if we just use wait we retry too much at once
                                             final var backoff = (1L << execution) * 1_000;
                                             final var jitter = ThreadLocalRandom.current().nextLong(backoff / 2);
-                                            final var wait = Math.max(l - now, Math.max(backoff + jitter, 60_000L));
+                                            final var wait = Math.max(l - now, Math.min(backoff + jitter, 60_000L));
                                             if (execution < MAX_RETRIES && executor instanceof ScheduledExecutorService ses) {
                                                 logger.warning(() -> it + " will be retried in " + wait + " ms");
                                                 return rescheduleAfter(
