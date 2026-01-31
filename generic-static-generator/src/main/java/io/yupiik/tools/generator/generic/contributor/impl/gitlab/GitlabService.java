@@ -19,6 +19,9 @@ import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import io.yupiik.fusion.json.JsonMapper;
 import io.yupiik.tools.generator.generic.contributor.impl.SharedHttpClient;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
@@ -37,12 +40,14 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
@@ -60,6 +65,7 @@ public class GitlabService {
 
     private final SharedHttpClient http;
     private final JsonMapper json;
+    private final AtomicLong throttled = new AtomicLong();
 
     private final ConcurrentHashMap<ProjectKey, CompletionStage<Map<String, Object>>> projects = new ConcurrentHashMap<>();
 
@@ -183,7 +189,8 @@ public class GitlabService {
                                           final int execution,
                                           final BiFunction<Object, Object, Object> merger) {
         final var builder = HttpRequest.newBuilder(uri)
-                .header("Accept", "application/json")
+                .header("accept", "application/json")
+                .header("accept-encoding", "gzip")
                 .timeout(Duration.parse(gitlab.timeout()))
                 .GET();
         if (gitlab.headers() != null && !gitlab.headers().isEmpty()) {
@@ -193,9 +200,10 @@ public class GitlabService {
         try {
             final var promise = http
                     .getOrCreate(executor)
-                    .sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                    .sendAsync(req, HttpResponse.BodyHandlers.ofInputStream())
                     .thenComposeAsync(it -> {
                         if (it.statusCode() == 429) {
+                            throttled.incrementAndGet();
                             return it
                                     .headers()
                                     .firstValue("ratelimit-reset")
@@ -203,22 +211,30 @@ public class GitlabService {
                                         try {
                                             final var l = Long.parseLong(reset);
                                             final var now = Clock.systemUTC().instant().getEpochSecond();
-                                            // if we just use wait we retry too much at once
-                                            final var backoff = (1L << execution) * 1_000;
-                                            final var jitter = ThreadLocalRandom.current().nextLong(backoff / 2);
-                                            final var wait = Math.max(l - now, Math.min(backoff + jitter, 60_000L));
+                                            final var wait = Math.max(0, TimeUnit.SECONDS.toMillis(l - now));
                                             if (execution < MAX_RETRIES && executor instanceof ScheduledExecutorService ses) {
-                                                logger.warning(() -> it + " will be retried in " + wait + " ms");
+                                                logger.warning(() -> it + " will be retried in " + wait + " ms (total throttled requests: " + throttled + ")");
                                                 return rescheduleAfter(
                                                         ses, wait,
-                                                        () -> fetch(gitlab, executor, uri, ignoreOnFailure, followPagination, execution + 1, merger));
+                                                        () -> {
+                                                            throttled.decrementAndGet();
+                                                            return fetch(gitlab, executor, uri, ignoreOnFailure, followPagination, execution + 1, merger);
+                                                        });
                                             }
                                         } catch (final NumberFormatException nfe) {
                                             logger.warning(() -> "Can't parse ratelimit-reset value, got: '" + reset + "'");
                                         }
                                         return null;
                                     })
-                                    .orElseThrow(() -> new IllegalStateException("HTTP 429 and no reset header: " + it));
+                                    .orElseThrow(() -> {
+                                        throttled.decrementAndGet();
+                                        return new IllegalStateException("HTTP 429 and no reset header: " + it);
+                                    });
+                        }
+
+                        final var throttledCount = throttled.get();
+                        if (throttledCount > 0) {
+                            logger.warning(() -> "total throttled requests: " + throttled);
                         }
 
                         if (it.statusCode() != 200) {
@@ -229,7 +245,7 @@ public class GitlabService {
                             throw new IllegalStateException("Invalid response: " + it);
                         }
 
-                        final var page = json.fromString(Object.class, it.body());
+                        final var page = read(it);
                         if (!followPagination) {
                             return completedFuture(page);
                         }
@@ -248,7 +264,7 @@ public class GitlabService {
                                             }
                                             return link.substring(from + 1, end).strip();
                                         }))
-                                .map(next -> fetch(gitlab, executor, URI.create(next), ignoreOnFailure, followPagination, 0, merger)
+                                .map(next -> fetch(gitlab, executor, URI.create(next), ignoreOnFailure, true, 0, merger)
                                         .thenApply(newPage -> merger.apply(page, newPage)))
                                 .orElseGet(() -> completedFuture(page));
                     }, executor);
@@ -265,6 +281,16 @@ public class GitlabService {
                 return completedFuture(List.of());
             }
             throw new IllegalStateException("Failure calling " + req, re);
+        }
+    }
+
+    private Object read(final HttpResponse<InputStream> it) {
+        try (final var stream = it.headers().firstValue("content-encoding").map(e -> e.contains("gzip")).orElse(false) ?
+                new GZIPInputStream(it.body()) :
+                it.body()) {
+            return json.read(Object.class, new InputStreamReader(stream, UTF_8));
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
         }
     }
 
