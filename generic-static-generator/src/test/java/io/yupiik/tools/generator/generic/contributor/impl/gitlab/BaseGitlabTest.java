@@ -58,7 +58,7 @@ abstract class BaseGitlabTest {
         server.start();
         executor = Executors.newSingleThreadExecutor();
 
-        httpClient = new SharedHttpClient();
+        httpClient = new SharedHttpClient(new SharedHttpClient.HttpConfiguration(true, -1));
         contributor = newGitlabContributor(new GitlabService(httpClient, mapper));
     }
 

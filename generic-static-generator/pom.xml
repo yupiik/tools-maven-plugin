@@ -59,6 +59,11 @@
       <artifactId>fusion-handlebars</artifactId>
       <version>${fusion.version}</version>
     </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-httpclient</artifactId>
+      <version>${fusion.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>io.yupiik.fusion</groupId>
@@ -98,6 +103,8 @@
                     <exclude>META-INF/DEPENDENCIES</exclude>
                     <exclude>META-INF/NOTICE</exclude>
                     <exclude>META-INF/LICENSE</exclude>
+                    <!-- not needed in the shade - needed in the default one for doc for ex -->
+                    <exclude>META-INF/fusion/json/schemas.json</exclude>
                   </excludes>
                 </filter>
               </filters>
