@@ -71,7 +71,7 @@ class HttpContributorTest {
         server.start();
         executor = Executors.newSingleThreadExecutor();
 
-        httpClient = new SharedHttpClient();
+        httpClient = new SharedHttpClient(new SharedHttpClient.HttpConfiguration(true, -1));
         contributor = new HttpContributor(httpClient, mapper);
     }
 

@@ -60,8 +60,7 @@ public class HttpContributor implements ContextContributor {
     @Override
     public CompletionStage<Map<String, Object>> contribute(final Map<String, String> configuration,
                                                            final Executor executor) {
-        final var conf = new HttpContributor$HttpContributorConfiguration$FusionConfigurationFactory(configuration(configuration))
-                .get();
+        final var conf = configuration(configuration, HttpContributor$HttpContributorConfiguration$FusionConfigurationFactory::new);
         return httpClient
                 .getOrCreate(executor)
                 .sendAsync(request(conf.request()), ofString())

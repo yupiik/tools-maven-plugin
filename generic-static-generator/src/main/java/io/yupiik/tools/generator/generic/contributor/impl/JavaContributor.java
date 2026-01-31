@@ -88,8 +88,7 @@ public class JavaContributor implements ContextContributor {
     @Override
     public CompletionStage<Map<String, Object>> contribute(final Map<String, String> configuration,
                                                            final Executor executor) {
-        final var conf = new JavaContributor$JavaContributorConfiguration$FusionConfigurationFactory(configuration(configuration))
-                .get();
+        final var conf = configuration(configuration, JavaContributor$JavaContributorConfiguration$FusionConfigurationFactory::new);
         final var result = new CompletableFuture<Map<String, Object>>();
         executor.execute(() -> {
             try {
