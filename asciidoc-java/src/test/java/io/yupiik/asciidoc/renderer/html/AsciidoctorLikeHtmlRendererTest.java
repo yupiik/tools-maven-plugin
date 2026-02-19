@@ -55,7 +55,6 @@ class AsciidoctorLikeHtmlRendererTest {
         final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visit(doc);
-        Files.writeString(Path.of("/tmp/out.html"), renderer.result());
         assertEquals(
                 """
                          <div class="paragraph">
@@ -1182,6 +1181,51 @@ class AsciidoctorLikeHtmlRendererTest {
                  </p>
                  </div>
                 """, renderer.result());
+    }
+
+    @Test
+    void mermaid(@TempDir final Path srcPath) {
+        final var doc = new Parser().parse(
+                """
+                        = Index
+                        
+                        [mermaid]
+                        ....
+                        graph TD;
+                            id1["`first`"]
+                            id2["`pre`"]
+                            id3["`second`"]
+                            id1 --> id3
+                            id2 --> id3
+                        ....
+                        """,
+                new Parser.ParserContext(ContentResolver.of(srcPath)));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        renderer.visit(doc);
+        assertEquals(
+                """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                         <meta charset="UTF-8">
+                         <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                        </head>
+                        <body>
+                         <div id="content">
+                         <h1>Index</h1>
+                          <pre class="mermaid">
+                        graph TD;
+                            id1["`first`"]
+                            id2["`pre`"]
+                            id3["`second`"]
+                            id1 --> id3
+                            id2 --> id3
+                          </pre>
+                         </div>
+                        <script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';</script></body>
+                        </html>
+                        """,
+                renderer.result());
     }
 
     private void assertRendering(final String adoc, final String html) {

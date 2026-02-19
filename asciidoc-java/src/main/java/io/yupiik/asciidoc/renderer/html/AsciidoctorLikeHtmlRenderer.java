@@ -91,6 +91,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final State state = new State(); // this is why we are not thread safe
     protected final Parser subParser;
     protected final ContentResolver subResolver;
+    protected boolean usesMermaid;
 
     public AsciidoctorLikeHtmlRenderer() {
         this(new Configuration().setAttributes(Map.of()));
@@ -815,10 +816,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     }
                 }
             }
+            case "mermaid" -> visitMermaid(element);
             default -> visitCode(new Code(element.value(), List.of(), element.options(), false));
         }
     }
-
 
     @Override
     public String result() {
@@ -868,16 +869,29 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    protected void visitMermaid(final Listing element) {
+        builder
+                .append("  <pre class=\"mermaid\">\n")
+                .append(element.value().strip())
+                .append('\n')
+                .append("  </pre>\n");
+        usesMermaid = true;
+    }
+
+
     protected void afterBodyStart() {
-        // no-op
+        builder.append(attr("renderer-afterBodyStart", ""));
     }
 
     protected void beforeBodyEnd() {
-        // no-op
+        if (usesMermaid && !Boolean.parseBoolean(attr("mermaid-skipCdn", "false"))) {
+            builder.append("<script type=\"module\">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';</script>");
+        }
+        builder.append(attr("renderer-beforeBodyEnd", ""));
     }
 
     protected void beforeHeadEnd() {
-        // no-op
+        builder.append(attr("renderer-beforeHeadEnd", ""));
     }
 
     protected void visitToc(final Body body) {
