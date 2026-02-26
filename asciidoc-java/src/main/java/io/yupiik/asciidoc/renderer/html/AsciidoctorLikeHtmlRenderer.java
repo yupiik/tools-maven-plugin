@@ -1023,7 +1023,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         writeBlockTitle(element.options());
         builder.append("  <audio src=\"").append(element.label()).append("\"")
                 .append(element.options().get("autoplay") != null ? " autoplay" : "").
-                append(element.options().get("nocontrols") != null ? " nocontrols" : "")
+                append(element.options().get("nocontrols") != null ? "" : " controls")
                 .append(element.options().get("loop") != null ? " loop" : "")
                 .append(">\n");
         builder.append("  Your browser does not support the audio tag.\n");
@@ -1038,8 +1038,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(">\n");
         writeBlockTitle(element.options());
         builder.append("  <video src=\"").append(element.label()).append("\"")
-                .append(element.options().get("autoplay") != null ? " autoplay" : "").
-                append(element.options().get("nocontrols") != null ? " nocontrols" : "")
+                .append(element.options().get("autoplay") != null ? " autoplay" : "")
+                .append(element.options().get("nocontrols") != null ? "" : " controls")
                 .append(element.options().get("loop") != null ? " loop" : "")
                 .append(">\n");
         builder.append("  Your browser does not support the video tag.\n");

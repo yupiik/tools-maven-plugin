@@ -1228,6 +1228,85 @@ class AsciidoctorLikeHtmlRendererTest {
                 renderer.result());
     }
 
+    @Test
+    void audioAndVideoWithControls() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                video::video.mp4[]
+                
+                audio::audio.mp3[]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+            <div class="sect0" id="_test">
+             <h1>Test</h1>
+            <div class="sectionbody">
+            <div class="videoblock">
+            <div class="content">
+            <div class="videoblock">
+             <video src="video.mp4" controls>
+             Your browser does not support the video tag.
+             </video>
+            </div>
+            </div>
+            </div>
+            <div class="audioblock">
+            <div class="content">
+            <div class="audioblock">
+             <audio src="audio.mp3" controls>
+             Your browser does not support the audio tag.
+             </audio>
+            </div>
+            </div>
+            </div>
+            </div>
+            </div>
+           """, renderer.result());
+    }
+
+
+    @Test
+    void audioAndVideoWithNoControls() {
+        final var doc = new Parser().parseBody("""
+                = Test
+                                
+                video::video.mp4[nocontrols=1]
+                
+                audio::audio.mp3[nocontrols=1]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                <div class="sect0" id="_test">
+                 <h1>Test</h1>
+                <div class="sectionbody">
+                <div class="videoblock">
+                <div class="content">
+                <div class="videoblock">
+                 <video src="video.mp4">
+                 Your browser does not support the video tag.
+                 </video>
+                </div>
+                </div>
+                </div>
+                <div class="audioblock">
+                <div class="content">
+                <div class="audioblock">
+                 <audio src="audio.mp3">
+                 Your browser does not support the audio tag.
+                 </audio>
+                </div>
+                </div>
+                </div>
+                </div>
+                </div>
+               """, renderer.result());
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
