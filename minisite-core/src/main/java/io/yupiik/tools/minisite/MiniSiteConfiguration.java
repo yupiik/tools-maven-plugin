@@ -97,8 +97,11 @@ public class MiniSiteConfiguration {
     private boolean injectBlogMeta;
     private String blogPublicationDate;
     private OffsetDateTime runtimeBlogPublicationDate;
+    @Builder.Default
     private GravatarConfiguration gravatar = new GravatarConfiguration();
+    @Builder.Default
     private boolean addCodeCopyButton = true;
+    @Builder.Default
     private boolean createADefault404Page = true;
 
     public void fixConfig() {
