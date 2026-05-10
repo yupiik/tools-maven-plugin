@@ -477,6 +477,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .projectArtifactId(ofNullable(attributes).map(a -> a.get("projectArtifactId")).map(Object::toString).orElseGet(() -> project.getArtifactId()))
                 .asciidoctorConfiguration(this)
                 .asciidoc(createAsciidoc(preferYupiikAsciidoc))
+                .createADefault404Page(createADefault404Page)
                 .reverseBlogOrder(reverseBlogOrder)
                 .addIndexRegistrationPerCategory(addIndexRegistrationPerCategory)
                 .blogCategoriesCustomizations(blogCategoriesCustomizations)
