@@ -72,7 +72,7 @@ public class StaticHttpServer implements Runnable {
                 if (name.endsWith(".css")) {
                     return "text/css";
                 }
-                if (name.endsWith(".js")) {
+                if (name.endsWith(".js") || name.endsWith(".mjs")) {
                     return "application/javascript";
                 }
                 if (name.endsWith(".svg")) {
