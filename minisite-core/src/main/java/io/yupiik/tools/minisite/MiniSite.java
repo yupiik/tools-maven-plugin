@@ -726,7 +726,7 @@ public class MiniSite implements Runnable {
                                 return (Predicate<String>) it::equals;
                             })
                             .reduce(s -> false, Predicate::or);
-            final IndexService indexer = new IndexService();
+            final InvertedIndexService indexer = new InvertedIndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
                 final String location = configuration.getTarget().relativize(path).toString().replace(File.separatorChar, '/');
                 final String name = path.getFileName().toString();
@@ -1270,11 +1270,7 @@ public class MiniSite implements Runnable {
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"))
                 .replace("{{customScripts}}",
-                        ofNullable(configuration.getCustomScripts()).orElse("").trim() + (hasSearch() ?
-                                "\n    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
-                                        "integrity=\"sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==\" " +
-                                        "crossorigin=\"anonymous\"></script>\n" :
-                                "\n"))
+                        ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n")
                 .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
                 .replace("{{base}}", configuration.getSiteBase());
         if (configuration.isLlmChatEnabled()) {
