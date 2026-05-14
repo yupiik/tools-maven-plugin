@@ -229,7 +229,7 @@ if (typeof Object.create !== 'function') {
 
 
 // ---------------------------------------------------------------------------
-// custom features - search with inverted index
+// search with inverted index
 // ---------------------------------------------------------------------------
 
 // Porter stemmer in JS (Porter Stemming Algorithm)
@@ -449,7 +449,6 @@ var PorterStemmer = {
   }
 };
 
-// Levenshtein distance
 function levenshtein(a, b) {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
@@ -469,12 +468,10 @@ function levenshtein(a, b) {
   return matrix[b.length][a.length];
 }
 
-// Normalize text (same rules as Java side)
 function normalizeText(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-// Tokenize and stem a query string
 function tokenizeQuery(query, stopWords) {
   var normalized = normalizeText(query);
   if (!normalized) return [];
@@ -502,14 +499,12 @@ function fuzzyFind(term, allTerms, maxDist) {
   return results;
 }
 
-// Highlight snippet from searchable text
 function highlightSnippet(searchableText, termPositions, queryTerms) {
   if (!searchableText || !termPositions || !termPositions.length) return '';
 
   var SNIPPET_RADIUS = 55;
   var snippets = [];
 
-  // Collect all snippet windows around each position
   for (var i = 0; i < termPositions.length; i++) {
     var pos = termPositions[i];
     var start = Math.max(0, pos - SNIPPET_RADIUS);
@@ -517,7 +512,6 @@ function highlightSnippet(searchableText, termPositions, queryTerms) {
     snippets.push({ start: start, end: end, pos: pos });
   }
 
-  // Merge overlapping windows
   snippets.sort(function (a, b) { return a.start - b.start; });
   var merged = [];
   for (i = 0; i < snippets.length; i++) {
@@ -534,7 +528,6 @@ function highlightSnippet(searchableText, termPositions, queryTerms) {
     }
   }
 
-  // Build highlighted HTML
   var html = '';
   for (i = 0; i < merged.length; i++) {
     if (i > 0) html += ' ... ';
@@ -554,7 +547,6 @@ function highlightSnippet(searchableText, termPositions, queryTerms) {
   return html;
 }
 
-// Main search function
 function searchInIndex(index, query) {
   if (!query || !query.trim()) return [];
   var queryTerms = tokenizeQuery(query, index.s || []);

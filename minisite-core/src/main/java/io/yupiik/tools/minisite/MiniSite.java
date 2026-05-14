@@ -749,6 +749,41 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
+        if (configuration.isCreateRobotsTxt() && !Files.exists(output.resolve("robots.txt"))) {
+            try {
+                String base = configuration.getSiteBase();
+                if (base.endsWith("/")) {
+                    base = base.substring(0, base.length() - 1);
+                }
+
+                Files.writeString(output.resolve("robots.txt"), "User-agent: *\n" +
+                        "Allow: /\n" +
+                        "\n" +
+                        (configuration.isGenerateSiteMap() ? "Sitemap: " + base + "/sitemap.xml" : ""));
+                configuration.getAsciidoctorConfiguration().debug().accept("Generated robots.txt");
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        if (configuration.isCreateLlmsTxt() && !Files.exists(output.resolve("llms.txt"))) {
+            try {
+                String base = configuration.getSiteBase();
+                if (base.endsWith("/")) {
+                    base = base.substring(0, base.length() - 1);
+                }
+
+                Files.writeString(output.resolve("llms.txt"), "# Site: " + getTitle(options) + "\n" +
+                        "# Description: " + ofNullable(configuration.getDescription()).orElseGet(() -> getTitle(options)) + "\n" +
+                        "# Canonical: " + base + "\n" +
+                        "\n" +
+                        pages.stream()
+                                .map(it -> it.relativePath)
+                                .collect(joining("\n")));
+                configuration.getAsciidoctorConfiguration().debug().accept("Generated llms.txt");
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
 
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }

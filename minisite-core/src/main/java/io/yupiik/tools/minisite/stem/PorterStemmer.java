@@ -242,7 +242,7 @@ public class PorterStemmer {
         }
         if ((endsWith(word, "s") || endsWith(word, "t")) && word.length() >= 4 && endsWith(word, "ion")) {
             final String base = word.substring(0, n - 3);
-            if (base.length() > 0) {
+            if (!base.isEmpty()) {
                 final char prev = base.charAt(base.length() - 1);
                 if ((prev == 's' || prev == 't') && measure(base) > 1) {
                     return base;
