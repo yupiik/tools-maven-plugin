@@ -23,7 +23,6 @@ import io.yupiik.maven.service.ftp.configuration.FtpService;
 import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.tools.minisite.ActionExecutor;
-import io.yupiik.tools.minisite.IndexService;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
@@ -393,9 +392,6 @@ public class MiniSiteMojo extends BaseMojo {
 
     @Inject
     private GitService gitService;
-
-    @Inject
-    private IndexService indexService;
 
     @Inject
     private ActionExecutor actionExecutor;
