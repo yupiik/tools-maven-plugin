@@ -82,6 +82,8 @@ public final class MinisiteCommand {
                                 @Option(value = "llmModelId", description = "WebLLM model identifier.") @Default("Llama-3.2-3B-Instruct-q4f16_1-MLC") final String llmModelId,
                                 @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one.") final boolean useYupiikAsciidoc,
                                 @Option(value = "createADefault404Page", description = "If `true` a `404.html` will be generated with the minisite theme - useful on github pages for example.") final boolean createADefault404Page,
+                                @Option(value = "createRobotsTxt", description = "If `true` a `robots.txt` will be generated.") final boolean createRobotsTxt,
+                                @Option(value = "createLlmsTxt", description = "If `true` a `llms.txt` will be generated.") final boolean createLlmsTxt,
                                 @Out final PrintStream stdout,
                                 @Err final PrintStream stderr,
                                 final AsciidoctorProvider asciidoctorProvider) {
@@ -146,6 +148,8 @@ public final class MinisiteCommand {
                 .injectYupiikTemplateExtensionPoints(injectYupiikTemplateExtensionPoints)
                 .templateExtensionPoints(templateExtensionPoints)
                 .createADefault404Page(createADefault404Page)
+                .createRobotsTxt(createRobotsTxt)
+                .createLlmsTxt(createLlmsTxt)
                 .build())
                 .run();
     }

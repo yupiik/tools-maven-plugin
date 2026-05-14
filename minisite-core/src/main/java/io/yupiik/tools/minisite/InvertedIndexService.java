@@ -16,7 +16,7 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.tools.minisite.stem.PorterStemmer;
-import io.yupiik.tools.minisite.stem.TokenStream;
+import io.yupiik.tools.minisite.stem.StopWords;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbConfig;
 import jakarta.json.bind.annotation.JsonbProperty;
@@ -24,7 +24,6 @@ import jakarta.json.bind.config.PropertyOrderStrategy;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -97,7 +96,7 @@ public class InvertedIndexService {
         Collections.sort(result.allTerms);
         result.allTermsSet = null;
 
-        result.stopWords = new ArrayList<>(TokenStream.getStopWords());
+        result.stopWords = new ArrayList<>(StopWords.getStopWords());
         Collections.sort(result.stopWords);
 
         return result;
@@ -142,7 +141,7 @@ public class InvertedIndexService {
             for (final var te : entry.getValue()) {
                 final var e = new ArrayList<>(3);
                 e.add(te.docIdx);
-                e.add((double) te.score);
+                e.add(te.score);
                 if (te.positions != null && te.positions.length > 0) {
                     final var positions = new ArrayList<Integer>(te.positions.length);
                     for (final int p : te.positions) {
@@ -283,7 +282,7 @@ public class InvertedIndexService {
         final var parts = normalized.split("[^a-z0-9]+");
         final var result = new HashSet<String>();
         for (final var part : parts) {
-            if (!part.isEmpty() && !TokenStream.getStopWords().contains(part)) {
+            if (!part.isEmpty() && !StopWords.getStopWords().contains(part)) {
                 result.add(ps.stem(part));
             }
         }
@@ -303,7 +302,7 @@ public class InvertedIndexService {
                 token.append(c);
             } else if (!token.isEmpty()) {
                 final var raw = token.toString();
-                if (!TokenStream.getStopWords().contains(raw)) {
+                if (!StopWords.getStopWords().contains(raw)) {
                     result.add(new TokenPosition(raw, ps.stem(raw), tokenStart));
                 }
                 token.setLength(0);
@@ -311,7 +310,7 @@ public class InvertedIndexService {
         }
         if (!token.isEmpty()) {
             final var raw = token.toString();
-            if (!TokenStream.getStopWords().contains(raw)) {
+            if (!StopWords.getStopWords().contains(raw)) {
                 result.add(new TokenPosition(raw, ps.stem(raw), tokenStart));
             }
         }
