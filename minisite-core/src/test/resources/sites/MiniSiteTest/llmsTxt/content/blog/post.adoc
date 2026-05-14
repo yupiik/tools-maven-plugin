@@ -1,0 +1,6 @@
+= My First Post
+:minisite-blog-published-date: 2021-02-15
+:minisite-blog-categories: others
+:minisite-blog-summary: First post.
+
+Uno

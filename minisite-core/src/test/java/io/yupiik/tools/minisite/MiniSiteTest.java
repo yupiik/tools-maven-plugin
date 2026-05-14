@@ -189,6 +189,23 @@ class MiniSiteTest {
     }
 
     @Test
+    void llmsTxt(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder.createLlmsTxt(true).siteBase("https://foo.test.yupiik.com").build()).run();
+        asserts.assertThat(files -> assertEquals(
+                List.of(
+                        "blog/category/index.html", "blog/category/others/index.html", "blog/category/others/page-1.html",
+                        "blog/index.html", "blog/page-1.html", "blog/post.html", "css/theme.css", "images/logo.svg", "index.html",
+                        "js/minisite.js", "llms.txt", "page.html", "search.json", "sitemap.xml"),
+                files.keySet().stream().sorted().collect(toList())));
+        asserts.assertContains("llms.txt", "" +
+                "# Description: The test rendering.\n" +
+                "# Canonical: https://foo.test.yupiik.com\n" +
+                "\n" +
+                "/page.html\n" +
+                "/blog/post.html");
+    }
+
+    @Test
     void rss(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
         new MiniSite(builder.rssFeedFile("rss.xml").siteBase("https://foo.test.yupiik.com").build()).run();
         asserts.assertThat(files -> assertEquals(

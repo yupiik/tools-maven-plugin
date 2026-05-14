@@ -102,6 +102,8 @@ public class MiniSiteConfiguration {
     private String llmModelId = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
     private boolean addCodeCopyButton = true;
     private boolean createADefault404Page = true;
+    private boolean createRobotsTxt;
+    private boolean createLlmsTxt;
 
     public void fixConfig() {
         if (requires == null) { // ensure we don't load reveal.js by default since we disabled extraction of gems
