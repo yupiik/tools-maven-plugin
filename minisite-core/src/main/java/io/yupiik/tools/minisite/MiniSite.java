@@ -706,7 +706,7 @@ public class MiniSite implements Runnable {
                                 return (Predicate<String>) it::equals;
                             })
                             .reduce(s -> false, Predicate::or);
-            final IndexService indexer = new IndexService();
+            final InvertedIndexService indexer = new InvertedIndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
                 final String location = configuration.getTarget().relativize(path).toString().replace(File.separatorChar, '/');
                 final String name = path.getFileName().toString();
@@ -745,6 +745,41 @@ public class MiniSite implements Runnable {
                 final String content404 = template.apply(new Page("404.html", "Page not found", Map.of(), "# Page not found\n\nGo back on link:" + base +  "[home].\n"));
                 Files.writeString(output.resolve("404.html"), content404);
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated 404.html");
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        if (configuration.isCreateRobotsTxt() && !Files.exists(output.resolve("robots.txt"))) {
+            try {
+                String base = configuration.getSiteBase();
+                if (base.endsWith("/")) {
+                    base = base.substring(0, base.length() - 1);
+                }
+
+                Files.writeString(output.resolve("robots.txt"), "User-agent: *\n" +
+                        "Allow: /\n" +
+                        "\n" +
+                        (configuration.isGenerateSiteMap() ? "Sitemap: " + base + "/sitemap.xml" : ""));
+                configuration.getAsciidoctorConfiguration().debug().accept("Generated robots.txt");
+            } catch (final IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        if (configuration.isCreateLlmsTxt() && !Files.exists(output.resolve("llms.txt"))) {
+            try {
+                String base = configuration.getSiteBase();
+                if (base.endsWith("/")) {
+                    base = base.substring(0, base.length() - 1);
+                }
+
+                Files.writeString(output.resolve("llms.txt"), "# Site: " + getTitle(options) + "\n" +
+                        "# Description: " + ofNullable(configuration.getDescription()).orElseGet(() -> getTitle(options)) + "\n" +
+                        "# Canonical: " + base + "\n" +
+                        "\n" +
+                        pages.stream()
+                                .map(it -> it.relativePath)
+                                .collect(joining("\n")));
+                configuration.getAsciidoctorConfiguration().debug().accept("Generated llms.txt");
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -1241,11 +1276,7 @@ public class MiniSite implements Runnable {
                 .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
                         .orElse("yupiik"))
                 .replace("{{customScripts}}",
-                        ofNullable(configuration.getCustomScripts()).orElse("").trim() + (hasSearch() ?
-                                "\n    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js\" " +
-                                        "integrity=\"sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==\" " +
-                                        "crossorigin=\"anonymous\"></script>\n" :
-                                "\n"))
+                        ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n")
                 .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
                 .replace("{{base}}", configuration.getSiteBase());
         if (configuration.isTemplateAddLeftMenu()) {

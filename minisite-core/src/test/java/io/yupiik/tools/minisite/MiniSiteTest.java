@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
@@ -82,9 +83,24 @@ class MiniSiteTest {
                 .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
                 .notIndexedPages(List.of("regex:blog\\p{Digit}.html"))
                 .build()).run();
-        asserts.assertThat(files -> assertEquals("" +
-                "[{\"lang\":\"en\",\"text\":\"\",\"title\":\"Test Site\",\"url\":\"/index.html\"}]" +
-                "", files.get("search.json")));
+        asserts.assertThat(files -> {
+            final String searchJson = files.get("search.json");
+            assertTrue(searchJson.contains("\"v\":1"), "bad prefix: " + searchJson);
+            assertTrue(searchJson.contains("\"u\":\"/index.html\""), "should contain index.html URL");
+            assertTrue(searchJson.contains("\"t\":\"Test Site\""), "should contain Test Site title");
+            assertTrue(searchJson.contains("\"i\":"), "should contain inverted index");
+            // only one document should be indexed
+            assertEquals(1, countOccurrences(searchJson, "\"u\":"), "should have exactly 1 doc");
+        });
+    }
+
+    private static int countOccurrences(final String text, final String pattern) {
+        int count = 0, idx = 0;
+        while ((idx = text.indexOf(pattern, idx)) >= 0) {
+            count++;
+            idx += pattern.length();
+        }
+        return count;
     }
 
     @Test
@@ -170,6 +186,23 @@ class MiniSiteTest {
                 "</ul>\n" +
                 "</div>");
         // todo: assert home, authors, category etc page contents
+    }
+
+    @Test
+    void llmsTxt(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder, final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder.createLlmsTxt(true).siteBase("https://foo.test.yupiik.com").build()).run();
+        asserts.assertThat(files -> assertEquals(
+                List.of(
+                        "blog/category/index.html", "blog/category/others/index.html", "blog/category/others/page-1.html",
+                        "blog/index.html", "blog/page-1.html", "blog/post.html", "css/theme.css", "images/logo.svg", "index.html",
+                        "js/minisite.js", "llms.txt", "page.html", "search.json", "sitemap.xml"),
+                files.keySet().stream().sorted().collect(toList())));
+        asserts.assertContains("llms.txt", "" +
+                "# Description: The test rendering.\n" +
+                "# Canonical: https://foo.test.yupiik.com\n" +
+                "\n" +
+                "/page.html\n" +
+                "/blog/post.html");
     }
 
     @Test
