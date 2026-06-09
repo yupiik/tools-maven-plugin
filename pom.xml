@@ -40,6 +40,8 @@
     <johnzon.version>1.2.21</johnzon.version>
     <uship.version>1.0.19</uship.version>
 
+    <node.version>v20.11.0</node.version>
+    <npm.version>10.2.4</npm.version>
     <node.environment>production</node.environment>
   </properties>
 
@@ -144,7 +146,7 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
-      <version>1.18.42</version>
+      <version>1.18.46</version>
       <scope>provided</scope>
     </dependency>
 
@@ -424,8 +426,8 @@ under the License.
             </goals>
             <configuration>
               <installDirectory>${project.basedir}/.node</installDirectory>
-              <nodeVersion>v20.11.0</nodeVersion>
-              <npmVersion>10.2.4</npmVersion>
+              <nodeVersion>${node.version}</nodeVersion>
+              <npmVersion>${npm.version}</npmVersion>
             </configuration>
           </execution>
         </executions>

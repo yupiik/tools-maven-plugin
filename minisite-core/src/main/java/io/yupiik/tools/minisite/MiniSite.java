@@ -15,6 +15,7 @@
  */
 package io.yupiik.tools.minisite;
 
+import io.yupiik.tools.minisite.action.builtin.LlmEmbeddingGenerator;
 import io.yupiik.tools.minisite.language.Asciidoc;
 import lombok.RequiredArgsConstructor;
 
@@ -660,15 +661,34 @@ public class MiniSite implements Runnable {
                             "yupiik-tools-maven-plugin/minisite/assets/images/logo.svg")
                     .forEach(resource -> {
                         final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
-                        try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(Thread.currentThread().getContextClassLoader()
-                                .getResourceAsStream(resource), StandardCharsets.UTF_8))) {
+                        try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(requireNonNull(MiniSite.class.getClassLoader()
+                                .getResourceAsStream(resource)), StandardCharsets.UTF_8))) {
                             Files.createDirectories(out.getParent());
-                            Files.write(out, buffer.lines().collect(joining("\n")).replace("{{base}}", configuration.getSiteBase())
-                                    .getBytes(StandardCharsets.UTF_8));
+                            Files.writeString(out, buffer.lines().collect(joining("\n"))
+                                    .replace("{{base}}", configuration.getSiteBase()));
                         } catch (final IOException e) {
                             throw new IllegalStateException(e);
                         }
                     });
+
+            if (configuration.isLlmChatEnabled()) {
+                Stream.of(
+                                "yupiik-tools-maven-plugin/minisite/assets/js/llm-chat.js",
+                                "yupiik-tools-maven-plugin/minisite/assets/llm-chat-sw.js",
+                                "yupiik-tools-maven-plugin/minisite/assets/css/llm-chat.css")
+                        .forEach(resource -> {
+                            final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
+                            try (final InputStream stream = MiniSite.class.getClassLoader().getResourceAsStream(resource)) {
+                                Files.createDirectories(out.getParent());
+                                try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(requireNonNull(stream), StandardCharsets.UTF_8))) {
+                                    Files.writeString(out, buffer.lines().collect(joining("\n"))
+                                            .replace("{{base}}", configuration.getSiteBase()));
+                                }
+                            } catch (final IOException e) {
+                                throw new IllegalStateException(e);
+                            }
+                        });
+            }
         }
 
         final Path assets = configuration.getSource().resolve("assets");
@@ -750,6 +770,15 @@ public class MiniSite implements Runnable {
             }
         }
 
+        if (configuration.isLlmChatEnabled()) {
+            try {
+                new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget()).run();
+            } catch (final RuntimeException e) {
+                configuration.getAsciidoctorConfiguration().error().accept("Failed to generate LLM embeddings: " + e.getMessage());
+                throw e;
+            }
+        }
+
         configuration.getAsciidoctorConfiguration().info().accept("Rendered minisite '" + configuration.getSource().getFileName() + "'");
     }
 
@@ -798,7 +827,7 @@ public class MiniSite implements Runnable {
 
     private Function<String, String> findXmlEscaper() {
         try { // todo: absorb it there to avoid the need of the dep
-            final Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
+            final Class<?> clazz = MiniSite.class.getClassLoader().loadClass("org.apache.commons.lang3.StringEscapeUtils");
             final Method escapeXml11 = clazz.getMethod("escapeXml11", String.class);
             if (!escapeXml11.isAccessible()) {
                 escapeXml11.setAccessible(true);
@@ -1248,9 +1277,27 @@ public class MiniSite implements Runnable {
                                 "\n"))
                 .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
                 .replace("{{base}}", configuration.getSiteBase());
+        if (configuration.isLlmChatEnabled()) {
+            prefix = prefix.replace("</head>",
+                    "<link rel=\"stylesheet\" href=\"" + configuration.getSiteBase() + "/css/llm-chat.css?v=" + configuration.getProjectVersion() + "\">\n" +
+                    "</head>");
+        }
         if (configuration.isTemplateAddLeftMenu()) {
             prefix += "\n<minisite-menu-placeholder/>\n";
         }
+        final String suffixRef = configuration.isLlmChatEnabled() ?
+                suffix.replace("</body>",
+                        "<div id=\"llm-chat-root\" style=\"display:none\"\n" +
+                        "     data-model-id=\"" + configuration.getLlmModelId() + "\"\n" +
+                        "     data-base=\"" + configuration.getSiteBase() + "\"></div>\n" +
+                        "<script>\n" +
+                        "if ('serviceWorker' in navigator) {\n" +
+                        "  navigator.serviceWorker.register('" + configuration.getSiteBase() + "/llm-chat-sw.js', {scope: '/'});\n" +
+                        "}\n" +
+                        "</script>\n" +
+                        "<script src=\"" + configuration.getSiteBase() + "/js/llm-chat.js?v=" + configuration.getProjectVersion() + "\"></script>\n" +
+                        "</body>") :
+                suffix;
         final String prefixRef = prefix;
         return page -> String.join(
                 "\n",
@@ -1272,7 +1319,7 @@ public class MiniSite implements Runnable {
                                     return content;
                                 }))),
                 page.attributes != null && page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
-                suffix.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
+                suffixRef.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
                         "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\" integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
                         "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js\" integrity=\"sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==\" crossorigin=\"anonymous\"></script>\n" +
                         "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js\" integrity=\"sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==\" crossorigin=\"anonymous\"></script>\n" +
@@ -1416,7 +1463,7 @@ public class MiniSite implements Runnable {
                 throw new IllegalStateException(e);
             }
         }
-        final InputStream stream = Thread.currentThread().getContextClassLoader()
+        final InputStream stream = MiniSite.class.getClassLoader()
                 .getResourceAsStream("yupiik-tools-maven-plugin/minisite/" + it);
         if (stream == null) {
             configuration.getAsciidoctorConfiguration().info().accept("No '" + it + "' template found");

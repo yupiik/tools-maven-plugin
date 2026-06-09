@@ -98,6 +98,8 @@ public class MiniSiteConfiguration {
     private String blogPublicationDate;
     private OffsetDateTime runtimeBlogPublicationDate;
     private GravatarConfiguration gravatar = new GravatarConfiguration();
+    private boolean llmChatEnabled = false;
+    private String llmModelId = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
     private boolean addCodeCopyButton = true;
     private boolean createADefault404Page = true;
 

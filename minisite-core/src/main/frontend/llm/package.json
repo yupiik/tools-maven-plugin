@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "minisite-llm-chat",
+  "scripts": {
+    "build": "rsbuild build",
+    "dev": "rsbuild dev"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "@mlc-ai/web-llm": "^0.2.77"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.0.0",
+    "typescript": "^5.4.0"
+  }
+}
