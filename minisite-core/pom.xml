@@ -52,6 +52,13 @@
       <version>1.17.2</version>
     </dependency>
 
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+      <version>1.16.1-beta26</version>
+      <scope>provided</scope>
+    </dependency>
+
     <!-- todo: switch as default when moving to v2 -->
     <dependency>
       <groupId>${project.groupId}</groupId>
@@ -112,6 +119,7 @@
               <excludes>
                 <exclude>**/DownloadAndUnzip.java</exclude>
                 <exclude>**/YupiikAsciidoc.java</exclude>
+                <exclude>**/LlmEmbeddingGenerator.java</exclude>
               </excludes>
             </configuration>
           </execution>
@@ -129,7 +137,54 @@
               </includes>
             </configuration>
           </execution>
+          <execution>
+            <id>compile-llm</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <source>17</source>
+              <target>17</target>
+              <includes>
+                <include>**/LlmEmbeddingGenerator.java</include>
+              </includes>
+            </configuration>
+          </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>npm-install</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>npm-build</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run build</arguments>
+              <environmentVariables>
+                <OUTPUT>${project.build.outputDirectory}/yupiik-tools-maven-plugin/minisite/assets</OUTPUT>
+                <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
+                <NODE_ENV>${node.environment}</NODE_ENV>
+              </environmentVariables>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <installDirectory>${project.parent.basedir}/.node</installDirectory>
+          <workingDirectory>${project.basedir}/src/main/frontend/llm</workingDirectory>
+          <skip>${settings.offline}</skip>
+        </configuration>
       </plugin>
     </plugins>
   </build>

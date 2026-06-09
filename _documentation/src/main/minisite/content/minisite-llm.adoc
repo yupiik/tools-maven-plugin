@@ -1,0 +1,101 @@
+= Minisite LLM Chat
+
+The `minisite` goal can embed a documentation assistant directly in the generated site.
+Once enabled, every page gets a chat widget able to answer questions about *your* documentation.
+It is a Retrieval-Augmented Generation (RAG) chat that runs **entirely in the visitor's browser**:
+there is no backend, no API key and no call to any external LLM provider — only the model weights
+are downloaded (once) from a CDN.
+
+== Enabling it (build time)
+
+Two things are required:
+
+. set `<llmChatEnabled>true</llmChatEnabled>` on the plugin configuration,
+. add the embedding model as a *plugin* dependency so the model is on the plugin classpath.
+
+A complete example can be found in the Fusion documentation `pom.xml`
+(`https://github.com/yupiik/fusion/blob/master/fusion-documentation/pom.xml`):
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>${yupiik-tools.version}</version>
+  <configuration>
+    <!-- ... your usual minisite configuration ... -->
+    <llmChatEnabled>true</llmChatEnabled> <1>
+    <!-- optional, defaults to Llama-3.2-3B-Instruct-q4f16_1-MLC -->
+    <llmModelId>Llama-3.2-3B-Instruct-q4f16_1-MLC</llmModelId> <2>
+  </configuration>
+  <dependencies>
+    <dependency> <3>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+      <version>1.16.1-beta26</version>
+    </dependency>
+  </dependencies>
+</plugin>
+----
+<.> Turns the feature on (property: `yupiik.minisite.llmChatEnabled`, default `false`).
+<.> The browser chat model, any https://mlc.ai[WebLLM/MLC] model id is accepted (property: `yupiik.minisite.llmModelId`).
+<.> Provides `all-minilm-l6-v2.onnx` and its tokenizer on the plugin classpath. If `llmChatEnabled` is `true` and this dependency is missing, the build fails fast with a message telling you to add it.
+
+== How it works
+
+The feature has two phases: a build-time phase (on the server, during the Maven build) and a
+runtime phase (in the browser when a visitor opens the chat).
+
+=== Build time
+
+When `llmChatEnabled` is `true`, once all pages are rendered `MiniSite` runs
+`io.yupiik.tools.minisite.action.builtin.LlmEmbeddingGenerator`, which:
+
+. walks the generated HTML and extracts the textual content of each page (the `.page-content-body`
+element), skipping generated `404.html`, pagination (`page-*.html`) and *generated* landing pages
+(an `index.html` is kept only when it is backed by an authored `index.adoc` source, so your section
+hub pages and their feature lists are indexed),
+. splits each page into overlapping, sentence-aware chunks prefixed with the page title, and prepends
+a synthetic "Overview" chunk listing every documented topic so high-level questions have something to match,
+. embeds each chunk with the bundled `all-MiniLM-L6-v2` model through ONNX Runtime — WordPiece
+tokenization, mean pooling over the tokens (attention-mask weighted) and L2 normalization, producing
+384-dimensional vectors,
+. writes the result under `assets/llm/embeddings/`: `embeddings.index.json` (model, dimension, chunk
+files, count) and `chunk-0001.json` (the chunks with their vectors).
+
+In addition the minisite injects, on every page, the chat assets it built from
+`minisite-core/src/main/frontend/llm`: `css/llm-chat.css`, `js/llm-chat.js`, a service worker
+(`llm-chat-sw.js`) and a hidden `#llm-chat-root` element carrying the configured `llmModelId`.
+
+=== Runtime (in the browser)
+
+Everything happens client-side:
+
+. https://github.com/mlc-ai/web-llm[WebLLM] downloads the chat model (`llmModelId`) once from its CDN
+and runs it on WebGPU,
+. the visitor's question is embedded in the browser with the **same** `all-MiniLM-L6-v2` model
+(via https://github.com/huggingface/transformers.js[transformers.js], mean pooling + normalization),
+so questions and documents live in the same vector space,
+. a hybrid retrieval ranks the chunks by blending cosine similarity with a keyword score (including a
+small synonym expansion, e.g. _features_ / _modules_ / _extensions_), and keeps the best ones,
+. the retrieved chunks and the question form a grounded prompt; the local model streams back a Markdown
+answer with links to the source pages.
+
+The service worker caches the embeddings with a network-first strategy (so a site rebuild is picked up
+on reload) and the chunks are stored in IndexedDB after the first load.
+
+[NOTE]
+====
+* A WebGPU-capable browser is required to run the chat model.
+* The chat model is a sizeable download on first use; it is cached by the browser afterwards.
+* Embeddings are regenerated on every build, so they always match the published content.
+====
+
+== Implementation pointers
+
+* Server side: `io.yupiik.tools.minisite.action.builtin.LlmEmbeddingGenerator` (invoked from
+`io.yupiik.tools.minisite.MiniSite`), configuration flags `llmChatEnabled` / `llmModelId` carried by
+`io.yupiik.tools.minisite.MiniSiteConfiguration` and exposed by `io.yupiik.maven.mojo.MiniSiteMojo`.
+* Browser side: `minisite-core/src/main/frontend/llm` — `index.ts` (orchestration), `rag.ts`
+(retrieval + prompt + Markdown rendering), `embeddings.ts` (index/chunk loading), `webllm-wrapper.ts`
+(chat model) and `sw.ts` (embeddings cache), bundled with https://rsbuild.dev[rsbuild].

@@ -78,12 +78,26 @@ public final class MinisiteCommand {
                                 @Option(value = "customGems", description = "Custom JRuby gems path.") final String customGems,
                                 @Option(value = "requires", description = "Custom ruby requires (asciidoctor dependencies).") @Default("auto") final List<String> requires,
                                 @Option(value = "preActions", description = "PreAction to execute in properties format (type and configuration as keys, configuration value being properties again).") final List<PreAction> preActions,
+                                @Option(value = "llmChatEnabled", description = "Enable LLM chat on the site.") @Default("false") final boolean llmChatEnabled,
+                                @Option(value = "llmModelId", description = "WebLLM model identifier.") @Default("Llama-3.2-3B-Instruct-q4f16_1-MLC") final String llmModelId,
                                 @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one.") final boolean useYupiikAsciidoc,
                                 @Option(value = "createADefault404Page", description = "If `true` a `404.html` will be generated with the minisite theme - useful on github pages for example.") final boolean createADefault404Page,
                                 @Out final PrintStream stdout,
                                 @Err final PrintStream stderr,
                                 final AsciidoctorProvider asciidoctorProvider) {
+        if (llmChatEnabled && MinisiteCommand.class.getClassLoader().getResource("all-minilm-l6-v2.onnx") == null) {
+            throw new IllegalStateException(
+                    "LLM chat is enabled but the embedding model is not on the classpath.\n" +
+                    "Add this dependency to your pom.xml:\n\n" +
+                    "  <dependency>\n" +
+                    "    <groupId>dev.langchain4j</groupId>\n" +
+                    "    <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>\n" +
+                    "    <version>1.16.1-beta26</version>\n" +
+                    "  </dependency>\n");
+        }
         new MiniSite(MiniSiteConfiguration.builder()
+                .llmChatEnabled(llmChatEnabled)
+                .llmModelId(llmModelId)
                 .preActions(preActions)
                 .customGems(customGems)
                 .requires(List.of("auto").equals(requires) ? null : requires)
@@ -95,7 +109,7 @@ public final class MinisiteCommand {
                     fn.apply(asciidoctor);
                     return asciidoctor;
                 }))
-                .actionClassLoader(() -> Thread.currentThread().getContextClassLoader())
+                .actionClassLoader(() -> MinisiteCommand.class.getClassLoader())
                 .source(source)
                 .target(target)
                 .templateDirs(templateDirs)
