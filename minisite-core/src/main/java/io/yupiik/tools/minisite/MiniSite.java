@@ -798,6 +798,7 @@ public class MiniSite implements Runnable {
                         "\n" +
                         pages.stream()
                                 .map(it -> it.relativePath)
+                                .sorted()
                                 .collect(joining("\n")));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated llms.txt");
             } catch (final IOException e) {

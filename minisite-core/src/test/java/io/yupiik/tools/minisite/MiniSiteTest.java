@@ -201,8 +201,8 @@ class MiniSiteTest {
                 "# Description: The test rendering.\n" +
                 "# Canonical: https://foo.test.yupiik.com\n" +
                 "\n" +
-                "/page.html\n" +
-                "/blog/post.html");
+                "/blog/post.html\n" +
+                "/page.html");
     }
 
     @Test
