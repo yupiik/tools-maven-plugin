@@ -72,6 +72,18 @@ import static org.apache.maven.plugins.annotations.ResolutionScope.COMPILE_PLUS_
 @Mojo(name = "minisite", requiresDependencyResolution = COMPILE_PLUS_RUNTIME, threadSafe = true)
 public class MiniSiteMojo extends BaseMojo {
     /**
+     * Should a llms.txt be generated.
+     */
+    @Parameter(property = "yupiik.minisite.createLlmsTxt", defaultValue = "false")
+    protected boolean createLlmsTxt;
+
+    /**
+     * Should a robots.txt be generated.
+     */
+    @Parameter(property = "yupiik.minisite.createRobotsTxt", defaultValue = "false")
+    protected boolean createRobotsTxt;
+
+    /**
      * Enable LLM-powered chat on the site: a fully in-browser, retrieval-augmented (RAG) assistant
      * over the generated documentation (no backend, no API key). At build time the documentation is
      * chunked and embedded with all-MiniLM-L6-v2; at runtime the browser embeds the question with the
