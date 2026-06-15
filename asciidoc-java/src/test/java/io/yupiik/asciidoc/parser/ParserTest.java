@@ -1618,4 +1618,33 @@ class ParserTest {
         assertEquals(TEXT, body.children().get(0).type());
         assertEquals(TEXT, body.children().get(1).type());
     }
+
+    @Test
+    void unsetHeaderAttribute() {
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":foo: bar", ":!foo:", "", "content")));
+        assertEquals("Title", header.title());
+        assertEquals(Map.of(), header.attributes());
+    }
+
+    @Test
+    void unsetBodyAttribute() {
+        final var doc = new Parser().parse(List.of(
+                "= Title", ":foo: bar", "", "before {foo} after", ":!foo:", "after {foo} end"), new Parser.ParserContext(null));
+        final var body = doc.body().children();
+        assertEquals(2, body.size());
+        if (body.get(0) instanceof Paragraph p0) {
+            assertEquals(List.of(TEXT), p0.children().stream().map(Element::type).toList());
+            assertEquals("before bar after", ((Text) p0.children().get(0)).value());
+        }
+        if (body.get(1) instanceof Paragraph p1) {
+            assertEquals(List.of(TEXT, ATTRIBUTE, TEXT), p1.children().stream().map(Element::type).toList());
+        }
+    }
+
+    @Test
+    void unsetHeaderAttributePreservesOthers() {
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":foo: bar", ":baz: qux", ":!foo:", "", "content")));
+        assertEquals("Title", header.title());
+        assertEquals(Map.of("baz", "qux"), header.attributes());
+    }
 }

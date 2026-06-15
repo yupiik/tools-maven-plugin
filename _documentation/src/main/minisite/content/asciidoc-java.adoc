@@ -45,7 +45,7 @@ The parser supports standard Asciidoc syntax including:
 * Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
 * Open/closed blocks, quote blocks, listing blocks, example blocks
 * Macros, include directives, conditionals
-* Attributes and substitutions
+* Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset)
 * Callouts
 
 === CommonMark syntax
