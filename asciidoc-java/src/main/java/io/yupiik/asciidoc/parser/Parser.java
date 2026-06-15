@@ -1321,17 +1321,72 @@ public class Parser {
         }
 
         final var tags = macro.options().getOrDefault("tag", macro.options().get("tags"));
-        if (tags != null) {
+        final var negatedTags = macro.options().get("tag!");
+        if (tags != null || negatedTags != null) {
             final var src = content;
-            content = Stream.of(tags.split(","))
-                    .map(String::strip)
-                    .filter(Predicate.not(String::isBlank))
-                    .flatMap(tag -> {
-                        final int from = src.indexOf("# tag::" + tag + "[]");
-                        final int to = src.indexOf("# end::" + tag + "[]");
-                        return to > from && from > 0 ? src.subList(from + 1, to).stream() : Stream.empty();
-                    })
-                    .toList();
+            final var includeTags = new ArrayList<String>();
+            final var excludeTags = new ArrayList<String>();
+            if (tags != null) {
+                for (final var t : tags.split(",")) {
+                    final var stripped = t.strip();
+                    if (!stripped.isBlank()) {
+                        includeTags.add(stripped);
+                    }
+                }
+            }
+            if (negatedTags != null) {
+                for (final var t : negatedTags.split(",")) {
+                    final var stripped = t.strip();
+                    if (!stripped.isBlank()) {
+                        excludeTags.add(stripped);
+                    }
+                }
+            }
+            if (!includeTags.isEmpty() || !excludeTags.isEmpty()) {
+                final var included = includeTags.isEmpty() ? null : new boolean[src.size()];
+                final var excluded = excludeTags.isEmpty() ? null : new boolean[src.size()];
+                for (final var tag : includeTags) {
+                    final var fromMarker = "tag::" + tag + "[]";
+                    final var endMarker = "end::" + tag + "[]";
+                    for (int i = 0; i < src.size(); i++) {
+                        if (src.get(i).contains(fromMarker)) {
+                            int end = i + 1;
+                            while (end < src.size() && !src.get(end).contains(endMarker)) {
+                                end++;
+                            }
+                            for (int j = i + 1; j < end && j < src.size(); j++) {
+                                included[j] = true;
+                            }
+                            i = end;
+                        }
+                    }
+                }
+                for (final var tag : excludeTags) {
+                    final var fromMarker = "tag::" + tag + "[]";
+                    final var endMarker = "end::" + tag + "[]";
+                    for (int i = 0; i < src.size(); i++) {
+                        if (src.get(i).contains(fromMarker)) {
+                            int end = i + 1;
+                            while (end < src.size() && !src.get(end).contains(endMarker)) {
+                                end++;
+                            }
+                            for (int j = i; j < end + 1 && j < src.size(); j++) {
+                                excluded[j] = true;
+                            }
+                            i = end;
+                        }
+                    }
+                }
+                final var out = new ArrayList<String>();
+                for (int i = 0; i < src.size(); i++) {
+                    final var inIncluded = included == null || i >= included.length || included[i];
+                    final var inExcluded = excluded != null && i < excluded.length && excluded[i];
+                    if (inIncluded && !inExcluded) {
+                        out.add(src.get(i));
+                    }
+                }
+                content = out;
+            }
         }
 
         final var leveloffset = macro.options().get("leveloffset");
