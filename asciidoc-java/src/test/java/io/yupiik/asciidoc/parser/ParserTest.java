@@ -1647,4 +1647,72 @@ class ParserTest {
         assertEquals("Title", header.title());
         assertEquals(Map.of("baz", "qux"), header.attributes());
     }
+
+    @Test
+    void includeTags() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        include::snippet.adoc[tag=snippet-a]
+                        """.split("\n"))),
+                (ref, encoding) -> switch (ref) {
+                    case "snippet.adoc" -> Optional.of(List.of(
+                            "# tag::snippet-a[]",
+                            "included content",
+                            "# end::snippet-a[]"));
+                    default -> Optional.empty();
+                });
+        assertEquals(List.of(new Text(List.of(), "included content", Map.of())), body.children());
+    }
+
+    @Test
+    void includeTagsWithDoubleSlashComment() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        include::snippet.adoc[tag=snippet-a]
+                        """.split("\n"))),
+                (ref, encoding) -> switch (ref) {
+                    case "snippet.adoc" -> Optional.of(List.of(
+                            "// tag::snippet-a[]",
+                            "included content",
+                            "// end::snippet-a[]"));
+                    default -> Optional.empty();
+                });
+        assertEquals(List.of(new Text(List.of(), "included content", Map.of())), body.children());
+    }
+
+    @Test
+    void includeTagsWithSemicolonComment() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        include::snippet.adoc[tag=snippet-a]
+                        """.split("\n"))),
+                (ref, encoding) -> switch (ref) {
+                    case "snippet.adoc" -> Optional.of(List.of(
+                            "; tag::snippet-a[]",
+                            "included content",
+                            "; end::snippet-a[]"));
+                    default -> Optional.empty();
+                });
+        assertEquals(List.of(new Text(List.of(), "included content", Map.of())), body.children());
+    }
+
+    @Test
+    void includeTagsNegation() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        include::snippet.adoc[tag!=snippet-a]
+                        """.split("\n"))),
+                (ref, encoding) -> switch (ref) {
+                    case "snippet.adoc" -> Optional.of(List.of(
+                            "keep me",
+                            "// tag::snippet-a[]",
+                            "exclude me",
+                            "// end::snippet-a[]",
+                            "keep me too"));
+                    default -> Optional.empty();
+                });
+        assertEquals(
+                List.of(new Text(List.of(), "keep me keep me too", Map.of())),
+                body.children());
+    }
 }
