@@ -31,3 +31,35 @@ final var html = renderer.result(); <5>
 <.> Get back the output of the renderer (html output here).
 
 IMPORTANT: the asciidoc syntax is not 100% implemented yet, if you encounter anything you miss, feel free to open an issue or pull request on our bugtracker.
+
+== Syntax
+
+The parser supports standard Asciidoc syntax including:
+
+* Headings (e.g. `= Document Title`, `== Section`)
+* Paragraphs and text formatting (`*bold*`, `_italic_`, `+monospace+`)
+* Unordered lists (`*`) and ordered lists (`.`)
+* Links (`link:url[text]`) and images (`image:path[alt]`)
+* Tables (`|===`)
+* Source blocks (`[source,...]`)
+* Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
+* Open/closed blocks, quote blocks, listing blocks, example blocks
+* Macros, include directives, conditionals
+* Attributes and substitutions
+* Callouts
+
+=== CommonMark syntax
+
+The parser also supports a subset of CommonMark syntax for convenience:
+
+* `**bold**` → bold text
+* `~~strikethrough~~` → strikethrough text
+* `` `code` `` → inline code
+* `[text](url)` → inline links
+* `![alt](url)` → inline images
+* `# Heading` → section headings (level based on `#` count)
+* `---`, `***`, `___` → horizontal rules
+* `**** content ****` → sidebar block
+* Trailing double space at end of line → hard line break (`<br>`)
+
+These syntaxes are recognized alongside native Asciidoc syntax and can be mixed freely.
