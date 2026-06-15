@@ -1321,67 +1321,73 @@ public class Parser {
         }
 
         final var tags = macro.options().getOrDefault("tag", macro.options().get("tags"));
-        final var negatedTags = macro.options().get("tag!");
-        if (tags != null || negatedTags != null) {
+        if (tags != null || macro.options().containsKey("tag!")) {
             final var src = content;
-            final var includeTags = new ArrayList<String>();
-            final var excludeTags = new ArrayList<String>();
-            if (tags != null) {
-                for (final var t : tags.split(",")) {
-                    final var stripped = t.strip();
-                    if (!stripped.isBlank()) {
-                        includeTags.add(stripped);
-                    }
-                }
+            final var tagLines = new boolean[src.size()];
+            for (int i = 0; i < src.size(); i++) {
+                final var line = src.get(i);
+                tagLines[i] = line.contains("tag::") || line.contains("end::");
             }
-            if (negatedTags != null) {
-                for (final var t : negatedTags.split(",")) {
-                    final var stripped = t.strip();
-                    if (!stripped.isBlank()) {
-                        excludeTags.add(stripped);
-                    }
+            final var filters = new ArrayList<Map.Entry<Boolean, String>>();
+            parseTagOption(macro.options().get("tag!"), false, filters);
+            parseTagOption(tags, true, filters);
+            if (!filters.isEmpty()) {
+                var hasInclusion = false;
+                var hasExclusion = false;
+                for (final var f : filters) {
+                    if (f.getKey()) hasInclusion = true;
+                    else hasExclusion = true;
                 }
-            }
-            if (!includeTags.isEmpty() || !excludeTags.isEmpty()) {
-                final var included = includeTags.isEmpty() ? null : new boolean[src.size()];
-                final var excluded = excludeTags.isEmpty() ? null : new boolean[src.size()];
-                for (final var tag : includeTags) {
-                    final var fromMarker = "tag::" + tag + "[]";
-                    final var endMarker = "end::" + tag + "[]";
-                    for (int i = 0; i < src.size(); i++) {
-                        if (src.get(i).contains(fromMarker)) {
-                            int end = i + 1;
-                            while (end < src.size() && !src.get(end).contains(endMarker)) {
-                                end++;
+                final var processed = new ArrayList<Map.Entry<Boolean, String>>();
+                if (hasInclusion && !hasExclusion) {
+                    processed.add(Map.entry(false, "!**"));
+                } else if (hasExclusion && !hasInclusion) {
+                    processed.add(Map.entry(true, "**"));
+                }
+                processed.addAll(filters);
+                final var selected = new boolean[src.size()];
+                for (final var filter : processed) {
+                    final var include = filter.getKey();
+                    final var name = filter.getValue();
+                    if ("**".equals(name)) {
+                        for (int i = 0; i < src.size(); i++) {
+                            if (!tagLines[i]) {
+                                selected[i] = include;
                             }
-                            for (int j = i + 1; j < end && j < src.size(); j++) {
-                                included[j] = true;
-                            }
-                            i = end;
                         }
-                    }
-                }
-                for (final var tag : excludeTags) {
-                    final var fromMarker = "tag::" + tag + "[]";
-                    final var endMarker = "end::" + tag + "[]";
-                    for (int i = 0; i < src.size(); i++) {
-                        if (src.get(i).contains(fromMarker)) {
-                            int end = i + 1;
-                            while (end < src.size() && !src.get(end).contains(endMarker)) {
-                                end++;
+                    } else if ("*".equals(name)) {
+                        for (int i = 0; i < src.size(); i++) {
+                            if (src.get(i).contains("tag::")) {
+                                int end = i + 1;
+                                while (end < src.size() && !src.get(end).contains("end::")) {
+                                    end++;
+                                }
+                                for (int j = i + 1; j < end && j < src.size(); j++) {
+                                    selected[j] = include;
+                                }
+                                i = end;
                             }
-                            for (int j = i; j < end + 1 && j < src.size(); j++) {
-                                excluded[j] = true;
+                        }
+                    } else {
+                        final var fromMarker = "tag::" + name + "[]";
+                        final var endMarker = "end::" + name + "[]";
+                        for (int i = 0; i < src.size(); i++) {
+                            if (src.get(i).contains(fromMarker)) {
+                                int end = i + 1;
+                                while (end < src.size() && !src.get(end).contains(endMarker)) {
+                                    end++;
+                                }
+                                for (int j = i + 1; j < end && j < src.size(); j++) {
+                                    selected[j] = include;
+                                }
+                                i = end;
                             }
-                            i = end;
                         }
                     }
                 }
                 final var out = new ArrayList<String>();
                 for (int i = 0; i < src.size(); i++) {
-                    final var inIncluded = included == null || i >= included.length || included[i];
-                    final var inExcluded = excluded != null && i < excluded.length && excluded[i];
-                    if (inIncluded && !inExcluded) {
+                    if (!tagLines[i] && selected[i]) {
                         out.add(src.get(i));
                     }
                 }
@@ -2021,6 +2027,21 @@ public class Parser {
                                 .flatMap(identity())
                                 .collect(joining(" ")),
                         Map.of());
+    }
+
+    private void parseTagOption(final String value, final boolean defaultInclude,
+                                final List<Map.Entry<Boolean, String>> filters) {
+        if (value == null || value.isBlank()) return;
+        for (final var t : value.split("[,;]")) {
+            final var stripped = t.strip();
+            if (!stripped.isBlank()) {
+                if (stripped.startsWith("!")) {
+                    filters.add(Map.entry(false, stripped.substring(1)));
+                } else {
+                    filters.add(Map.entry(defaultInclude, stripped));
+                }
+            }
+        }
     }
 
     public record ParserContext(ContentResolver resolver) {
