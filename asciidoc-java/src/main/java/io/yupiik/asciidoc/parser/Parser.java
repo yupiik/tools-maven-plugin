@@ -347,15 +347,17 @@ public class Parser {
                 options = null;
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
                 final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
-                final var name = attributeMatcher.group("name");
-                if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(name)) { // offset
+                final var rawName = attributeMatcher.group("name");
+                if (rawName.startsWith("!")) {
+                    attributes.remove(rawName.substring(1));
+                } else if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(rawName)) { // offset
                     try {
-                        attributes.put(name, Integer.toString(Integer.parseInt(attributes.get(name)) + Integer.parseInt(value)));
+                        attributes.put(rawName, Integer.toString(Integer.parseInt(attributes.get(rawName)) + Integer.parseInt(value)));
                     } catch (final RuntimeException nfe) { // NumberFormatException mainly
-                        attributes.put(name, value);
+                        attributes.put(rawName, value);
                     }
                 } else {
-                    attributes.put(name, value);
+                    attributes.put(rawName, value);
                 }
             } else {
                 reader.rewind();
@@ -708,7 +710,8 @@ public class Parser {
             if (line.startsWith("=") ||
                     (line.startsWith("[") && line.endsWith("]")) ||
                     stripped.startsWith("////") ||
-                    isHorizontalRule(stripped)) {
+                    isHorizontalRule(stripped) ||
+                    (stripped.startsWith(":") && ATTRIBUTE_DEFINITION.matcher(stripped).matches())) {
                 reader.rewind();
                 break;
             }
@@ -1690,7 +1693,12 @@ public class Parser {
                     value = value.substring(0, value.length() - 1).strip() +
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
-                attributes.put(matcher.group("name"), value);
+                final var rawName = matcher.group("name");
+                if (rawName.startsWith("!")) {
+                    attributes.remove(rawName.substring(1));
+                } else {
+                    attributes.put(rawName, value);
+                }
             } else if (isBlockMacro(line)) {
                 // simplistic macro handling, mainly for conditional blocks since we still are in headers
                 final var stripped = line.strip();
