@@ -194,7 +194,7 @@ class MiniSiteTest {
         new MiniSite(builder.createLlmsTxt(true).siteBase("https://foo.test.yupiik.com").build()).run();
         asserts.assertThat(files -> assertEquals(
                 List.of(
-                        "blog/category/index.html", "blog/category/others/index.html", "blog/category/others/page-1.html",
+                        "404.html", "blog/category/index.html", "blog/category/others/index.html", "blog/category/others/page-1.html",
                         "blog/index.html", "blog/page-1.html", "blog/post.html", "css/theme.css", "images/logo.svg", "index.html",
                         "js/minisite.js", "llms.txt", "page.html", "search.json", "sitemap.xml"),
                 files.keySet().stream().sorted().collect(toList())));
