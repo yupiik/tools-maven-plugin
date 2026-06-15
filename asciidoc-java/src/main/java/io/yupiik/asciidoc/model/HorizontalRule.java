@@ -15,18 +15,11 @@
  */
 package io.yupiik.asciidoc.model;
 
-import java.util.List;
 import java.util.Map;
 
-import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
-
-public record Text(List<Style> style, String value, Map<String, String> options) implements Element {
+public record HorizontalRule(Map<String, String> options) implements Element {
     @Override
     public ElementType type() {
-        return TEXT;
-    }
-
-    public enum Style {
-        BOLD, ITALIC, EMPHASIS, MARK, SUB, SUP, STRIKETHROUGH
+        return ElementType.HORIZONTAL_RULE;
     }
 }

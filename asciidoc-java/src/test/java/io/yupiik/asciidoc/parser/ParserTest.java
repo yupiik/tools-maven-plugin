@@ -24,6 +24,7 @@ import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
@@ -53,10 +54,14 @@ import java.util.stream.Stream;
 
 import static io.yupiik.asciidoc.model.Admonition.Level.WARNING;
 import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
+import static io.yupiik.asciidoc.model.Element.ElementType.HORIZONTAL_RULE;
+import static io.yupiik.asciidoc.model.Element.ElementType.OPEN_BLOCK;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
+import static io.yupiik.asciidoc.model.Element.ElementType.SECTION;
 import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
 import static io.yupiik.asciidoc.model.Text.Style.BOLD;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
+import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1429,5 +1434,188 @@ class ParserTest {
                         new LineBreak(),
                         new Text(List.of(), "Topazes are blue.", Map.of())),
                 body.children());
+    }
+
+    @Test
+    void markdownBold() {
+        final var body = new Parser().parseBody(new Reader(List.of("This is **bold** text.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "This is ", Map.of()),
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " text.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownBoldPrecedence() {
+        final var body = new Parser().parseBody(new Reader(List.of("**bold** and *italic*")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " and ", Map.of()),
+                new Text(List.of(BOLD), "italic", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownStrikethrough() {
+        final var body = new Parser().parseBody(new Reader(List.of("This is ~~deleted~~ text.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "This is ", Map.of()),
+                new Text(List.of(STRIKETHROUGH), "deleted", Map.of()),
+                new Text(List.of(), " text.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownLink() {
+        final var body = new Parser().parseBody(new Reader(List.of("Click [here](https://example.com) now.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Click ", Map.of()),
+                new Link("https://example.com", new Text(List.of(), "here", Map.of("nowrap", "true")), Map.of("nowrap", "true")),
+                new Text(List.of(), " now.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownImage() {
+        final var body = new Parser().parseBody(new Reader(List.of("Look ![alt](image.png) here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Look ", Map.of()),
+                new Macro("image", "image.png", Map.of("", "alt"), true),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownHeading() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "# Title",
+                "",
+                "Some content.")), null);
+        assertEquals(1, body.children().size());
+        assertEquals(SECTION, body.children().get(0).type());
+        final var section = (Section) body.children().get(0);
+        assertEquals(1, section.level());
+    }
+
+    @Test
+    void markdownHeadingLevels() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "# H1",
+                "## H2",
+                "### H3",
+                "#### H4",
+                "##### H5",
+                "###### H6")), null);
+        assertEquals(1, body.children().size());
+        final var h1 = assertInstanceOf(Section.class, body.children().get(0));
+        assertEquals(1, h1.level());
+        assertEquals(1, h1.children().size());
+        final var h2 = assertInstanceOf(Section.class, h1.children().get(0));
+        assertEquals(2, h2.level());
+        assertEquals(1, h2.children().size());
+        final var h3 = assertInstanceOf(Section.class, h2.children().get(0));
+        assertEquals(3, h3.level());
+        assertEquals(1, h3.children().size());
+        final var h4 = assertInstanceOf(Section.class, h3.children().get(0));
+        assertEquals(4, h4.level());
+        assertEquals(1, h4.children().size());
+        final var h5 = assertInstanceOf(Section.class, h4.children().get(0));
+        assertEquals(5, h5.level());
+        assertEquals(1, h5.children().size());
+        final var h6 = assertInstanceOf(Section.class, h5.children().get(0));
+        assertEquals(6, h6.level());
+    }
+
+    @Test
+    void markdownHeadingNotMatching() {
+        final var body = new Parser().parseBody(new Reader(List.of("#notheading")), null);
+        assertEquals(1, body.children().size());
+        assertEquals(TEXT, body.children().get(0).type());
+    }
+
+    @Test
+    void horizontalRuleDashes() {
+        final var body = new Parser().parseBody(new Reader(List.of("---")), null);
+        assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
+    void horizontalRuleAsterisks() {
+        final var body = new Parser().parseBody(new Reader(List.of("***")), null);
+        assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
+    void horizontalRuleUnderscores() {
+        final var body = new Parser().parseBody(new Reader(List.of("___")), null);
+        assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
+    void horizontalRuleLonger() {
+        final var body = new Parser().parseBody(new Reader(List.of("-----")), null);
+        assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
+    void horizontalRuleStopsParagraph() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "Some text",
+                "---",
+                "More text.")), null);
+        assertEquals(3, body.children().size());
+        assertEquals(TEXT, body.children().get(0).type());
+        assertEquals(HORIZONTAL_RULE, body.children().get(1).type());
+        assertEquals(TEXT, body.children().get(2).type());
+    }
+
+    @Test
+    void trailingSpacesHardBreak() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "First line  ",
+                "Second line")), null);
+        assertEquals(1, body.children().size());
+        assertEquals(PARAGRAPH, body.children().get(0).type());
+        final var p = (Paragraph) body.children().get(0);
+        assertEquals(List.of(
+                new Text(List.of(), "First line", Map.of()),
+                new LineBreak(),
+                new Text(List.of(), "Second line", Map.of())),
+                p.children());
+    }
+
+    @Test
+    void sidebarBlock() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "[sidebar]",
+                "****",
+                "Sidebar content",
+                "****")), null);
+        assertEquals(1, body.children().size());
+        assertEquals(OPEN_BLOCK, body.children().get(0).type());
+        final var block = (OpenBlock) body.children().get(0);
+        assertEquals("sidebar", block.options().get(""));
+    }
+
+    @Test
+    void exampleBlock() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "[example]",
+                "====",
+                "Example content",
+                "====")), null);
+        assertEquals(1, body.children().size());
+        assertEquals(OPEN_BLOCK, body.children().get(0).type());
+    }
+
+    @Test
+    void commentBlock() {
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "Before",
+                "",
+                "////",
+                "comment",
+                "////",
+                "",
+                "After")), null);
+        assertEquals(2, body.children().size());
+        assertEquals(TEXT, body.children().get(0).type());
+        assertEquals(TEXT, body.children().get(1).type());
     }
 }
