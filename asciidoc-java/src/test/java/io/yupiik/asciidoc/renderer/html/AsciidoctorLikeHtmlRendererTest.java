@@ -1307,6 +1307,96 @@ class AsciidoctorLikeHtmlRendererTest {
                """, renderer.result());
     }
 
+    @Test
+    void markdownBold() {
+        assertRenderingContent(
+                "This is **bold** text.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>This is <b>bold</b> text.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void markdownStrikethrough() {
+        assertRenderingContent(
+                "This is ~~deleted~~ text.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>This is <del>deleted</del> text.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void markdownLink() {
+        assertRenderingContent(
+                "click [here](https://example.com) now",
+                " <div class=\"paragraph\">\n" +
+                        " <p>click  <a href=\"https://example.com\">here</a>\n" +
+                        " now</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void markdownImage() {
+        assertRenderingContent(
+                "look ![alt](image.png) now",
+                " <div class=\"paragraph\">\n" +
+                        " <p>look  <img src=\"image.png\" alt=\"alt\">\n" +
+                        " now</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void horizontalRule() {
+        assertRenderingContent(
+                "Before\n\n---\n\nAfter",
+                " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "Before\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " <hr>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "After\n" +
+                        " </p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void markdownHeading() {
+        assertRenderingContent(
+                "# Title\n\nContent.",
+                " <div class=\"sect0\" id=\"_title\">\n" +
+                        "  <h1>Title</h1>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "Content.\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void sidebarBlock() {
+        assertRenderingContent(
+                "[sidebar]\n****\nSidebar content\n****",
+                " <div class=\"sidebarblock\">\n" +
+                        "  <div class=\"content\">\n" +
+                        "Sidebar content  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void trailingSpacesHardBreak() {
+        assertRenderingContent(
+                "First line  \nSecond line",
+                " <div class=\"paragraph\">\n" +
+                        "First line<br>\n" +
+                        "Second line </div>\n");
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();

@@ -27,6 +27,7 @@ import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
+import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Listing;
@@ -75,6 +76,7 @@ import static io.yupiik.asciidoc.model.Text.Style.BOLD;
 import static io.yupiik.asciidoc.model.Text.Style.EMPHASIS;
 import static io.yupiik.asciidoc.model.Text.Style.ITALIC;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
+import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
 import static io.yupiik.asciidoc.model.Text.Style.SUB;
 import static io.yupiik.asciidoc.model.Text.Style.SUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -286,6 +288,20 @@ public class Parser {
                     elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
                 }
                 options = null;
+            } else if (stripped.startsWith("#")) {
+                int level = 0;
+                while (level < stripped.length() && stripped.charAt(level) == '#') {
+                    level++;
+                }
+                if (level < stripped.length() && stripped.charAt(level) == ' ') {
+                    level = Math.min(level, 6);
+                    reader.setPreviousValue("=".repeat(level) + " " + stripped.substring(level).strip());
+                    reader.rewind();
+                } else {
+                    reader.rewind();
+                    elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
+                    options = null;
+                }
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
                 elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
@@ -312,12 +328,18 @@ public class Parser {
                 reader.rewind();
                 elements.add(parseQuote(enclosingDocument, reader, options, resolver, attributes));
                 options = null;
+            } else if (Objects.equals("****", stripped)) {
+                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "****"));
+                options = null;
             } else if (stripped.startsWith("____")) {
                 final var buffer = new ArrayList<String>();
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
                 elements.add(new Quote(doParse(enclosingDocument, new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
+                options = null;
+            } else if (isHorizontalRule(stripped)) {
+                elements.add(new HorizontalRule(options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.endsWith(" +")) {
                 elements.addAll(parseLine(enclosingDocument, reader, stripped.substring(0, stripped.length() - 2), resolver, attributes, supportComplexStructures));
@@ -682,12 +704,23 @@ public class Parser {
         final var elements = new ArrayList<Element>();
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
+            final var stripped = line.strip();
             if (line.startsWith("=") ||
-                    (line.startsWith("[") && line.endsWith("]"))) {
+                    (line.startsWith("[") && line.endsWith("]")) ||
+                    stripped.startsWith("////") ||
+                    isHorizontalRule(stripped)) {
                 reader.rewind();
                 break;
             }
+            boolean hardBreak = false;
+            if (line.endsWith("  ") && line.length() > 2 && line.charAt(line.length() - 3) != ' ') {
+                hardBreak = true;
+                line = line.substring(0, line.length() - 2);
+            }
             elements.addAll(parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures));
+            if (hardBreak) {
+                elements.add(new LineBreak());
+            }
         }
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
@@ -792,14 +825,26 @@ public class Parser {
                     }
                 }
                 case '*' -> {
-                    final int end = line.indexOf('*', i + 1);
-                    if (end > 0) {
-                        if (start != i) {
-                            flushText(elements, line.substring(start, i));
+                    if (line.length() > i + 1 && line.charAt(i + 1) == '*') { // **bold** (Markdown)
+                        final int end = line.indexOf("**", i + 2);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, BOLD, null, resolver, currentAttributes);
+                            i = end + 1;
+                            start = end + 2;
                         }
-                        addTextElements(enclosingDocument, line, i, end, elements, BOLD, null, resolver, currentAttributes);
-                        i = end;
-                        start = end + 1;
+                    } else {
+                        final int end = line.indexOf('*', i + 1);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            addTextElements(enclosingDocument, line, i, end, elements, BOLD, null, resolver, currentAttributes);
+                            i = end;
+                            start = end + 1;
+                        }
                     }
                 }
                 case '_' -> {
@@ -814,14 +859,26 @@ public class Parser {
                     }
                 }
                 case '~' -> {
-                    final int end = line.indexOf('~', i + 1);
-                    if (end > 0) {
-                        if (start != i) {
-                            flushText(elements, line.substring(start, i));
+                    if (line.length() > i + 1 && line.charAt(i + 1) == '~') { // ~~strikethrough~~ (Markdown)
+                        final int end = line.indexOf("~~", i + 2);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, STRIKETHROUGH, null, resolver, currentAttributes);
+                            i = end + 1;
+                            start = end + 2;
                         }
-                        addTextElements(enclosingDocument, line, i, end, elements, SUB, null, resolver, currentAttributes);
-                        i = end;
-                        start = end + 1;
+                    } else {
+                        final int end = line.indexOf('~', i + 1);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            addTextElements(enclosingDocument, line, i, end, elements, SUB, null, resolver, currentAttributes);
+                            i = end;
+                            start = end + 1;
+                        }
                     }
                 }
                 case '^' -> {
@@ -835,8 +892,48 @@ public class Parser {
                         start = end + 1;
                     }
                 }
+                case '!' -> {
+                    if (line.length() > i + 1 && line.charAt(i + 1) == '[') { // ![alt](url) Markdown image
+                        final int closeBracket = line.indexOf("](", i + 2);
+                        if (closeBracket > 0) {
+                            final int closeParen = line.indexOf(')', closeBracket + 2);
+                            if (closeParen > 0) {
+                                final var alt = line.substring(i + 2, closeBracket);
+                                final var url = line.substring(closeBracket + 2, closeParen);
+                                if (start != i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                                elements.add(new Macro("image", url, Map.of("", alt), true));
+                                i = closeParen;
+                                start = closeParen + 1;
+                            }
+                        }
+                    }
+                }
                 case '[' -> {
                     inMacro = false; // we'll parse it so all good, no more need to escape anything
+                    // Check for Markdown link [text](url) first (not preceded by a letter or colon which would indicate a macro, and not nested inside another [])
+                    if ((i == 0 || !Character.isLetter(line.charAt(i - 1)) && line.charAt(i - 1) != ':') &&
+                            line.lastIndexOf('[', i - 1) <= line.lastIndexOf(']', i - 1)) {
+                        final int mdLinkParen = line.indexOf("](", i + 1);
+                        if (mdLinkParen > 0) {
+                            final int closeParen = line.indexOf(')', mdLinkParen + 2);
+                            if (closeParen > 0) {
+                                final var label = line.substring(i + 1, mdLinkParen);
+                                final var url = line.substring(mdLinkParen + 2, closeParen);
+                                if (start != i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                                final var linkLabel = unwrapElementIfPossible(parseParagraph(
+                                        enclosingDocument, new Reader(List.of(label)),
+                                        Map.of("nowrap", "true"), resolver, currentAttributes, supportComplexStructures));
+                                elements.add(new Link(url, linkLabel, Map.of("nowrap", "true")));
+                                i = closeParen;
+                                start = closeParen + 1;
+                                break;
+                            }
+                        }
+                    }
                     int end = line.indexOf(']', i + 1);
                     while (end > 0) {
                         if (line.charAt(end - 1) != '\\') {
@@ -1428,7 +1525,8 @@ public class Parser {
     private boolean isBlock(final String strippedLine) {
         return "====".equals(strippedLine) || "----".equals(strippedLine) ||
                 "```".equals(strippedLine) || "--".equals(strippedLine) ||
-                "++++".equals(strippedLine);
+                "++++".equals(strippedLine) || "****".equals(strippedLine) ||
+                isHorizontalRule(strippedLine);
     }
 
     private void addTextElements(final Path enclosingDocument, final String line, final int i, final int end,
@@ -1694,6 +1792,22 @@ public class Parser {
 
     private boolean isLink(final String link) {
         return LINK_PREFIXES.stream().anyMatch(link::startsWith);
+    }
+
+    private boolean isHorizontalRule(final String stripped) {
+        if (stripped.length() < 3) {
+            return false;
+        }
+        final var first = stripped.charAt(0);
+        if (first != '-' && first != '*' && first != '_') {
+            return false;
+        }
+        for (int i = 1; i < stripped.length(); i++) {
+            if (stripped.charAt(i) != first) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport) {

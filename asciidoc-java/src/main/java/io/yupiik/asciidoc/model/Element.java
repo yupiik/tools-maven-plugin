@@ -19,7 +19,7 @@ public sealed interface Element permits
         Code, DescriptionList, LineBreak, Link, Macro, OrderedList,
         Paragraph, Section, Text, UnOrderedList, Admonition, Anchor,
         Table, Quote, OpenBlock, PassthroughBlock, ConditionalBlock,
-        Attribute, PageBreak, Listing {
+        Attribute, PageBreak, Listing, HorizontalRule {
     ElementType type();
 
     /**
@@ -49,6 +49,7 @@ public sealed interface Element permits
         OPEN_BLOCK,
         QUOTE, // TODO: we only support the markdown style quotes
         PASS_BLOCK,
-        CONDITIONAL_BLOCK
+        CONDITIONAL_BLOCK,
+        HORIZONTAL_RULE
     }
 }

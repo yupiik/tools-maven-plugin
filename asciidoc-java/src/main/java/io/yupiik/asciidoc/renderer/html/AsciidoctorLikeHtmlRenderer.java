@@ -25,6 +25,7 @@ import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Header;
+import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Listing;
@@ -373,8 +374,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     @Override
+    public void visitHorizontalRule(final HorizontalRule element) {
+        builder.append(" <hr>\n");
+    }
+
+    @Override
     public void visitLineBreak(final LineBreak element) {
-        builder.append(" <br>\n");
+        builder.append("<br>\n");
     }
 
     @Override
@@ -562,16 +568,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 writeCommonAttributes(element.options(), null);
                 builder.append(">\n");
             }
-            final var styleTags = element.style().stream()
-                    .map(s -> switch (s) {
-                        case BOLD -> "b";
-                        case ITALIC -> "i";
-                        case EMPHASIS -> "em";
-                        case SUB -> "sub";
-                        case SUP -> "sup";
-                        case MARK -> "span";
-                    })
-                    .toList();
+                    final var styleTags = element.style().stream()
+                            .map(s -> switch (s) {
+                                case BOLD -> "b";
+                                case ITALIC -> "i";
+                                case EMPHASIS -> "em";
+                                case SUB -> "sub";
+                                case SUP -> "sup";
+                                case MARK -> "span";
+                                case STRIKETHROUGH -> "del";
+                            })
+                            .toList();
             if (!styleTags.isEmpty()) {
                 builder.append('<').append(styleTags.get(0));
                 if (!wrap) {
@@ -765,20 +772,37 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             case "CAUTION" -> visitAsAdmonition(Admonition.Level.CAUTION, element);
             default -> state.stackChain(element.children(), () -> {
                 boolean skipDiv = false;
+                boolean innerContent = false;
                 if (element.options().get("abstract") != null) {
                     builder.append(" <div");
                     writeCommonAttributes(element.options(), c -> "abstract quoteblock" + (c == null ? "" : (' ' + c)));
                     builder.append(">\n");
+                } else if ("sidebar".equals(element.options().get(""))) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "sidebarblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                    innerContent = true;
+                } else if ("example".equals(element.options().get(""))) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "exampleblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                    innerContent = true;
+                } else if ("listing".equals(element.options().get(""))) {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                    innerContent = true;
                 } else if (element.options().get("partintro") != null) {
                     builder.append(" <div");
                     writeCommonAttributes(element.options(), c -> "openblock " + (c == null ? "" : (' ' + c)));
                     builder.append(">\n");
                 } else {
                     skipDiv = true;
+                    innerContent = true;
                 }
                 writeBlockTitle(element.options());
                 builder.append("  <div");
-                if (skipDiv) {
+                if (innerContent) {
                     writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
                 }
                 builder.append(">\n");
