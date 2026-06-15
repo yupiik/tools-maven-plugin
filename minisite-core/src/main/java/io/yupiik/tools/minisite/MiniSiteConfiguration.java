@@ -97,10 +97,13 @@ public class MiniSiteConfiguration {
     private boolean injectBlogMeta;
     private String blogPublicationDate;
     private OffsetDateTime runtimeBlogPublicationDate;
+    @Builder.Default
     private GravatarConfiguration gravatar = new GravatarConfiguration();
+    @Builder.Default
     private boolean llmChatEnabled = false;
     private String llmModelId = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
     private boolean addCodeCopyButton = true;
+    @Builder.Default
     private boolean createADefault404Page = true;
     private boolean createRobotsTxt;
     private boolean createLlmsTxt;

@@ -15,6 +15,7 @@
  */
 package io.yupiik.tools.minisite.action.builtin;
 
+import io.yupiik.tools.minisite.handlebars.Handlebars;
 import io.yupiik.uship.backbone.reflect.ParameterizedTypeImpl;
 import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
@@ -42,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static java.net.http.HttpResponse.BodyHandlers.ofString;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -55,12 +57,14 @@ public class GithubContributorGenerator implements Runnable {
     private final String project;
     private final String base;
     private final String output;
+    private final String handlebars;
 
     public GithubContributorGenerator(final Map<String, String> configuration) {
         this.token = configuration.getOrDefault("token", "skip");
         this.base = configuration.getOrDefault("base", "https://api.github.com");
         this.project = requireNonNull(configuration.get("project"), "no project set, use org/name format");
         this.output = requireNonNull(configuration.get("output"), "no output location of the json model with contributors");
+        this.handlebars = configuration.get("handlebars"); // if not set output is a json file else it uses the template
     }
 
     @Override
@@ -133,13 +137,25 @@ public class GithubContributorGenerator implements Runnable {
 
             final Path outputPath = Path.of(output);
             if (outputPath.getParent() != null) {
-                Files.createDirectory(outputPath.getParent());
+                Files.createDirectories(outputPath.getParent());
             }
 
-            // todo: add format in options and import fusion-handlerbars to enable to provide a template
-            Files.writeString(outputPath, jsonb.toJson(details.values().stream()
+            final List<User> model = details.values().stream()
                     .sorted(comparing(User::getId))
-                    .toList()));
+                    .toList();
+
+            final String content;
+            if (handlebars == null || handlebars.isBlank()) {
+                content = jsonb.toJson(model);
+            } else {
+                final Path path = Path.of(handlebars);
+                String template = handlebars;
+                if (Files.exists(path)) {
+                    template = Files.readString(path, UTF_8);
+                }
+                content = Handlebars.render(template, Map.of("contributors", jsonb.fromJson(jsonb.toJson(model), Object.class)));
+            }
+            Files.writeString(outputPath, content);
         } catch (final RuntimeException re) {
             throw re;
         } catch (final Exception e) {
@@ -219,6 +235,39 @@ public class GithubContributorGenerator implements Runnable {
                 // unlikely
                 .orElseGet(() -> Instant.now().plus(1, MINUTES));
         return Duration.between(Instant.now(), resetTime).toMillis() + 1_000;
+    }
+
+    // showcase only
+    public static void main(final String... args) {
+        new GithubContributorGenerator(Map.of(
+                "output", "/tmp/output.html",
+                "project", "yupiik/fusion",
+                "handlebars", "<h1>Contributors</h1>\n" +
+                        "\n" +
+                        "<ul>\n" +
+                        "  {{#each contributors}}\n" +
+                        "    <li>\n" +
+                        "      <div style=\"margin-bottom: 20px;\">\n" +
+                        "        <img src=\"{{avatar_url}}\" alt=\"{{login}}'s avatar\" width=\"50\" style=\"vertical-align: middle; border-radius: 4px;\">\n" +
+                        "        <strong>\n" +
+                        "          <a href=\"{{html_url}}\" target=\"_blank\" rel=\"noopener noreferrer\">\n" +
+                        "            {{#if name}}{{name}}{{else}}{{login}}{{/if}}\n" +
+                        "          </a>\n" +
+                        "        </strong>\n" +
+                        "        ({{contributions}} contributions)\n" +
+                        "        \n" +
+                        "        <ul>\n" +
+                        "          {{#if company}}<li>\uD83C\uDFE2 Company: {{company}}</li>{{/if}}\n" +
+                        "          {{#if location}}<li>\uD83D\uDCCD Location: {{location}}</li>{{/if}}\n" +
+                        "          {{#if email}}<li>✉\uFE0F Email: <a href=\"mailto:{{email}}\">{{email}}</a></li>{{/if}}\n" +
+                        "          {{#if blog}}<li>\uD83D\uDD17 Blog: <a href=\"{{blog}}\" target=\"_blank\" rel=\"noopener noreferrer\">{{blog}}</a></li>{{/if}}\n" +
+                        "          {{#if twitterUsername}}<li>\uD83D\uDC26 Twitter: <a href=\"https://twitter.com/{{twitterUsername}}\" rel=\"noopener noreferrer\" target=\"_blank\">@{{twitterUsername}}</a></li>{{/if}}\n" +
+                        "          {{#if bio}}<li>\uD83D\uDCAC Bio: {{bio}}</li>{{/if}}\n" +
+                        "        </ul>\n" +
+                        "      </div>\n" +
+                        "    </li>\n" +
+                        "  {{/each}}\n" +
+                        "</ul>")).run();
     }
 
     @Data
