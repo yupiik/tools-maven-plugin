@@ -895,6 +895,62 @@ class ParserTest {
     }
 
     @Test
+    void orderedListLowerAlpha() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                a. item 1
+                b. item 2""".split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(
+                                List.of(
+                                        new Text(List.of(), "item 1", Map.of()),
+                                        new Text(List.of(), "item 2", Map.of())),
+                                Map.of("style", "loweralpha"))),
+                body.children());
+    }
+
+    @Test
+    void orderedListUpperAlpha() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                A. item 1
+                B. item 2""".split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(
+                                List.of(
+                                        new Text(List.of(), "item 1", Map.of()),
+                                        new Text(List.of(), "item 2", Map.of())),
+                                Map.of("style", "upperalpha"))),
+                body.children());
+    }
+
+    @Test
+    void orderedListLowerRoman() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                i) item 1
+                ii) item 2""".split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(
+                                List.of(
+                                        new Text(List.of(), "item 1", Map.of()),
+                                        new Text(List.of(), "item 2", Map.of())),
+                                Map.of("style", "lowerroman"))),
+                body.children());
+    }
+
+    @Test
+    void orderedListUpperRoman() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                I) item 1
+                II) item 2""".split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(
+                                List.of(
+                                        new Text(List.of(), "item 1", Map.of()),
+                                        new Text(List.of(), "item 2", Map.of())),
+                                Map.of("style", "upperroman"))),
+                body.children());
+    }
+
+    @Test
     void unorderedListWithTitle() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 .Foo
@@ -916,6 +972,23 @@ class ParserTest {
                 CPU:: The brain of the computer.
                 Hard drive:: Permanent storage for operating system and/or user files.
                 RAM:: Temporarily stores information the CPU uses during operation.
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new DescriptionList(Stream.of(
+                                        entry("CPU", new Text(List.of(), "The brain of the computer.", Map.of())),
+                                        entry("Hard drive", new Text(List.of(), "Permanent storage for operating system and/or user files.", Map.of())),
+                                        entry("RAM", new Text(List.of(), "Temporarily stores information the CPU uses during operation.", Map.of())))
+                                .collect(toMap(e -> new Text(List.of(), e.getKey(), Map.of()), Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new)),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void descriptionListWithSemicolons() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                CPU;; The brain of the computer.
+                Hard drive;; Permanent storage for operating system and/or user files.
+                RAM;; Temporarily stores information the CPU uses during operation.
                 """.split("\n"))), null);
         assertEquals(List.of(
                         new DescriptionList(Stream.of(
@@ -1012,7 +1085,7 @@ class ParserTest {
                 List.of(new Admonition(WARNING, new Text(
                         List.of(),
                         "Wolpertingers are known to nest in server racks. Enter at your own risk.",
-                        Map.of()))),
+                        Map.of()), Map.of())),
                 body.children());
     }
 
@@ -1029,7 +1102,7 @@ class ParserTest {
                 List.of(new Admonition(WARNING, new Text(
                         List.of(),
                         "Wolpertingers are known to nest in server racks. Enter at your own risk.",
-                        Map.of()))),
+                        Map.of()), Map.of())),
                 body.children());
     }
 
@@ -1269,6 +1342,23 @@ class ParserTest {
                 null);
         assertEquals(
                 List.of(new Quote(List.of(new Text(List.of(), "Somebody said it.", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void simpleQuoteBlockWithCitetitle() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        [quote, Albert Einstein, Relativity]
+                        ____
+                        A man should look for what is, and not for what he thinks should be.
+                        ____
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Quote(List.of(
+                        new Text(List.of(), "A man should look for what is, and not for what he thinks should be.", Map.of())
+                ), Map.of("role", "quoteblock", "attribution", "Albert Einstein", "citetitle", "Relativity"))),
                 body.children());
     }
 

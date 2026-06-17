@@ -165,7 +165,6 @@ class AsciidoctorLikeHtmlRendererTest {
                 <html lang="en">
                 <head>
                  <meta charset="UTF-8">
-                 <meta http-equiv="X-UA-Compatible" content="IE=edge">
                 </head>
                 <body>
                  <div id="content">
@@ -174,7 +173,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="sectionbody">
                  <div class="paragraph metadata">
                  <p><span class="mr-2 category-release"><span class="icon"><i class="fas fa-gift"></i></span></span>,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html" class="metadata-authors">Francois Papon</a>
-                , <span class="metadata-published">2023-09-26</span>, <span class="metadata-readingtime">49 sec read</span></p>
+                , <mark class="metadata-published">2023-09-26</mark>, <mark class="metadata-readingtime">49 sec read</mark></p>
                  </div>
                  </div>
                  </div>
@@ -220,44 +219,43 @@ class AsciidoctorLikeHtmlRendererTest {
                         ----
                         """,
                 """
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                         <meta charset="UTF-8">
-                         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                        </head>
-                        <body>
-                         <div id="content">
-                         <h1>Main title</h1>
-                         <div id="preamble">
-                         <div class="sectionbody">
-                         <p> <div class="paragraph">
-                         <p>
-                        Some text.
-                         </p>
-                         </div>
-                        </p>
-                         </div>
-                         </div>
-                         <div class="sect1" id="_second_part">
-                          <h2>Second part</h2>
-                         <div class="sectionbody">
-                         <div class="paragraph">
-                         <p>
-                        This is a snippet:
-                         </p>
-                         </div>
-                         <div class="listingblock">
-                         <div class="content">
-                         <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public record Foo() {}</code></pre>
-                         </div>
-                         </div>
-                         </div>
-                         </div>
-                         </div>
-                        </body>
-                        </html>
-                        """);
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                 <meta charset="UTF-8">
+                </head>
+                <body>
+                 <div id="content">
+                 <h1>Main title</h1>
+                 <div id="preamble">
+                 <div class="sectionbody">
+                 <p> <div class="paragraph">
+                 <p>
+                Some text.
+                 </p>
+                 </div>
+                </p>
+                 </div>
+                 </div>
+                 <div class="sect1" id="_second_part">
+                  <h2>Second part</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                This is a snippet:
+                 </p>
+                 </div>
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public record Foo() {}</code></pre>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                </body>
+                </html>
+                """);
     }
 
     @Test
@@ -349,6 +347,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 . first
                 . second
                 . third""", """
+                 <div class="olist">
                  <ol>
                   <li>
                  <p>
@@ -366,6 +365,95 @@ class AsciidoctorLikeHtmlRendererTest {
                  </p>
                   </li>
                  </ol>
+                 </div>
+                """);
+    }
+
+    @Test
+    void olLowerAlpha() {
+        assertRenderingContent("""
+                a. item 1
+                b. item 2""", """
+                 <div class="olist loweralpha">
+                 <ol class="loweralpha" type="a">
+                  <li>
+                 <p>
+                item 1
+                 </p>
+                  </li>
+                  <li>
+                 <p>
+                item 2
+                 </p>
+                  </li>
+                 </ol>
+                 </div>
+                """);
+    }
+
+    @Test
+    void olUpperAlpha() {
+        assertRenderingContent("""
+                A. item 1
+                B. item 2""", """
+                 <div class="olist upperalpha">
+                 <ol class="upperalpha" type="A">
+                  <li>
+                 <p>
+                item 1
+                 </p>
+                  </li>
+                  <li>
+                 <p>
+                item 2
+                 </p>
+                  </li>
+                 </ol>
+                 </div>
+                """);
+    }
+
+    @Test
+    void olLowerRoman() {
+        assertRenderingContent("""
+                i) item 1
+                ii) item 2""", """
+                 <div class="olist lowerroman">
+                 <ol class="lowerroman" type="i">
+                  <li>
+                 <p>
+                item 1
+                 </p>
+                  </li>
+                  <li>
+                 <p>
+                item 2
+                 </p>
+                  </li>
+                 </ol>
+                 </div>
+                """);
+    }
+
+    @Test
+    void olUpperRoman() {
+        assertRenderingContent("""
+                I) item 1
+                II) item 2""", """
+                 <div class="olist upperroman">
+                 <ol class="upperroman" type="I">
+                  <li>
+                 <p>
+                item 1
+                 </p>
+                  </li>
+                  <li>
+                 <p>
+                item 2
+                 </p>
+                  </li>
+                 </ol>
+                 </div>
                 """);
     }
 
@@ -422,6 +510,22 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("""
                 first:: one
                 second:: two""", """
+                 <dl>
+                  <dt>first</dt>
+                  <dd>
+                one</dd>
+                  <dt>second</dt>
+                  <dd>
+                two</dd>
+                 </dl>
+                """);
+    }
+
+    @Test
+    void dlWithSemicolons() {
+        assertRenderingContent("""
+                first;; one
+                second;; two""", """
                  <dl>
                   <dt>first</dt>
                   <dd>
@@ -497,34 +601,52 @@ class AsciidoctorLikeHtmlRendererTest {
                   </colgroup>
                   <thead>
                    <tr>
-                    <th>
+                    <th class="halign-left">
                 Cell in column 1, header row     </th>
-                    <th>
+                    <th class="halign-left">
                 Cell in column 2, header row    </th>
                    </tr>
                   </thead>
                   <tbody>
                    <tr>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 1, row 2    </td>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 2, row 2    </td>
                    </tr>
                    <tr>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 1, row 3    </td>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 2, row 3    </td>
                    </tr>
                    <tr>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 1, row 4    </td>
-                    <td>
+                    <td class="halign-left">
                 Cell in column 2, row 4    </td>
                    </tr>
                   </tbody>
                  </table>
                 """);
+    }
+
+    @Test
+    void quoteWithAttributionAndCitetitle() {
+        assertRenderingContent("""
+                [quote, Albert Einstein, Relativity]
+                ____
+                A man should look for what is, and not for what he thinks should be.
+                ____
+                """, """
+                 <div class="quoteblock">
+                  <blockquote>
+                A man should look for what is, and not for what he thinks should be.  </blockquote>
+                  <div class="attribution">
+                &#8212; Albert Einstein<br>
+                <cite>Relativity</cite>
+                  </div>
+                 </div>""");
     }
 
     @Test
@@ -611,6 +733,36 @@ class AsciidoctorLikeHtmlRendererTest {
                  <p>And inline  \\$[[a,b\\],[c,d\\]\\]((n),(k))\\$  too.</p>
                  </div>
                  </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void stemLatexmathBlock() {
+        assertRenderingContent("""
+                [latexmath]
+                ++++
+                \\sqrt{4} = 2
+                ++++
+                """, """
+                 <div class="stemblock">
+                  <div class="content">
+                 \\[\\sqrt{4} = 2\\]   </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void stemAsciimathBlock() {
+        assertRenderingContent("""
+                [asciimath]
+                ++++
+                sqrt(4) = 2
+                ++++
+                """, """
+                 <div class="stemblock">
+                  <div class="content">
+                 \\$sqrt(4) = 2\\$   </div>
                  </div>
                 """);
     }
@@ -854,10 +1006,6 @@ class AsciidoctorLikeHtmlRendererTest {
                 """, renderer.result());
     }
 
-    /**
-     * TODO : this case is not managed yet
-     */
-    @Disabled
     @Test
     void imageWithLinkAllOptions() {
         final var doc = new Parser().parseBody("""
@@ -1107,29 +1255,29 @@ class AsciidoctorLikeHtmlRendererTest {
                           </colgroup>
                           <thead>
                            <tr>
-                            <th>
+                            <th class="halign-left">
                         Name    </th>
-                            <th>
+                            <th class="halign-left">
                         JSON Name    </th>
-                            <th>
+                            <th class="halign-left">
                         Type    </th>
-                            <th>
+                            <th class="halign-left">
                         Description    </th>
                            </tr>
                           </thead>
                           <tbody>
                            <tr>
-                            <td>
+                            <td class="halign-left">
                          <div class="paragraph">
                          <p> <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
                         </p>
                          </div>
                             </td>
-                            <td>
+                            <td class="halign-left">
                         <code>aliases</code>    </td>
-                            <td>
+                            <td class="halign-left">
                         array of object    </td>
-                            <td>
+                            <td class="halign-left">
                         -    </td>
                            </tr>
                           </tbody>
@@ -1208,7 +1356,6 @@ class AsciidoctorLikeHtmlRendererTest {
                         <html lang="en">
                         <head>
                          <meta charset="UTF-8">
-                         <meta http-equiv="X-UA-Compatible" content="IE=edge">
                         </head>
                         <body>
                          <div id="content">
@@ -1395,6 +1542,105 @@ class AsciidoctorLikeHtmlRendererTest {
                 " <div class=\"paragraph\">\n" +
                         "First line<br>\n" +
                         "Second line </div>\n");
+    }
+
+    @Test
+    void menu() {
+        assertRenderingContent("menu:File[Save]",
+                " <span class=\"menuseq\"><b class=\"menu\">File</b>&#160;<b class=\"caret\">&#8250;</b> <b class=\"menuitem\">Save</b></span>\n");
+    }
+
+    @Test
+    void menuWithSubmenu() {
+        assertRenderingContent("menu:File>Edit[Save]",
+                " <span class=\"menuseq\"><b class=\"menu\">Edit</b>&#160;<b class=\"caret\">&#8250;</b> <b class=\"submenu\">File</b>&#160;<b class=\"caret\">&#8250;</b> <b class=\"menuitem\">Save</b></span>\n");
+    }
+
+    @Test
+    void menuNoItem() {
+        assertRenderingContent("menu:File[]",
+                " <b class=\"menuref\">File</b>\n");
+    }
+
+    @Test
+    void footnoteAnonymous() {
+        assertRenderingContent("Some text footnote:[A note.]",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Some text  <sup class=\"footnote\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        "</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. A note.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void footnoteWithId() {
+        assertRenderingContent("Some text footnote:mynote[A note with id.]",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Some text  <sup class=\"footnote\" id=\"_footnote_mynote\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        "</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. A note with id.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void footnoteXref() {
+        assertRenderingContent("First footnote:mynote[First ref.] And footnote:mynote[] again.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>First  <sup class=\"footnote\" id=\"_footnote_mynote\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " And  <sup class=\"footnoteref\">[<a class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " again.</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. First ref.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void footnoterefLegacy() {
+        assertRenderingContent("Some text footnoteref:[myid,A note.] And footnote:myid[] again.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Some text  <sup class=\"footnote\" id=\"_footnote_myid\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " And  <sup class=\"footnoteref\">[<a class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " again.</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. A note.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void multipleFootnotes() {
+        assertRenderingContent("First footnote:[First note.] Second footnote:[Second note.]",
+                " <div class=\"paragraph\">\n" +
+                        " <p>First  <sup class=\"footnote\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " Second  <sup class=\"footnote\">[<a id=\"_footnoteref_2\" class=\"footnote\" href=\"#_footnotedef_2\" title=\"View footnote.\">2</a>]</sup>\n" +
+                        "</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. First note.\n" +
+                        "  </div>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_2\">\n" +
+                        "   <a href=\"#_footnoteref_2\">2</a>. Second note.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
     }
 
     private void assertRendering(final String adoc, final String html) {
