@@ -26,6 +26,7 @@ import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.FloatingTitle;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
@@ -100,13 +101,19 @@ public class Parser {
 
     private static final Pattern CALLOUT_REF = Pattern.compile("<(?<number>\\d+)>");
     private static final Pattern CALLOUT = Pattern.compile("^<(?<number>[\\d+.]+)> (?<description>.+)$");
-    private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>(?!::).*)(?<marker>::+)(?<content>.*)");
-    private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^[0-9]*(?<dots>\\.+) .+");
+    private static final Pattern DESCRIPTION_LIST_PREFIX = Pattern.compile("^(?<name>(?!::).*)(?<marker>(?:::+|;;))(?<content>.*)");
+    private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^(?<prefix>(?:[0-9]+|[a-zA-Z]|[ivxIVX]+)?)(?<dots>\\.+|\\)) .+");
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
+    private static final Pattern CELL_SPEC = Pattern.compile("^(?:(?<colspan>\\d+)\\+)?(?:\\.(?<rowspan>\\d+)\\+)?(?<content>.*)");
+    private static final Pattern LOWER_ROMAN = Pattern.compile("[ivx]+");
+    private static final Pattern UPPER_ROMAN = Pattern.compile("[IVX]+");
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
+    private static final Pattern LOWER_ALPHA = Pattern.compile("[a-z]");
+    private static final Pattern UPPER_ALPHA = Pattern.compile("[A-Z]");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
 
     private final Map<String, String> globalAttributes;
@@ -283,8 +290,11 @@ public class Parser {
                         (level = Stream.of(Admonition.Level.values())
                                 .filter(it -> Objects.equals(it.name(), potentialLevel))
                                 .findFirst()).isPresent()) {
-                    elements.add(parseAdmonitionBlock(enclosingDocument, reader, level.orElseThrow(), resolver, attributes));
+                    elements.add(parseAdmonitionBlock(enclosingDocument, reader, level.orElseThrow(), resolver, attributes, options));
                 } else {
+                    if (options == null || !options.containsKey("") || options.get("").isBlank()) {
+                        options = merge(options, Map.of("", "example"));
+                    }
                     elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
                 }
                 options = null;
@@ -304,7 +314,12 @@ public class Parser {
                 }
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
-                elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
+                final var style = options == null ? null : options.get("");
+                if ("discrete".equals(style) || "float".equals(style) || options != null && (options.containsKey("discrete-option") || options.containsKey("float-option"))) {
+                    elements.add(parseFloatingTitle(enclosingDocument, reader, options, resolver, attributes));
+                } else {
+                    elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
+                }
                 options = null;
             } else if (Objects.equals("----", stripped)) {
                 elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, "----"));
@@ -329,6 +344,9 @@ public class Parser {
                 elements.add(parseQuote(enclosingDocument, reader, options, resolver, attributes));
                 options = null;
             } else if (Objects.equals("****", stripped)) {
+                if (options == null || !options.containsKey("") || options.get("").isBlank()) {
+                    options = merge(options, Map.of("", "sidebar"));
+                }
                 elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "****"));
                 options = null;
             } else if (stripped.startsWith("____")) {
@@ -437,7 +455,8 @@ public class Parser {
                                             final Reader reader,
                                             final Admonition.Level level,
                                             final ContentResolver resolver,
-                                            final Map<String, String> currentAttributes) {
+                                            final Map<String, String> currentAttributes,
+                                            final Map<String, String> options) {
         final var content = new ArrayList<String>();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals("====", next.strip())) {
@@ -447,9 +466,13 @@ public class Parser {
             reader.rewind();
         }
         final var elements = doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false);
+        final var filteredOpts = options == null ? Map.<String, String>of() : options.entrySet().stream()
+                .filter(e -> !"".equals(e.getKey()))
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
         return new Admonition(
                 level,
-                elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of()));
+                elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of()),
+                filteredOpts);
     }
 
     private Quote parseQuote(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -519,6 +542,18 @@ public class Parser {
                         .toList())
                 .orElse(List.of());
 
+        // Implicit header detection: blank lines between |=== and first row means no header
+        final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
+        if (!tableOptions.containsKey("header-option") && !tableOptions.containsKey("noheader-option")) {
+            final var afterToken = reader.nextLine();
+            if (afterToken != null && afterToken.isBlank()) {
+                tableOptions.put("noheader-option", "");
+            }
+            if (afterToken != null) {
+                reader.rewind();
+            }
+        }
+
         final var rows = new ArrayList<List<Element>>(4);
         String next;
         while (!Objects.equals(token, next = reader.skipCommentsAndEmptyLines()) && next != null) {
@@ -550,17 +585,13 @@ public class Parser {
                 int nextSep = next.indexOf('|', last);
                 while (nextSep > 0) {
                     final var content = next.substring(last, nextSep);
-                    cells.add(cellParser.size() > cellIdx ?
-                            cellParser.get(cellIdx++).apply(List.of(content)) :
-                            new Text(List.of(), content.strip(), Map.of()));
+                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content, resolver, currentAttributes));
                     last = nextSep + 1;
                     nextSep = next.indexOf('|', last);
                 }
                 if (last < next.length()) {
                     final var end = next.substring(last);
-                    cells.add(cellParser.size() > cellIdx ?
-                            cellParser.get(cellIdx).apply(List.of(end)) :
-                            new Text(List.of(), end.strip(), Map.of()));
+                    cells.add(createCell(enclosingDocument, cellParser, cellIdx, end, resolver, currentAttributes));
                 }
             } else { // one cell per row
                 int cellIdx = 0;
@@ -574,9 +605,7 @@ public class Parser {
                         reader.rewind();
                     }
 
-                    cells.add(cellParser.size() > cellIdx ?
-                            cellParser.get(cellIdx++).apply(content) :
-                            new Text(List.of(), String.join("\n", content).strip(), Map.of()));
+                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content, resolver, currentAttributes));
                 } while ((next = reader.nextLine()) != null && !next.isBlank() && !next.startsWith("|==="));
                 if (next != null && next.startsWith("|")) {
                     reader.rewind();
@@ -584,7 +613,77 @@ public class Parser {
             }
             rows.add(cells);
         }
-        return new Table(rows, options == null ? Map.of() : options);
+        return new Table(rows, Map.copyOf(tableOptions));
+    }
+
+    private Element createCell(final Path enclosingDocument,
+                               final List<Function<List<String>, Element>> cellParser,
+                               final int cellIdx,
+                               final String content,
+                               final ContentResolver resolver,
+                               final Map<String, String> currentAttributes) {
+        final var spec = CELL_SPEC.matcher(content);
+        final var cellContent = spec.matches() ? spec.group("content") : content;
+        final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
+        final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
+        final var element = cellParser.size() > cellIdx ?
+                cellParser.get(cellIdx).apply(List.of(cellContent)) :
+                new Text(List.of(), cellContent.strip(), Map.of());
+        if (colspan != null || rowspan != null) {
+            return addCellSpan(element, colspan, rowspan);
+        }
+        return element;
+    }
+
+    private Element addCellSpan(final Element element, final String colspan, final String rowspan) {
+        final Map<String, String> opts;
+        if (element instanceof Text t) {
+            opts = new HashMap<>(t.options());
+        } else if (element instanceof Paragraph p) {
+            opts = new HashMap<>(p.options());
+        } else if (element instanceof Code c) {
+            opts = new HashMap<>(c.options());
+        } else {
+            return element;
+        }
+        if (colspan != null) {
+            opts.put("colspan", colspan);
+        }
+        if (rowspan != null) {
+            opts.put("rowspan", rowspan);
+        }
+        if (element instanceof Text t) {
+            return new Text(t.style(), t.value(), Map.copyOf(opts));
+        }
+        if (element instanceof Paragraph p) {
+            return new Paragraph(p.children(), Map.copyOf(opts));
+        }
+        if (element instanceof Code c) {
+            return new Code(c.value(), c.callOuts(), Map.copyOf(opts), c.inline());
+        }
+        return element;
+    }
+
+    private Element createCell(final Path enclosingDocument,
+                               final List<Function<List<String>, Element>> cellParser,
+                               final int cellIdx,
+                               final List<String> content,
+                               final ContentResolver resolver,
+                               final Map<String, String> currentAttributes) {
+        final var firstLine = content.get(0);
+        final var spec = CELL_SPEC.matcher(firstLine);
+        final var cellContent = spec.matches() && !spec.group("content").isEmpty() ?
+                content.stream().map(l -> spec == CELL_SPEC.matcher(firstLine) && l == firstLine ? spec.group("content") : l).toList() :
+                content;
+        final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
+        final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
+        final var element = cellParser.size() > cellIdx ?
+                cellParser.get(cellIdx).apply(cellContent) :
+                new Text(List.of(), String.join("\n", cellContent).strip(), Map.of());
+        if (colspan != null || rowspan != null) {
+            return addCellSpan(element, colspan, rowspan);
+        }
+        return element;
     }
 
     private Code parseCodeBlock(final Path enclosingDocument,
@@ -720,7 +819,7 @@ public class Parser {
                 hardBreak = true;
                 line = line.substring(0, line.length() - 2);
             }
-            elements.addAll(parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures));
+            elements.addAll(parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options));
             if (hardBreak) {
                 elements.add(new LineBreak());
             }
@@ -734,6 +833,13 @@ public class Parser {
     private List<Element> parseLine(final Path enclosingDocument, final Reader reader, final String line,
                                     final ContentResolver resolver, final Map<String, String> currentAttributes,
                                     final boolean supportComplexStructures) {
+        return parseLine(enclosingDocument, reader, line, resolver, currentAttributes, supportComplexStructures, Map.of());
+    }
+
+    private List<Element> parseLine(final Path enclosingDocument, final Reader reader, final String line,
+                                    final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                    final boolean supportComplexStructures,
+                                    final Map<String, String> pendingOptions) {
         final var elements = new ArrayList<Element>();
         int start = 0;
         boolean inMacro = false;
@@ -755,8 +861,11 @@ public class Parser {
                 {
                     final var matcher = ORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("dots").length() == 1) {
+                        final var prefix = matcher.group("prefix");
+                        final var delim = matcher.group("dots");
+                        final var style = detectOrderedListStyle(prefix, delim);
                         reader.rewind();
-                        elements.add(parseOrderedList(enclosingDocument, reader, null, ". ", resolver, currentAttributes));
+                        elements.add(parseOrderedList(enclosingDocument, reader, style != null ? "style=" + style : null, ". ", resolver, currentAttributes));
                         i = line.length();
                         start = i;
                         break;
@@ -790,9 +899,23 @@ public class Parser {
                         // and is not a macro
                         (line.endsWith("::") || line.substring(doubleColons + "::".length()).startsWith(" "))) {
                     final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && matcher.group("marker").length() == 2) {
+                    if (matcher.matches() && "::".equals(matcher.group("marker"))) {
                         reader.rewind();
-                        elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver, currentAttributes));
+                        elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver,
+                                merge(currentAttributes, pendingOptions)));
+                        i = line.length();
+                        start = i;
+                        break;
+                    }
+                }
+                int doubleSemicolons = line.indexOf(";;");
+                if (doubleSemicolons > 0 &&
+                        (line.endsWith(";;") || line.substring(doubleSemicolons + ";;".length()).startsWith(" "))) {
+                    final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
+                    if (matcher.matches() && ";;".equals(matcher.group("marker"))) {
+                        reader.rewind();
+                        elements.add(parseDescriptionList(enclosingDocument, reader, ";; ", resolver,
+                                merge(currentAttributes, pendingOptions)));
                         i = line.length();
                         start = i;
                         break;
@@ -991,21 +1114,22 @@ public class Parser {
                             if (macroMarker > 0 && !isLink(optionsPrefix)) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
-                                final var label = "stem".equals(type) ?
+                                final var isStemLike = "stem".equals(type) || "latexmath".equals(type) || "asciimath".equals(type);
+                                final var label = isStemLike ?
                                         line.substring(i + 1, end) :
                                         optionsPrefix.substring(macroMarker + (inlined ? 1 : 2));
 
                                 if ("link".equals(type) && options.containsKey("")) {
                                     var linkName = options.get("");
                                     int from = linkName.indexOf('[');
-                                    while (from > 0) { // if label has some opening bracket we must slice what we computed (images in link)
+                                    while (from > 0) { // if label has some opening label we must slice what we computed (images in link)
                                         end = line.indexOf(']', end + 1);
                                         from = label.indexOf('[', from + 1);
                                         options = parseOptions(line.substring(i + 1, end).strip());
                                     }
                                 }
 
-                                final var macro = new Macro(type, label, "stem".equals(type) ? Map.of() : options, inlined);
+                                final var macro = new Macro(type, label, isStemLike ? Map.of() : options, inlined);
                                 switch (macro.name()) {
                                     case "include" ->
                                             elements.addAll(doInclude(enclosingDocument, macro, resolver, currentAttributes, true));
@@ -1335,8 +1459,11 @@ public class Parser {
                 var hasInclusion = false;
                 var hasExclusion = false;
                 for (final var f : filters) {
-                    if (f.getKey()) hasInclusion = true;
-                    else hasExclusion = true;
+                    if (f.getKey()) {
+                        hasInclusion = true;
+                    } else {
+                        hasExclusion = true;
+                    }
                 }
                 final var processed = new ArrayList<Map.Entry<Boolean, String>>();
                 if (hasInclusion && !hasExclusion) {
@@ -1446,7 +1573,8 @@ public class Parser {
                         reader.rewind();
                     }
                     return new Admonition(level, unwrapElementIfPossible(parseParagraph(
-                            enclosingDocument, new Reader(buffer), null, resolver, currentAttributes, true)));
+                            enclosingDocument, new Reader(buffer), null, resolver, currentAttributes, true)),
+                            Map.of());
                 });
     }
 
@@ -1457,14 +1585,17 @@ public class Parser {
         String next;
         final var buffer = new ArrayList<String>();
         Matcher matcher;
+        final var currentMarker = prefix.trim();
         final int currentLevel = prefix.length() - 1 /*ending space*/;
         Element last = null;
         while ((next = reader.nextLine()) != null && (matcher = DESCRIPTION_LIST_PREFIX.matcher(next)).matches() && !next.isBlank()) {
-            final var level = matcher.group("marker").length();
-            if (level < currentLevel) { // go back to parent
+            final var marker = matcher.group("marker");
+            final var level = marker.length();
+            final var sameFamily = marker.charAt(0) == currentMarker.charAt(0);
+            if (sameFamily && level < currentLevel) { // go back to parent
                 break;
             }
-            if (level == currentLevel) { // a new item
+            if (sameFamily && level == currentLevel) { // a new item
                 buffer.clear();
                 final var content = matcher.group("content").stripLeading();
                 if (!content.isBlank()) {
@@ -1489,9 +1620,15 @@ public class Parser {
                 final var key = doParse(enclosingDocument, new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false, false);
                 children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
                 last = unwrapped;
-            } else { // nested
+            } else { // nested (different family or longer marker)
                 reader.rewind();
-                final var nestedList = parseDescriptionList(enclosingDocument, reader, prefix.charAt(0) + prefix, resolver, currentAttributes);
+                final String nestedPrefix;
+                if (sameFamily) {
+                    nestedPrefix = prefix.charAt(0) + prefix;
+                } else {
+                    nestedPrefix = marker + " ";
+                }
+                final var nestedList = parseDescriptionList(enclosingDocument, reader, nestedPrefix, resolver, currentAttributes);
                 if (!nestedList.children().isEmpty() && last != null) {
                     addCollapsingChildOnParent(List.of(last), nestedList);
                 }
@@ -1510,6 +1647,31 @@ public class Parser {
                 enclosingDocument,
                 reader, options, prefix, pattern, "wildcard",
                 UnOrderedList::children, UnOrderedList::new, resolver, currentAttributes);
+    }
+
+    private String detectOrderedListStyle(final String prefix, final String delim) {
+        if (")".equals(delim)) {
+            if (LOWER_ROMAN.matcher(prefix).matches()) {
+                return "lowerroman";
+            }
+            if (UPPER_ROMAN.matcher(prefix).matches()) {
+                return "upperroman";
+            }
+            return prefix.isEmpty() ? null : "arabic";
+        }
+        if (prefix.isEmpty()) {
+            return null;
+        }
+        if (DIGITS.matcher(prefix).matches()) {
+            return "arabic";
+        }
+        if (LOWER_ALPHA.matcher(prefix).matches()) {
+            return "loweralpha";
+        }
+        if (UPPER_ALPHA.matcher(prefix).matches()) {
+            return "upperalpha";
+        }
+        return "arabic";
     }
 
     private OrderedList parseOrderedList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,
@@ -1538,7 +1700,10 @@ public class Parser {
             }
             if (level == currentLevel) { // a new item
                 buffer.setLength(0);
-                readContinuation(reader, prefix, regex, buffer, nextStripped);
+                final var markerLen = "dots".equals(captureName) ?
+                        matcher.group("prefix").length() + matcher.group("dots").length() :
+                        prefix.length();
+                readContinuation(reader, regex, buffer, nextStripped, markerLen);
 
                 final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
                 children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
@@ -1559,10 +1724,9 @@ public class Parser {
         return factory.apply(children, options == null ? Map.of() : parseOptions(options));
     }
 
-    private void readContinuation(final Reader reader, final String prefix,
-                                  final Pattern regex, final StringBuilder buffer,
-                                  final String nextStripped) {
-        buffer.append(nextStripped.substring(prefix.length()).stripLeading());
+    private void readContinuation(final Reader reader, final Pattern regex, final StringBuilder buffer,
+                                  final String nextStripped, final int markerLen) {
+        buffer.append(nextStripped.substring(markerLen).stripLeading());
 
         String next;
         String needed = null;
@@ -1646,11 +1810,35 @@ public class Parser {
     }
 
     private Map<String, String> parseOptions(final String options) {
+        // quote/verse blocks: second positional arg is citetitle (not opts)
+        if (options.startsWith("quote,")) {
+            return parseQuoteLikeOptions(options, "quote,", "quoteblock");
+        }
+        if (options.startsWith("verse,")) {
+            return parseQuoteLikeOptions(options, "verse,", "verseblock");
+        }
         return mapIf("source", null, "language", options)
                 .or(() -> mapIf("example", "exampleblock", "", options))
                 .or(() -> mapIf("verse", "verseblock", "", options))
                 .or(() -> mapIf("quote", "quoteblock", "attribution", options))
                 .orElseGet(() -> doParseOptions(options, "", true));
+    }
+
+    private Map<String, String> parseQuoteLikeOptions(final String options, final String prefix, final String type) {
+        final var rest = options.substring(prefix.length()).strip();
+        final var result = doParseOptions(rest, "attribution", true);
+        final var opts = result.remove("opts");
+        if (opts != null) {
+            final var comma = opts.indexOf(',');
+            if (comma < 0) {
+                result.put("citetitle", opts.strip());
+            } else {
+                result.put("citetitle", opts.substring(0, comma).strip());
+                result.put("opts", opts.substring(comma + 1).strip());
+            }
+        }
+        result.putIfAbsent("role", type);
+        return result;
     }
 
     private Optional<Map<String, String>> mapIf(final String matcher, final String role,
@@ -1686,7 +1874,7 @@ public class Parser {
         }
     }
 
-    private static String dropLegacyPassthroughMarkers(final String v) {
+    private String dropLegacyPassthroughMarkers(final String v) {
         return v.length() > 3 && v.startsWith("$$") && v.endsWith("$$") ?
                 v.substring(2, v.length() - 2) :
                 v;
@@ -1716,6 +1904,28 @@ public class Parser {
                 titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
                 doParse(enclosingDocument, reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true, false),
                 options == null ? Map.of() : options);
+    }
+
+    private Element parseFloatingTitle(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
+                                       final ContentResolver resolver, final Map<String, String> currentAttributes) {
+        final var title = reader.skipCommentsAndEmptyLines();
+        int i = 0;
+        while (i < title.length() && (title.charAt(i) == '=' || title.charAt(i) == '#')) {
+            i++;
+        }
+        final var offset = currentAttributes.get("leveloffset");
+        if (offset != null) {
+            i += Integer.parseInt(offset);
+        }
+        final var lineContent = title.substring(i).strip();
+        final var titleElement = parseLine(enclosingDocument, new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
+        final var cleanOptions = options == null ? Map.<String, String>of() : options.entrySet().stream()
+                .filter(e -> !"discrete-option".equals(e.getKey()) && !"float-option".equals(e.getKey()))
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        return new FloatingTitle(
+                i,
+                titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
+                cleanOptions);
     }
 
     // name <mail>
@@ -1883,6 +2093,7 @@ public class Parser {
         final var map = new HashMap<String, String>();
         final var key = new StringBuilder();
         final var value = new StringBuilder();
+        final var positional = new ArrayList<String>();
         boolean quoted = false;
         boolean inKey = true;
         for (int i = 0; i < options.length(); i++) {
@@ -1895,7 +2106,11 @@ public class Parser {
                 inKey = false;
             } else if (c == ',') {
                 if (!key.isEmpty()) {
-                    flushOption(defaultKey, key, value, map);
+                    if (value.isEmpty()) {
+                        positional.add(key.toString());
+                    } else {
+                        flushOption(defaultKey, key, value, map);
+                    }
                 }
                 key.setLength(0);
                 value.setLength(0);
@@ -1905,12 +2120,38 @@ public class Parser {
             }
         }
         if (!key.isEmpty()) {
-            flushOption(defaultKey, key, value, map);
+            if (value.isEmpty()) {
+                positional.add(key.toString());
+            } else {
+                flushOption(defaultKey, key, value, map);
+            }
+        }
+        for (int i = 0; i < positional.size(); i++) {
+            final var pos = dropLegacyPassthroughMarkers(positional.get(i));
+            if (pos.startsWith(".")) {
+                map.put("role", pos.substring(1).replace('.', ' '));
+            } else if (pos.startsWith("#")) {
+                map.put("id", pos.substring(1));
+            } else if (i == 0) {
+                map.putIfAbsent(defaultKey, pos);
+            } else {
+                final var existing = map.get("opts");
+                map.put("opts", existing == null ? pos : existing + "," + pos);
+            }
         }
         if (nestedOptsSupport) {
             final var opts = map.remove("opts");
             if (opts != null) {
                 map.putAll(doParseOptions(opts, "opts", false));
+            }
+            final var optionsAttr = map.remove("options");
+            if (optionsAttr != null) {
+                for (var opt : optionsAttr.split(",")) {
+                    opt = opt.strip();
+                    if (!opt.isEmpty()) {
+                        map.put(opt + "-option", "");
+                    }
+                }
             }
         }
         return map;
@@ -2031,7 +2272,9 @@ public class Parser {
 
     private void parseTagOption(final String value, final boolean defaultInclude,
                                 final List<Map.Entry<Boolean, String>> filters) {
-        if (value == null || value.isBlank()) return;
+        if (value == null || value.isBlank()) {
+            return;
+        }
         for (final var t : value.split("[,;]")) {
             final var stripped = t.strip();
             if (!stripped.isBlank()) {

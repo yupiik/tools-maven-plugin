@@ -24,6 +24,7 @@ import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.FloatingTitle;
 import io.yupiik.asciidoc.model.Header;
 import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
@@ -94,6 +95,7 @@ public interface Visitor<R> {
             case ATTRIBUTE -> visitAttribute((Attribute) element);
             case LISTING -> visitListing((Listing) element);
             case HORIZONTAL_RULE -> visitHorizontalRule((HorizontalRule) element);
+            case FLOATING_TITLE -> visitFloatingTitle((FloatingTitle) element);
         }
     }
 
@@ -192,6 +194,10 @@ public interface Visitor<R> {
     }
 
     default void visitHorizontalRule(final HorizontalRule element) {
+        // no-op
+    }
+
+    default void visitFloatingTitle(final FloatingTitle element) {
         // no-op
     }
 

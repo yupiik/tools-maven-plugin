@@ -17,19 +17,9 @@ package io.yupiik.asciidoc.model;
 
 import java.util.Map;
 
-import static io.yupiik.asciidoc.model.Element.ElementType.ADMONITION;
-
-public record Admonition(Level level, Element content, Map<String, String> options) implements Element {
+public record FloatingTitle(int level, Element title, Map<String, String> options) implements Element {
     @Override
     public ElementType type() {
-        return ADMONITION;
-    }
-
-    public enum Level {
-        NOTE,
-        TIP,
-        IMPORTANT,
-        CAUTION,
-        WARNING
+        return ElementType.FLOATING_TITLE;
     }
 }

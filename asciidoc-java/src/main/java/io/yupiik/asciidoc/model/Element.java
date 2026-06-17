@@ -16,7 +16,7 @@
 package io.yupiik.asciidoc.model;
 
 public sealed interface Element permits
-        Code, DescriptionList, LineBreak, Link, Macro, OrderedList,
+        Code, DescriptionList, FloatingTitle, LineBreak, Link, Macro, OrderedList,
         Paragraph, Section, Text, UnOrderedList, Admonition, Anchor,
         Table, Quote, OpenBlock, PassthroughBlock, ConditionalBlock,
         Attribute, PageBreak, Listing, HorizontalRule {
@@ -50,6 +50,7 @@ public sealed interface Element permits
         QUOTE, // TODO: we only support the markdown style quotes
         PASS_BLOCK,
         CONDITIONAL_BLOCK,
-        HORIZONTAL_RULE
+        HORIZONTAL_RULE,
+        FLOATING_TITLE
     }
 }
