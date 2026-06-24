@@ -15,10 +15,11 @@
  */
 package io.yupiik.asciidoc.model;
 
+import java.util.List;
 import java.util.Map;
 
 public record Header(String title,
-                     Author author,
+                     List<Author> author,
                      Revision revision,
                      Map<String, String> attributes) {
 }

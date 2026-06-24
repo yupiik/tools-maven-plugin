@@ -60,8 +60,10 @@ public interface Visitor<R> {
         if (!header.title().isBlank()) {
             visitTitle(header.title());
         }
-        if (!header.author().name().isBlank()) {
-            visitAuthor(header.author().name(), header.author().mail());
+        for (final var a : header.author()) {
+            if (!a.name().isBlank()) {
+                visitAuthor(a.name(), a.mail());
+            }
         }
         if (!header.revision().number().isBlank()) {
             visitRevision(header.revision().number(), header.revision().date(), header.revision().revmark());

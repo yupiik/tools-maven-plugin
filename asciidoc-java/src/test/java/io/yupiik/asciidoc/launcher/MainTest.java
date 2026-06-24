@@ -35,10 +35,19 @@ class MainTest {
                 <html lang="en">
                 <head>
                  <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Test</title>
                 </head>
-                <body>
-                 <div id="content">
+                <body class="article">
+                 <div id="header">
                  <h1>Test</h1>
+                 </div>
+                 <div id="content">
+                 </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                  </div>
                  </div>
                 </body>
                 </html>

@@ -24,24 +24,34 @@ import io.yupiik.asciidoc.renderer.Visitor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 
 public class TocVisitor implements Visitor<StringBuilder> {
+    private static final Pattern DROP_ANCHOR_RX = Pattern.compile("<(?:a\\b[^>]*|/a)>");
     private final int maxLevel;
     private final int currentLevel;
+    private final String idprefix;
+    private final String idseparator;
     private final Collection<Section> sections = new ArrayList<>();
 
     public TocVisitor(final int toclevels, final int currentLevel) {
+        this(toclevels, currentLevel, null, null);
+    }
+
+    public TocVisitor(final int toclevels, final int currentLevel, final String idprefix, final String idseparator) {
         this.maxLevel = toclevels;
         this.currentLevel = currentLevel;
+        this.idprefix = idprefix;
+        this.idseparator = idseparator;
     }
 
     @Override
     public void visitSection(final Section element) {
-        if (element.level() == currentLevel) {
+        if (element.level() == currentLevel + 1) {
             sections.add(element);
         }
     }
@@ -64,7 +74,7 @@ public class TocVisitor implements Visitor<StringBuilder> {
         } else {
             builder.append(sections.stream()
                     .map(it -> {
-                        final var tocVisitor = new TocVisitor(maxLevel, currentLevel + 1);
+                        final var tocVisitor = new TocVisitor(maxLevel, currentLevel + 1, idprefix, idseparator);
                         tocVisitor.visitBody(new Body(it.children()));
                         final var children = tocVisitor.result().toString();
                         final var title = title(it.title());
@@ -78,8 +88,7 @@ public class TocVisitor implements Visitor<StringBuilder> {
 
     private String id(final Section section, final String title) {
         return ofNullable(section.options().get("id"))
-                // todo: better sanitization
-                .orElseGet(() -> IdGenerator.forTitle(title));
+                .orElseGet(() -> IdGenerator.forTitle(title, idprefix, idseparator));
     }
 
     private String title(final Element title) {
@@ -87,6 +96,10 @@ public class TocVisitor implements Visitor<StringBuilder> {
         titleRenderer.visitElement(title instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                 new Text(t.style(), t.value(), Map.of("nowrap", "")) :
                 title);
-        return titleRenderer.result();
+        var result = titleRenderer.result();
+        if (result.contains("<a")) {
+            result = DROP_ANCHOR_RX.matcher(result).replaceAll("");
+        }
+        return result;
     }
 }
