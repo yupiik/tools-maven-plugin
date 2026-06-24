@@ -16,9 +16,10 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.model.Body;
+import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AsciidoctorLikeHtmlRendererTest {
     @Test
@@ -76,7 +78,7 @@ class AsciidoctorLikeHtmlRendererTest {
         renderer.visitBody(doc);
         assertEquals(
                 " <div class=\"paragraph\">\n" +
-                        " <p>  <img src=\"data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' style='font-family:monospace;font-size:15.2px' %3E%3Ctext id='obj2' x='13.5' y='24.0' fill='%23fff'%3E%5BRed Box%5D%3C/text%3E%3Ctext id='obj3' x='166.5' y='24.0' fill='%23000'%3E%5BBlue Box%5D%3C/text%3E%3C/g%3E%3C/svg%3E%0A\" alt=\"svg\">\n" +
+                        " <p>  <span class=\"image\"><img src=\"data:image/svg+xml,%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg width='306px' height='112px' version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'%3E%3Cdefs%3E%3Cfilter id='dsFilter' width='150%25' height='150%25'%3E%3CfeOffset result='offOut' in='SourceGraphic' dx='2' dy='2'/%3E%3CfeColorMatrix result='matrixOut' in='offOut' type='matrix' values='0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0'/%3E%3CfeGaussianBlur result='blurOut' in='matrixOut' stdDeviation='3'/%3E%3CfeBlend in='SourceGraphic' in2='blurOut' mode='normal'/%3E%3C/filter%3E%3Cmarker id='iPointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 10 0 L 10 10 L 0 5 z' /%3E%3C/marker%3E%3Cmarker id='Pointer' viewBox='0 0 10 10' refX='5' refY='5' markerUnits='strokeWidth' markerWidth='8' markerHeight='15' orient='auto'%3E%3Cpath d='M 0 0 L 10 5 L 0 10 z' /%3E%3C/marker%3E%3C/defs%3E%3Cg id='closed' stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath id='closed0' fill='%23aa4444' d='M 4.5 18.0 Q 4.5 8.0 14.5 8.0 L 13.5 8.0 L 22.5 8.0 L 31.5 8.0 L 40.5 8.0 L 49.5 8.0 L 58.5 8.0 L 67.5 8.0 L 76.5 8.0 L 85.5 8.0 L 94.5 8.0 L 103.5 8.0 L 112.5 8.0 L 121.5 8.0 L 120.5 8.0 Q 130.5 8.0 130.5 18.0 L 130.5 24.0 L 130.5 30.0 Q 130.5 40.0 120.5 40.0 L 121.5 40.0 L 112.5 40.0 L 103.5 40.0 L 94.5 40.0 L 85.5 40.0 L 76.5 40.0 L 67.5 40.0 L 58.5 40.0 L 49.5 40.0 L 40.5 40.0 L 31.5 40.0 L 22.5 40.0 L 13.5 40.0 L 14.5 40.0 Q 4.5 40.0 4.5 30.0 L 4.5 24.0 Z' /%3E%3Cpath id='closed1' fill='%23ccccff' d='M 157.5 18.0 Q 157.5 8.0 167.5 8.0 L 166.5 8.0 L 175.5 8.0 L 184.5 8.0 L 193.5 8.0 L 202.5 8.0 L 211.5 8.0 L 220.5 8.0 L 229.5 8.0 L 238.5 8.0 L 247.5 8.0 L 256.5 8.0 L 265.5 8.0 L 274.5 8.0 L 283.5 8.0 L 282.5 8.0 Q 292.5 8.0 292.5 18.0 L 292.5 24.0 L 292.5 30.0 Q 292.5 40.0 282.5 40.0 L 283.5 40.0 L 274.5 40.0 L 265.5 40.0 L 256.5 40.0 L 247.5 40.0 L 238.5 40.0 L 229.5 40.0 L 220.5 40.0 L 211.5 40.0 L 202.5 40.0 L 193.5 40.0 L 184.5 40.0 L 175.5 40.0 L 166.5 40.0 L 167.5 40.0 Q 157.5 40.0 157.5 30.0 L 157.5 24.0 Z' /%3E%3C/g%3E%3Cg id='lines' stroke='%23000' stroke-width='2' fill='none'%3E%3C/g%3E%3Cg id='text' stroke='none' style='font-family:monospace;font-size:15.2px' %3E%3Ctext id='obj2' x='13.5' y='24.0' fill='%23fff'%3E%5BRed Box%5D%3C/text%3E%3Ctext id='obj3' x='166.5' y='24.0' fill='%23000'%3E%5BBlue Box%5D%3C/text%3E%3C/g%3E%3C/svg%3E%0A\" alt=\"svg\"></span>\n" +
                         " test</p>\n" +
                         " </div>\n",
                 renderer.result());
@@ -88,17 +90,19 @@ class AsciidoctorLikeHtmlRendererTest {
                         `scheduler.tasks` (env: `SCHEDULER_TASKS`)::
                         Default tasks to run. Key is the command and value the frequency. `once_a_day` is supported today and means at 11:00AM, `at_startup` means at startup of the server whenever it is. Default: `check-zulu-releases = once_a_day`.""",
                 """
-                         <dl>
-                          <dt> <div class="paragraph">
-                        <code>scheduler.tasks</code> (env: <code>SCHEDULER_TASKS</code>) </div>
-                        </dt>
-                          <dd>
-                         <div class="paragraph">
-                         <p>Default tasks to run. Key is the command and value the frequency. <code>once_a_day</code> is supported today and means at 11:00AM, <code>at_startup</code> means at startup of the server whenever it is. Default: <code>check-zulu-releases = once_a_day</code>.</p>
-                         </div>
-                        </dd>
-                         </dl>
-                        """);
+                 <div class="dlist">
+                  <dl>
+                    <dt class="hdlist1"> <div class="paragraph">
+                <code>scheduler.tasks</code> (env: <code>SCHEDULER_TASKS</code>) </div>
+                </dt>
+                    <dd>
+                 <div class="paragraph">
+                 <p>Default tasks to run. Key is the command and value the frequency. <code>once_a_day</code> is supported today and means at 11:00AM, <code>at_startup</code> means at startup of the server whenever it is. Default: <code>check-zulu-releases = once_a_day</code>.</p>
+                 </div>
+                </dd>
+                  </dl>
+                 </div>
+                """);
     }
 
     @Test
@@ -165,10 +169,15 @@ class AsciidoctorLikeHtmlRendererTest {
                 <html lang="en">
                 <head>
                  <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Yupiik Fusion 1.0.8 Released</title>
                 </head>
-                <body>
-                 <div id="content">
+                <body class="article">
+                 <div id="header">
                  <h1>Yupiik Fusion 1.0.8 Released</h1>
+                 </div>
+                 <div id="content">
                  <div id="preamble">
                  <div class="sectionbody">
                  <div class="paragraph metadata">
@@ -197,6 +206,10 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  </div>
                  </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                  </div>
+                 </div>
                 </body>
                 </html>
                 """);
@@ -223,10 +236,15 @@ class AsciidoctorLikeHtmlRendererTest {
                 <html lang="en">
                 <head>
                  <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Main title</title>
                 </head>
-                <body>
-                 <div id="content">
+                <body class="article">
+                 <div id="header">
                  <h1>Main title</h1>
+                 </div>
+                 <div id="content">
                  <div id="preamble">
                  <div class="sectionbody">
                  <p> <div class="paragraph">
@@ -247,14 +265,164 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  <div class="listingblock">
                  <div class="content">
-                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public record Foo() {}</code></pre>
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">public record Foo() {}
+                </code></pre>
                  </div>
                  </div>
                  </div>
                  </div>
+                 </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                  </div>
                  </div>
                 </body>
                 </html>
+                """);
+    }
+
+    @Test
+    void footerWithLastUpdateLabel() {
+        assertRendering("""
+                        = Test
+                        :last-update-label: Last updated
+                        :docdatetime: 2024-01-01 12:00:00 UTC
+
+                        content
+                        """,
+                """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                 <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Test</title>
+                </head>
+                <body class="article">
+                 <div id="header">
+                 <h1>Test</h1>
+                 </div>
+                 <div id="content">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                   Last updated 2024-01-01 12:00:00 UTC<br>
+                  </div>
+                 </div>
+                </body>
+                </html>
+                """);
+    }
+
+    @Test
+    void footerWithReproducible() {
+        assertRendering("""
+                        = Test
+                        :last-update-label: Last updated
+                        :docdatetime: 2024-01-01 12:00:00 UTC
+                        :reproducible:
+
+                        content
+                        """,
+                """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                 <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Test</title>
+                </head>
+                <body class="article">
+                 <div id="header">
+                 <h1>Test</h1>
+                 </div>
+                 <div id="content">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                  </div>
+                 </div>
+                </body>
+                </html>
+                """);
+    }
+
+    @Test
+    void customIdPrefix() {
+        assertRenderingContent("""
+                        :idprefix: my-
+
+                        == Section Title
+
+                        content""",
+                """
+                 <div class="sect1" id="my-section_title">
+                  <h2>Section Title</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void customIdSeparator() {
+        assertRenderingContent("""
+                        :idseparator: -
+
+                        == Section Title
+
+                        content""",
+                """
+                 <div class="sect1" id="_sectiontitle">
+                  <h2>Section Title</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void customIdPrefixAndEmptySeparator() {
+        assertRenderingContent("""
+                        :idprefix:
+                        :idseparator: -
+
+                        == Section Title
+
+                        content""",
+                """
+                 <div class="sect1" id="sectiontitle">
+                  <h2>Section Title</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
                 """);
     }
 
@@ -310,7 +478,8 @@ class AsciidoctorLikeHtmlRendererTest {
                             default -&gt; throw new IllegalArgumentException(&quot;Unsupported '&quot; + v + &quot;'&quot;);
                         };
                     }
-                }</code></pre>
+                }
+                </code></pre>
                  </div>
                  </div>
                  <div class="colist arabic">
@@ -506,18 +675,40 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void checkList() {
+        assertRenderingContent("""
+                * [x] checked item
+                * [ ] unchecked item""", """
+                  <div class="ulist checklist">
+                  <ul class="checklist">
+                   <li>
+                    <p>&#10003; checked item</p>
+                   </li>
+                   <li>
+                    <p>&#10063; unchecked item</p>
+                   </li>
+                  </ul>
+                  </div>
+                 """);
+    }
+
+    @Test
     void dl() {
         assertRenderingContent("""
                 first:: one
-                second:: two""", """
-                 <dl>
-                  <dt>first</dt>
-                  <dd>
-                one</dd>
-                  <dt>second</dt>
-                  <dd>
-                two</dd>
-                 </dl>
+                second:: two""",                 """
+                 <div class="dlist">
+                  <dl>
+                    <dt class="hdlist1">first</dt>
+                    <dd>
+                <p>one</p>
+                </dd>
+                    <dt class="hdlist1">second</dt>
+                    <dd>
+                <p>two</p>
+                </dd>
+                  </dl>
+                 </div>
                 """);
     }
 
@@ -526,14 +717,18 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("""
                 first;; one
                 second;; two""", """
-                 <dl>
-                  <dt>first</dt>
-                  <dd>
-                one</dd>
-                  <dt>second</dt>
-                  <dd>
-                two</dd>
-                 </dl>
+                 <div class="dlist">
+                  <dl>
+                    <dt class="hdlist1">first</dt>
+                    <dd>
+                <p>one</p>
+                </dd>
+                    <dt class="hdlist1">second</dt>
+                    <dd>
+                <p>two</p>
+                </dd>
+                  </dl>
+                 </div>
                 """);
     }
 
@@ -579,6 +774,57 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void indexterm() {
+        assertRenderingContent("indexterm::[term]\n\nhello", """
+                 <a id="indexterm-1"></a>
+                 <div class="paragraph">
+                 <p>
+                hello
+                 </p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void indexterm2() {
+        assertRenderingContent("indexterm2::[primary, secondary]\n\nhello", """
+                 <a id="indexterm-1"></a>
+                 <div class="paragraph">
+                 <p>
+                hello
+                 </p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void inlineCounter() {
+        assertRenderingContent("{counter:num} {counter:num} {counter:num}", """
+                 <div class="paragraph">
+                 <p>1 2 3</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void inlineCounter2() {
+        assertRenderingContent("{counter2:num} {counter2:num} {counter2:num}", """
+                 <div class="paragraph">
+                 <p>0 1 2</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void inlineCounterWithStart() {
+        assertRenderingContent("{counter:seq:5} {counter:seq}", """
+                 <div class="paragraph">
+                 <p>5 6</p>
+                 </div>
+                """);
+    }
+
+    @Test
     void table() {
         assertRenderingContent("""
                 [cols="1,1"]
@@ -593,38 +839,50 @@ class AsciidoctorLikeHtmlRendererTest {
                                 
                 |Cell in column 1, row 4
                 |Cell in column 2, row 4
-                |===""", """
+                |===""",                 """
                  <table class="tableblock frame-all grid-all stretch">
                   <colgroup>
-                   <col width="50%">
-                   <col width="50%">
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
                   </colgroup>
                   <thead>
                    <tr>
-                    <th class="halign-left">
+                    <th class="tableblock halign-left">
                 Cell in column 1, header row     </th>
-                    <th class="halign-left">
+                    <th class="tableblock halign-left">
                 Cell in column 2, header row    </th>
                    </tr>
                   </thead>
                   <tbody>
                    <tr>
-                    <td class="halign-left">
-                Cell in column 1, row 2    </td>
-                    <td class="halign-left">
-                Cell in column 2, row 2    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 1, row 2</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 2, row 2</p>
+                    </td>
                    </tr>
                    <tr>
-                    <td class="halign-left">
-                Cell in column 1, row 3    </td>
-                    <td class="halign-left">
-                Cell in column 2, row 3    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 1, row 3</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 2, row 3</p>
+                    </td>
                    </tr>
                    <tr>
-                    <td class="halign-left">
-                Cell in column 1, row 4    </td>
-                    <td class="halign-left">
-                Cell in column 2, row 4    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 1, row 4</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                Cell in column 2, row 4</p>
+                    </td>
                    </tr>
                   </tbody>
                  </table>
@@ -837,9 +1095,9 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="sect0" id="_test">
                   <h1>Test</h1>
                  <div class="sectionbody">
-                 <div class="imageblock">
+                 <div class="imageblock center w80">
                  <div class="content">
-                 <img src="img.png" alt="logo" width="80" height="150" class="center w80">
+                 <img src="img.png" alt="logo" width="80" height="150">
                  </div>
                  </div>
                  </div>
@@ -885,9 +1143,9 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="sect0" id="_test">
                   <h1>Test</h1>
                  <div class="sectionbody">
-                 <div class="imageblock">
+                 <div class="imageblock center w80">
                  <div class="content">
-                 <img src="img.png" alt="logo" class="center w80">
+                 <img src="img.png" alt="logo">
                  </div>
                  </div>
                  </div>
@@ -913,7 +1171,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <ul>
                   <li>
                  <div class="paragraph">
-                 <p> <img src="Apache_Feather_Logo.png" alt="romain_asf" class="w32">
+                 <p> <span class="image w32"><img src="Apache_Feather_Logo.png" alt="romain_asf"></span>
                   <a href="https://home.apache.org/committer-index.html#rmannibucau">ASF Member</a>
                 </p>
                  </div>
@@ -1121,7 +1379,7 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 "link:http://foo.bar[this is image:foo.png[alt]]",
                 """
-                         <a href="http://foo.bar">this is  <img src="foo.png" alt="alt">
+                         <a href="http://foo.bar">this is  <span class="image"><img src="foo.png" alt="alt"></span>
                         </a>
                         """);
     }
@@ -1205,27 +1463,28 @@ class AsciidoctorLikeHtmlRendererTest {
                         ----
                         <.> Version of the tool to install, using `relaxed` option it can be a version prefix (`21.` for ex),""",
                 """
-                         <div class="listingblock">
-                         <div class="content">
-                         <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">prefix.version = 1.2.3 <b class="conum">(1)</b></code></pre>
-                         </div>
-                         </div>
-                         <div class="colist arabic">
-                          <ol>
-                           <li>
-                         <span>
-                        Version of the tool to install, using\s
-                         </span>
-                        <code>relaxed</code> <span>
-                         option it can be a version prefix (
-                         </span>
-                        <code>21.</code> <span>
-                         for ex),
-                         </span>
-                           </li>
-                          </ol>
-                         </div>
-                        """);
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">prefix.version = 1.2.3 <b class="conum">(1)</b>
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <ol>
+                   <li>
+                 <span>
+                Version of the tool to install, using\s
+                 </span>
+                <code>relaxed</code> <span>
+                 option it can be a version prefix (
+                 </span>
+                <code>21.</code> <span>
+                 for ex),
+                 </span>
+                   </li>
+                  </ol>
+                 </div>
+                """);
     }
 
     @Test
@@ -1248,37 +1507,45 @@ class AsciidoctorLikeHtmlRendererTest {
                          <table class="tableblock frame-all grid-all stretch">
                           <caption class="title">io.yupiik.test.MyRootObject</caption>
                           <colgroup>
-                           <col width="20%">
-                           <col width="20%">
-                           <col width="10%">
-                           <col width="50%">
+                           <col style="width: 20%;">
+                           <col style="width: 20%;">
+                           <col style="width: 10%;">
+                           <col style="width: 50%;">
                           </colgroup>
                           <thead>
                            <tr>
-                            <th class="halign-left">
+                            <th class="tableblock halign-left">
                         Name    </th>
-                            <th class="halign-left">
+                            <th class="tableblock halign-left">
                         JSON Name    </th>
-                            <th class="halign-left">
+                            <th class="tableblock halign-left">
                         Type    </th>
-                            <th class="halign-left">
+                            <th class="tableblock halign-left">
                         Description    </th>
                            </tr>
                           </thead>
                           <tbody>
                            <tr>
-                            <td class="halign-left">
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
                          <div class="paragraph">
                          <p> <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
                         </p>
                          </div>
+                        </p>
                             </td>
-                            <td class="halign-left">
-                        <code>aliases</code>    </td>
-                            <td class="halign-left">
-                        array of object    </td>
-                            <td class="halign-left">
-                        -    </td>
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
+                        <code>aliases</code></p>
+                            </td>
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
+                        array of object</p>
+                            </td>
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
+                        -</p>
+                            </td>
                            </tr>
                           </tbody>
                          </table>
@@ -1356,10 +1623,15 @@ class AsciidoctorLikeHtmlRendererTest {
                         <html lang="en">
                         <head>
                          <meta charset="UTF-8">
+                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                         <meta name="generator" content="Asciidoctor ">
+                         <title>Index</title>
                         </head>
-                        <body>
-                         <div id="content">
+                        <body class="article">
+                         <div id="header">
                          <h1>Index</h1>
+                         </div>
+                         <div id="content">
                           <pre class="mermaid">
                         graph TD;
                             id1["`first`"]
@@ -1368,6 +1640,10 @@ class AsciidoctorLikeHtmlRendererTest {
                             id1 --> id3
                             id2 --> id3
                           </pre>
+                         </div>
+                         <div id="footer">
+                          <div id="footer-text">
+                          </div>
                          </div>
                         <script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';</script></body>
                         </html>
@@ -1388,30 +1664,26 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-            <div class="sect0" id="_test">
-             <h1>Test</h1>
-            <div class="sectionbody">
-            <div class="videoblock">
-            <div class="content">
-            <div class="videoblock">
-             <video src="video.mp4" controls>
-             Your browser does not support the video tag.
-             </video>
-            </div>
-            </div>
-            </div>
-            <div class="audioblock">
-            <div class="content">
-            <div class="audioblock">
-             <audio src="audio.mp3" controls>
-             Your browser does not support the audio tag.
-             </audio>
-            </div>
-            </div>
-            </div>
-            </div>
-            </div>
-           """, renderer.result());
+             <div class="sect0" id="_test">
+              <h1>Test</h1>
+             <div class="sectionbody">
+             <div class="videoblock">
+             <div class="content">
+              <video src="video.mp4" controls>
+              Your browser does not support the video tag.
+              </video>
+             </div>
+             </div>
+             <div class="audioblock">
+             <div class="content">
+              <audio src="audio.mp3" controls>
+              Your browser does not support the audio tag.
+              </audio>
+             </div>
+             </div>
+             </div>
+             </div>
+            """, renderer.result());
     }
 
 
@@ -1433,20 +1705,16 @@ class AsciidoctorLikeHtmlRendererTest {
                 <div class="sectionbody">
                 <div class="videoblock">
                 <div class="content">
-                <div class="videoblock">
                  <video src="video.mp4">
                  Your browser does not support the video tag.
                  </video>
                 </div>
                 </div>
-                </div>
                 <div class="audioblock">
                 <div class="content">
-                <div class="audioblock">
                  <audio src="audio.mp3">
                  Your browser does not support the audio tag.
                  </audio>
-                </div>
                 </div>
                 </div>
                 </div>
@@ -1459,7 +1727,7 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 "This is **bold** text.",
                 " <div class=\"paragraph\">\n" +
-                        " <p>This is <b>bold</b> text.</p>\n" +
+                        " <p>This is <strong>bold</strong> text.</p>\n" +
                         " </div>\n");
     }
 
@@ -1487,7 +1755,7 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 "look ![alt](image.png) now",
                 " <div class=\"paragraph\">\n" +
-                        " <p>look  <img src=\"image.png\" alt=\"alt\">\n" +
+                         " <p>look  <span class=\"image\"><img src=\"image.png\" alt=\"alt\"></span>\n" +
                         " now</p>\n" +
                         " </div>\n");
     }
@@ -1641,6 +1909,527 @@ class AsciidoctorLikeHtmlRendererTest {
                         "   <a href=\"#_footnoteref_2\">2</a>. Second note.\n" +
                         "  </div>\n" +
                         " </div>\n");
+    }
+
+    @Test
+    void tocMacro() {
+        assertRendering("= Test\n\nbefore\n\ntoc::[]\n\n== Section A\n\ncontent",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        " <title>Test</title>\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " <h1>Test</h1>\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <div id=\"preamble\">\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <p> <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "before\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        "</p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"toc\" class=\"toc\">\n" +
+                        "  <div id=\"toctitle\">Table of Contents</div>\n" +
+                        " <ul class=\"sectlevel1\">\n" +
+                        " <li><a href=\"#_section_a\">Section A</a>\n" +
+                        " </li>\n" +
+                        " </ul>\n" +
+                        " </div>\n" +
+                        " <div class=\"sect1\" id=\"_section_a\">\n" +
+                        "  <h2>Section A</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "content\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
+    }
+
+    @Test
+    void floatingTitle() {
+        assertRenderingContent("[discrete]\n== A Title\n\ncontent",
+                " <h2 class=\"discrete\">A Title</h2>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "content\n" +
+                        " </p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void openBlock() {
+        assertRenderingContent("--\ncontent\n--",
+                " <div class=\"openblock\">\n" +
+                        "  <div class=\"content\">\n" +
+                        "content  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void exampleBlock() {
+        assertRenderingContent("====\ncontent\n====",
+                " <div class=\"exampleblock\">\n" +
+                        "  <div class=\"content\">\n" +
+                        "content  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void nestedOrderedList() {
+        assertRenderingContent(". item 1\n.. nested 1.1\n.. nested 1.2\n. item 2",
+                " <div class=\"olist\">\n" +
+                        " <ol>\n" +
+                        "  <li>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        "item 1 <div class=\"olist\">\n" +
+                        " <ol>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "nested 1.1\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "nested 1.2\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        " </ol>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        "  </li>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "item 2\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        " </ol>\n" +
+                        " </div>\n");
+    }
+
+    void nestedUnorderedList() {
+        assertRenderingContent("* item 1\n** nested 1.1\n** nested 1.2\n* item 2",
+                " <div class=\"ulist\">\n" +
+                        " <ul>\n" +
+                        "  <li>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        "item 1 <div class=\"ulist\">\n" +
+                        " <ul>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "nested 1.1\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "nested 1.2\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        " </ul>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        "  </li>\n" +
+                        "  <li>\n" +
+                        " <p>\n" +
+                        "item 2\n" +
+                        " </p>\n" +
+                        "  </li>\n" +
+                        " </ul>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void verseBlock() {
+        assertRenderingContent("[verse]\n____\nA line\nAnother line\n____",
+                " <div class=\"verseblock\">\n" +
+                        "  <pre class=\"content\">\n" +
+                        "A line Another line  </pre>\n" +
+                        " </div>");
+    }
+
+    @Test
+    void quoteBlockNoArgs() {
+        assertRenderingContent("[quote]\n____\nBe yourself\n____",
+                " <div class=\"quoteblock\">\n" +
+                        "  <blockquote>\n" +
+                        "Be yourself  </blockquote>\n" +
+                        " </div>");
+    }
+
+    @Test
+    void btnMacro() {
+        assertRenderingContent("Press btn:[OK] to continue.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press  <b class=\"button\">OK</b>\n to continue.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void kbdMacro() {
+        assertRenderingContent("Press kbd:[F5] to refresh.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press  <kbd>F5</kbd>\n to refresh.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void kbdMacroCombo() {
+        assertRenderingContent("Press kbd:[Ctrl+F5] to refresh.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press <kbd>Ctrl</kbd> + <kbd>F5</kbd>\n to refresh.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void qAndADescriptionList() {
+        assertRenderingContent("[qanda]\nQ1:: A1\nQ2:: A2\n",
+                " <div class=\"qlist qanda\">\n" +
+                        "  <ol>\n" +
+                        "   <li>\n" +
+                        "    <p><em>Q1</em></p>\n" +
+                        "    <p>A1</p>\n" +
+                        "   </li>\n" +
+                        "   <li>\n" +
+                        "    <p><em>Q2</em></p>\n" +
+                        "    <p>A2</p>\n" +
+                        "   </li>\n" +
+                        "  </ol>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void horizontalDescriptionList() {
+        assertRenderingContent("[horizontal]\nT1:: D1\nT2:: D2\n",
+                " <div class=\"hdlist\">\n" +
+                        "  <table>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"hdlist1\">T1</td>\n" +
+                        "    <td class=\"hdlist2\">\nD1    </td>\n" +
+                        "   </tr>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"hdlist1\">T2</td>\n" +
+                        "    <td class=\"hdlist2\">\nD2    </td>\n" +
+                        "   </tr>\n" +
+                        "  </table>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void simpleTable() {
+        assertRenderingContent("|===\n| A1 | B1\n| A2 | B2\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nA1    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nB1    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA2</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nB2</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableColspan() {
+        assertRenderingContent("|===\n|2+| Spans two | Last\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\" colspan=\"2\">\n <p>\nSpans two\n </p>\n" +
+                        "    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nLast    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableRowspan() {
+        assertRenderingContent("|===\n|.2+| Rows two | B\n| C | D\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\" rowspan=\"2\">\n <p>\nRows two\n </p>\n" +
+                        "    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nB    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nC</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nD</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableHeaderOption() {
+        assertRenderingContent("[%header]\n|===\n| Name | Value\n| A | 1\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nName    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nValue    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\n1</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableAutowidth() {
+        assertRenderingContent("[%autowidth]\n|===\n| A | B\n| C | D\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nA    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nB    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nC</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nD</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableStripes() {
+        assertRenderingContent("[stripes=even,frame=topbot,grid=cols]\n|===\n| H1 | H2\n| A1 | A2\n| B1 | B2\n|===\n",
+                " <table class=\"tableblock frame-ends grid-cols stripes-even stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nH1    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\nH2    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA1</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA2</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nB1</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nB2</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void tableColsAlignment() {
+        assertRenderingContent("[cols=\"^,>\"]\n|===\n| Center | Right\n|===\n",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-center\">\n Center     </th>\n" +
+                        "    <th class=\"tableblock halign-right\">\n Right    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void bibliographyEntry() {
+        assertRenderingContent("See [[[ref]]] for details.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>See <a id=\"ref\"></a>\n" +
+                        " for details.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void pipeTable() {
+        assertRenderingContent("| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "A    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "B    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "C    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "1</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "2</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "3</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "4</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "5</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "6</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void videoYoutube() {
+        assertRenderingContent("video::dQw4w9WgXcQ[youtube]",
+                " <div class=\"videoblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        "  <iframe src=\"https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0\" frameborder=\"0\" allowfullscreen>\n" +
+                        "  </iframe>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void videoVimeo() {
+        assertRenderingContent("video::76979871[vimeo]",
+                " <div class=\"videoblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        "  <iframe src=\"https://player.vimeo.com/video/76979871\" frameborder=\"0\" allowfullscreen>\n" +
+                        "  </iframe>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void videoYoutubeWithOptions() {
+        assertRenderingContent("video::dQw4w9WgXcQ[youtube,start=10,end=20,autoplay=1]",
+                " <div class=\"videoblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        "  <iframe src=\"https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;start=10&amp;end=20&amp;autoplay=1\" frameborder=\"0\" allowfullscreen>\n" +
+                        "  </iframe>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void manPageFullRender() {
+        final var parser = new Parser();
+        final var header = parser.parseHeader(new Reader(List.of("= ls(1)")));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(header.attributes()));
+        renderer.visit(new Document(header, new Body(List.of())));
+        final var result = renderer.result();
+        assertTrue(result.contains("class=\"manpage\""),
+                () -> "Expected 'manpage' body class in:\n" + result);
+        assertTrue(result.contains("ls"),
+                () -> "Expected 'ls' in title:\n" + result);
+    }
+
+    @Test
+    void sourceWithLinenums() {
+        assertRenderingContent("[%linenums]\n[source,java]\n----\nline1\nline2\n----",
+                " <div class=\"listingblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <pre class=\"highlightjs highlight linenums\"><code class=\"language-java hljs\" data-lang=\"java\" data-linenums=\"true\"><span class=\"linenums\">1</span>line1\n<span class=\"linenums\">2</span>line2\n</code></pre>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void percentOptionPrefix() {
+        assertRendering("[%collapsible]\n====\nSome text\n====",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <details>\n" +
+                        "  <summary class=\"title\">Details</summary>\n" +
+                        "  <div class=\"content\">\n" +
+                        "Some text  </div>\n" +
+                        " </details>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
     }
 
     private void assertRendering(final String adoc, final String html) {

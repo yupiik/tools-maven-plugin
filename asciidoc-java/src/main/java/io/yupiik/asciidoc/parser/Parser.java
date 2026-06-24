@@ -69,6 +69,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -95,9 +96,9 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
  * It also enables to add a phase to manipulate the model before the rendering by not merging model loading and rendering phases.
  */
 public class Parser {
-    private static final Author NO_AUTHOR = new Author("", "");
+    private static final List<Author> NO_AUTHORS = List.of();
     private static final Revision NO_REVISION = new Revision("", "", "");
-    private static final Header NO_HEADER = new Header("", NO_AUTHOR, NO_REVISION, Map.of());
+    private static final Header NO_HEADER = new Header("", NO_AUTHORS, NO_REVISION, Map.of());
 
     private static final Pattern CALLOUT_REF = Pattern.compile("<(?<number>\\d+)>");
     private static final Pattern CALLOUT = Pattern.compile("^<(?<number>[\\d+.]+)> (?<description>.+)$");
@@ -105,6 +106,7 @@ public class Parser {
     private static final Pattern ORDERED_LIST_PREFIX = Pattern.compile("^(?<prefix>(?:[0-9]+|[a-zA-Z]|[ivxIVX]+)?)(?<dots>\\.+|\\)) .+");
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
+    private static final Pattern CHECKBOX = Pattern.compile("^\\[(?<status>[ x*])\\] ");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
@@ -114,7 +116,10 @@ public class Parser {
     private static final Pattern DIGITS = Pattern.compile("\\d+");
     private static final Pattern LOWER_ALPHA = Pattern.compile("[a-z]");
     private static final Pattern UPPER_ALPHA = Pattern.compile("[A-Z]");
+    private static final Pattern MAN_PAGE_TITLE = Pattern.compile("^(\\S[^()\\s]*)\\((\\d+)\\)$");
+    private static final Pattern PIPE_TABLE_SEPARATOR = Pattern.compile("^\\|(?:[ :-]+\\|)+$");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
 
     private final Map<String, String> globalAttributes;
 
@@ -184,13 +189,13 @@ public class Parser {
             reader.reset();
             return NO_HEADER;
         }
-        var author = NO_AUTHOR;
+        var author = NO_AUTHORS;
         var revision = NO_REVISION;
         if (!title.isEmpty()) {
             final var authorLine = reader.nextLine();
             if (authorLine == null || authorLine.isBlank()) {
                 // First empty line after title is the end of header
-                return new Header(title, author, revision, Map.of());
+                return buildHeader(title, author, revision, Map.of());
             }
             if (!reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
                 if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isBlockMacro(authorLine)) { // author line
@@ -199,7 +204,7 @@ public class Parser {
                     final var revisionLine = reader.nextLine();
                     if (revisionLine == null || revisionLine.isBlank()) {
                         // First empty line after title is the end of header
-                        return new Header(title, author, revision, Map.of());
+                        return buildHeader(title, author, revision, Map.of());
                     }
                     if (!reader.isComment(revisionLine) && canBeHeaderLine(
                             revisionLine) && !authorLine.startsWith(":")) {
@@ -216,11 +221,23 @@ public class Parser {
         }
 
         final var attributes = readAttributes(enclosingElement, reader, context == null ? null : context.resolver());
-        return new Header(title, author, revision, attributes);
+        return buildHeader(title, author, revision, attributes);
     }
 
     public Body parseBody(final String reader, final ParserContext context) {
         return parseBody(new Reader(List.of(reader.split("\n"))), context.resolver());
+    }
+
+    private Header buildHeader(final String title, final List<Author> author, final Revision revision, final Map<String, String> attributes) {
+        final var manPageMatcher = MAN_PAGE_TITLE.matcher(title);
+        if (manPageMatcher.matches()) {
+            final var map = new LinkedHashMap<>(attributes);
+            map.put("doctype", "manpage");
+            map.put("manname", manPageMatcher.group(1));
+            map.put("mansection", manPageMatcher.group(2));
+            return new Header(title, author, revision, map);
+        }
+        return new Header(title, author, revision, attributes);
     }
 
     public Body parseBody(final BufferedReader reader, final ParserContext context) {
@@ -333,6 +350,21 @@ public class Parser {
             } else if (stripped.startsWith("|===")) {
                 elements.add(parseTable(enclosingDocument, reader, options, resolver, attributes, stripped));
                 options = null;
+            } else if (stripped.startsWith("|") && !stripped.startsWith("|=")) {
+                final var peekLine = reader.nextLine();
+                if (peekLine != null && PIPE_TABLE_SEPARATOR.matcher(peekLine.strip()).matches()) {
+                    reader.rewind(); // back to separator
+                    reader.rewind(); // back to current line
+                    elements.add(parsePipeTable(enclosingDocument, reader, options, resolver, attributes));
+                    options = null;
+                } else {
+                    if (peekLine != null) {
+                        reader.rewind(); // back to current line
+                    }
+                    reader.rewind(); // back to paragraph start
+                    elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
+                    options = null;
+                }
             } else if (Objects.equals("++++", stripped)) {
                 elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver));
                 options = null;
@@ -584,7 +616,19 @@ public class Parser {
                 int last = 1; // line starts with '|'
                 int nextSep = next.indexOf('|', last);
                 while (nextSep > 0) {
-                    final var content = next.substring(last, nextSep);
+                    var content = next.substring(last, nextSep);
+                    // handle cell specs like 2+| (colspan) or .2+| (rowspan) where
+                    // | is part of the spec, not a cell separator
+                    if (content.matches("^(\\d+|\\.\\d+)\\+$") && content.indexOf('+') == content.length() - 1) {
+                        final var nextCellSep = next.indexOf('|', nextSep + 1);
+                        if (nextCellSep > 0) {
+                            content += "|" + next.substring(nextSep + 1, nextCellSep);
+                            nextSep = nextCellSep;
+                        } else {
+                            content += "|" + next.substring(nextSep + 1);
+                            nextSep = next.length();
+                        }
+                    }
                     cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content, resolver, currentAttributes));
                     last = nextSep + 1;
                     nextSep = next.indexOf('|', last);
@@ -623,7 +667,10 @@ public class Parser {
                                final ContentResolver resolver,
                                final Map<String, String> currentAttributes) {
         final var spec = CELL_SPEC.matcher(content);
-        final var cellContent = spec.matches() ? spec.group("content") : content;
+        var cellContent = spec.matches() ? spec.group("content") : content;
+        if (cellContent.startsWith("|")) {
+            cellContent = cellContent.substring(1);
+        }
         final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
         final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
         final var element = cellParser.size() > cellIdx ?
@@ -672,7 +719,7 @@ public class Parser {
                                final Map<String, String> currentAttributes) {
         final var firstLine = content.get(0);
         final var spec = CELL_SPEC.matcher(firstLine);
-        final var cellContent = spec.matches() && !spec.group("content").isEmpty() ?
+        final var cellContent = spec.matches() && (spec.group("colspan") != null || spec.group("rowspan") != null || !spec.group("content").isEmpty()) ?
                 content.stream().map(l -> spec == CELL_SPEC.matcher(firstLine) && l == firstLine ? spec.group("content") : l).toList() :
                 content;
         final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
@@ -684,6 +731,83 @@ public class Parser {
             return addCellSpan(element, colspan, rowspan);
         }
         return element;
+    }
+
+    private Table parsePipeTable(final Path enclosingDocument, final Reader reader,
+                                 final Map<String, String> options,
+                                 final ContentResolver resolver,
+                                 final Map<String, String> currentAttributes) {
+        final var headerLine = reader.nextLine().strip();
+        final var separatorLine = reader.nextLine().strip();
+        final var headerCells = parsePipeRow(headerLine);
+        final var numCols = headerCells.size();
+
+        // extract alignment from separator
+        final var alignmentOptions = new ArrayList<String>();
+        final var sepParts = separatorLine.split("\\|");
+        var sepIdx = 0;
+        for (final var part : sepParts) {
+            final var trimmed = part.strip();
+            if (trimmed.isEmpty()) continue;
+            if (sepIdx >= numCols) break;
+            if (trimmed.startsWith(":") && trimmed.endsWith(":")) {
+                alignmentOptions.add("^");
+            } else if (trimmed.endsWith(":")) {
+                alignmentOptions.add(">");
+            } else if (trimmed.startsWith(":")) {
+                alignmentOptions.add("<");
+            } else {
+                alignmentOptions.add("");
+            }
+            sepIdx++;
+        }
+
+        final var rows = new ArrayList<List<Element>>();
+        // header row
+        final var headerElements = new ArrayList<Element>(numCols);
+        for (final var cell : headerCells) {
+            headerElements.add(new Text(List.of(), cell.strip(), Map.of()));
+        }
+        rows.add(headerElements);
+
+        // data rows
+        String next;
+        while ((next = reader.nextLine()) != null) {
+            final var stripped = next.strip();
+            if (stripped.isBlank() || stripped.equals(headerLine)) break;
+            if (!stripped.startsWith("|")) break;
+            final var cells = parsePipeRow(stripped);
+            final var rowElements = new ArrayList<Element>(numCols);
+            for (final var cell : cells) {
+                rowElements.add(new Text(List.of(), cell.strip(), Map.of()));
+            }
+            rows.add(rowElements);
+        }
+        if (next != null) {
+            reader.rewind();
+        }
+
+        final var hasAlignment = alignmentOptions.stream().anyMatch(Predicate.not(String::isEmpty));
+        final var tableOptions = new LinkedHashMap<>(options == null ? Map.of() : options);
+        if (hasAlignment) {
+            tableOptions.put("cols", String.join(",", alignmentOptions));
+        } else {
+            tableOptions.put("cols", Stream.generate(() -> "1").limit(numCols).collect(joining(",")));
+        }
+        tableOptions.put("header-option", "");
+        return new Table(rows, Map.copyOf(tableOptions));
+    }
+
+    private List<String> parsePipeRow(final String line) {
+        final var parts = line.split("\\|");
+        final var cells = new ArrayList<String>();
+        for (final var part : parts) {
+            final var trimmed = part.strip();
+            if (!trimmed.isEmpty()) {
+                cells.add(trimmed);
+            }
+        }
+        return cells;
     }
 
     private Code parseCodeBlock(final Path enclosingDocument,
@@ -864,8 +988,17 @@ public class Parser {
                         final var prefix = matcher.group("prefix");
                         final var delim = matcher.group("dots");
                         final var style = detectOrderedListStyle(prefix, delim);
+                        final var listOpts = new StringBuilder();
+                        if (style != null) {
+                            listOpts.append("style=").append(style);
+                        }
+                        final var startOpt = pendingOptions.get("start");
+                        if (startOpt != null) {
+                            if (!listOpts.isEmpty()) listOpts.append(',');
+                            listOpts.append("start=").append(startOpt);
+                        }
                         reader.rewind();
-                        elements.add(parseOrderedList(enclosingDocument, reader, style != null ? "style=" + style : null, ". ", resolver, currentAttributes));
+                        elements.add(parseOrderedList(enclosingDocument, reader, listOpts.isEmpty() ? null : listOpts.toString(), ". ", resolver, currentAttributes));
                         i = line.length();
                         start = i;
                         break;
@@ -954,20 +1087,42 @@ public class Parser {
                     if (line.length() > i + 1 && line.charAt(i + 1) == '*') { // **bold** (Markdown)
                         final int end = line.indexOf("**", i + 2);
                         if (end > 0) {
-                            if (start != i) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                            } else if (start != i) {
                                 flushText(elements, line.substring(start, i));
                             }
-                            addTextElements(enclosingDocument, line, i + 1, end, elements, BOLD, null, resolver, currentAttributes);
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, BOLD, options, resolver, currentAttributes);
                             i = end + 1;
                             start = end + 2;
                         }
                     } else {
                         final int end = line.indexOf('*', i + 1);
                         if (end > 0) {
-                            if (start != i) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                            } else if (start != i) {
                                 flushText(elements, line.substring(start, i));
                             }
-                            addTextElements(enclosingDocument, line, i, end, elements, BOLD, null, resolver, currentAttributes);
+                            addTextElements(enclosingDocument, line, i, end, elements, BOLD, options, resolver, currentAttributes);
                             i = end;
                             start = end + 1;
                         }
@@ -976,10 +1131,21 @@ public class Parser {
                 case '_' -> {
                     final int end = line.indexOf('_', i + 1);
                     if (end > 0) {
-                        if (start != i) {
+                        String options = null;
+                        if (i > 0 && ']' == line.charAt(i - 1)) {
+                            final int optionsStart = line.lastIndexOf('[', i - 1);
+                            if (optionsStart >= 0) {
+                                options = line.substring(optionsStart + 1, i - 1);
+                                if (start < optionsStart) {
+                                    flushText(elements, line.substring(start, optionsStart));
+                                }
+                            } else if (start < i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                        } else if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(enclosingDocument, line, i, end, elements, ITALIC, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, ITALIC, options, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
                     }
@@ -988,20 +1154,42 @@ public class Parser {
                     if (line.length() > i + 1 && line.charAt(i + 1) == '~') { // ~~strikethrough~~ (Markdown)
                         final int end = line.indexOf("~~", i + 2);
                         if (end > 0) {
-                            if (start != i) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                            } else if (start != i) {
                                 flushText(elements, line.substring(start, i));
                             }
-                            addTextElements(enclosingDocument, line, i + 1, end, elements, STRIKETHROUGH, null, resolver, currentAttributes);
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, STRIKETHROUGH, options, resolver, currentAttributes);
                             i = end + 1;
                             start = end + 2;
                         }
                     } else {
                         final int end = line.indexOf('~', i + 1);
                         if (end > 0) {
-                            if (start != i) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                            } else if (start != i) {
                                 flushText(elements, line.substring(start, i));
                             }
-                            addTextElements(enclosingDocument, line, i, end, elements, SUB, null, resolver, currentAttributes);
+                            addTextElements(enclosingDocument, line, i, end, elements, SUB, options, resolver, currentAttributes);
                             i = end;
                             start = end + 1;
                         }
@@ -1010,12 +1198,46 @@ public class Parser {
                 case '^' -> {
                     final int end = line.indexOf('^', i + 1);
                     if (end > 0) {
-                        if (start != i) {
+                        String options = null;
+                        if (i > 0 && ']' == line.charAt(i - 1)) {
+                            final int optionsStart = line.lastIndexOf('[', i - 1);
+                            if (optionsStart >= 0) {
+                                options = line.substring(optionsStart + 1, i - 1);
+                                if (start < optionsStart) {
+                                    flushText(elements, line.substring(start, optionsStart));
+                                }
+                            } else if (start < i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                        } else if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        addTextElements(enclosingDocument, line, i, end, elements, SUP, null, resolver, currentAttributes);
+                        addTextElements(enclosingDocument, line, i, end, elements, SUP, options, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
+                    }
+                }
+                case '$' -> {
+                    if (line.length() > i + 1 && line.charAt(i + 1) == '$') {
+                        final int end = line.indexOf("$$", i + 2);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            elements.add(new Macro("stem", line.substring(i + 2, end), Map.of(), true));
+                            i = end + 1;
+                            start = end + 2;
+                        }
+                    } else {
+                        final int end = line.indexOf('$', i + 1);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            elements.add(new Macro("stem", line.substring(i + 1, end), Map.of(), true));
+                            i = end;
+                            start = end + 1;
+                        }
                     }
                 }
                 case '!' -> {
@@ -1038,6 +1260,20 @@ public class Parser {
                 }
                 case '[' -> {
                     inMacro = false; // we'll parse it so all good, no more need to escape anything
+                    // Check for [[[ref]]] bibliography entry
+                    if (line.length() > i + 5 && line.charAt(i + 1) == '[' && line.charAt(i + 2) == '[') {
+                        final int end = line.indexOf("]]]", i + 3);
+                        if (end > 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            final var ref = line.substring(i + 3, end);
+                            elements.add(new Text(List.of(), "", Map.of("id", ref, "bibliography", "")));
+                            i = end + 2;
+                            start = i + 1;
+                            break;
+                        }
+                    }
                     // Check for Markdown link [text](url) first (not preceded by a letter or colon which would indicate a macro, and not nested inside another [])
                     if ((i == 0 || !Character.isLetter(line.charAt(i - 1)) && line.charAt(i - 1) != ':') &&
                             line.lastIndexOf('[', i - 1) <= line.lastIndexOf(']', i - 1)) {
@@ -1133,18 +1369,19 @@ public class Parser {
                                 switch (macro.name()) {
                                     case "include" ->
                                             elements.addAll(doInclude(enclosingDocument, macro, resolver, currentAttributes, true));
-                                    case "ifdef" -> elements.add(new ConditionalBlock(
-                                            new ConditionalBlock.Ifdef(macro.label()),
-                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
-                                            macro.options()));
-                                    case "ifndef" -> elements.add(new ConditionalBlock(
-                                            new ConditionalBlock.Ifndef(macro.label()),
-                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
-                                            macro.options()));
-                                    case "ifeval" -> elements.add(new ConditionalBlock(
-                                            new ConditionalBlock.Ifeval(parseCondition(macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip(), currentAttributes)),
-                                            doParse(enclosingDocument, new Reader(readIfBlock(reader)), l -> true, resolver, currentAttributes, false, false),
-                                            macro.options()));
+                                    case "ifdef" -> {
+                                        final var ifBlock = readIfBlock(reader);
+                                        elements.add(parseConditionalBlock("ifdef", macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
+                                    }
+                                    case "ifndef" -> {
+                                        final var ifBlock = readIfBlock(reader);
+                                        elements.add(parseConditionalBlock("ifndef", macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
+                                    }
+                                    case "ifeval" -> {
+                                        final var condition = macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip();
+                                        final var ifBlock = readIfBlock(reader);
+                                        elements.add(parseConditionalBlock("ifeval", condition, ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
+                                    }
                                     default -> {
                                         var linkLabel = unwrapElementIfPossible(parseParagraph(
                                                 enclosingDocument,
@@ -1296,7 +1533,6 @@ public class Parser {
         return flattenTexts(elements);
     }
 
-    // todo: we should add others like '_' etc but right now this is used to extract inline options and it is not wired everywhere
     private boolean isInlineOptionContentMarker(final char c) {
         return c == '#';
     }
@@ -1380,18 +1616,65 @@ public class Parser {
         return out;
     }
 
-    private List<String> readIfBlock(final Reader reader) {
-        final var buffer = new ArrayList<String>();
+    private IfBlock readIfBlock(final Reader reader) {
+        final var mainContent = new ArrayList<String>();
+        final var branches = new ArrayList<List<String>>();
+        final var branchConditions = new ArrayList<String>();
+        List<String> current = mainContent;
         String next;
         int remaining = 1;
-        while ((next = reader.nextLine()) != null &&
-                (!Objects.equals("endif::[]", next.strip()) || --remaining > 0)) {
-            buffer.add(next);
+        while ((next = reader.nextLine()) != null) {
+            final var stripped = next.strip();
+            if (Objects.equals("endif::[]", stripped)) {
+                if (--remaining <= 0) break;
+            } else if (remaining == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
+                branches.add(current);
+                branchConditions.add(stripped);
+                current = new ArrayList<>();
+                continue;
+            }
+            current.add(next);
             if (next.startsWith("ifndef::") || next.startsWith("ifdef::") || next.startsWith("ifeval::")) {
                 remaining++;
             }
         }
-        return buffer;
+        branches.add(current);
+        return new IfBlock(mainContent, branches, branchConditions);
+    }
+
+    private record IfBlock(List<String> mainContent, List<List<String>> branches, List<String> branchConditions) {}
+
+    private ConditionalBlock parseConditionalBlock(final String type, final String label, final IfBlock ifBlock,
+                                                    final Path enclosingDocument, final ContentResolver resolver,
+                                                    final Map<String, String> currentAttributes, final Map<String, String> options) {
+        final Predicate<ConditionalBlock.Context> evaluator = switch (type) {
+            case "ifdef" -> new ConditionalBlock.Ifdef(label);
+            case "ifndef" -> new ConditionalBlock.Ifndef(label);
+            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(label, currentAttributes));
+            default -> throw new IllegalArgumentException("Unknown conditional type: " + type);
+        };
+        final var children = doParse(enclosingDocument, new Reader(ifBlock.mainContent), l -> true, resolver, currentAttributes, false, false);
+        final var elseBranches = buildElseBranches(ifBlock, enclosingDocument, resolver, currentAttributes);
+        return new ConditionalBlock(evaluator, children, elseBranches, options);
+    }
+
+    private List<ConditionalBlock> buildElseBranches(final IfBlock ifBlock, final Path enclosingDocument,
+                                                      final ContentResolver resolver, final Map<String, String> currentAttributes) {
+        final var branches = new ArrayList<ConditionalBlock>();
+        for (int i = 1; i < ifBlock.branches.size(); i++) {
+            final var branchContent = ifBlock.branches.get(i);
+            final var branchCond = ifBlock.branchConditions.get(i - 1);
+            final Predicate<ConditionalBlock.Context> branchEval;
+            if ("else::[]".equals(branchCond)) {
+                branchEval = ctx -> true;
+            } else {
+                final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
+                branchEval = new ConditionalBlock.Ifdef(elsifLabel);
+            }
+            final var branchChildren = doParse(enclosingDocument, new Reader(branchContent), l -> true, resolver, currentAttributes, false, false);
+            branches.add(new ConditionalBlock(branchEval, branchChildren, List.of(), Map.of()));
+        }
+        return branches;
     }
 
     // include::target[leveloffset=offset,lines=ranges,tag(s)=name(s),indent=depth,encoding=encoding,opts=optional]
@@ -1527,10 +1810,14 @@ public class Parser {
             final char first = leveloffset.charAt(0);
             final int offset = (first == '-' ? -1 : 1) *
                     Integer.parseInt(first == '+' || first == '-' ? leveloffset.substring(1) : leveloffset);
-            if (offset > 0) {
-                final var prefix = "=".repeat(offset);
+            if (offset != 0) {
                 content = content.stream()
-                        .map(it -> findSectionLevel(it) > 0 ? prefix + it : it)
+                        .map(it -> {
+                            final int level = findSectionLevel(it);
+                            if (level < 0) return it;
+                            final int newLevel = Math.max(1, level + offset);
+                            return "=".repeat(newLevel) + it.substring(level);
+                        })
                         .toList();
             }
         }
@@ -1692,6 +1979,7 @@ public class Parser {
         String nextStripped;
         final var buffer = new StringBuilder();
         Matcher matcher;
+        boolean isChecklist = false;
         final int currentLevel = prefix.length() - 1 /*ending space*/;
         while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped = next.strip()))).matches() && !next.isBlank()) {
             final var level = matcher.group(captureName).length();
@@ -1705,8 +1993,25 @@ public class Parser {
                         prefix.length();
                 readContinuation(reader, regex, buffer, nextStripped, markerLen);
 
+                final var rawContent = buffer.toString();
+                final var checkMatcher = CHECKBOX.matcher(rawContent);
+                final var isCheckItem = checkMatcher.lookingAt();
+                final boolean isChecked;
+                if (isCheckItem) {
+                    isChecklist = true;
+                    isChecked = !" ".equals(checkMatcher.group("status"));
+                    buffer.setLength(0);
+                    buffer.append(rawContent.substring(checkMatcher.end()));
+                } else {
+                    isChecked = false;
+                }
+
                 final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
-                children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
+                if (isCheckItem) {
+                    children.add(new Paragraph(elements, isChecked ? Map.of("checkbox", "true", "checked", "true") : Map.of("checkbox", "true")));
+                } else {
+                    children.add(elements.size() > 1 ? new Paragraph(elements, Map.of()) : elements.get(0));
+                }
             } else { // nested
                 reader.rewind();
                 final var nestedList = parseList(
@@ -1721,7 +2026,13 @@ public class Parser {
         if (next != null) {
             reader.rewind();
         }
-        return factory.apply(children, options == null ? Map.of() : parseOptions(options));
+        Map<String, String> listOptions = options == null ? Map.of() : parseOptions(options);
+        if (isChecklist) {
+            final var merged = new HashMap<>(listOptions);
+            merged.put("checklist", "true");
+            listOptions = Map.copyOf(merged);
+        }
+        return factory.apply(children, listOptions);
     }
 
     private void readContinuation(final Reader reader, final Pattern regex, final StringBuilder buffer,
@@ -1817,6 +2128,26 @@ public class Parser {
         if (options.startsWith("verse,")) {
             return parseQuoteLikeOptions(options, "verse,", "verseblock");
         }
+        // handle inline % within positional args: source%linenums,java → source,java + linenums-option
+        if (options.contains("%")) {
+            final var tokens = List.of(options.split(","));
+            final var extraOptions = new java.util.LinkedHashMap<String, String>();
+            final var cleaned = tokens.stream().map(t -> {
+                if (t.contains("%") && !t.startsWith("%") && !t.contains("=")) {
+                    final var parts = t.split("%", -1);
+                    for (int i = 1; i < parts.length; i++) {
+                        if (!parts[i].isEmpty()) {
+                            extraOptions.put(parts[i] + "-option", "");
+                        }
+                    }
+                    return parts[0];
+                }
+                return t;
+            }).collect(java.util.stream.Collectors.joining(","));
+            if (!cleaned.equals(options)) {
+                return merge(parseOptions(cleaned), extraOptions);
+            }
+        }
         return mapIf("source", null, "language", options)
                 .or(() -> mapIf("example", "exampleblock", "", options))
                 .or(() -> mapIf("verse", "verseblock", "", options))
@@ -1843,8 +2174,8 @@ public class Parser {
 
     private Optional<Map<String, String>> mapIf(final String matcher, final String role,
                                                 final String defaultKey, final String options) {
-        if (options.equals(matcher)) { // fallback, not really supported
-            return of(Map.of());
+        if (options.equals(matcher)) {
+            return of(role == null ? Map.of() : Map.of("role", role));
         }
         if (options.startsWith(matcher + ",")) {
             return of(merge(
@@ -1929,7 +2260,15 @@ public class Parser {
     }
 
     // name <mail>
-    private Author parseAuthorLine(final String authorLine) {
+    private List<Author> parseAuthorLine(final String authorLine) {
+        return Stream.of(authorLine.split(","))
+                .map(String::strip)
+                .filter(Predicate.not(String::isBlank))
+                .map(this::parseSingleAuthor)
+                .toList();
+    }
+
+    private Author parseSingleAuthor(final String authorLine) {
         final int mailStart = authorLine.lastIndexOf('<');
         if (mailStart > 0) {
             final int mailEnd = authorLine.indexOf('>', mailStart);
@@ -1982,7 +2321,7 @@ public class Parser {
                                 stripped.substring(sep + "::".length(), options),
                                 Map.of(), false);
                         if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
-                            final var block = readIfBlock(reader);
+                            final var ifBlock = readIfBlock(reader);
 
                             final var ctx = new ConditionalBlock.Context() {
                                 @Override
@@ -1990,14 +2329,28 @@ public class Parser {
                                     return attributes.getOrDefault(key, globalAttributes.get(key));
                                 }
                             };
-                            if (switch (macro.name()) {
+                            boolean branchMatched = switch (macro.name()) {
                                 case "ifdef" -> new ConditionalBlock.Ifdef(macro.label()).test(ctx);
                                 case "ifndef" -> new ConditionalBlock.Ifndef(macro.label()).test(ctx);
                                 case "ifeval" ->
                                         new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), attributes)).test(ctx);
                                 default -> false; // not possible
-                            }) {
-                                reader.insert(block);
+                            };
+                            if (branchMatched) {
+                                reader.insert(ifBlock.mainContent());
+                            } else {
+                                for (int i = 1; i < ifBlock.branches.size(); i++) {
+                                    final var branchCond = ifBlock.branchConditions.get(i - 1);
+                                    if ("else::[]".equals(branchCond)) {
+                                        reader.insert(ifBlock.branches.get(i));
+                                        break;
+                                    }
+                                    final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
+                                    if (new ConditionalBlock.Ifdef(elsifLabel).test(ctx)) {
+                                        reader.insert(ifBlock.branches.get(i));
+                                        break;
+                                    }
+                                }
                             }
                             continue;
                         } else if ("include".equals(macro.name())) {
@@ -2056,7 +2409,7 @@ public class Parser {
         if (first instanceof LineBreak l) {
             return l;
         }
-        if (first instanceof DescriptionList d && element.options().isEmpty()) {
+        if (first instanceof DescriptionList d) {
             return new DescriptionList(d.children(), merge(d.options(), element.options()));
         }
         if (first instanceof ConditionalBlock c) {
@@ -2132,6 +2485,8 @@ public class Parser {
                 map.put("role", pos.substring(1).replace('.', ' '));
             } else if (pos.startsWith("#")) {
                 map.put("id", pos.substring(1));
+            } else if (pos.startsWith("%")) {
+                map.put(pos.substring(1) + "-option", "");
             } else if (i == 0) {
                 map.putIfAbsent(defaultKey, pos);
             } else {
@@ -2197,24 +2552,40 @@ public class Parser {
         }
         int start = 0;
         while (start < content.length()) {
-            final int next = findNextLink(content, start);
+            final int nextLink = findNextLink(content, start);
+            final var emailMatcher = EMAIL_PATTERN.matcher(content);
+            final int nextEmail = emailMatcher.find(start) ? emailMatcher.start() : -1;
+            final int next;
+            if (nextLink >= 0 && (nextEmail < 0 || nextLink <= nextEmail)) {
+                next = nextLink;
+            } else if (nextEmail >= 0 && (nextLink < 0 || nextEmail < nextLink)) {
+                next = nextEmail;
+            } else {
+                next = -1;
+            }
             if (next < 0) {
                 elements.add(newText(List.of(), start == 0 ? content : content.substring(start), Map.of()));
                 break;
             }
 
-            final int end = Stream.of(" ", "\t")
-                    .mapToInt(s -> content.indexOf(s, next))
-                    .filter(i -> i > next)
-                    .min()
-                    .orElseGet(content::length);
+            final int end;
+            if (next == nextEmail) {
+                end = emailMatcher.end();
+            } else {
+                end = Stream.of(" ", "\t")
+                        .mapToInt(s -> content.indexOf(s, next))
+                        .filter(i -> i > next)
+                        .min()
+                        .orElseGet(content::length);
+            }
 
             if (start != next) {
                 elements.add(newText(List.of(), content.substring(start, next), Map.of()));
             }
 
             final var link = content.substring(next, end);
-            elements.add(new Link(link, new Text(List.of(), link, Map.of("nowrap", "true")), Map.of()));
+            elements.add(new Link(next == nextEmail ? "mailto:" + link : link,
+                    new Text(List.of(), link, Map.of("nowrap", "true")), Map.of()));
             if (end == content.length()) {
                 break;
             }

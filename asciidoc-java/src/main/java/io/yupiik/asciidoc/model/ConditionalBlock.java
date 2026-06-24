@@ -23,7 +23,14 @@ import static io.yupiik.asciidoc.model.Element.ElementType.CONDITIONAL_BLOCK;
 
 public record ConditionalBlock(Predicate<Context> evaluator,
                                List<Element> children,
+                               List<ConditionalBlock> elseBranches,
                                Map<String, String> options) implements Element {
+    public ConditionalBlock(final Predicate<Context> evaluator,
+                            final List<Element> children,
+                            final Map<String, String> options) {
+        this(evaluator, children, List.of(), options);
+    }
+
     @Override
     public ElementType type() {
         return CONDITIONAL_BLOCK;

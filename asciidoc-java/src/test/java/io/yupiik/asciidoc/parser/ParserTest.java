@@ -241,9 +241,18 @@ class ParserTest {
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title", "firstname middlename lastname <email>", "revision number, revision date: revision revmark", ":attr: value")));
         assertEquals("Title", header.title());
-        assertEquals(new Author("firstname middlename lastname", "email"), header.author());
+        assertEquals(List.of(new Author("firstname middlename lastname", "email")), header.author());
         assertEquals(new Revision("revision number", "revision date", "revision revmark"), header.revision());
         assertEquals(Map.of("attr", "value"), header.attributes());
+    }
+
+    @Test
+    void manPageTitle() {
+        final var header = new Parser().parseHeader(new Reader(List.of("= ls(1)")));
+        assertEquals("ls(1)", header.title());
+        assertEquals("manpage", header.attributes().get("doctype"));
+        assertEquals("ls", header.attributes().get("manname"));
+        assertEquals("1", header.attributes().get("mansection"));
     }
 
     @Test

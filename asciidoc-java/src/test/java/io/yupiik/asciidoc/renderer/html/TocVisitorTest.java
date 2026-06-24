@@ -30,17 +30,17 @@ class TocVisitorTest {
     void run() {
         final var tocVisitor = new TocVisitor(2, 1);
         tocVisitor.visitBody(new Body(List.of(
-                new Section(1, new Text(List.of(), "S1", Map.of()), List.of(), Map.of()),
-                new Section(1, new Text(List.of(), "S2", Map.of()), List.of(), Map.of()),
-                new Section(1, new Text(List.of(), "S3", Map.of()), List.of(
-                        new Section(2, new Text(List.of(), "S31", Map.of()), List.of(), Map.of()),
-                        new Section(2, new Text(List.of(), "S32", Map.of()), List.of(), Map.of()),
-                        new Section(2, new Text(List.of(), "S33", Map.of()), List.of(
-                                new Section(3, new Text(List.of(), "S331", Map.of()), List.of(), Map.of())
+                new Section(2, new Text(List.of(), "S1", Map.of()), List.of(), Map.of()),
+                new Section(2, new Text(List.of(), "S2", Map.of()), List.of(), Map.of()),
+                new Section(2, new Text(List.of(), "S3", Map.of()), List.of(
+                        new Section(3, new Text(List.of(), "S31", Map.of()), List.of(), Map.of()),
+                        new Section(3, new Text(List.of(), "S32", Map.of()), List.of(), Map.of()),
+                        new Section(3, new Text(List.of(), "S33", Map.of()), List.of(
+                                new Section(4, new Text(List.of(), "S331", Map.of()), List.of(), Map.of())
                         ), Map.of())
                 ), Map.of()),
-                new Section(1, new Text(List.of(), "S4", Map.of()), List.of(), Map.of()),
-                new Section(1, new Text(List.of(), "S5", Map.of()), List.of(), Map.of())
+                new Section(2, new Text(List.of(), "S4", Map.of()), List.of(), Map.of()),
+                new Section(2, new Text(List.of(), "S5", Map.of()), List.of(), Map.of())
         )));
         assertEquals("""
                  <ul class="sectlevel1">

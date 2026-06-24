@@ -28,8 +28,14 @@ public final class IdGenerator {
     }
 
     public static String forTitle(final String title) {
-        return "_" + FORBIDDEN_CHARS.matcher(TAGS.matcher(title).replaceAll("").toLowerCase(ROOT)
-                .replace(" ", "_")
+        return forTitle(title, null, null);
+    }
+
+    public static String forTitle(final String title, final String idprefix, final String idseparator) {
+        final var prefix = idprefix != null ? idprefix : "_";
+        final var separator = idseparator != null ? idseparator : "_";
+        return prefix + FORBIDDEN_CHARS.matcher(TAGS.matcher(title).replaceAll("").toLowerCase(ROOT)
+                .replace(" ", separator)
                 .replace("\n", ""))
                 .replaceAll("");
     }

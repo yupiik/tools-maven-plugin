@@ -44,9 +44,23 @@ The parser supports standard Asciidoc syntax including:
 * Source blocks (`[source,...]`)
 * Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
 * Open/closed blocks, quote blocks, listing blocks, example blocks
-* Macros, include directives, conditionals
-* Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset)
-* Callouts
+* Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
+* Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
+* Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`)
+* Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
+* Callouts, footnotes, index terms, counters
+* Table features: colspan, rowspan, header option, autowidth, stripes, column alignment
+* Nested ordered/unordered lists, `[start=NN]` on ordered lists, `[qanda]`/`[horizontal]` description lists
+* Video macros for YouTube/Vimeo embed, audio/video with controls
+* Man page doctype (`= commandname(1)`)
+* Markdown pipe tables (`|---|`)
+* Bibliography/glossary entries (`[[[ref]]]`)
+* Bare email autolink (`user@example.com`)
+* Inline STEM (`$...$`, `stem:[...]`)
+* Block STEM (`[stem]`, `[latexmath]`, `[asciimath]` + passthrough)
+* Section numbering (`:sectnums:`), special sections (`[appendix]`, `[bibliography]`, `[glossary]`, `[index]`)
+* Inline role `[.role]#text#`, `%` option prefix
+* TOC placement macro `toc::[]`, Mermaid diagrams
 
 === CommonMark syntax
 
@@ -59,6 +73,7 @@ The parser also supports a subset of CommonMark syntax for convenience:
 * `![alt](url)` → inline images
 * `# Heading` → section headings (level based on `#` count)
 * `---`, `***`, `___` → horizontal rules
+* `|---|` → pipe tables (Markdown table syntax)
 * `**** content ****` → sidebar block
 * Trailing double space at end of line → hard line break (`<br>`)
 
