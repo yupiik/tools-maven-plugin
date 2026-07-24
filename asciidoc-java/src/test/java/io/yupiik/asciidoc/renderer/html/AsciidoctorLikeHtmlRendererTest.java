@@ -2348,6 +2348,56 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void tableWithEscapedPipe() {
+        assertRenderingContent("[cols=\"1,1\"]\n|===\n|Red|cat \\| dog\n|Blue|fish \\| turtle\n|===",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nRed    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\ncat | dog    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nBlue</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nfish | turtle</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void pipeTableWithEscapedPipe() {
+        assertRenderingContent("| Red | cat \\| dog |\n|---|---|\n| Blue | fish \\| turtle |",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\nRed    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\ncat | dog    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nBlue</p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nfish | turtle</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
     void videoYoutube() {
         assertRenderingContent("video::dQw4w9WgXcQ[youtube]",
                 " <div class=\"videoblock\">\n" +

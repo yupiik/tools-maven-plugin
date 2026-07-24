@@ -1343,6 +1343,69 @@ class ParserTest {
     }
 
     @Test
+    void tableWithEscapedPipeInline() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        [cols="1,1"]
+                        |===
+                        |Red|cat \\| dog
+                        |Blue|fish \\| turtle
+                        |===
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "Red", Map.of()),
+                                new Text(List.of(), "cat | dog", Map.of())),
+                        List.of(
+                                new Text(List.of(), "Blue", Map.of()),
+                                new Text(List.of(), "fish | turtle", Map.of()))
+                ), Map.of("cols", "1,1"))),
+                body.children());
+    }
+
+    @Test
+    void tableWithEscapedPipeNoColspec() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        |===
+                        |Red|cat \\| dog
+                        |Blue|fish \\| turtle
+                        |===
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "Red", Map.of()),
+                                new Text(List.of(), "cat | dog", Map.of())),
+                        List.of(
+                                new Text(List.of(), "Blue", Map.of()),
+                                new Text(List.of(), "fish | turtle", Map.of()))
+                ), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void pipeTableWithEscapedPipe() {
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        | Animal | Description |
+                        |---|---|
+                        | cat \\| dog | bark \\| meow |
+                        | fish \\| turtle | chirp \\| hop |
+                        """.split("\n"))),
+                null);
+        final var table = (Table) body.children().get(0);
+        assertEquals(3, table.elements().size());
+        assertEquals("cat | dog", ((Text) table.elements().get(1).get(0)).value());
+        assertEquals("bark | meow", ((Text) table.elements().get(1).get(1)).value());
+        assertEquals("fish | turtle", ((Text) table.elements().get(2).get(0)).value());
+        assertEquals("chirp | hop", ((Text) table.elements().get(2).get(1)).value());
+    }
+
+    @Test
     void simpleQuote() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""

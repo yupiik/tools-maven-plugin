@@ -611,16 +611,16 @@ public class Parser {
                 continue;
             }
 
-            if (next.indexOf("|", 2) > 0) { // single line row
+            if (nextUnescapedPipe(next, 2) > 0) { // single line row
                 int cellIdx = 0;
                 int last = 1; // line starts with '|'
-                int nextSep = next.indexOf('|', last);
+                int nextSep = nextUnescapedPipe(next, last);
                 while (nextSep > 0) {
                     var content = next.substring(last, nextSep);
                     // handle cell specs like 2+| (colspan) or .2+| (rowspan) where
                     // | is part of the spec, not a cell separator
                     if (content.matches("^(\\d+|\\.\\d+)\\+$") && content.indexOf('+') == content.length() - 1) {
-                        final var nextCellSep = next.indexOf('|', nextSep + 1);
+                        final var nextCellSep = nextUnescapedPipe(next, nextSep + 1);
                         if (nextCellSep > 0) {
                             content += "|" + next.substring(nextSep + 1, nextCellSep);
                             nextSep = nextCellSep;
@@ -629,13 +629,13 @@ public class Parser {
                             nextSep = next.length();
                         }
                     }
-                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content, resolver, currentAttributes));
+                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content.replace("\\|", "|"), resolver, currentAttributes));
                     last = nextSep + 1;
-                    nextSep = next.indexOf('|', last);
+                    nextSep = nextUnescapedPipe(next, last);
                 }
                 if (last < next.length()) {
                     final var end = next.substring(last);
-                    cells.add(createCell(enclosingDocument, cellParser, cellIdx, end, resolver, currentAttributes));
+                    cells.add(createCell(enclosingDocument, cellParser, cellIdx, end.replace("\\|", "|"), resolver, currentAttributes));
                 }
             } else { // one cell per row
                 int cellIdx = 0;
@@ -668,11 +668,11 @@ public class Parser {
                                final Map<String, String> currentAttributes) {
         final var spec = CELL_SPEC.matcher(content);
         var cellContent = spec.matches() ? spec.group("content") : content;
-        if (cellContent.startsWith("|")) {
-            cellContent = cellContent.substring(1);
-        }
         final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
         final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
+        if ((colspan != null || rowspan != null) && cellContent.startsWith("|")) {
+            cellContent = cellContent.substring(1);
+        }
         final var element = cellParser.size() > cellIdx ?
                 cellParser.get(cellIdx).apply(List.of(cellContent)) :
                 new Text(List.of(), cellContent.strip(), Map.of());
@@ -709,6 +709,24 @@ public class Parser {
             return new Code(c.value(), c.callOuts(), Map.copyOf(opts), c.inline());
         }
         return element;
+    }
+
+    private int nextUnescapedPipe(final String line, final int from) {
+        int idx = line.indexOf('|', from);
+        while (idx >= 0) {
+            int backslashes = 0;
+            int pos = idx - 1;
+            while (pos >= 0 && line.charAt(pos) == '\\') {
+                backslashes++;
+                pos--;
+            }
+            if (backslashes % 2 == 1) {
+                idx = line.indexOf('|', idx + 1);
+            } else {
+                break;
+            }
+        }
+        return idx;
     }
 
     private Element createCell(final Path enclosingDocument,
@@ -799,12 +817,21 @@ public class Parser {
     }
 
     private List<String> parsePipeRow(final String line) {
-        final var parts = line.split("\\|");
         final var cells = new ArrayList<String>();
-        for (final var part : parts) {
-            final var trimmed = part.strip();
-            if (!trimmed.isEmpty()) {
-                cells.add(trimmed);
+        int last = 0;
+        int idx = nextUnescapedPipe(line, last);
+        while (idx >= 0) {
+            final var cell = line.substring(last, idx).strip();
+            if (!cell.isEmpty()) {
+                cells.add(cell.replace("\\|", "|"));
+            }
+            last = idx + 1;
+            idx = nextUnescapedPipe(line, last);
+        }
+        if (last < line.length()) {
+            final var cell = line.substring(last).strip();
+            if (!cell.isEmpty()) {
+                cells.add(cell.replace("\\|", "|"));
             }
         }
         return cells;
