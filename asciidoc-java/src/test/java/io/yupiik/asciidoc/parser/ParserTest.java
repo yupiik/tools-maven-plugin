@@ -186,6 +186,36 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithBlockAttributesBeforeTitle() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "[id=foo]",
+                "= Fighter",
+                "",
+                "Yes the music band.")));
+        assertEquals("Fighter", header.title());
+        assertEquals(Map.of("id", "foo"), header.attributes());
+    }
+
+    @Test
+    void parseHeaderWithBlockAttributesAndClassBeforeTitle() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "[#foo]",
+                "[.bar]",
+                "= Fighter")));
+        assertEquals("Fighter", header.title());
+        assertEquals(Map.of("id", "foo", "role", "bar"), header.attributes());
+    }
+
+    @Test
+    void parseHeaderWithBlockAttributesBeforeTitleWithoutHeader() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "[id=foo]",
+                "Yes the music band.")));
+        assertEquals("", header.title());
+        assertEquals(Map.of(), header.attributes());
+    }
+
+    @Test
     void parseHeaderWithConditionalBlocks() {
         final var content = List.of("""
                 = Title

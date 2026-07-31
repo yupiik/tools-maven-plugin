@@ -289,6 +289,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("</head>\n");
 
             builder.append("<body");
+            final var bodyId = attr("id", attributes);
+            if (bodyId != null) {
+                builder.append(" id=\"").append(escape(bodyId)).append('"');
+            }
             final var bodyClass = attr("body-classes", "body-classes", null, attributes);
             final var doctype = attr("doctype", attributes);
             final var defaultBodyClass = doctype == null ? "article" : doctype;

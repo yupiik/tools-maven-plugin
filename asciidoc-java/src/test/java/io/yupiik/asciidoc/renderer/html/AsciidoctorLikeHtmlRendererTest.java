@@ -360,6 +360,43 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void blockAttributesBeforeTitle() {
+        assertRendering("""
+                        [id=foo]
+                        = Fighter
+
+                        Yes the music band.
+                        """,
+                """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                 <meta charset="UTF-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                 <meta name="generator" content="Asciidoctor ">
+                 <title>Fighter</title>
+                </head>
+                <body id="foo" class="article">
+                 <div id="header">
+                 <h1>Fighter</h1>
+                 </div>
+                 <div id="content">
+                 <div class="paragraph">
+                 <p>
+                Yes the music band.
+                 </p>
+                 </div>
+                 </div>
+                 <div id="footer">
+                  <div id="footer-text">
+                  </div>
+                 </div>
+                </body>
+                </html>
+                """);
+    }
+
+    @Test
     void customIdPrefix() {
         assertRenderingContent("""
                         :idprefix: my-

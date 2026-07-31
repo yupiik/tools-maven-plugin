@@ -173,7 +173,8 @@ public class Parser {
     }
 
     public Header parseHeader(final Path enclosingElement, final Reader reader, final ParserContext context) {
-        final var firstLine = reader.skipCommentsAndEmptyLines();
+        final var preTitleOptions = new LinkedHashMap<String, String>();
+        final var firstLine = readHeaderTitleLine(reader, preTitleOptions);
         if (firstLine == null) {
             reader.reset();
             return NO_HEADER;
@@ -195,7 +196,7 @@ public class Parser {
             final var authorLine = reader.nextLine();
             if (authorLine == null || authorLine.isBlank()) {
                 // First empty line after title is the end of header
-                return buildHeader(title, author, revision, Map.of());
+                return buildHeader(title, author, revision, preTitleOptions);
             }
             if (!reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
                 if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isBlockMacro(authorLine)) { // author line
@@ -204,7 +205,7 @@ public class Parser {
                     final var revisionLine = reader.nextLine();
                     if (revisionLine == null || revisionLine.isBlank()) {
                         // First empty line after title is the end of header
-                        return buildHeader(title, author, revision, Map.of());
+                        return buildHeader(title, author, revision, preTitleOptions);
                     }
                     if (!reader.isComment(revisionLine) && canBeHeaderLine(
                             revisionLine) && !authorLine.startsWith(":")) {
@@ -221,7 +222,22 @@ public class Parser {
         }
 
         final var attributes = readAttributes(enclosingElement, reader, context == null ? null : context.resolver());
-        return buildHeader(title, author, revision, attributes);
+        return buildHeader(title, author, revision, merge(attributes, preTitleOptions));
+    }
+
+    private String readHeaderTitleLine(final Reader reader, final Map<String, String> preTitleOptions) {
+        var line = reader.skipCommentsAndEmptyLines();
+        while (line != null && isBlockAttributeLine(line)) {
+            final var stripped = line.strip();
+            preTitleOptions.putAll(parseOptions(stripped.substring(1, stripped.length() - 1)));
+            line = reader.skipCommentsAndEmptyLines();
+        }
+        return line;
+    }
+
+    private boolean isBlockAttributeLine(final String line) {
+        final var stripped = line.strip();
+        return stripped.startsWith("[") && stripped.endsWith("]");
     }
 
     public Body parseBody(final String reader, final ParserContext context) {
