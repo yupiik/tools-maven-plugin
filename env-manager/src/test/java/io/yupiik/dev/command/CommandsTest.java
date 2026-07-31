@@ -151,6 +151,7 @@ class CommandsTest {
         final var rc = Files.writeString(work.resolve("rc"), "java.version = 21.\njava.relaxed = true\naddToPath = true\ninstallIfMissing = true");
         final var out = captureOutput(work, uri, "env", "--skipReset", "true", "--env-rc", rc.toString(), "--env-defaultRc", work.resolve("missing").toString());
         assertEquals(("""
+                        Installing java@21.32.17-ca-jdk21.0.2
                         echo "[yem] Installing java@21.32.17-ca-jdk21.0.2";
 
                         export YEM_ORIGINAL_PATH="...";
@@ -177,6 +178,7 @@ class CommandsTest {
                 "--java-relaxed", "true",
                 "--java-installIfMissing", "true");
         assertEquals(("""
+                        Installing java@21.32.17-ca-jdk21.0.2
                         echo "[yem] Installing java@21.32.17-ca-jdk21.0.2";
 
                         export YEM_ORIGINAL_PATH="...";
@@ -271,7 +273,7 @@ class CommandsTest {
     }
 
     private String sanitizeOutput(final String stdout) {
-        return stdout.replaceAll("\\p{Digit}+.* \\[INFO]\\[io.yupiik.dev.command.[^]]+] ", "").strip();
+        return stdout.strip();
     }
 
     private void doInstall(final Path work, final URI uri) {

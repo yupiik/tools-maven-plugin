@@ -119,8 +119,13 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <systemPropertyVariables>
-            <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
             <yem.disableGlobalRcFileConfiguration>true</yem.disableGlobalRcFileConfiguration>
+            <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
+            <!-- ensure it is synchronous to avoid tests to have timing issues -->
+            <io.yupiik.dev.handlers>io.yupiik.logging.jul.handler.StandardHandler</io.yupiik.dev.handlers>
+            <io.yupiik.logging.jul.handler.StandardHandler.formatter>pattern</io.yupiik.logging.jul.handler.StandardHandler.formatter>
+            <io.yupiik.logging.jul.formatter.PatternFormatter.pattern>%m%n</io.yupiik.logging.jul.formatter.PatternFormatter.pattern>
+            <io.yupiik.dev.useParentHandlers>false</io.yupiik.dev.useParentHandlers>
           </systemPropertyVariables>
           <environmentVariables>
             <YEM_ORIGINAL_PATH>skip</YEM_ORIGINAL_PATH>
