@@ -53,6 +53,9 @@ The parser supports standard Asciidoc syntax including:
 * Nested ordered/unordered lists, `[start=NN]` on ordered lists, `[qanda]`/`[horizontal]` description lists
 * Video macros for YouTube/Vimeo embed, audio/video with controls
 * Man page doctype (`= commandname(1)`)
+* Document authors, either with the author line (`firstname middlename lastname <mail>`, multiple authors being separated by `;`, attribute entries being supported before it) or with attribute entries (`:author:`/`:email:` for a single author, `:authors:` or `:author_<n>:`/`:email_<n>:` for multiple ones)
+* Revision line (`v1.0, 2013-01-01: the remark`, a revision number without a date requiring the `v` prefix)
+* Author and revision attributes deduced from the header (`authorcount`, `authors`, `firstname`, `middlename`, `lastname`, `authorinitials`, `revnumber`, `revdate`, `revremark` and their `_<n>` variants), the attribute entries of the document winning over the values deduced from the author line, `Author` also exposing the deduced names
 * Markdown pipe tables (`|---|`)
 * Bibliography/glossary entries (`[[[ref]]]`)
 * Bare email autolink (`user@example.com`)
@@ -61,6 +64,8 @@ The parser supports standard Asciidoc syntax including:
 * Section numbering (`:sectnums:`), special sections (`[appendix]`, `[bibliography]`, `[glossary]`, `[index]`)
 * Inline role `[.role]#text#`, `%` option prefix
 * TOC placement macro `toc::[]`, Mermaid diagrams
+
+IMPORTANT: as in asciidoctor the document header ends on the first empty line so the line following the title is always the author line, a section or a list not preceded by an empty line becoming an author.
 
 === CommonMark syntax
 

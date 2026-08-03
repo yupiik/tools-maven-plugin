@@ -175,14 +175,14 @@ class ParserTest {
     void parseHeader() {
         final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":attr-1: v1", ":attr-2: v2", "", "content")));
         assertEquals("Title", header.title());
-        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2"), header.attributes());
+        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2", "authorcount", "0"), header.attributes());
     }
 
     @Test
     void parseHeaderWithoutTitle() {
         final var header = new Parser().parseHeader(new Reader(List.of(":attr-1: v1", ":attr-2: v2", "", "content")));
         assertEquals("", header.title());
-        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2"), header.attributes());
+        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2", "authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -193,7 +193,7 @@ class ParserTest {
                 "",
                 "Yes the music band.")));
         assertEquals("Fighter", header.title());
-        assertEquals(Map.of("id", "foo"), header.attributes());
+        assertEquals(Map.of("id", "foo", "authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -203,7 +203,7 @@ class ParserTest {
                 "[.bar]",
                 "= Fighter")));
         assertEquals("Fighter", header.title());
-        assertEquals(Map.of("id", "foo", "role", "bar"), header.attributes());
+        assertEquals(Map.of("id", "foo", "role", "bar", "authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -212,7 +212,7 @@ class ParserTest {
                 "[id=foo]",
                 "Yes the music band.")));
         assertEquals("", header.title());
-        assertEquals(Map.of(), header.attributes());
+        assertEquals(Map.of("authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -237,7 +237,7 @@ class ParserTest {
         {
             final var header = new Parser().parseHeader(new Reader(content));
             assertEquals("Title", header.title());
-            assertEquals(Map.of("idprefix", "", "idseparator", "-", "toc", "left", "icons", "font"), header.attributes());
+            assertEquals(Map.of("idprefix", "", "idseparator", "-", "toc", "left", "icons", "font", "authorcount", "0"), header.attributes());
         }
         {
             final var header = new Parser(Map.of("env-github", "true")).parseHeader(new Reader(content));
@@ -246,7 +246,8 @@ class ParserTest {
                     "idprefix", "", "idseparator", "-",
                     "toc", "macro",
                     "caution-caption", ":fire:", "important-caption", ":exclamation:",
-                    "note-caption", ":paperclip:", "tip-caption", ":bulb:", "warning-caption", ":warning:"), header.attributes());
+                    "note-caption", ":paperclip:", "tip-caption", ":bulb:", "warning-caption", ":warning:",
+                    "authorcount", "0"), header.attributes());
         }
     }
 
@@ -254,7 +255,7 @@ class ParserTest {
     void parseHeaderAndContent() {
         final var doc = new Parser().parse(List.of("= Title", "", "++++", "pass", "++++"), new Parser.ParserContext(null));
         assertEquals("Title", doc.header().title());
-        assertEquals(Map.of(), doc.header().attributes());
+        assertEquals(Map.of("authorcount", "0"), doc.header().attributes());
         assertEquals(List.of(new PassthroughBlock("pass", Map.of())), doc.body().children());
     }
 
@@ -263,7 +264,7 @@ class ParserTest {
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title", ":attr-1: v1", ":attr-2: v2\\", "  and it continues", "", "content")));
         assertEquals("Title", header.title());
-        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2 and it continues"), header.attributes());
+        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2 and it continues", "authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -271,9 +272,406 @@ class ParserTest {
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title", "firstname middlename lastname <email>", "revision number, revision date: revision revmark", ":attr: value")));
         assertEquals("Title", header.title());
-        assertEquals(List.of(new Author("firstname middlename lastname", "email")), header.author());
-        assertEquals(new Revision("revision number", "revision date", "revision revmark"), header.revision());
-        assertEquals(Map.of("attr", "value"), header.attributes());
+        assertEquals(List.of(new Author(
+                "firstname middlename lastname", "email",
+                "firstname", "middlename", "lastname", "fml")), header.author());
+        // as of asciidoctor "revision number" is dropped since a revision number without a date requires a "v" prefix
+        assertEquals(new Revision("", "revision date", "revision revmark"), header.revision());
+        assertEquals(Map.ofEntries(
+                Map.entry("attr", "value"),
+                Map.entry("authorcount", "1"),
+                Map.entry("author", "firstname middlename lastname"),
+                Map.entry("authors", "firstname middlename lastname"),
+                Map.entry("email", "email"),
+                Map.entry("firstname", "firstname"),
+                Map.entry("middlename", "middlename"),
+                Map.entry("lastname", "lastname"),
+                Map.entry("authorinitials", "fml"),
+                Map.entry("revnumber", ""),
+                Map.entry("revdate", "revision date"),
+                Map.entry("revremark", "revision revmark")), header.attributes());
+    }
+
+    @Test
+    void parseMultipleAuthorsLine() { // sample of https://docs.asciidoctor.org/asciidoc/latest/document/multiple-authors/
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= The Intrepid Chronicles",
+                "Kismet R. Lee <kismet@asciidoctor.org>; B. Steppenwolf; Pax Draeke <pax@asciidoctor.org>",
+                "",
+                "content")));
+        assertEquals("The Intrepid Chronicles", header.title());
+        assertEquals(List.of(
+                new Author("Kismet R. Lee", "kismet@asciidoctor.org", "Kismet", "R.", "Lee", "KRL"),
+                new Author("B. Steppenwolf", "", "B.", null, "Steppenwolf", "BS"),
+                new Author("Pax Draeke", "pax@asciidoctor.org", "Pax", null, "Draeke", "PD")), header.author());
+    }
+
+    @Test
+    void parseAuthorLineCommaIsNotAnAuthorSeparator() { // only ";" is, as of the specification
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", "Doc Writer, Junior Writer", "", "content")));
+        // the shape is unknown so the whole entry is the name and the firstname
+        assertEquals(List.of(new Author(
+                "Doc Writer, Junior Writer", "",
+                "Doc Writer, Junior Writer", null, null, "D")), header.author());
+    }
+
+    @Test
+    void parseAuthorLineWithAdjoinedNames() {
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", "Mary_Sue Bronte", "", "content")));
+        assertEquals(List.of(new Author("Mary Sue Bronte", "", "Mary Sue", null, "Bronte", "MB")), header.author());
+    }
+
+    @Test
+    void parseAuthorAttributes() { // sample of https://docs.asciidoctor.org/asciidoc/latest/document/author-attribute-entries/
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title",
+                ":author: Dave Grohl",
+                ":email: grohl@foofighter.com",
+                "",
+                "Some content here.")));
+        assertEquals("My Title", header.title());
+        assertAuthors(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of(
+                "authorcount", "1", "author", "Dave Grohl", "authors", "Dave Grohl", "email", "grohl@foofighter.com",
+                "firstname", "Dave", "lastname", "Grohl", "authorinitials", "DG"), header.attributes());
+    }
+
+    @Test
+    void parseAuthorAttributeWithoutMail() {
+        final var header = new Parser().parseHeader(new Reader(List.of("= My Title", ":author: Dave Grohl", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "")), header.author());
+    }
+
+    @Test
+    void parseMailAttributeWithoutAuthorIsIgnored() { // no author means no author list
+        final var header = new Parser().parseHeader(new Reader(List.of("= My Title", ":email: grohl@foofighter.com", "", "content")));
+        assertEquals(List.of(), header.author());
+    }
+
+    @Test
+    void parseAuthorAttributeWithMail() { // as of asciidoctor the mail is part of the name there, :email: is the way
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":author: Dave Grohl <grohl@foofighter.com>", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl <grohl@foofighter.com>", "")), header.author());
+        assertEquals("Dave", header.attributes().get("firstname")); // deduced ignoring the mail
+        assertEquals("Grohl", header.attributes().get("middlename"));
+        assertEquals("DG", header.attributes().get("authorinitials"));
+    }
+
+    @Test
+    void parseAuthorLineWithMailAndMoreThanThreeNames() { // as of asciidoctor the mail is kept in the name there too
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Al Bob Chuck Dave <ad@example.com>", "", "content")));
+        assertAuthors(List.of(new Author("Al Bob Chuck Dave <ad@example.com>", "")), header.author());
+    }
+
+    @Test
+    void parseAuthorAttributeCantDefineMultipleAuthors() { // as of the spec ";" is not a separator there
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":author: Dave Grohl; Taylor Hawkins", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl; Taylor Hawkins", "")), header.author());
+    }
+
+    @Test
+    void parseAuthorsAttribute() { // asciidoctor extension of the spec: multiple authors with an attribute
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title",
+                ":authors: Dave Grohl; Taylor Hawkins",
+                ":email: grohl@foofighter.com",
+                ":email_2: hawkins@foofighter.com",
+                "",
+                "content")));
+        assertAuthors(List.of(
+                new Author("Dave Grohl", "grohl@foofighter.com"),
+                new Author("Taylor Hawkins", "hawkins@foofighter.com")), header.author());
+    }
+
+    @Test
+    void parseAuthorAttributeOverridesAuthorLine() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Dave Grohl <grohl@foofighter.com>", ":author: Taylor Hawkins", "", "content")));
+        assertAuthors(List.of(new Author("Taylor Hawkins", "grohl@foofighter.com")), header.author());
+    }
+
+    @Test
+    void parseMailAttributeOverridesAuthorLine() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Dave Grohl <grohl@nirvana.com>", ":email: grohl@foofighter.com", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+    }
+
+    @Test
+    void parseAuthorAttributeMatchingAuthorLineKeepsAllAuthors() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Dave Grohl; Taylor Hawkins", ":author: Dave Grohl", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", ""), new Author("Taylor Hawkins", "")), header.author());
+    }
+
+    @Test
+    void parseIndexedAuthorAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title",
+                ":author_1: Dave Grohl",
+                ":email_1: grohl@foofighter.com",
+                ":author_2: Taylor Hawkins",
+                ":email_2: hawkins@foofighter.com",
+                "",
+                "content")));
+        assertAuthors(List.of(
+                new Author("Dave Grohl", "grohl@foofighter.com"),
+                new Author("Taylor Hawkins", "hawkins@foofighter.com")), header.author());
+    }
+
+    @Test
+    void parseIndexedAuthorAttributesStopOnMissingIndex() { // author_3 is ignored since author_2 is missing
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":author_1: Dave Grohl", ":author_3: Nate Mendel", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "")), header.author());
+    }
+
+    @Test
+    void parseIndexedAuthorAttributeIgnoredWithoutFirstOne() { // author_1 is required to start the list
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":author_2: Taylor Hawkins", "", "content")));
+        assertEquals(List.of(), header.author());
+    }
+
+    @Test
+    void parseIndexedAuthorAttributeOverridesAuthorLine() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Dave Grohl; Taylor Hawkins", ":author_2: Nate Mendel", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", ""), new Author("Nate Mendel", "")), header.author());
+    }
+
+    @Test
+    void parseIndexedAuthorAttributeCantCompleteASingleAuthorLine() { // a single author does not set author_1
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", "Dave Grohl", ":author_2: Taylor Hawkins", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "")), header.author());
+    }
+
+    @Test
+    void parseAuthorLineAfterAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":toc: left", "Dave Grohl <grohl@foofighter.com>", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of(
+                "toc", "left",
+                "authorcount", "1", "author", "Dave Grohl", "authors", "Dave Grohl", "email", "grohl@foofighter.com",
+                "firstname", "Dave", "lastname", "Grohl", "authorinitials", "DG"), header.attributes());
+    }
+
+    @Test
+    void parseAuthorLineUsingAnAttribute() { // sample of https://docs.asciidoctor.org/asciidoc/latest/document/multiple-authors/
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":reg: (R)", "AsciiDoc{reg} WG; Another Author", "", "content")));
+        assertAuthors(List.of(new Author("AsciiDoc(R) WG", ""), new Author("Another Author", "")), header.author());
+        // as of asciidoctor the substitution makes the names be deduced as attribute values, ie not validated
+        assertEquals("AsciiDoc(R)", header.attributes().get("firstname"));
+        assertEquals("WG", header.attributes().get("lastname"));
+    }
+
+    @Test
+    void parseSingleAuthorLineUsingAnAttribute() { // no indexed attribute there so the name is not re-deduced
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":reg: (R)", "AsciiDoc{reg} WG", "", "content")));
+        assertAuthors(List.of(new Author("AsciiDoc(R) WG", "")), header.author());
+        assertEquals("AsciiDoc(R) WG", header.attributes().get("firstname"));
+        assertEquals("A", header.attributes().get("authorinitials"));
+    }
+
+    @Test
+    void authorAttributeBeforeTheAuthorLineDoesNotOverrideIt() { // it is its reference value, as of asciidoctor
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":author: Taylor Hawkins", "Dave Grohl", "", "content")));
+        assertAuthors(List.of(new Author("Taylor Hawkins", "")), header.author());
+        assertEquals("Taylor Hawkins", header.attributes().get("author")); // kept as set
+        assertEquals("Dave Grohl", header.attributes().get("authors")); // but deduced from the author line
+        assertEquals("Dave", header.attributes().get("firstname"));
+    }
+
+    @Test
+    void authorsAttributeBeforeTheAuthorLineDoesNotOverrideIt() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= My Title", ":authors: Taylor Hawkins; Nate Mendel", "Dave Grohl", "", "content")));
+        assertAuthors(List.of(new Author("Dave Grohl", "")), header.author());
+        assertEquals("1", header.attributes().get("authorcount"));
+        assertEquals("Taylor Hawkins; Nate Mendel", header.attributes().get("authors"));
+    }
+
+    @Test
+    void anyLineFollowingTheTitleIsTheAuthorLine() { // an empty line is required to end the header, as of asciidoctor
+        final var doc = new Parser().parse(
+                List.of("= Title", "* item", "", "content"), new Parser.ParserContext(null));
+        assertAuthors(List.of(new Author("* item", "")), doc.header().author());
+        assertEquals(List.of(new Text(List.of(), "content", Map.of())), doc.body().children());
+    }
+
+    @Test
+    void blockMacroFollowingTheTitleIsTheAuthorLine() { // preprocessor macros (include, ifdef, ...) are not
+        final var doc = new Parser().parse(
+                List.of("= Title", "image::foo.png[]", "", "content"), new Parser.ParserContext(null));
+        assertAuthors(List.of(new Author("image::foo.png[]", "")), doc.header().author());
+        assertEquals(List.of(new Text(List.of(), "content", Map.of())), doc.body().children());
+    }
+
+    @Test
+    void parseAuthorLineWithUnexpectedShapeKeepsItAsIs() { // more than 3 names, underscores are not adjoining names
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", "A_1 B_2 C_3 D_4", "", "content")));
+        assertAuthors(List.of(new Author("A_1 B_2 C_3 D_4", "")), header.author());
+    }
+
+    @Test
+    void parseHeaderAttributesWithComments() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":attr-1: v1", "// a comment", "////", "a comment block", "////", ":attr-2: v2", "", "content")));
+        assertEquals(Map.of("attr-1", "v1", "attr-2", "v2", "authorcount", "0"), header.attributes());
+    }
+
+    @Test
+    void authorsExposeTheDeducedNames() { // they are read back from the attributes as asciidoctor Document#authors does
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", "Kismet R. Lee <kismet@asciidoctor.org>; Steppenwolf", "", "content")));
+        assertEquals(List.of(
+                new Author("Kismet R. Lee", "kismet@asciidoctor.org", "Kismet", "R.", "Lee", "KRL"),
+                new Author("Steppenwolf", "", "Steppenwolf", null, null, "S")), header.author());
+    }
+
+    @Test
+    void authorsExposeTheDeducedNamesOfAttributeEntries() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":author: Al Bob Chuck Dave", ":authorinitials: XX", "", "content")));
+        // the third name holds the remaining ones and the explicit initials are kept
+        assertEquals(List.of(new Author(
+                "Al Bob Chuck Dave", "",
+                "Al", "Bob", "Chuck Dave", "XX")), header.author());
+    }
+
+    @Test
+    void parseAuthorLineAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", "Kismet R. Lee <kismet@asciidoctor.org>; B. Steppenwolf", "", "content")));
+        assertEquals(Map.ofEntries(
+                Map.entry("authorcount", "2"),
+                Map.entry("authors", "Kismet R. Lee, B. Steppenwolf"),
+                Map.entry("author", "Kismet R. Lee"),
+                Map.entry("email", "kismet@asciidoctor.org"),
+                Map.entry("firstname", "Kismet"),
+                Map.entry("middlename", "R."),
+                Map.entry("lastname", "Lee"),
+                Map.entry("authorinitials", "KRL"),
+                Map.entry("author_1", "Kismet R. Lee"),
+                Map.entry("email_1", "kismet@asciidoctor.org"),
+                Map.entry("firstname_1", "Kismet"),
+                Map.entry("middlename_1", "R."),
+                Map.entry("lastname_1", "Lee"),
+                Map.entry("authorinitials_1", "KRL"),
+                Map.entry("author_2", "B. Steppenwolf"),
+                Map.entry("firstname_2", "B."),
+                Map.entry("lastname_2", "Steppenwolf"),
+                Map.entry("authorinitials_2", "BS")), header.attributes());
+    }
+
+    @Test
+    void authorLineAttributesDoNotOverrideAttributeEntries() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":firstname: Zoe", ":authorinitials: XX", "Doc Writer", "", "content")));
+        assertEquals("Zoe", header.attributes().get("firstname"));
+        assertEquals("XX", header.attributes().get("authorinitials"));
+        assertEquals("Writer", header.attributes().get("lastname"));
+        assertEquals("Doc Writer", header.attributes().get("author"));
+    }
+
+    @Test
+    void authorAttributeEntryOverridesTheDeducedAttributesButNotTheInitials() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":author: Doc Writer", ":firstname: Zoe", ":authorinitials: XX", "", "content")));
+        assertEquals("Doc", header.attributes().get("firstname"));
+        assertEquals("XX", header.attributes().get("authorinitials"));
+    }
+
+    @Test
+    void authorsAttributeEntryOverridesTheDeducedInitials() { // contrarily to the author one, as of asciidoctor
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":authors: Doc Writer; Jane Doe", ":authorinitials: XX", "", "content")));
+        assertEquals("DW", header.attributes().get("authorinitials"));
+    }
+
+    @Test
+    void authorAttributeEntryKeepsTheAuthorLineMail() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", "Dave Grohl <grohl@nirvana.com>", ":author: Taylor Hawkins", "", "content")));
+        assertEquals("grohl@nirvana.com", header.attributes().get("email"));
+        assertEquals("Taylor Hawkins", header.attributes().get("author"));
+    }
+
+    @Test
+    void mailAttributeFallsBackOnTheFirstIndexedOne() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":author_1: Dave Grohl", ":email_1: g@f.com", ":author_2: Taylor Hawkins", "", "content")));
+        assertEquals("g@f.com", header.attributes().get("email"));
+    }
+
+    @Test
+    void parseRevisionLines() {
+        assertEquals(new Revision("1.0", "", ""), revision("v1.0"));
+        assertEquals(new Revision("", "2013-01-01", ""), revision("2013-01-01"));
+        assertEquals(new Revision("", "1.0", ""), revision("1.0")); // a revision number without a date needs a "v"
+        assertEquals(new Revision("1.0", "2013-01-01", "Ring in the new year release"),
+                revision("v1.0, 2013-01-01: Ring in the new year release"));
+        assertEquals(new Revision("1.0", "Jan 01, 2013", ""), revision("1.0, Jan 01, 2013"));
+        assertEquals(new Revision("1.0", "", ""), revision("v1.0,"));
+        assertEquals(new Revision("", "1.0", "remark"), revision("1.0: remark"));
+        assertEquals(new Revision("", "random text here", ""), revision("random text here"));
+        assertEquals(new Revision("", "Some text", "with colon"), revision("Some text: with colon"));
+        assertEquals(new Revision("1.0", "2013-01-01", "the remark"), revision("  v1.0 ,  2013-01-01 :  the remark"));
+    }
+
+    @Test
+    void revisionLineAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", "Doc Writer", "v1.0, 2013-01-01: the remark", "", "content")));
+        assertEquals("1.0", header.attributes().get("revnumber"));
+        assertEquals("2013-01-01", header.attributes().get("revdate"));
+        assertEquals("the remark", header.attributes().get("revremark"));
+    }
+
+    @Test
+    void revisionAttributeEntriesWinOverTheRevisionLine() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":revdate: 2020-01-01", "Doc Writer", "v1.0, 2013-01-01", "", "content")));
+        assertEquals("2020-01-01", header.attributes().get("revdate"));
+        assertEquals("1.0", header.attributes().get("revnumber"));
+    }
+
+    @Test
+    void notARevisionLineStaysInTheBody() { // only a line starting with ':' is not a revision line
+        final var doc = new Parser().parse(
+                List.of("= Title", "Doc Writer", ": remark", "", "content"), new Parser.ParserContext(null));
+        assertEquals(new Revision("", "", ""), doc.header().revision());
+        assertEquals(List.of(
+                new Text(List.of(), ": remark", Map.of()),
+                new Text(List.of(), "content", Map.of())), doc.body().children());
+    }
+
+    private void assertAuthors(final List<Author> expected, final List<Author> actual) { // names and mails only
+        assertEquals(
+                expected.stream().map(it -> new Author(it.name(), it.mail())).toList(),
+                actual.stream().map(it -> new Author(it.name(), it.mail())).toList());
+    }
+
+    private Revision revision(final String revisionLine) {
+        return new Parser().parseHeader(new Reader(List.of("= Title", "Doc Writer", revisionLine, "", "content"))).revision();
+    }
+
+    @Test
+    void parseSectionRightAfterHeaderAttributes() {
+        // as of asciidoctor the header ends on an empty line so this section is the author line, an empty line
+        // is required after the header to get it in the body
+        final var doc = new Parser().parse(
+                List.of("= Title", ":attr: value", "== Section", "", "content"), new Parser.ParserContext(null));
+        assertAuthors(List.of(new Author("== Section", "")), doc.header().author());
+        assertEquals(List.of(new Text(List.of(), "content", Map.of())), doc.body().children());
     }
 
     @Test
@@ -283,8 +681,11 @@ class ParserTest {
                 ":author: Dave Grohl",
                 ":email: grohl@foofighter.com")));
         assertEquals("Title", header.title());
-        assertEquals(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
-        assertEquals(Map.of("author", "Dave Grohl", "email", "grohl@foofighter.com"), header.attributes());
+        assertAuthors(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of(
+                "author", "Dave Grohl", "email", "grohl@foofighter.com",
+                "authors", "Dave Grohl", "firstname", "Dave", "lastname", "Grohl", "authorinitials", "DG",
+                "authorcount", "1"), header.attributes());
     }
 
     @Test
@@ -293,31 +694,41 @@ class ParserTest {
                 "= Title",
                 ":author: Dave Grohl")));
         assertEquals("Title", header.title());
-        assertEquals(List.of(new Author("Dave Grohl", "")), header.author());
-        assertEquals(Map.of("author", "Dave Grohl"), header.attributes());
+        assertAuthors(List.of(new Author("Dave Grohl", "")), header.author());
+        assertEquals(Map.of(
+                "author", "Dave Grohl",
+                "authors", "Dave Grohl", "firstname", "Dave", "lastname", "Grohl", "authorinitials", "DG",
+                "authorcount", "1"), header.attributes());
     }
 
     @Test
-    void parseMultipleAuthorsWithAttributes() {
+    void parseMultipleAuthorsWithAttributes() { // the comma is not an author separator so it stays a single author
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title",
                 ":author: Dave Grohl, Taylor Hawkins",
                 ":email: grohl@foofighter.com")));
         assertEquals("Title", header.title());
-        assertEquals(List.of(new Author("Dave Grohl, Taylor Hawkins", "grohl@foofighter.com")), header.author());
-        assertEquals(Map.of("author", "Dave Grohl, Taylor Hawkins", "email", "grohl@foofighter.com"), header.attributes());
+        assertAuthors(List.of(new Author("Dave Grohl, Taylor Hawkins", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of(
+                "author", "Dave Grohl, Taylor Hawkins", "email", "grohl@foofighter.com",
+                "authors", "Dave Grohl, Taylor Hawkins",
+                "firstname", "Dave", "middlename", "Grohl,", "lastname", "Taylor Hawkins", "authorinitials", "DGT",
+                "authorcount", "1"), header.attributes());
     }
 
     @Test
-    void parseAuthorLineAndAttributesCombined() {
+    void parseAuthorLineAndAttributesCombined() { // the attribute entries are read after the author line so they win
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "= Title",
                 "John Doe <john@example.com>",
                 ":author: Dave Grohl",
                 ":email: grohl@foofighter.com")));
         assertEquals("Title", header.title());
-        assertEquals(List.of(new Author("John Doe", "john@example.com"), new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
-        assertEquals(Map.of("author", "Dave Grohl", "email", "grohl@foofighter.com"), header.attributes());
+        assertAuthors(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of(
+                "author", "Dave Grohl", "email", "grohl@foofighter.com",
+                "authors", "Dave Grohl", "firstname", "Dave", "lastname", "Grohl", "authorinitials", "DG",
+                "authorcount", "1"), header.attributes());
     }
 
     @Test
@@ -333,7 +744,7 @@ class ParserTest {
     void parseHeaderWhenMissing() {
         final var header = new Parser().parseHeader(new Reader(List.of("paragraph")));
         assertEquals("", header.title());
-        assertEquals(Map.of(), header.attributes());
+        assertEquals(Map.of("authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -1279,7 +1690,7 @@ class ParserTest {
                             case "attributes.adoc" -> Optional.of(List.of(":url: https://yupiik.io"));
                             default -> Optional.empty();
                         }));
-        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io"), doc.header().attributes());
+        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io", "authorcount", "0"), doc.header().attributes());
 
         assertEquals(
                 List.of(new Link("https://yupiik.io", new Text(List.of(), "Yupiik", Map.of("", "Yupiik", "nowrap", "true")), Map.of())),
@@ -1301,7 +1712,7 @@ class ParserTest {
                             case "attributes.adoc" -> Optional.of(List.of(":url: https://yupiik.io"));
                             default -> Optional.empty();
                         }));
-        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io"), doc.header().attributes());
+        assertEquals(Map.of("title", "Yupiik", "url", "https://yupiik.io", "authorcount", "0"), doc.header().attributes());
 
         assertEquals(
                 List.of(new Link("https://yupiik.io", "Yupiik", Map.of())),
@@ -1859,7 +2270,7 @@ class ParserTest {
     void unsetHeaderAttribute() {
         final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":foo: bar", ":!foo:", "", "content")));
         assertEquals("Title", header.title());
-        assertEquals(Map.of(), header.attributes());
+        assertEquals(Map.of("authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -1881,7 +2292,7 @@ class ParserTest {
     void unsetHeaderAttributePreservesOthers() {
         final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":foo: bar", ":baz: qux", ":!foo:", "", "content")));
         assertEquals("Title", header.title());
-        assertEquals(Map.of("baz", "qux"), header.attributes());
+        assertEquals(Map.of("baz", "qux", "authorcount", "0"), header.attributes());
     }
 
     @Test

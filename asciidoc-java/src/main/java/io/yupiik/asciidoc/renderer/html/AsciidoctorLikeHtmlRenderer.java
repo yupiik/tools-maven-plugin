@@ -244,8 +244,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(" <meta name=\"keywords\" content=\"").append(keywords).append('"').append(voidSlash()).append(">\n");
             }
             final var author = attr("author", attributes);
-            if (author != null) {
-                builder.append(" <meta name=\"author\" content=\"").append(author).append('"').append(voidSlash()).append(">\n");
+            if (author != null) { // as of asciidoctor all the authors are listed there when there are multiple ones
+                final var authors = attr("authors", attributes);
+                builder.append(" <meta name=\"author\" content=\"").append(escape(authors == null ? author : authors)).append('"').append(voidSlash()).append(">\n");
             }
             final var copyright = attr("copyright", attributes);
             if (copyright != null) {
@@ -454,25 +455,35 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final var details = new StringBuilder();
         {
+            final var br = "<br" + voidSlash() + ">";
             int authorIdx = 1;
             for (final var a : header.author()) {
-                if (!a.name().isBlank()) {
-                    details.append("<span class=\"author author-").append(authorIdx).append("\">").append(escape(a.name())).append("</span>\n");
-                }
+                final var suffix = authorIdx == 1 ? "" : String.valueOf(authorIdx);
+                details.append("<span id=\"author").append(suffix).append("\" class=\"author\">")
+                        .append(escape(a.name())).append("</span>").append(br).append('\n');
                 if (!a.mail().isBlank()) {
-                    details.append("<span class=\"email email-").append(authorIdx).append("\">").append(escape(a.mail())).append("</span>\n");
+                    details.append("<span id=\"email").append(suffix).append("\" class=\"email\">")
+                            .append(mailLink(a.mail())).append("</span>").append(br).append('\n');
                 }
                 authorIdx++;
             }
         }
-        if (!header.revision().number().isBlank()) {
-            details.append("<span id=\"revnumber\">").append(escape(header.revision().number())).append("</span>\n");
-        }
-        if (!header.revision().date().isBlank()) {
-            details.append("<span id=\"revdate\">").append(escape(header.revision().date())).append("</span>\n");
-        }
-        if (!header.revision().revmark().isBlank()) {
-            details.append("<span id=\"revremark\">").append(escape(header.revision().revmark())).append("</span>\n");
+        {
+            // as of asciidoctor the revision is rendered from the attributes and the number is prefixed by its label
+            final var revnumber = attr("revnumber", header.attributes());
+            final var revdate = attr("revdate", header.attributes());
+            final var revremark = attr("revremark", header.attributes());
+            if (revnumber != null) {
+                details.append("<span id=\"revnumber\">")
+                        .append(attr("version-label", "version-label", "Version", header.attributes()).toLowerCase(ROOT))
+                        .append(' ').append(escape(revnumber)).append(revdate != null ? "," : "").append("</span>\n");
+            }
+            if (revdate != null) {
+                details.append("<span id=\"revdate\">").append(escape(revdate)).append("</span>\n");
+            }
+            if (revremark != null) {
+                details.append("<br").append(voidSlash()).append("><span id=\"revremark\">").append(escape(revremark)).append("</span>\n");
+            }
         }
         if ("manpage".equals(attr("doctype", header.attributes()))) {
             details.append("<span class=\"manname\">").append(escape(attr("manname", header.attributes()))).append("</span>\n");
@@ -1923,6 +1934,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     protected String escape(final String name) {
         return HtmlEscaping.INSTANCE.apply(name);
+    }
+
+    // as of asciidoctor the author mail is a link, a bare one when it is an url
+    private String mailLink(final String mail) {
+        final var escaped = escape(mail);
+        return mail.contains("://") || mail.startsWith("mailto:") ?
+                "<a href=\"" + escaped + "\" class=\"bare\">" + escaped + "</a>" :
+                "<a href=\"mailto:" + escaped + "\">" + escaped + "</a>";
     }
 
     private String voidSlash() {

@@ -98,7 +98,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 public class Parser {
     private static final List<Author> NO_AUTHORS = List.of();
     private static final Revision NO_REVISION = new Revision("", "", "");
-    private static final Header NO_HEADER = new Header("", NO_AUTHORS, NO_REVISION, Map.of());
+    private static final Header NO_HEADER = new Header("", List.of(), NO_REVISION, Map.of("authorcount", "0"));
 
     private static final Pattern CALLOUT_REF = Pattern.compile("<(?<number>\\d+)>");
     private static final Pattern CALLOUT = Pattern.compile("^<(?<number>[\\d+.]+)> (?<description>.+)$");
@@ -120,6 +120,14 @@ public class Parser {
     private static final Pattern PIPE_TABLE_SEPARATOR = Pattern.compile("^\\|(?:[ :-]+\\|)+$");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
+    private static final Pattern AUTHOR_DELIMITER = Pattern.compile(";(?: |$)");
+    private static final Pattern AUTHOR_INFO = Pattern.compile(
+            "^(?<first>\\w[\\w\\-'.]*)(?: +(?<second>\\w[\\w\\-'.]*))?(?: +(?<third>\\w[\\w\\-'.]*))?(?: +<(?<mail>[^>]+)>)?$",
+            Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern WHITESPACES = Pattern.compile("\\s+");
+    private static final Pattern REVISION_INFO = Pattern.compile("^(?:[^\\d{]*(.*?),)? *(?!:)(.*?)(?: *(?!^),?: *(.*))?$");
+    private static final Pattern XML_TAG = Pattern.compile("<[^>]+>");
+    private static final List<String> PREPROCESSOR_MACROS = List.of("ifdef", "ifndef", "ifeval", "endif", "include");
 
     private final Map<String, String> globalAttributes;
 
@@ -190,27 +198,38 @@ public class Parser {
             reader.reset();
             return NO_HEADER;
         }
-        var author = NO_AUTHORS;
+        final var resolver = context == null ? null : context.resolver();
+        final var attributes = new LinkedHashMap<String, String>();
+        var authors = NO_AUTHORS;
         var revision = NO_REVISION;
         if (!title.isEmpty()) {
+            // attribute entries can precede the author line, in particular when it references one of them
+            attributes.putAll(readAttributes(enclosingElement, reader, resolver));
+
             final var authorLine = reader.nextLine();
             if (authorLine == null || authorLine.isBlank()) {
                 // First empty line after title is the end of header
-                return buildHeader(title, author, revision, preTitleOptions);
+                return buildHeader(title, authors, revision, merge(attributes, preTitleOptions), attributes);
             }
-            if (!reader.isComment(authorLine) && canBeHeaderLine(authorLine)) {
-                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isBlockMacro(authorLine)) { // author line
-                    author = parseAuthorLine(authorLine);
+            // as of asciidoctor any line which is not a preprocessor one is the author line, an empty line being
+            // required to end the header, so a section or a list not preceded by an empty line is an author
+            if (!reader.isComment(authorLine)) {
+                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isPreprocessorMacro(authorLine)) { // author line
+                    authors = parseAuthorLine(authorLine, attributes);
 
                     final var revisionLine = reader.nextLine();
                     if (revisionLine == null || revisionLine.isBlank()) {
                         // First empty line after title is the end of header
-                        return buildHeader(title, author, revision, preTitleOptions);
+                        return buildHeader(title, authors, revision, merge(attributes, preTitleOptions), attributes);
                     }
-                    if (!reader.isComment(revisionLine) && canBeHeaderLine(
-                            revisionLine) && !authorLine.startsWith(":")) {
-                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !isBlockMacro(revisionLine)) { // author line
-                            revision = parseRevisionLine(revisionLine);
+                    if (!reader.isComment(revisionLine)) {
+                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !isPreprocessorMacro(revisionLine)) {
+                            final var parsed = parseRevisionLine(revisionLine, attributes);
+                            if (parsed == null) { // not a revision line, give it back to the body
+                                reader.rewind();
+                            } else {
+                                revision = parsed;
+                            }
                         } else {
                             reader.rewind();
                         }
@@ -221,11 +240,9 @@ public class Parser {
             }
         }
 
-        final var attributes = readAttributes(enclosingElement, reader, context == null ? null : context.resolver());
-        final var mergedAttributes = merge(attributes, preTitleOptions);
-        final var authorsFromAttributes = extractAuthorsFromAttributes(mergedAttributes);
-        final var allAuthors = Stream.concat(author.stream(), authorsFromAttributes.stream()).toList();
-        return buildHeader(title, allAuthors.isEmpty() ? NO_AUTHORS : allAuthors, revision, mergedAttributes);
+        final var beforeAuthorLine = Map.copyOf(attributes);
+        attributes.putAll(readAttributes(enclosingElement, reader, resolver));
+        return buildHeader(title, authors, revision, merge(attributes, preTitleOptions), beforeAuthorLine);
     }
 
     private String readHeaderTitleLine(final Reader reader, final Map<String, String> preTitleOptions) {
@@ -247,16 +264,128 @@ public class Parser {
         return parseBody(new Reader(List.of(reader.split("\n"))), context.resolver());
     }
 
-    private Header buildHeader(final String title, final List<Author> author, final Revision revision, final Map<String, String> attributes) {
+    private Header buildHeader(final String title, final List<Author> authorLineAuthors, final Revision revision,
+                               final Map<String, String> attributes, final Map<String, String> beforeAuthorLine) {
+        final var resolved = resolveAuthors(authorLineAuthors, attributes, beforeAuthorLine);
+        final var merged = new LinkedHashMap<>(attributes);
+        mergeAuthorAttributes(authorLineAuthors, resolved, merged);
         final var manPageMatcher = MAN_PAGE_TITLE.matcher(title);
         if (manPageMatcher.matches()) {
-            final var map = new LinkedHashMap<>(attributes);
-            map.put("doctype", "manpage");
-            map.put("manname", manPageMatcher.group(1));
-            map.put("mansection", manPageMatcher.group(2));
-            return new Header(title, author, revision, map);
+            merged.put("doctype", "manpage");
+            merged.put("manname", manPageMatcher.group(1));
+            merged.put("mansection", manPageMatcher.group(2));
         }
-        return new Header(title, author, revision, attributes);
+        return new Header(title, authorList(merged), revision, merged);
+    }
+
+    // as of asciidoctor the rendered authors are the deduced attributes and not directly the parsed ones
+    private List<Author> authorList(final Map<String, String> attributes) {
+        return IntStream.rangeClosed(1, Integer.parseInt(attributes.getOrDefault("authorcount", "0")))
+                .mapToObj(idx -> new Author(
+                        attributes.getOrDefault(authorAttributeName("author", idx), ""),
+                        attributes.getOrDefault(authorAttributeName("email", idx), ""),
+                        attributes.get(authorAttributeName("firstname", idx)),
+                        attributes.get(authorAttributeName("middlename", idx)),
+                        attributes.get(authorAttributeName("lastname", idx)),
+                        attributes.get(authorAttributeName("authorinitials", idx))))
+                .toList();
+    }
+
+    private String authorAttributeName(final String name, final int idx) {
+        return idx == 1 ? name : name + '_' + idx;
+    }
+
+    // authorcount, firstname, ... deduced from the author line don't override the attribute entries whereas the ones
+    // deduced from the attribute entries do - authorinitials excepted when the author comes from the author attribute
+    private void mergeAuthorAttributes(final List<Author> authorLineAuthors, final ResolvedAuthors resolved,
+                                       final Map<String, String> attributes) {
+        final var explicitInitials = attributes.containsKey("authorinitials");
+        authorAttributes(authorLineAuthors).forEach(attributes::putIfAbsent);
+        if (resolved.source() != AuthorSource.AUTHOR_LINE) {
+            final var derived = authorAttributes(resolved.authors());
+            if (resolved.source() == AuthorSource.AUTHOR_ATTRIBUTE && explicitInitials) {
+                derived.remove("authorinitials");
+            }
+            attributes.putAll(derived);
+            if (!attributes.containsKey("email") && attributes.containsKey("email_1")) {
+                attributes.put("email", attributes.get("email_1"));
+            }
+        }
+        attributes.put("authorcount", String.valueOf(resolved.authors().size())); // always deduced
+    }
+
+    private Map<String, String> authorAttributes(final List<Author> authors) {
+        final var attributes = new LinkedHashMap<String, String>();
+        if (authors.isEmpty()) {
+            return attributes;
+        }
+        attributes.put("authors", authors.stream().map(Author::name).collect(joining(", ")));
+        putAuthorAttributes(attributes, "", authors.get(0));
+        if (authors.size() > 1) { // as of asciidoctor the indexed attributes are only set when there are multiple authors
+            IntStream.range(0, authors.size()).forEach(idx -> putAuthorAttributes(attributes, "_" + (idx + 1), authors.get(idx)));
+        }
+        return attributes;
+    }
+
+    private void putAuthorAttributes(final Map<String, String> attributes, final String suffix, final Author author) {
+        attributes.put("author" + suffix, author.name());
+        if (!author.mail().isEmpty()) {
+            attributes.put("email" + suffix, author.mail());
+        }
+        attributes.put("firstname" + suffix, author.firstname());
+        if (author.middlename() != null) {
+            attributes.put("middlename" + suffix, author.middlename());
+        }
+        if (author.lastname() != null) {
+            attributes.put("lastname" + suffix, author.lastname());
+        }
+        attributes.put("authorinitials" + suffix, author.initials());
+    }
+
+    // an attribute entry only overrides the author line when it is set after it, as of asciidoctor, since the entries
+    // preceding the author line become the reference values of the deduced ones
+    private ResolvedAuthors resolveAuthors(final List<Author> authorLineAuthors, final Map<String, String> attributes,
+                                           final Map<String, String> beforeAuthorLine) {
+        // as of the specification the author attribute entry only supports a single author
+        final var author = attributes.get("author");
+        if (author != null && !author.isBlank() && !author.equals(authorLineAuthors.isEmpty() ?
+                null :
+                beforeAuthorLine.getOrDefault("author", authorLineAuthors.get(0).name()))) {
+            return new ResolvedAuthors(List.of(parseAuthorAttribute(author)), AuthorSource.AUTHOR_ATTRIBUTE);
+        }
+        // not in the specification but supported by asciidoctor to define multiple authors with attributes
+        final var authors = attributes.get("authors");
+        if (authors != null && !authors.isBlank() && !authors.equals(authorLineAuthors.isEmpty() ?
+                null :
+                beforeAuthorLine.getOrDefault("authors", joinAuthorNames(authorLineAuthors)))) {
+            return new ResolvedAuthors(parseAuthorsAttribute(authors), AuthorSource.AUTHORS_ATTRIBUTE);
+        }
+        return indexedAuthorsFromAttributes(authorLineAuthors, attributes);
+    }
+
+    // :author_<n>: entries are only used when author_1 is resolvable and a missing index ends the author list
+    private ResolvedAuthors indexedAuthorsFromAttributes(final List<Author> authorLineAuthors, final Map<String, String> attributes) {
+        // a single author on the author line does not set author_1 so it can't be completed with indexed attributes
+        final var fromLine = authorLineAuthors.size() > 1 ? authorLineAuthors : List.<Author>of();
+        final var authors = new ArrayList<Author>();
+        boolean overridden = false;
+        for (int i = 1; attributes.containsKey("author_" + i) || i <= fromLine.size(); i++) {
+            final var lineAuthor = i <= fromLine.size() ? fromLine.get(i - 1) : null;
+            final var author = attributes.get("author_" + i);
+            if (author != null && !author.isBlank() && (lineAuthor == null || !author.strip().equals(lineAuthor.name()))) {
+                authors.add(parseAuthorAttribute(author));
+                overridden = true;
+            } else if (lineAuthor != null) {
+                authors.add(lineAuthor);
+            }
+        }
+        return overridden ?
+                new ResolvedAuthors(List.copyOf(authors), AuthorSource.INDEXED_ATTRIBUTES) :
+                new ResolvedAuthors(authorLineAuthors, AuthorSource.AUTHOR_LINE);
+    }
+
+    private String joinAuthorNames(final List<Author> authors) {
+        return authors.stream().map(Author::name).collect(joining(", "));
     }
 
     public Body parseBody(final BufferedReader reader, final ParserContext context) {
@@ -275,10 +404,9 @@ public class Parser {
         return line.contains("::") && HEADER_MACRO.matcher(line).matches();
     }
 
-    private boolean canBeHeaderLine(final String line) { // ideally shouldn't be needed and an empty line should be required between title and "content"
-        return !(line.startsWith("* ") || line.startsWith("=") || line.startsWith("[") || line.startsWith(".") ||
-                line.startsWith("<<") || line.startsWith("--") || line.startsWith("``") || line.startsWith("..") ||
-                line.startsWith("++") || line.startsWith("|==") || line.startsWith("> ") || line.startsWith("__"));
+    // asciidoctor handles them in its preprocessor so they never reach the author/revision line parsing
+    private boolean isPreprocessorMacro(final String line) {
+        return isBlockMacro(line) && PREPROCESSOR_MACROS.stream().anyMatch(it -> line.strip().startsWith(it + "::"));
     }
 
     private List<Element> doParse(final Path enclosingDocument, final Reader reader, final Predicate<String> continueTest,
@@ -2305,59 +2433,139 @@ public class Parser {
                 cleanOptions);
     }
 
-    // name <mail>
-    private List<Author> parseAuthorLine(final String authorLine) {
-        return Stream.of(authorLine.split(","))
-                .map(String::strip)
-                .filter(Predicate.not(String::isBlank))
-                .map(this::parseSingleAuthor)
+    // firstname middlename lastname <mail>[; firstname2 ... <mail2>]*, the semicolon separating the authors is looked
+    // up before substituting the attribute references, as of asciidoctor, so a name can end with a character reference.
+    // When a reference is substituted, asciidoctor does it while setting the deduced attributes which, for multiple
+    // authors, makes the indexed ones look overridden and the names be deduced as attribute values.
+    private List<Author> parseAuthorLine(final String authorLine, final Map<String, String> attributes) {
+        final var entries = splitAuthors(authorLine);
+        final var substituted = entries.stream().map(it -> earlyAttributeReplacement(it, attributes)).toList();
+        return substituted.size() > 1 && !substituted.equals(entries) ?
+                substituted.stream().map(this::parseAuthorAttribute).toList() :
+                substituted.stream().map(this::parseAuthorLineEntry).toList();
+    }
+
+    // same but for an attribute value (:authors:) where the names are not validated
+    private List<Author> parseAuthorsAttribute(final String authors) {
+        return splitAuthors(authors).stream().map(this::parseAuthorAttribute).toList();
+    }
+
+    private List<String> splitAuthors(final String value) {
+        return Stream.of(AUTHOR_DELIMITER.split(value))
+                .filter(Predicate.not(String::isEmpty))
                 .toList();
     }
 
-    private Author parseSingleAuthor(final String authorLine) {
-        final int angleBracketStart = authorLine.lastIndexOf('<');
-        if (angleBracketStart > 0) {
-            final int angleBracketEnd = authorLine.indexOf('>', angleBracketStart);
-            if (angleBracketEnd > 0) {
-                return new Author(authorLine.substring(0, angleBracketStart).strip(), authorLine.substring(angleBracketStart + 1, angleBracketEnd).strip());
-            }
+    // at most three names - underscores adjoining them - and an optional mail, any other shape being kept as is
+    private Author parseAuthorLineEntry(final String author) {
+        final var matcher = AUTHOR_INFO.matcher(author);
+        if (matcher.matches()) {
+            return newAuthor(
+                    Stream.of(matcher.group("first"), matcher.group("second"), matcher.group("third"))
+                            .filter(Objects::nonNull)
+                            .map(it -> it.replace('_', ' '))
+                            .toList(),
+                    ofNullable(matcher.group("mail")).orElse(""));
         }
-        return new Author(authorLine.strip(), "");
+        final var name = squeezeWhitespaces(author).strip(); // the shape being unknown it is the author and firstname
+        return new Author(name, "", name, null, null, initials(name, null, null));
     }
 
-    private List<Author> extractAuthorsFromAttributes(final Map<String, String> attributes) {
-        final var author = attributes.get("author");
-        if (author == null || author.isBlank()) {
-            return List.of();
+    // :author:, :authors: or :author_<n>: value, the names are not validated there and a mail is not extracted
+    // (:email: is the way to set it) but the tag it is in is ignored to deduce the names
+    private Author parseAuthorAttribute(final String author) {
+        if (author.indexOf('<') < 0) {
+            return newAuthor(splitAuthorNames(author), "");
         }
-        final int angleBracketStart = author.indexOf('<');
-        var parsedAuthor = author;
-        if (angleBracketStart > 0) {
-            parsedAuthor = author.substring(0, angleBracketStart).strip();
-        }
-        final int semicolonStart = parsedAuthor.indexOf(';');
-        if (semicolonStart > 0) {
-            parsedAuthor = parsedAuthor.substring(0, semicolonStart).strip();
-        }
-        return List.of(new Author(parsedAuthor, attributes.getOrDefault("email", "")));
+        final var names = newAuthor(splitAuthorNames(XML_TAG.matcher(author).replaceAll("")), "");
+        return new Author(
+                author.replace('_', ' '), "",
+                names.firstname(), names.middlename(), names.lastname(), names.initials());
     }
-    // revision number, revision date: revision revmark
-    private Revision parseRevisionLine(final String revisionLine) {
-        final int firstSep = revisionLine.indexOf(",");
-        final int secondSep = revisionLine.indexOf(":");
-        if (firstSep < 0 && secondSep < 0) {
-            return new Revision(revisionLine.strip(), "", "");
+
+    // as of the specification underscores adjoin names (ex: "Mary_Sue Bronte") and the third name holds the last ones
+    private List<String> splitAuthorNames(final String name) {
+        final var names = new ArrayList<>(List.of(WHITESPACES.split(name.stripLeading(), 3)));
+        if (names.size() == 3) {
+            names.set(2, squeezeWhitespaces(names.get(2)));
         }
-        if (firstSep > 0 && secondSep < 0) {
-            return new Revision(revisionLine.substring(0, firstSep).strip(), revisionLine.substring(firstSep + 1).strip(), "");
+        return names.stream().map(it -> it.replace('_', ' ')).toList();
+    }
+
+    private Author newAuthor(final List<String> names, final String mail) {
+        final var firstname = names.isEmpty() ? "" : names.get(0);
+        final var middlename = names.size() > 2 ? names.get(1) : null;
+        final var lastname = names.size() > 2 ? names.get(2) : (names.size() > 1 ? names.get(1) : null);
+        return new Author(String.join(" ", names), mail, firstname, middlename, lastname, initials(firstname, middlename, lastname));
+    }
+
+    // the first character of each name, a missing one being ignored
+    private String initials(final String firstname, final String middlename, final String lastname) {
+        return Stream.of(firstname, middlename, lastname)
+                .filter(Objects::nonNull)
+                .filter(Predicate.not(String::isEmpty))
+                .map(it -> new String(Character.toChars(it.codePointAt(0))))
+                .collect(joining());
+    }
+
+    private String squeezeWhitespaces(final String value) {
+        return WHITESPACES.matcher(value).replaceAll(" ");
+    }
+
+    // [revnumber,] revdate[: revremark], the revision number requiring a "v" prefix when there is no date,
+    // returns null when the line is not a revision line, matched values being set as attributes (as of asciidoctor)
+    private Revision parseRevisionLine(final String revisionLine, final Map<String, String> attributes) {
+        final var matcher = REVISION_INFO.matcher(revisionLine);
+        if (!matcher.matches()) {
+            return null;
         }
-        return new Revision(revisionLine.substring(0, firstSep).strip(), revisionLine.substring(firstSep + 1, secondSep).strip(), revisionLine.substring(secondSep + 1).strip());
+        final var rawNumber = matcher.group(1);
+        final var rawDateOrNumber = matcher.group(2);
+        final var rawRemark = matcher.group(3);
+
+        var number = rawNumber == null ? "" : rawNumber.stripTrailing();
+        var hasNumber = rawNumber != null;
+        var date = "";
+        final var dateOrNumber = rawDateOrNumber == null ? "" : rawDateOrNumber.strip();
+        if (!dateOrNumber.isEmpty()) {
+            if (!hasNumber && dateOrNumber.startsWith("v")) {
+                number = dateOrNumber.substring(1);
+                hasNumber = true;
+            } else {
+                date = dateOrNumber;
+            }
+        }
+        final var remark = rawRemark == null ? "" : rawRemark.stripTrailing();
+
+        if (hasNumber) {
+            attributes.putIfAbsent("revnumber", number);
+        }
+        if (!date.isEmpty()) {
+            attributes.putIfAbsent("revdate", date);
+        }
+        if (rawRemark != null) {
+            attributes.putIfAbsent("revremark", remark);
+        }
+        return new Revision(number, date, remark);
     }
 
     private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver) {
         Map<String, String> attributes = new LinkedHashMap<>();
         String line;
-        while ((line = reader.nextLine()) != null && !line.isBlank()) {
+        while ((line = reader.nextLine()) != null) {
+            if (line.isBlank()) { // end of the header, let the caller see it
+                reader.rewind();
+                break;
+            }
+            if (reader.isComment(line)) { // comments are ignored in the header
+                if (line.startsWith("////")) {
+                    String comment;
+                    while ((comment = reader.nextLine()) != null && !comment.startsWith("////")) {
+                        // skip the comment block
+                    }
+                }
+                continue;
+            }
             final var matcher = ATTRIBUTE_DEFINITION.matcher(line);
             if (matcher.matches()) {
                 var value = matcher.groupCount() == 3 ? ofNullable(matcher.group("value")).orElse("").strip() : "";
@@ -2422,9 +2630,10 @@ public class Parser {
                     }
                 }
 
-                // missing empty line separator
-                throw new IllegalArgumentException("Unknown line: '" + line + "'");
-            } else if (attributes.isEmpty()) {
+                // not a preprocessor macro, as of asciidoctor it is a plain line of the header or of the body
+                reader.rewind();
+                break;
+            } else { // not an attribute entry, up to the caller to handle it (author line, revision line or content)
                 reader.rewind();
                 break;
             }
@@ -2724,5 +2933,12 @@ public class Parser {
     }
 
     private record ContentWithCalloutIndices(String content, Collection<Integer> callOutReferences) {
+    }
+
+    private enum AuthorSource {
+        AUTHOR_LINE, AUTHOR_ATTRIBUTE, AUTHORS_ATTRIBUTE, INDEXED_ATTRIBUTES
+    }
+
+    private record ResolvedAuthors(List<Author> authors, AuthorSource source) {
     }
 }
