@@ -222,7 +222,10 @@ public class Parser {
         }
 
         final var attributes = readAttributes(enclosingElement, reader, context == null ? null : context.resolver());
-        return buildHeader(title, author, revision, merge(attributes, preTitleOptions));
+        final var mergedAttributes = merge(attributes, preTitleOptions);
+        final var authorsFromAttributes = extractAuthorsFromAttributes(mergedAttributes);
+        final var allAuthors = Stream.concat(author.stream(), authorsFromAttributes.stream()).toList();
+        return buildHeader(title, allAuthors.isEmpty() ? NO_AUTHORS : allAuthors, revision, mergedAttributes);
     }
 
     private String readHeaderTitleLine(final Reader reader, final Map<String, String> preTitleOptions) {
@@ -317,7 +320,7 @@ public class Parser {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
             } else if (Objects.equals("====", stripped)) {
                 Optional<Admonition.Level> level;
-                final var potentialLevel = options== null ? "" : options.getOrDefault("", "");
+                final var potentialLevel = options == null ? "" : options.getOrDefault("", "");
                 if (!potentialLevel.isBlank() &&
                         (potentialLevel.length() == 3 || potentialLevel.length() == 4 || potentialLevel.length() == 7 || potentialLevel.length() == 9) &&
                         (level = Stream.of(Admonition.Level.values())
@@ -2312,16 +2315,32 @@ public class Parser {
     }
 
     private Author parseSingleAuthor(final String authorLine) {
-        final int mailStart = authorLine.lastIndexOf('<');
-        if (mailStart > 0) {
-            final int mailEnd = authorLine.indexOf('>', mailStart);
-            if (mailEnd > 0) {
-                return new Author(authorLine.substring(0, mailStart).strip(), authorLine.substring(mailStart + 1, mailEnd).strip());
+        final int angleBracketStart = authorLine.lastIndexOf('<');
+        if (angleBracketStart > 0) {
+            final int angleBracketEnd = authorLine.indexOf('>', angleBracketStart);
+            if (angleBracketEnd > 0) {
+                return new Author(authorLine.substring(0, angleBracketStart).strip(), authorLine.substring(angleBracketStart + 1, angleBracketEnd).strip());
             }
         }
         return new Author(authorLine.strip(), "");
     }
 
+    private List<Author> extractAuthorsFromAttributes(final Map<String, String> attributes) {
+        final var author = attributes.get("author");
+        if (author == null || author.isBlank()) {
+            return List.of();
+        }
+        final int angleBracketStart = author.indexOf('<');
+        var parsedAuthor = author;
+        if (angleBracketStart > 0) {
+            parsedAuthor = author.substring(0, angleBracketStart).strip();
+        }
+        final int semicolonStart = parsedAuthor.indexOf(';');
+        if (semicolonStart > 0) {
+            parsedAuthor = parsedAuthor.substring(0, semicolonStart).strip();
+        }
+        return List.of(new Author(parsedAuthor, attributes.getOrDefault("email", "")));
+    }
     // revision number, revision date: revision revmark
     private Revision parseRevisionLine(final String revisionLine) {
         final int firstSep = revisionLine.indexOf(",");
