@@ -2519,6 +2519,129 @@ class AsciidoctorLikeHtmlRendererTest {
                         "</html>\n");
     }
 
+    @Test
+    void authorAttributes() {
+        assertRendering("= My Title\n:author: Dave Grohl\n:email: grohl@foofighter.com\n\nSome content here.",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        " <meta name=\"author\" content=\"Dave Grohl\">\n" +
+                        " <title>My Title</title>\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " <h1>My Title</h1>\n" +
+                        "  <div class=\"details\">\n" +
+                        "   <span id=\"author\" class=\"author\">Dave Grohl</span><br>\n" +
+                        "   <span id=\"email\" class=\"email\"><a href=\"mailto:grohl@foofighter.com\">grohl@foofighter.com</a></span><br>\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "Some content here.\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
+    }
+
+    @Test
+    void revisionLineRendering() { // the revision number is prefixed by the version-label attribute
+        assertRenderingContainsLines("= T\nDoc Writer\nv2.9, 2013-01-01: Ring in the new year\n\ncontent",
+                "<span id=\"revnumber\">version 2.9,</span>",
+                "<span id=\"revdate\">2013-01-01</span>",
+                "<br><span id=\"revremark\">Ring in the new year</span>");
+    }
+
+    @Test
+    void revisionLineRenderingWithoutDate() { // no comma after the number then
+        assertRenderingContainsLines("= T\nDoc Writer\nv2.9\n\ncontent",
+                "<span id=\"revnumber\">version 2.9</span>");
+    }
+
+    @Test
+    void revisionLineRenderingWithACustomVersionLabel() {
+        assertRenderingContainsLines("= T\n:version-label: Release\nDoc Writer\nv2.9\n\ncontent",
+                "<span id=\"revnumber\">release 2.9</span>");
+    }
+
+    @Test
+    void mailAsAnUrlIsRenderedAsABareLink() {
+        assertRenderingContainsLines("= T\n:author: Doc\n:email: https://example.com/me\n\ncontent",
+                "<span id=\"email\" class=\"email\"><a href=\"https://example.com/me\" class=\"bare\">https://example.com/me</a></span><br>");
+    }
+
+    @Test
+    void authorWithAMailInItsName() { // the mail is not extracted from :author: so it is escaped in the output
+        assertRenderingContainsLines("= T\n:author: Dave Grohl <grohl@foofighter.com>\n\ncontent",
+                " <meta name=\"author\" content=\"Dave Grohl &lt;grohl@foofighter.com&gt;\">",
+                "<span id=\"author\" class=\"author\">Dave Grohl &lt;grohl@foofighter.com&gt;</span><br>");
+    }
+
+    @Test
+    void authorNameWithACharacterReference() { // as of asciidoctor character references are not escaped
+        assertRenderingContainsLines("= T\n:reg: &#174;\nAsciiDoc{reg} WG\n\ncontent",
+                " <meta name=\"author\" content=\"AsciiDoc&#174; WG\">",
+                "<span id=\"author\" class=\"author\">AsciiDoc&#174; WG</span><br>");
+    }
+
+    @Test
+    void multipleAuthorsLine() {
+        assertRendering("= The Intrepid Chronicles\nKismet R. Lee <kismet@asciidoctor.org>; B. Steppenwolf; Pax Draeke <pax@asciidoctor.org>\n\nSome content here.",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        " <meta name=\"author\" content=\"Kismet R. Lee, B. Steppenwolf, Pax Draeke\">\n" +
+                        " <title>The Intrepid Chronicles</title>\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " <h1>The Intrepid Chronicles</h1>\n" +
+                        "  <div class=\"details\">\n" +
+                        "   <span id=\"author\" class=\"author\">Kismet R. Lee</span><br>\n" +
+                        "   <span id=\"email\" class=\"email\"><a href=\"mailto:kismet@asciidoctor.org\">kismet@asciidoctor.org</a></span><br>\n" +
+                        "   <span id=\"author2\" class=\"author\">B. Steppenwolf</span><br>\n" +
+                        "   <span id=\"author3\" class=\"author\">Pax Draeke</span><br>\n" +
+                        "   <span id=\"email3\" class=\"email\"><a href=\"mailto:pax@asciidoctor.org\">pax@asciidoctor.org</a></span><br>\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "Some content here.\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
+    }
+
+    private void assertRenderingContainsLines(final String adoc, final String... lines) {
+        final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer();
+        renderer.visit(doc);
+        final var result = renderer.result();
+        for (final var line : lines) {
+            assertTrue(result.lines().anyMatch(it -> line.strip().equals(it.strip())), () -> "Missing '" + line + "' in:\n" + result);
+        }
+    }
+
     private void assertRendering(final String adoc, final String html) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();

@@ -17,6 +17,7 @@ package io.yupiik.asciidoc.renderer.html;
 
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static java.util.Map.entry;
 
@@ -25,6 +26,9 @@ import static java.util.Map.entry;
  */
 public class HtmlEscaping implements Function<String, String> {
     public static final HtmlEscaping INSTANCE = new HtmlEscaping();
+
+    // same as asciidoctor "restore entities" replacement
+    private static final Pattern CHARACTER_REFERENCE = Pattern.compile("&(?:[a-zA-Z][a-zA-Z]+\\d{0,2}|#\\d\\d\\d{0,4}|#x[\\da-fA-F]{3,6});");
 
     // taken from commons-value
     private final Map<Character, String> escaped = Map.ofEntries(
@@ -286,6 +290,13 @@ public class HtmlEscaping implements Function<String, String> {
         StringBuilder result = null;
         for (int i = 0; i < value.length(); i++) {
             final var c = value.charAt(i);
+            if (c == '&' && CHARACTER_REFERENCE.matcher(value).region(i, value.length()).lookingAt()) {
+                // as of asciidoctor character references are kept as they are
+                if (result != null) {
+                    result.append(c);
+                }
+                continue;
+            }
             final var replacement = escaped.get(c);
             if (replacement != null) {
                 if (result == null) {
