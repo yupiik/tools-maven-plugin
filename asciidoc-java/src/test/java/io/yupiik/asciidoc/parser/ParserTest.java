@@ -277,6 +277,50 @@ class ParserTest {
     }
 
     @Test
+    void parseAuthorAttribute() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title",
+                ":author: Dave Grohl",
+                ":email: grohl@foofighter.com")));
+        assertEquals("Title", header.title());
+        assertEquals(List.of(new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of("author", "Dave Grohl", "email", "grohl@foofighter.com"), header.attributes());
+    }
+
+    @Test
+    void parseAuthorAttributeWithoutEmail() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title",
+                ":author: Dave Grohl")));
+        assertEquals("Title", header.title());
+        assertEquals(List.of(new Author("Dave Grohl", "")), header.author());
+        assertEquals(Map.of("author", "Dave Grohl"), header.attributes());
+    }
+
+    @Test
+    void parseMultipleAuthorsWithAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title",
+                ":author: Dave Grohl, Taylor Hawkins",
+                ":email: grohl@foofighter.com")));
+        assertEquals("Title", header.title());
+        assertEquals(List.of(new Author("Dave Grohl, Taylor Hawkins", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of("author", "Dave Grohl, Taylor Hawkins", "email", "grohl@foofighter.com"), header.attributes());
+    }
+
+    @Test
+    void parseAuthorLineAndAttributesCombined() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title",
+                "John Doe <john@example.com>",
+                ":author: Dave Grohl",
+                ":email: grohl@foofighter.com")));
+        assertEquals("Title", header.title());
+        assertEquals(List.of(new Author("John Doe", "john@example.com"), new Author("Dave Grohl", "grohl@foofighter.com")), header.author());
+        assertEquals(Map.of("author", "Dave Grohl", "email", "grohl@foofighter.com"), header.attributes());
+    }
+
+    @Test
     void manPageTitle() {
         final var header = new Parser().parseHeader(new Reader(List.of("= ls(1)")));
         assertEquals("ls(1)", header.title());
