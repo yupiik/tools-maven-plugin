@@ -185,6 +185,7 @@ public class AsciidoctorInstance {
     }
 
     private void slideRequires(final Path path, final Asciidoctor asciidoctor) {
+        asciidoctor.requireLibrary("asciidoctor-revealjs");
         try {
             asciidoctor.requireLibrary(Files.list(path.resolve("gems"))
                     .filter(it -> it.getFileName().toString().startsWith("asciidoctor-bespoke-"))
@@ -202,7 +203,7 @@ public class AsciidoctorInstance {
     }
 
     private void globalRequires(final Asciidoctor asciidoctor) {
-        asciidoctor.requireLibrary("asciidoctor-diagram", "asciidoctor-revealjs");
+        asciidoctor.requireLibrary("asciidoctor-diagram");
     }
 
     private void registerExtensions(final JavaExtensionRegistry registry) {
