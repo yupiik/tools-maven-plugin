@@ -58,7 +58,7 @@ horizontal_rhythm: $base_line_height_length
 vertical_spacing: $vertical_rhythm
 link:
   font_color: #054470
-literal:
+codespan:
   font_color: #054470
   font_family: NotoSerif
 menu_caret_content: " <font size=\"1.15em\"><color rgb=\"b12146\">\u203a</color></font> "
@@ -148,17 +148,17 @@ admonition:
   label:
     text_transform: uppercase
     font_style: bold
-blockquote:
+quote:
   font_color: $base_font_color
   font_size: $base_font_size_large
   border_color: $base_border_color
   border_width: 5
-  padding: [0, $horizontal_rhythm, $block_margin_bottom * -0.75, $horizontal_rhythm + $blockquote_border_width / 2]
+  padding: [0, $horizontal_rhythm, $block_margin_bottom * -0.75, $horizontal_rhythm + $quote_border_width / 2]
   cite_font_size: $base_font_size_small
   cite_font_color: #999999
 code:
   font_color: #5c4cdb
-  font_family: $literal_font_family
+  font_family: $codespan_font_family
   font_size: ceil($base_font_size)
   padding: $code_font_size
   line_height: 1.25
@@ -169,7 +169,7 @@ code:
   border_width: 0.75
 conum:
   font_family: M+ 1mn
-  font_color: $literal_font_color
+  font_color: $codespan_font_color
   font_size: $base_font_size
   line_height: 4 / 3
   glyphs: circled
@@ -206,7 +206,7 @@ description_list:
   term_font_style: bold
   term_spacing: $vertical_rhythm / 4
   description_indent: $horizontal_rhythm * 1.25
-outline_list:
+list:
   indent: $horizontal_rhythm * 1.5
   item_spacing: $vertical_rhythm / 2
 table:
