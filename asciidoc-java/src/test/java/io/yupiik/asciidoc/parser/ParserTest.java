@@ -860,6 +860,24 @@ class ParserTest {
     }
 
     @Test
+    void linkTrailingPunctuation() { // as of asciidoctor the punctuation which follows a bare url is not part of it
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "See ", Map.of()),
+                        new Link("https://yupiik.io", new Text(List.of(), "https://yupiik.io", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), "; then ", Map.of()),
+                        new Link("https://www.yupiik.io", new Text(List.of(), "https://www.yupiik.io", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), ", ok.", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("See https://yupiik.io; then https://www.yupiik.io, ok.")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "(see ", Map.of()),
+                        new Link("https://yupiik.io", new Text(List.of(), "https://yupiik.io", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), ") and more", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("(see https://yupiik.io) and more")), null).children());
+    }
+
+    @Test
     void linkInCode() {
         final var body = new Parser().parseBody(new Reader(List.of("`https://yupiik.io[Yupiik OSS]`")), null);
         assertEquals(
