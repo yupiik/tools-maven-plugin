@@ -2702,7 +2702,8 @@ public class Parser {
             return false;
         }
         final var first = stripped.charAt(0);
-        if (first != '-' && first != '*' && first != '_') {
+        // ''' is the asciidoc thematic break, --- *** and ___ are the markdown ones
+        if (first != '-' && first != '*' && first != '_' && first != '\'') {
             return false;
         }
         for (int i = 1; i < stripped.length(); i++) {
