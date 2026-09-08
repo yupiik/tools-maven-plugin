@@ -1327,6 +1327,29 @@ class ParserTest {
     }
 
     @Test
+    void codeWithSeveralCalloutsOnTheSameLine() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,properties]
+                ----
+                quarkus.arc.exclude-types=org.acme.Foo,org.acme.*,Bar <1><2><3>
+                ----
+                                
+                <1> a class,
+                <2> a package,
+                <3> a pattern.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code(
+                        "quarkus.arc.exclude-types=org.acme.Foo,org.acme.*,Bar (1)(2)(3)\n",
+                        List.of(
+                                new CallOut(1, new Text(List.of(), "a class,", Map.of())),
+                                new CallOut(2, new Text(List.of(), "a package,", Map.of())),
+                                new CallOut(3, new Text(List.of(), "a pattern.", Map.of()))),
+                        Map.of("language", "properties"), false)),
+                body.children());
+    }
+
+    @Test
     void unorderedList() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * item 1

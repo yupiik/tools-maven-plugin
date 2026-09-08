@@ -1114,13 +1114,20 @@ public class Parser {
                         Stream.of(lines).limit(i).map(l -> l + '\n').forEach(out::append);
                     }
                 }
-                try {
-                    final var number = Integer.parseInt(matcher.group("number"));
+                // a single line can carry several markers - `a=b <1><2>` - and each one is its own callout
+                final var rewritten = new StringBuilder();
+                do {
+                    final int number;
+                    try {
+                        number = Integer.parseInt(matcher.group("number"));
+                    } catch (final NumberFormatException nfe) {
+                        throw new IllegalArgumentException("Can't parse a callout on line '" + line + "' in\n" + snippet);
+                    }
                     callOuts.add(number);
-                    out.append(matcher.replaceAll("(" + number + ')')).append('\n');
-                } catch (final NumberFormatException nfe) {
-                    throw new IllegalArgumentException("Can't parse a callout on line '" + line + "' in\n" + snippet);
-                }
+                    matcher.appendReplacement(rewritten, "(" + number + ')');
+                } while (matcher.find());
+                matcher.appendTail(rewritten);
+                out.append(rewritten).append('\n');
             } else if (out != null) {
                 out.append(line).append('\n');
             }
