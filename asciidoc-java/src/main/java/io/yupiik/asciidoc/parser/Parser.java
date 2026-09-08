@@ -2843,11 +2843,11 @@ public class Parser {
             if (next == nextEmail) {
                 end = emailMatcher.end();
             } else {
-                end = Stream.of(" ", "\t")
+                end = endOfBareLink(content, next, Stream.of(" ", "\t")
                         .mapToInt(s -> content.indexOf(s, next))
                         .filter(i -> i > next)
                         .min()
-                        .orElseGet(content::length);
+                        .orElseGet(content::length));
             }
 
             if (start != next) {
@@ -2862,6 +2862,21 @@ public class Parser {
             }
             start = end;
         }
+    }
+
+    // as of asciidoctor, a bare url stops before the punctuation which follows it: `see https://yupiik.io, then`
+    private int endOfBareLink(final String content, final int from, final int end) {
+        int last = end;
+        while (last > from && ",.?!)".indexOf(content.charAt(last - 1)) >= 0) {
+            last--;
+        }
+        if (last > from && (content.charAt(last - 1) == ';' || content.charAt(last - 1) == ':')) {
+            last--;
+            while (last > from && content.charAt(last - 1) == ')') { // `(https://yupiik.io);`
+                last--;
+            }
+        }
+        return LINK_PREFIXES.contains(content.substring(from, last)) ? end : last; // keep bare schemes as they are
     }
 
     private int findNextLink(final String line, final int from) {
