@@ -606,7 +606,7 @@ public class Parser {
         final var filtered = Stream.of(text.split("\n"))
                 .map(it -> {
                     try {
-                        return it.startsWith("include::") ?
+                        return it.startsWith("include::") || it.startsWith("\\include::") ?
                                 handleIncludes(enclosingDocument, it, resolver, currentAttributes, false).stream()
                                         .map(e -> e instanceof Text t ? t.value() : "")
                                         .collect(joining("")) :
@@ -1133,29 +1133,38 @@ public class Parser {
                                          final ContentResolver resolver,
                                          final Map<String, String> currentAttributes,
                                          final boolean parse) {
-        final int start = content.indexOf("include::");
-        if (start < 0) {
-            return List.of(new Text(List.of(), content, Map.of()));
+        final var literal = new StringBuilder(); // what precedes the include, escaped directives included
+        int from = 0;
+        while (true) {
+            final int start = content.indexOf("include::", from);
+            if (start < 0) {
+                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
+            }
+            final int opts = content.indexOf('[', start);
+            if (opts < 0) {
+                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
+            }
+            final int end = content.indexOf(']', opts);
+            if (end < 0) {
+                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
+            }
+            if (start > 0 && content.charAt(start - 1) == '\\') { // escaped directive, asciidoctor drops the backslash and keeps the text
+                literal.append(content, from, start - 1).append(content, start, end + 1);
+                from = end + 1;
+                continue;
+            }
+            final var include = doInclude(
+                    enclosingDocument,
+                    new Macro(
+                            "include",
+                            earlyAttributeReplacement(content.substring(start + "include::".length(), opts), currentAttributes),
+                            parseOptions(content.substring(opts + 1, end)), false),
+                    resolver, currentAttributes, parse);
+            return Stream.concat(
+                            Stream.of(new Text(List.of(), literal.append(content, from, start).toString(), Map.of())),
+                            include.stream())
+                    .toList();
         }
-        final int opts = content.indexOf('[', start);
-        if (opts < 0) {
-            return List.of(new Text(List.of(), content, Map.of()));
-        }
-        final int end = content.indexOf(']', opts);
-        if (end < 0) {
-            return List.of(new Text(List.of(), content, Map.of()));
-        }
-        final var include = doInclude(
-                enclosingDocument,
-                new Macro(
-                        "include",
-                        earlyAttributeReplacement(content.substring(start + "include::".length(), opts), currentAttributes),
-                        parseOptions(content.substring(opts + 1, end)), false),
-                resolver, currentAttributes, parse);
-        return Stream.concat(
-                        Stream.of(new Text(List.of(), content.substring(0, start), Map.of())),
-                        include.stream())
-                .toList();
     }
 
     private Paragraph parseParagraph(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1575,6 +1584,13 @@ public class Parser {
                             var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
                                 flushText(elements, line.substring(start, backward));
+                            }
+
+                            if (optionsPrefix.startsWith("\\")) { // escaped macro, asciidoctor drops the backslash and keeps the text
+                                flushText(elements, line.substring(backward + 1, end + 1));
+                                i = end;
+                                start = end + 1;
+                                continue;
                             }
 
                             if (optionsPrefix.startsWith("__") && line.substring(end).startsWith("]__")) {
