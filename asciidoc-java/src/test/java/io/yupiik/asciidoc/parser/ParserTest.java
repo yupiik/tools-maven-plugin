@@ -2465,6 +2465,12 @@ class ParserTest {
     }
 
     @Test
+    void horizontalRuleApostrophes() { // the asciidoc thematic break
+        final var body = new Parser().parseBody(new Reader(List.of("'''")), null);
+        assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
     void horizontalRuleLonger() {
         final var body = new Parser().parseBody(new Reader(List.of("-----")), null);
         assertEquals(List.of(new HorizontalRule(Map.of())), body.children());
