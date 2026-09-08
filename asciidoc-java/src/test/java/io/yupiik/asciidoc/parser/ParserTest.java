@@ -64,6 +64,8 @@ import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -1224,6 +1226,84 @@ class ParserTest {
                                 new Text(List.of(), "end", Map.of())
                         ), Map.of())
                 ), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void codeCalloutsWithAttachedBlocks() { // `+` attaches the next block to the item, read as for any list item
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,properties]
+                ----
+                a=b <1>
+                c=d <2>
+                ----
+                <1> one, like
+                +
+                [source,json]
+                ----
+                {"a": "b"}
+
+                {"c": "d"}
+                ----
+                <2> two, and
+                +
+                more text attached
+
+                after
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("a=b (1)\nc=d (2)\n", List.of(
+                                new CallOut(1, new Paragraph(List.of(
+                                        new Text(List.of(), "one, like", Map.of()),
+                                        new Code("{\"a\": \"b\"}\n\n{\"c\": \"d\"}\n", List.of(), Map.of("language", "json"), false)), Map.of())),
+                                new CallOut(2, new Paragraph(List.of(
+                                        new Text(List.of(), "two, and", Map.of()),
+                                        new Text(List.of(), "more text attached", Map.of())), Map.of()))),
+                                Map.of("language", "properties"), false),
+                        new Text(List.of(), "after", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void codeCalloutsMismatchFails() {
+        final var reader = new Reader(List.of("""
+                [source,properties]
+                ----
+                a=b <1>
+                c=d <2>
+                ----
+
+                1. one
+                2. two
+                """.split("\n")));
+        final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
+        assertTrue(error.getMessage().startsWith("Invalid callout references"), error::getMessage);
+    }
+
+    @Test
+    void codeCalloutsMismatchIgnoredOnDemand() { // :callout-mismatch: ignore keeps the document, as asciidoctor does
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :callout-mismatch: ignore
+
+                [source,properties]
+                ----
+                a=b <1>
+                c=d <2>
+                ----
+
+                1. one
+                2. two
+
+                after
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("a=b (1)\nc=d (2)\n", List.of(), Map.of("language", "properties"), false),
+                        new OrderedList(List.of(
+                                new Text(List.of(), "one", Map.of()),
+                                new Text(List.of(), "two", Map.of())), Map.of("style", "arabic")),
+                        new Text(List.of(), "after", Map.of())),
                 body.children());
     }
 

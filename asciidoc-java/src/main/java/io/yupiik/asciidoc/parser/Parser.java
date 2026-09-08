@@ -498,11 +498,8 @@ public class Parser {
                     elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
                 }
                 options = null;
-            } else if (Objects.equals("----", stripped)) {
-                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, "----"));
-                options = null;
-            } else if (Objects.equals("```", stripped)) {
-                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, "```"));
+            } else if (Objects.equals("----", stripped) || Objects.equals("```", stripped)) {
+                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, stripped));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
                 elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "--"));
@@ -1066,7 +1063,21 @@ public class Parser {
             return new Code(subs(code, currentAttributes, substitutions), List.of(), codeOptions, false);
         }
 
-        final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
+        final var callOuts = parseCallOuts(enclosingDocument, reader, resolver, currentAttributes);
+        final var numbers = callOuts.stream().map(CallOut::number).toList();
+        if (!numbers.containsAll(contentWithCallouts.callOutReferences()) &&
+                // asciidoctor renders such a document with a warning; opt in to that with `:callout-mismatch: ignore`
+                !"ignore".equals(currentAttributes.getOrDefault("callout-mismatch", globalAttributes.get("callout-mismatch")))) {
+            throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
+        }
+
+        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), callOuts, codeOptions, false);
+    }
+
+    private List<CallOut> parseCallOuts(final Path enclosingDocument, final Reader reader,
+                                        final ContentResolver resolver, final Map<String, String> currentAttributes) {
+        final var callOuts = new ArrayList<CallOut>();
+        String next;
         Matcher matcher;
         while ((next = reader.skipCommentsAndEmptyLines()) != null && (matcher = CALLOUT.matcher(next)).matches()) {
             int number;
@@ -1077,26 +1088,16 @@ public class Parser {
                 throw new IllegalArgumentException("Invalid callout: '" + next + "'");
             }
 
-            var text = matcher.group("description");
-            while ((next = reader.nextLine()) != null && !next.startsWith("<") && !next.isBlank()) {
-                text += '\n' + next;
-            }
-            if (next != null && !next.isBlank() && next.startsWith("<")) {
-                reader.rewind();
-            }
+            final var text = new StringBuilder(matcher.group("description"));
+            readContinuation(reader, l -> CALLOUT.matcher(l).matches(), text);
 
-            final var elements = doParse(enclosingDocument, new Reader(List.of(text.split("\n"))), l -> true, resolver, currentAttributes, true, false);
+            final var elements = doParse(enclosingDocument, new Reader(List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false);
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
-        if (next != null && !next.isBlank()) {
+        if (next != null) {
             reader.rewind();
         }
-
-        if (callOuts.size() != contentWithCallouts.callOutReferences().size()) { // todo: enhance
-            throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
-        }
-
-        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), callOuts, codeOptions, false);
+        return callOuts;
     }
 
     private ContentWithCalloutIndices parseWithCallouts(final String snippet) {
@@ -2227,7 +2228,8 @@ public class Parser {
                 final var markerLen = "dots".equals(captureName) ?
                         matcher.group("prefix").length() + matcher.group("dots").length() :
                         prefix.length();
-                readContinuation(reader, regex, buffer, nextStripped, markerLen);
+                buffer.append(nextStripped.substring(markerLen).stripLeading());
+                readContinuation(reader, l -> regex.matcher(l.strip()).matches(), buffer);
 
                 final var rawContent = buffer.toString();
                 final var checkMatcher = CHECKBOX.matcher(rawContent);
@@ -2271,10 +2273,9 @@ public class Parser {
         return factory.apply(children, listOptions);
     }
 
-    private void readContinuation(final Reader reader, final Pattern regex, final StringBuilder buffer,
-                                  final String nextStripped, final int markerLen) {
-        buffer.append(nextStripped.substring(markerLen).stripLeading());
-
+    // reads the rest of a list item - text wrapping on the next lines, blocks attached with `+` - until a blank
+    // line or the next item (stopsAt); shared by the ordered, unordered and callout lists
+    private void readContinuation(final Reader reader, final Predicate<String> stopsAt, final StringBuilder buffer) {
         String next;
         String needed = null;
         while ((next = reader.nextLine()) != null) {
@@ -2287,7 +2288,7 @@ public class Parser {
             } else if ("+".equals(next.strip())) { // continuation
                 buffer.append('\n');
                 continue;
-            } else if (needed == null && regex.matcher(next.strip()).matches()) {
+            } else if (needed == null && stopsAt.test(next)) {
                 break;
             }
             buffer.append('\n').append(next);
