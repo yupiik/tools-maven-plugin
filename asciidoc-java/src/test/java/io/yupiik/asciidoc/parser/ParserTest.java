@@ -1204,6 +1204,31 @@ class ParserTest {
     }
 
     @Test
+    void codeEscapedInclude(@TempDir final Path work) throws IOException { // documenting the directive, not using it
+        Files.writeString(work.resolve("content.properties"), "test = value\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,asciidoc]
+                ----
+                before
+                \\include::content.properties[]
+                after
+                ----
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Code("before\ninclude::content.properties[]\nafter\n", List.of(), Map.of("language", "asciidoc"), false)),
+                body.children());
+    }
+
+    @Test
+    void escapedIncludeInText(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("content.properties"), "test = value\n");
+        final var body = new Parser().parseBody(new Reader(List.of("a line with \\include::content.properties[] in it")), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Text(List.of(), "a line with include::content.properties[] in it", Map.of())),
+                body.children());
+    }
+
+    @Test
     void codeIncludeNested(@TempDir final Path work) throws IOException {
         final var code = "foo::\nbar\ndummy::\nsomething\n[source]\n----\ntest\n\n----\n\nother::\nend";
         Files.writeString(work.resolve("content.properties"), code);
