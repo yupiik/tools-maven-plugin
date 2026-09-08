@@ -1142,7 +1142,8 @@ public class Parser {
         int start = 0;
         boolean inMacro = false;
         for (int i = 0; i < line.length(); i++) {
-            if (supportComplexStructures) {
+            // without a reader the line is inline content - the text of `**1. Bold**` for ex - so it holds no block
+            if (supportComplexStructures && reader != null) {
                 if (i == line.length() - 2 && line.endsWith(" +")) {
                     elements.add(new LineBreak());
                     break;
