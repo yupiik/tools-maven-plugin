@@ -754,7 +754,7 @@ public class Parser {
                                             .stream()
                                             .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
                                             .collect(joining());
-                                    return new Code(elements, List.of(), Map.of(), true);
+                                    return new Code(elements, Map.of(), true, List.of());
                                 };
                             }
                             if (i.contains("h")) { // header
@@ -905,7 +905,7 @@ public class Parser {
             return new Paragraph(p.children(), Map.copyOf(opts));
         }
         if (element instanceof Code c) {
-            return new Code(c.value(), c.callOuts(), Map.copyOf(opts), c.inline());
+            return new Code(c.value(), Map.copyOf(opts), c.inline(), c.lineCallOuts());
         }
         return element;
     }
@@ -1055,23 +1055,31 @@ public class Parser {
         final var substitutions = resolveSubs(codeOptions.get("subs"), VERBATIM_SUBS);
         if (!substitutions.contains("callouts")) {
             // the block dropped the callout substitution so `<1>` is code text and the `<1> ...` lines after it are content
-            return new Code(subs(code, currentAttributes, substitutions), List.of(), codeOptions, false);
+            return new Code(subs(code, currentAttributes, substitutions), codeOptions, false, List.of());
         }
 
         final var contentWithCallouts = parseWithCallouts(code);
-        if (contentWithCallouts.callOutReferences().isEmpty()) {
-            return new Code(subs(code, currentAttributes, substitutions), List.of(), codeOptions, false);
+        if (contentWithCallouts.lineReferences().isEmpty()) {
+            return new Code(subs(code, currentAttributes, substitutions), codeOptions, false, List.of());
         }
 
         final var callOuts = parseCallOuts(enclosingDocument, reader, resolver, currentAttributes);
         final var numbers = callOuts.stream().map(CallOut::number).toList();
-        if (!numbers.containsAll(contentWithCallouts.callOutReferences()) &&
+        final var references = new HashSet<Integer>();
+        contentWithCallouts.lineReferences().forEach(references::addAll);
+        if (!numbers.containsAll(references) &&
                 // asciidoctor renders such a document with a warning; opt in to that with `:callout-mismatch: ignore`
                 !"ignore".equals(currentAttributes.getOrDefault("callout-mismatch", globalAttributes.get("callout-mismatch")))) {
             throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
         }
 
-        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), callOuts, codeOptions, false);
+        // the markers are gone from the code, the model says which callouts ended each line
+        final var byNumber = new HashMap<Integer, CallOut>();
+        callOuts.forEach(c -> byNumber.putIfAbsent(c.number(), c));
+        final var lineCallOuts = contentWithCallouts.lineReferences().stream()
+                .map(refs -> refs.stream().map(byNumber::get).filter(Objects::nonNull).toList())
+                .toList();
+        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), codeOptions, false, lineCallOuts);
     }
 
     private List<CallOut> parseCallOuts(final Path enclosingDocument, final Reader reader,
@@ -1100,40 +1108,37 @@ public class Parser {
         return callOuts;
     }
 
+    // removes the `<n>` markers from the code and says, line by line, which numbers ended it
     private ContentWithCalloutIndices parseWithCallouts(final String snippet) {
-        StringBuilder out = null;
-        Set<Integer> callOuts = null;
         final var lines = snippet.split("\n");
-        for (int i = 0; i < lines.length; i++) {
-            final var line = lines[i];
+        final var out = new StringBuilder();
+        final var lineReferences = new ArrayList<List<Integer>>(lines.length);
+        boolean found = false;
+        for (final var line : lines) {
             final var matcher = CALLOUT_REF.matcher(line);
-            if (matcher.find()) {
-                if (out == null) {
-                    out = new StringBuilder();
-                    callOuts = new HashSet<>(2);
-                    if (i > 0) {
-                        Stream.of(lines).limit(i).map(l -> l + '\n').forEach(out::append);
-                    }
-                }
-                // a single line can carry several markers - `a=b <1><2>` - and each one is its own callout
-                final var rewritten = new StringBuilder();
-                do {
-                    final int number;
-                    try {
-                        number = Integer.parseInt(matcher.group("number"));
-                    } catch (final NumberFormatException nfe) {
-                        throw new IllegalArgumentException("Can't parse a callout on line '" + line + "' in\n" + snippet);
-                    }
-                    callOuts.add(number);
-                    matcher.appendReplacement(rewritten, "(" + number + ')');
-                } while (matcher.find());
-                matcher.appendTail(rewritten);
-                out.append(rewritten).append('\n');
-            } else if (out != null) {
+            if (!matcher.find()) {
+                lineReferences.add(List.of());
                 out.append(line).append('\n');
+                continue;
             }
+            found = true;
+            final var numbers = new ArrayList<Integer>(2); // a line can carry several markers, `a=b <1><2>`
+            final var stripped = new StringBuilder();
+            do {
+                try {
+                    numbers.add(Integer.parseInt(matcher.group("number")));
+                } catch (final NumberFormatException nfe) {
+                    throw new IllegalArgumentException("Can't parse a callout on line '" + line + "' in\n" + snippet);
+                }
+                matcher.appendReplacement(stripped, "");
+            } while (matcher.find());
+            matcher.appendTail(stripped);
+            lineReferences.add(List.copyOf(numbers));
+            out.append(stripped.toString().stripTrailing()).append('\n');
         }
-        return out == null ? new ContentWithCalloutIndices(snippet.stripTrailing(), List.of()) : new ContentWithCalloutIndices(out.toString(), callOuts);
+        return found ?
+                new ContentWithCalloutIndices(out.toString(), lineReferences) :
+                new ContentWithCalloutIndices(snippet.stripTrailing(), List.of());
     }
 
     private List<Element> handleIncludes(final Path enclosingDocument,
@@ -1758,7 +1763,7 @@ public class Parser {
                                                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
                             }
                         } else {
-                            elements.add(new Code(content, List.of(), Map.of(), true));
+                            elements.add(new Code(content, Map.of(), true, List.of()));
                         }
                         i = end;
                         start = end + 1;
@@ -2790,7 +2795,7 @@ public class Parser {
             return new Text(t.style(), t.value(), merge(t.options(), element.options()));
         }
         if (first instanceof Code c) {
-            return new Code(c.value(), c.callOuts(), merge(c.options(), element.options()), c.inline());
+            return new Code(c.value(), merge(c.options(), element.options()), c.inline(), c.lineCallOuts());
         }
         if (first instanceof Link l) {
             return new Link(l.url(), l.label(), merge(l.options(), element.options()));
@@ -3078,7 +3083,7 @@ public class Parser {
     public record ParserContext(ContentResolver resolver) {
     }
 
-    private record ContentWithCalloutIndices(String content, Collection<Integer> callOutReferences) {
+    private record ContentWithCalloutIndices(String content, List<List<Integer>> lineReferences) {
     }
 
     private enum AuthorSource {

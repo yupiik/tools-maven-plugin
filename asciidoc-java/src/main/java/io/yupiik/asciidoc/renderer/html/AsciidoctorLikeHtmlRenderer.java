@@ -988,16 +988,25 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(" data-linenums=\"true\"");
             }
             builder.append(">");
-            var html = escape(element.value());
-            if (linenums) {
-                final var lines = html.split("\n");
-                final var numbered = new StringBuilder();
-                for (int i = 0; i < lines.length; i++) {
-                    numbered.append("<span class=\"linenums\">").append(i + 1).append("</span>").append(lines[i]).append('\n');
+            // the parser removed the markers from the code and says which callouts ended each line
+            final var highlight = !"false".equalsIgnoreCase(element.options().get("hightlight-callouts"));
+            final var icons = icons();
+            final var lines = element.value().split("\n", linenums ? 0 : -1);
+            for (int i = 0; i < lines.length; i++) {
+                if (linenums) {
+                    builder.append("<span class=\"linenums\">").append(i + 1).append("</span>");
                 }
-                html = numbered.toString();
+                builder.append(escape(lines[i]));
+                if (i < element.lineCallOuts().size() && !element.lineCallOuts().get(i).isEmpty()) {
+                    builder.append(' '); // markers sat at the end of the line, `a=b <1><2>` in the source
+                    for (final var callOut : element.lineCallOuts().get(i)) {
+                        builder.append(highlight ? callOutMarker(icons, callOut.number(), false) : "(" + callOut.number() + ")");
+                    }
+                }
+                if (linenums || i < lines.length - 1) {
+                    builder.append('\n');
+                }
             }
-            builder.append("false".equalsIgnoreCase(element.options().get("hightlight-callouts")) ? html : highlightCallOuts(element.callOuts(), html));
             builder.append("</code></pre>\n </div>\n </div>\n");
         } else {
             final var nowrap = element.options().containsKey("nowrap-option") || state.nowrap;
@@ -1007,26 +1016,45 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("</pre>\n </div>\n </div>\n");
         }
 
-        if (!element.callOuts().isEmpty()) {
+        final var callOuts = element.callOuts(); // derived from the lines, so materialized once
+        if (!callOuts.isEmpty()) {
+            final var icons = icons();
             builder.append(" <div class=\"colist arabic\">\n");
-            builder.append("  <ol>\n");
-            element.callOuts().forEach(c -> {
-                final boolean nowrap = state.nowrap;
-                builder.append("   <li>\n");
-                state.inCallOut = true;
-                state.nowrap = true;
-                if (c.text() instanceof Paragraph p && p.options().isEmpty()) {
-                    p.children().forEach(this::visitElement);
-                } else {
-                    visitElement(c.text());
-                }
-                state.inCallOut = false;
-                state.nowrap = nowrap;
-                builder.append("   </li>\n");
-            });
-            builder.append("  </ol>\n");
+            if (icons == null) {
+                builder.append("  <ol>\n");
+                callOuts.forEach(c -> {
+                    builder.append("   <li>\n");
+                    visitCallOutText(c);
+                    builder.append("   </li>\n");
+                });
+                builder.append("  </ol>\n");
+            } else { // as of asciidoctor, with icons the list is a table using the same markers as the code
+                builder.append("  <table>\n");
+                callOuts.forEach(c -> {
+                    builder.append("   <tr>\n");
+                    builder.append("    <td>").append(callOutMarker(icons, c.number(), true)).append("</td>\n");
+                    builder.append("    <td>\n");
+                    visitCallOutText(c);
+                    builder.append("    </td>\n");
+                    builder.append("   </tr>\n");
+                });
+                builder.append("  </table>\n");
+            }
             builder.append(" </div>\n");
         }
+    }
+
+    protected void visitCallOutText(final CallOut callOut) {
+        final boolean nowrap = state.nowrap;
+        state.inCallOut = true;
+        state.nowrap = true;
+        if (callOut.text() instanceof Paragraph p && p.options().isEmpty()) {
+            p.children().forEach(this::visitElement);
+        } else {
+            visitElement(callOut.text());
+        }
+        state.inCallOut = false;
+        state.nowrap = nowrap;
     }
 
     @Override
@@ -1294,7 +1322,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 }
             }
             case "mermaid" -> visitMermaid(element);
-            default -> visitCode(new Code(element.value(), List.of(), element.options(), false));
+            default -> visitCode(new Code(element.value(), element.options(), false, List.of()));
         }
     }
 
@@ -1921,6 +1949,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         Visitor.super.visitMacro(element);
     }
 
+    /**
+     * @deprecated the parser records where the callouts sit ({@link Code#lineCallOuts()}) so the renderer no longer
+     * looks for markers in the code text; kept for subclasses, not called anymore.
+     */
+    @Deprecated
     protected String highlightCallOuts(final List<CallOut> callOuts, final String value) {
         if (callOuts.isEmpty()) {
             return value;
@@ -1930,6 +1963,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             out = out.replace(" (" + i + ")", " <b class=\"conum\">(" + i + ")</b>");
         }
         return out;
+    }
+
+    // as of asciidoctor: plain `(N)` without icons, a conum with font icons, an image otherwise;
+    // in the callout list the number has no parentheses
+    protected String callOutMarker(final String icons, final int number, final boolean inList) {
+        final var label = inList ? Integer.toString(number) : "(" + number + ")";
+        if (icons == null) {
+            return "<b class=\"conum\">" + label + "</b>";
+        }
+        if ("font".equals(icons)) {
+            return "<i class=\"conum\" data-value=\"" + number + "\"></i><b>" + label + "</b>";
+        }
+        return "<img src=\"" + icons + "/callouts/" + number + ".png\" alt=\"" + number + '"' + voidSlash() + ">";
+    }
+
+    protected String icons() {
+        return attr("icons", state.document == null ? Map.<String, String>of() : state.document.header().attributes());
     }
 
     protected String escape(final String name) {
