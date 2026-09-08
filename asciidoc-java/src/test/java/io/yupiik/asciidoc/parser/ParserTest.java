@@ -123,19 +123,19 @@ class ParserTest {
                 new DescriptionList(Map.of(
                         new Paragraph(List.of(
                                 new Text(List.of(), "generate-frisby-skeleton.output (env: ", Map.of()),
-                                new Code("GENERATE_FRISBY_SKELETON_OUTPUT", List.of(), Map.of(), true),
+                                new Code("GENERATE_FRISBY_SKELETON_OUTPUT", Map.of(), true, List.of()),
                                 new Text(List.of(), ")", Map.of())), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "Where to generate the skeleton. Default: ", Map.of()),
-                                new Code("hcms-frisby", List.of(), Map.of(), true),
+                                new Code("hcms-frisby", Map.of(), true, List.of()),
                                 new Text(List.of(), ".", Map.of())), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "hcms.database-init.enabled (env: ", Map.of()),
-                                new Code("HCMS_DATABASE_INIT_ENABLED", List.of(), Map.of(), true),
+                                new Code("HCMS_DATABASE_INIT_ENABLED", Map.of(), true, List.of()),
                                 new Text(List.of(), ")", Map.of())), Map.of()),
                         new Paragraph(List.of(
                                 new Text(List.of(), "Should database be initialized at startup. Default: ", Map.of()),
-                                new Code("true", List.of(), Map.of(), true),
+                                new Code("true", Map.of(), true, List.of()),
                                 new Text(List.of(), ".", Map.of())), Map.of())), Map.of())
         ), body.children());
     }
@@ -149,11 +149,11 @@ class ParserTest {
         assertEquals(List.of(
                 new UnOrderedList(List.of(
                         new Paragraph(List.of(
-                                new Code("alveolus.name", List.of(), Map.of(), true),
+                                new Code("alveolus.name", Map.of(), true, List.of()),
                                 new Text(List.of(), ": name of the alveolus the descriptor comes from,", Map.of())),
                                 Map.of()),
                         new Paragraph(List.of(
-                                new Code("descriptor.name", List.of(), Map.of(), true),
+                                new Code("descriptor.name", Map.of(), true, List.of()),
                                 new Text(List.of(), ": name of the descriptor,", Map.of())),
                                 Map.of())), Map.of())
         ), body.children());
@@ -1075,7 +1075,7 @@ class ParserTest {
                 ----
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Code("public record Foo() {\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)),
+                List.of(new Code("public record Foo() {\n}\n", Map.of("language", "java", "role", "hljs"), false, List.of())),
                 body.children());
     }
 
@@ -1091,7 +1091,7 @@ class ParserTest {
                     ----
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Code("    <dependency>\n        <groupId>io.quarkiverse.qute.web</groupId>\n        <artifactId>quarkus-qute-web</artifactId>\n    </dependency>\n", List.of(), Map.of("language", "xml"), false)),
+                List.of(new Code("    <dependency>\n        <groupId>io.quarkiverse.qute.web</groupId>\n        <artifactId>quarkus-qute-web</artifactId>\n    </dependency>\n", Map.of("language", "xml"), false, List.of())),
                 body.children());
     }
 
@@ -1117,7 +1117,7 @@ class ParserTest {
                 ----
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Code("<script defer src=\"/js/test.js?v=1\"></script>\n", List.of(), Map.of("subs", "attributes"), false)),
+                List.of(new Code("<script defer src=\"/js/test.js?v=1\"></script>\n", Map.of("subs", "attributes"), false, List.of())),
                 body.children());
     }
 
@@ -1133,7 +1133,7 @@ class ParserTest {
                 ----
                 """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         assertEquals(
-                List.of(new Code("foo(\"bar\");\n", List.of(), Map.of("language", "java", "subs", "attributes"), false)),
+                List.of(new Code("foo(\"bar\");\n", Map.of("language", "java", "subs", "attributes"), false, List.of())),
                 doc.body().children());
     }
 
@@ -1191,13 +1191,13 @@ class ParserTest {
                                 new Paragraph(
                                         List.of(
                                                 new Text(List.of(), "foo", Map.of()),
-                                                new Code("public record Foo() {\n\n}\n", List.of(), Map.of("language", "java", "role", "hljs"), false)
+                                                new Code("public record Foo() {\n\n}\n", Map.of("language", "java", "role", "hljs"), false, List.of())
                                         ),
                                         Map.of()),
                                 new Paragraph(
                                         List.of(
                                                 new Text(List.of(), "bar", Map.of()),
-                                                new Code("public record Bar() {\n\n}\n", List.of(), Map.of(), false)
+                                                new Code("public record Bar() {\n\n}\n", Map.of(), false, List.of())
                                         ),
                                         Map.of()),
                                 new Text(List.of(), "end", Map.of())),
@@ -1217,7 +1217,7 @@ class ParserTest {
                 ----
                 """.split("\n"))), ContentResolver.of(work));
         assertEquals(
-                List.of(new Code(code, List.of(), Map.of("language", "properties", "role", "hljs"), false)),
+                List.of(new Code(code, Map.of("language", "properties", "role", "hljs"), false, List.of())),
                 body.children());
     }
 
@@ -1233,7 +1233,7 @@ class ParserTest {
                 ----
                 """.split("\n"))), ContentResolver.of(work));
         assertEquals(
-                List.of(new Code("before\ninclude::content.properties[]\nafter\n", List.of(), Map.of("language", "asciidoc"), false)),
+                List.of(new Code("before\ninclude::content.properties[]\nafter\n", Map.of("language", "asciidoc"), false, List.of())),
                 body.children());
     }
 
@@ -1261,7 +1261,7 @@ class ParserTest {
                                 new Text(List.of(), "dummy", Map.of()),
                                 new Paragraph(List.of(
                                         new Text(List.of(), "something", Map.of()),
-                                        new Code("test\n\n", List.of(), Map.of(), false)
+                                        new Code("test\n\n", Map.of(), false, List.of())
                                 ), Map.of())
                         ), Map.of()),
                         new DescriptionList(Map.of(
@@ -1296,14 +1296,13 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Code("a=b (1)\nc=d (2)\n", List.of(
-                                new CallOut(1, new Paragraph(List.of(
+                        new Code("a=b\nc=d\n", Map.of("language", "properties"), false, List.of(
+                                List.of(new CallOut(1, new Paragraph(List.of(
                                         new Text(List.of(), "one, like", Map.of()),
-                                        new Code("{\"a\": \"b\"}\n\n{\"c\": \"d\"}\n", List.of(), Map.of("language", "json"), false)), Map.of())),
-                                new CallOut(2, new Paragraph(List.of(
+                                        new Code("{\"a\": \"b\"}\n\n{\"c\": \"d\"}\n", Map.of("language", "json"), false, List.of())), Map.of()))),
+                                List.of(new CallOut(2, new Paragraph(List.of(
                                         new Text(List.of(), "two, and", Map.of()),
-                                        new Text(List.of(), "more text attached", Map.of())), Map.of()))),
-                                Map.of("language", "properties"), false),
+                                        new Text(List.of(), "more text attached", Map.of())), Map.of()))))),
                         new Text(List.of(), "after", Map.of())),
                 body.children());
     }
@@ -1342,7 +1341,7 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Code("a=b (1)\nc=d (2)\n", List.of(), Map.of("language", "properties"), false),
+                        new Code("a=b\nc=d\n", Map.of("language", "properties"), false, List.of(List.of(), List.of())),
                         new OrderedList(List.of(
                                 new Text(List.of(), "one", Map.of()),
                                 new Text(List.of(), "two", Map.of())), Map.of("style", "arabic")),
@@ -1365,18 +1364,16 @@ class ParserTest {
                 <1> Defines a record,
                 <.> Defines an attribute of the record.
                 """.split("\n"))), null);
-        assertEquals(
+        final var record = new CallOut(1, new Text(List.of(), "Defines a record,", Map.of()));
+        final var attribute = new CallOut(2, new Text(List.of(), "Defines an attribute of the record.", Map.of()));
+        assertEquals( // the markers are gone from the code, lineCallOuts says where they were
                 List.of(new Code("""
                         import anything;
-                        public record Foo( (1)
-                          String name (2)
+                        public record Foo(
+                          String name
                         ) {
                         }
-                        """,
-                        List.of(
-                                new CallOut(1, new Text(List.of(), "Defines a record,", Map.of())),
-                                new CallOut(2, new Text(List.of(), "Defines an attribute of the record.", Map.of()))),
-                        Map.of("language", "java", "role", "hljs"), false)),
+                        """, Map.of("language", "java", "role", "hljs"), false, List.of(List.of(), List.of(record), List.of(attribute), List.of(), List.of()))),
                 body.children());
     }
 
@@ -1392,7 +1389,7 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Code("foo(); // <1>\n", List.of(), Map.of("language", "java", "subs", "-callouts"), false),
+                        new Code("foo(); // <1>\n", Map.of("language", "java", "subs", "-callouts"), false, List.of()),
                         new Text(List.of(), "<1> not a callout, the block dropped that substitution.", Map.of())),
                 body.children());
     }
@@ -1409,7 +1406,7 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Code("foo(); // <1>\n", List.of(), Map.of("language", "java", "subs", "attributes"), false),
+                        new Code("foo(); // <1>\n", Map.of("language", "java", "subs", "attributes"), false, List.of()),
                         new Text(List.of(), "<1> not a callout, this list replaces the default substitutions.", Map.of())),
                 body.children());
     }
@@ -1426,9 +1423,9 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(new Code(
-                        "foo(\"bar\"); // (1)\n",
-                        List.of(new CallOut(1, new Text(List.of(), "a callout, the defaults are only extended.", Map.of()))),
-                        Map.of("language", "java", "subs", "+attributes"), false)),
+                        "foo(\"bar\"); //\n",
+                        Map.of("language", "java", "subs", "+attributes"), false,
+                        List.of(List.of(new CallOut(1, new Text(List.of(), "a callout, the defaults are only extended.", Map.of())))))),
                 body.children());
     }
 
@@ -1444,7 +1441,7 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(
-                        new Code("foo(\"bar\"); // <1>\n", List.of(), Map.of("language", "java", "subs", "normal"), false),
+                        new Code("foo(\"bar\"); // <1>\n", Map.of("language", "java", "subs", "normal"), false, List.of()),
                         new Text(List.of(), "<1> not a callout, the normal group has no callout substitution.", Map.of())),
                 body.children());
     }
@@ -1463,12 +1460,12 @@ class ParserTest {
                 """.split("\n"))), null);
         assertEquals(
                 List.of(new Code(
-                        "quarkus.arc.exclude-types=org.acme.Foo,org.acme.*,Bar (1)(2)(3)\n",
-                        List.of(
+                        "quarkus.arc.exclude-types=org.acme.Foo,org.acme.*,Bar\n",
+                        Map.of("language", "properties"), false,
+                        List.of(List.of(
                                 new CallOut(1, new Text(List.of(), "a class,", Map.of())),
                                 new CallOut(2, new Text(List.of(), "a package,", Map.of())),
-                                new CallOut(3, new Text(List.of(), "a pattern.", Map.of()))),
-                        Map.of("language", "properties"), false)),
+                                new CallOut(3, new Text(List.of(), "a pattern.", Map.of())))))),
                 body.children());
     }
 
@@ -1560,7 +1557,7 @@ class ParserTest {
                                 new Paragraph(
                                         List.of(
                                                 new Text(List.of(), "item 1", Map.of()),
-                                                new Code("record Foo() {}\n", List.of(), Map.of("language", "java"), false)),
+                                                new Code("record Foo() {}\n", Map.of("language", "java"), false, List.of())),
                                         Map.of()),
                                 new Text(List.of(), "item 2", Map.of())), Map.of())),
                 body.children());
@@ -2047,7 +2044,7 @@ class ParserTest {
                         List.of(
                                 new Paragraph(List.of(
                                         new Text(List.of(), "Cell in column 1, row 1", Map.of()),
-                                        new Code("public class Foo {\n}\n", List.of(), Map.of("language", "java"), false)
+                                        new Code("public class Foo {\n}\n", Map.of("language", "java"), false, List.of())
                                 ), Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 1", Map.of())),
                         List.of(

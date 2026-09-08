@@ -17,7 +17,10 @@ package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.model.Body;
+import io.yupiik.asciidoc.model.CallOut;
+import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.Document;
+import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
@@ -569,6 +572,60 @@ class AsciidoctorLikeHtmlRendererTest {
                  </p>
                  </div>
                 """);
+    }
+
+    @Test
+    void calloutWithIcons() { // as of asciidoctor, icons make the markers conums and the callout list a table
+        assertRenderingContent("""
+                :icons: font
+                                
+                [source,properties]
+                ----
+                a=b <1>
+                c=d <2>
+                ----
+                <1> one,
+                <2> two.
+                """, """
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">a=b <i class="conum" data-value="1"></i><b>(1)</b>
+                c=d <i class="conum" data-value="2"></i><b>(2)</b>
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <table>
+                   <tr>
+                    <td><i class="conum" data-value="1"></i><b>1</b></td>
+                    <td>
+                 <span>
+                one,
+                 </span>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td><i class="conum" data-value="2"></i><b>2</b></td>
+                    <td>
+                 <span>
+                two.
+                 </span>
+                    </td>
+                   </tr>
+                  </table>
+                 </div>
+                """);
+    }
+
+    @Test
+    void severalCalloutMarkersOnTheSameLine() { // `a=b <1><2>` in the source
+        final var one = new CallOut(1, new Text(List.of(), "one,", Map.of()));
+        final var two = new CallOut(2, new Text(List.of(), "two.", Map.of()));
+        final var renderer = new AsciidoctorLikeHtmlRenderer();
+        renderer.visitCode(new Code("a=b\n", Map.of("language", "properties"), false, List.of(List.of(one, two))));
+        assertTrue(
+                renderer.result().contains("a=b <b class=\"conum\">(1)</b><b class=\"conum\">(2)</b>"),
+                renderer::result);
     }
 
     @Test
