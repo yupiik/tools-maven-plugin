@@ -2102,6 +2102,19 @@ class ParserTest {
     }
 
     @Test
+    void markdownBoldStartingWithAListMarker() { // `1. ` is a list marker for a line, not inside a bold span
+        final var body = new Parser().parseBody(new Reader(List.of("**1. Bold** text.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(BOLD), "1. Bold", Map.of()),
+                new Text(List.of(), " text.", Map.of())), Map.of())), body.children());
+
+        final var title = new Parser().parseBody(new Reader(List.of("===== **1. Memory Usage Metrics**")), null);
+        assertEquals(
+                List.of(new Section(5, new Text(List.of(BOLD), "1. Memory Usage Metrics", Map.of()), List.of(), Map.of())),
+                title.children());
+    }
+
+    @Test
     void markdownStrikethrough() {
         final var body = new Parser().parseBody(new Reader(List.of("This is ~~deleted~~ text.")), null);
         assertEquals(List.of(new Paragraph(List.of(
