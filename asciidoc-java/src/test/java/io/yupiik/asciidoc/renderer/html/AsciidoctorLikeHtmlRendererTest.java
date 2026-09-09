@@ -548,6 +548,30 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void calloutSubstitutionDisabled() {
+        assertRenderingContent("""
+                [source,java,subs="-callouts"]
+                ----
+                foo(); // <1>
+                ----
+
+                <1> not a callout, the block dropped that substitution.
+                """, """
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">foo(); // &lt;1&gt;
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="paragraph">
+                 <p>
+                &lt;1&gt; not a callout, the block dropped that substitution.
+                 </p>
+                 </div>
+                """);
+    }
+
+    @Test
     void ol() {
         assertRenderingContent("""
                 . first
