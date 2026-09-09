@@ -1216,6 +1216,75 @@ class ParserTest {
     }
 
     @Test
+    void codeWithCalloutsDisabledBySubs() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,java,subs="-callouts"]
+                ----
+                foo(); // <1>
+                ----
+
+                <1> not a callout, the block dropped that substitution.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("foo(); // <1>\n", List.of(), Map.of("language", "java", "subs", "-callouts"), false),
+                        new Text(List.of(), "<1> not a callout, the block dropped that substitution.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void codeWithCalloutsDisabledByASubsListWithoutThem() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,java,subs="attributes"]
+                ----
+                foo(); // <1>
+                ----
+
+                <1> not a callout, this list replaces the default substitutions.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("foo(); // <1>\n", List.of(), Map.of("language", "java", "subs", "attributes"), false),
+                        new Text(List.of(), "<1> not a callout, this list replaces the default substitutions.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void codeWithCalloutsKeptByAnIncrementalSubs() { // +attributes adds to the verbatim defaults, so the callout stays and the attribute is replaced
+        final var body = new Parser(Map.of("foo", "bar")).parseBody(new Reader(List.of("""
+                [source,java,subs="+attributes"]
+                ----
+                foo("{foo}"); // <1>
+                ----
+
+                <1> a callout, the defaults are only extended.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code(
+                        "foo(\"bar\"); // (1)\n",
+                        List.of(new CallOut(1, new Text(List.of(), "a callout, the defaults are only extended.", Map.of()))),
+                        Map.of("language", "java", "subs", "+attributes"), false)),
+                body.children());
+    }
+
+    @Test
+    void codeWithNormalSubs() { // normal contains attributes but not callouts
+        final var body = new Parser(Map.of("foo", "bar")).parseBody(new Reader(List.of("""
+                [source,java,subs="normal"]
+                ----
+                foo("{foo}"); // <1>
+                ----
+
+                <1> not a callout, the normal group has no callout substitution.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("foo(\"bar\"); // <1>\n", List.of(), Map.of("language", "java", "subs", "normal"), false),
+                        new Text(List.of(), "<1> not a callout, the normal group has no callout substitution.", Map.of())),
+                body.children());
+    }
+
+    @Test
     void unorderedList() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * item 1

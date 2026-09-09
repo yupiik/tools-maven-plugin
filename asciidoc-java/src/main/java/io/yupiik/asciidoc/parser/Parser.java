@@ -58,6 +58,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,6 +129,18 @@ public class Parser {
     private static final Pattern REVISION_INFO = Pattern.compile("^(?:[^\\d{]*(.*?),)? *(?!:)(.*?)(?: *(?!^),?: *(.*))?$");
     private static final Pattern XML_TAG = Pattern.compile("<[^>]+>");
     private static final List<String> PREPROCESSOR_MACROS = List.of("ifdef", "ifndef", "ifeval", "endif", "include");
+    // substitutions as asciidoctor names them, a block selects them in its subs option (see resolveSubs()).
+    // the parser acts on two of them only: callouts (parseCodeBlock()) and attributes (subs()).
+    // specialcharacters, quotes, replacements, macros and post_replacements are resolved so that the +/- modifiers
+    // and the groups compute the right set, but change nothing here: a verbatim block is stored as written and
+    // the renderer always escapes it.
+    private static final Set<String> NO_SUBS = Set.of(); // passthrough block default
+    private static final Set<String> VERBATIM_SUBS = Set.of("specialcharacters", "callouts"); // listing, literal and source block default
+    private static final Map<String, List<String>> SUB_GROUPS = Map.of(
+            "none", List.of(),
+            "normal", List.of("specialcharacters", "quotes", "attributes", "replacements", "macros", "post_replacements"),
+            "verbatim", List.of("specialcharacters", "callouts"),
+            "specialchars", List.of("specialcharacters"));
 
     private final Map<String, String> globalAttributes;
 
@@ -584,8 +597,10 @@ public class Parser {
 
         final var text = content.toString();
         final var actualOpts = options == null ? Map.<String, String>of() : options;
+        // a literal block ("....") is verbatim, a passthrough block ("++++") has no substitution by default
+        final var substitutions = resolveSubs(actualOpts.get("subs"), "....".equals(marker) ? VERBATIM_SUBS : NO_SUBS);
         if (!text.contains("include::")) {
-            return new PassthroughBlock(subs(text, actualOpts), actualOpts);
+            return new PassthroughBlock(subs(text, actualOpts, substitutions), actualOpts);
         }
 
         final var filtered = Stream.of(text.split("\n"))
@@ -601,19 +616,58 @@ public class Parser {
                     }
                 })
                 .collect(joining("\n"));
-        return new PassthroughBlock(subs(filtered, actualOpts), actualOpts);
+        return new PassthroughBlock(subs(filtered, actualOpts, substitutions), actualOpts);
     }
 
-    private String subs(final String value, final Map<String, String> opts) {
-        final var subs = opts.get("subs");
-        var out = value;
-        if (subs == null) {
-            return out;
+    /**
+     * Resolves the substitutions of a block from its {@code subs} option the way asciidoctor does:
+     * an entry carrying a modifier - {@code +name}, {@code name+} or {@code -name} - changes the block defaults,
+     * entries without one form a list which replaces them.
+     * Groups are expanded, ie {@code verbatim} is {@code specialcharacters,callouts},
+     * {@code normal} does not contain {@code callouts} and {@code none} is empty.
+     * The single letter hints ({@code a}, {@code q}, ...) belong to the inline pass macro, not to blocks, so they are not resolved.
+     *
+     * @param subs     the raw {@code subs} option value, can be {@code null} when the block has none.
+     * @param defaults the substitutions the block gets without a {@code subs} option.
+     * @return the substitution names applying to the block.
+     */
+    private Set<String> resolveSubs(final String subs, final Set<String> defaults) {
+        if (subs == null || subs.isBlank()) {
+            return defaults;
         }
-        if (subs.contains("attributes") && !subs.contains("-attributes")) {
-            out = earlyAttributeReplacement(out, opts);
+        Set<String> resolved = null;
+        for (final var entry : subs.split(",")) {
+            var name = entry.strip();
+            if (name.isEmpty()) {
+                continue;
+            }
+            boolean modifier = true;
+            boolean remove = false;
+            if (name.startsWith("+")) {
+                name = name.substring(1);
+            } else if (name.startsWith("-")) {
+                remove = true;
+                name = name.substring(1);
+            } else if (name.endsWith("+")) {
+                name = name.substring(0, name.length() - 1);
+            } else {
+                modifier = false;
+            }
+            if (resolved == null) { // the first entry says if the list modifies the defaults or replaces them
+                resolved = modifier ? new LinkedHashSet<>(defaults) : new LinkedHashSet<>();
+            }
+            final var expanded = SUB_GROUPS.getOrDefault(name, List.of(name));
+            if (remove) {
+                resolved.removeAll(expanded);
+            } else {
+                resolved.addAll(expanded);
+            }
         }
-        return out;
+        return resolved == null ? defaults : resolved;
+    }
+
+    private String subs(final String value, final Map<String, String> opts, final Set<String> substitutions) {
+        return substitutions.contains("attributes") ? earlyAttributeReplacement(value, opts) : value;
     }
 
     private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1000,9 +1054,15 @@ public class Parser {
         final var code = snippet.stream().filter(Text.class::isInstance).map(Text.class::cast).map(Text::value).collect(joining());
         final var codeOptions = options == null ? Map.<String, String>of() : options;
 
+        final var substitutions = resolveSubs(codeOptions.get("subs"), VERBATIM_SUBS);
+        if (!substitutions.contains("callouts")) {
+            // the block dropped the callout substitution so `<1>` is code text and the `<1> ...` lines after it are content
+            return new Code(subs(code, codeOptions, substitutions), List.of(), codeOptions, false);
+        }
+
         final var contentWithCallouts = parseWithCallouts(code);
         if (contentWithCallouts.callOutReferences().isEmpty()) {
-            return new Code(subs(code, codeOptions), List.of(), codeOptions, false);
+            return new Code(subs(code, codeOptions, substitutions), List.of(), codeOptions, false);
         }
 
         final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
@@ -1035,7 +1095,7 @@ public class Parser {
             throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
         }
 
-        return new Code(subs(contentWithCallouts.content(), codeOptions), callOuts, codeOptions, false);
+        return new Code(subs(contentWithCallouts.content(), codeOptions, substitutions), callOuts, codeOptions, false);
     }
 
     private ContentWithCalloutIndices parseWithCallouts(final String snippet) {
