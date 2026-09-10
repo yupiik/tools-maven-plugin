@@ -2656,6 +2656,50 @@ class AsciidoctorLikeHtmlRendererTest {
                         "</html>\n");
     }
 
+    @Test
+    void selfReferencingAttribute() { // #122, "a" is unknown when it is assigned so the reference stays in the value, which is then text
+        assertRenderingContainsLines("""
+                :a: ${a}
+                
+                See {a} here.
+                """, "<p>See ${a} here.</p>");
+    }
+
+    @Test
+    void selfReferencingAttributeWithSurroundingText() {
+        assertRenderingContainsLines("""
+                :a: x{a}y
+                
+                See {a} here.
+                """, "<p>See x{a}y here.</p>");
+    }
+
+    @Test
+    void attributeValueWithSeveralElements() { // the evaluated value is inline content, not a nested paragraph
+        final var doc = new Parser().parseBody("Hi {x}.", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "x", "*bold* text")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="paragraph">
+                 <p>Hi <strong>bold</strong> text.</p>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void attributeCycleInTheRendererConfiguration() { // the names are unknown to the parser so the cycle only exists when rendering
+        final var doc = new Parser().parseBody("Cycle: {x}.", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "x", "{y}", "y", "{x}")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="paragraph">
+                 <p>Cycle: {x}.</p>
+                 </div>
+                """, renderer.result());
+    }
+
     private void assertRenderingContainsLines(final String adoc, final String... lines) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
