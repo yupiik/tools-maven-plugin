@@ -1102,6 +1102,48 @@ class ParserTest {
     }
 
     @Test
+    void codeAttributeSubsFromDocumentAttributes() { // #120, the header attribute was ignored, only the parser ones were read
+        final var doc = new Parser().parse("""
+                = Title
+                :foo: bar
+
+                [source,java,subs="attributes"]
+                ----
+                foo("{foo}");
+                ----
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        assertEquals(
+                List.of(new Code("foo(\"bar\");\n", List.of(), Map.of("language", "java", "subs", "attributes"), false)),
+                doc.body().children());
+    }
+
+    @Test
+    void passthroughAttributeSubsFromDocumentAttributes() {
+        final var doc = new Parser().parse("""
+                = Title
+                :foo: bar
+
+                [subs="attributes"]
+                ++++
+                <b>{foo}</b>
+                ++++
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        assertEquals(
+                List.of(new PassthroughBlock("<b>bar</b>", Map.of("subs", "attributes"))),
+                doc.body().children());
+    }
+
+    @Test
+    void passthroughIncludeWithDocumentAttributeInPath(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("content.html"), "<b>included</b>");
+        final var doc = new Parser().parse("= Title\n:partialsdir: " + work + "\n\n++++\ninclude::{partialsdir}/content.html[]\n++++\n",
+                new Parser.ParserContext(ContentResolver.of(work)));
+        assertEquals(
+                List.of(new PassthroughBlock("<b>included</b>\n", Map.of())), // an include keeps its trailing line break, as in codeInclude()
+                doc.body().children());
+    }
+
+    @Test
     void codeAfterListContinuation() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * foo
