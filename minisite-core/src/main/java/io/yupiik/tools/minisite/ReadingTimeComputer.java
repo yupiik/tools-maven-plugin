@@ -18,11 +18,13 @@ package io.yupiik.tools.minisite;
 import java.util.StringTokenizer;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.Optional.ofNullable;
+
 public class ReadingTimeComputer {
     private static final double WORDS_PER_SECOND = 3.5; // between 200 and 250/mn for an adult
 
     public int seconds(final String content) {
-        return (int) (new StringTokenizer(content).countTokens() / WORDS_PER_SECOND);
+        return (int) (new StringTokenizer(ofNullable(content).orElse("")).countTokens() / WORDS_PER_SECOND);
     }
 
     public String toReadingTime(final String content) {

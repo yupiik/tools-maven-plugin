@@ -1,4 +1,4 @@
-                    <div class="col-12 col-lg-4 py-3">
+<div class="col-12 col-lg-4 py-3">
                         <div class="card shadow-sm">
                             <div class="card-body">
                                 <h4 class="card-title mb-3">

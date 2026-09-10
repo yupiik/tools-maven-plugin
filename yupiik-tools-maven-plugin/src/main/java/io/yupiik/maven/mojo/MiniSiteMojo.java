@@ -310,7 +310,7 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Template file name added before the content.
      */
-    @Parameter(defaultValue = "header.html,menu.html")
+    @Parameter(defaultValue = "header.hb,menu.hb")
     private List<String> templatePrefixes;
 
     /**
@@ -322,7 +322,7 @@ public class MiniSiteMojo extends BaseMojo {
     /**
      * Template file name added after the content.
      */
-    @Parameter(defaultValue = "footer-top.html,footer-end.html")
+    @Parameter(defaultValue = "footer-top.hb,footer-end.hb")
     private List<String> templateSuffixes;
 
     /**

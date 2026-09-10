@@ -1,4 +1,4 @@
-    <div class="page-navigation-right">
+<div class="page-navigation-right">
         <h3>Navigation</h3>
         <nav class="generated-nav-menu"></nav>
     </div>

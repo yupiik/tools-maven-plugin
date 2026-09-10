@@ -16,6 +16,7 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.tools.minisite.action.builtin.LlmEmbeddingGenerator;
+import io.yupiik.tools.minisite.handlebars.Handlebars;
 import io.yupiik.tools.minisite.language.Asciidoc;
 import lombok.RequiredArgsConstructor;
 
@@ -84,10 +85,17 @@ public class MiniSite implements Runnable {
     private final Gravatar gravatar = new Gravatar();
     private final Pattern linkTitleReplacement = Pattern.compile("[\"\n]");
     private final Urlifier urlifier = new Urlifier();
+    private final Handlebars handlebars;
+
+    // default theme fragments shipped on classpath under yupiik-tools-maven-plugin/minisite/_partials/
+    private static final List<String> DEFAULT_THEME_PARTIALS = List.of(
+            "search", "searchModal", "blogLink", "highlightJs", "highlightJsCss", "llmChatCss", "llmChatScripts");
 
     public MiniSite(final MiniSiteConfiguration configuration) {
         this.configuration = configuration;
         this.configuration.fixConfig();
+        this.handlebars = new Handlebars(discoverPartials(), Map.of(
+                "gravatar", o -> ofNullable(o).map(String::valueOf).map(it -> gravatar.toUrl(configuration.getGravatar(), it)).orElse("")));
     }
 
     @Override
@@ -155,26 +163,16 @@ public class MiniSite implements Runnable {
                 final Map<String, String> attrs = new HashMap<>(Map.of("minisite-passthrough", "true"));
                 attrs.putAll(page.attributes);
                 final String title = ofNullable(page.title)
-                        .map(t -> new TemplateSubstitutor(key -> {
-                            if ("title".equals(key)) {
-                                return t;
-                            }
-                            return getDefaultInterpolation(key, page, asciidoctor, options, null);
-                        }).replace(titleTemplate))
+                        .map(t -> {
+                            final Map<String, Object> titleModel = buildInterpolationModel(page, asciidoctor, options, null);
+                            titleModel.put("title", t);
+                            return handlebars.render(titleTemplate, titleModel);
+                        })
                         .orElse("");
-                final String body = new TemplateSubstitutor(key -> {
-                    if ("title".equals(key)) {
-                        return title;
-                    }
-                    return getDefaultInterpolation(key, page, asciidoctor, options, k -> {
-                        switch (k) {
-                            case "pageFooterNav":
-                                return footerNavTemplate.apply(page);
-                            default:
-                                return getDefaultInterpolation(k, page, asciidoctor, options, customInterpolations);
-                        }
-                    });
-                }).replace(contentTemplate);
+                final Map<String, Object> bodyModel = buildInterpolationModel(page, asciidoctor, options, customInterpolations);
+                bodyModel.put("title", title);
+                bodyModel.put("pageFooterNav", footerNavTemplate.apply(page));
+                final String body = handlebars.render(contentTemplate, bodyModel);
                 final String content = template.apply(new Page(
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
                         ofNullable(page.title).orElseGet(() -> getTitle(options)),
@@ -187,12 +185,57 @@ public class MiniSite implements Runnable {
     }
 
     protected String findPageTemplate(final Path templates, final String name) {
-        return requireNonNull(findTemplate(templates, name + (name.endsWith(".adoc") ? "" : ".html")), "can't find " + name + " template")
+        return requireNonNull(findTemplate(templates, name + ".hb"), "can't find " + name + " template")
                 .collect(joining("\n"));
     }
 
     protected Path getTemplatesDir() {
         return configuration.getSource().resolve("templates");
+    }
+
+    /**
+     * Deduces the handlebars partials from the theme directory and the configuration.
+     * Partials are resolved from:
+     * <ul>
+     *   <li>the {@code templateExtensionPoints} configuration entries (keys are the partial names);</li>
+     *   <li>the {@code _partials} folder of the theme {@code templates} directory (each {@code *.hb} file
+     *       is a partial named after its file name without the {@code .hb} extension).</li>
+     * </ul>
+     *
+     * @return the partials map (name to template content).
+     */
+    protected Map<String, String> discoverPartials() {
+        final Map<String, String> partials = new HashMap<>(configuration.getTemplateExtensionPoints());
+        // theme / classpath default fragments (site override wins via findTemplate ordering)
+        DEFAULT_THEME_PARTIALS.forEach(name -> ofNullable(findTemplate(getTemplatesDir(), "_partials/" + name + ".hb"))
+                .map(s -> s.collect(joining("\n")))
+                .ifPresent(content -> partials.put(name, content)));
+        partials.putAll(loadThemePartials("_partials"));
+        partials.putAll(loadThemePartials("extension-points"));
+        return partials;
+    }
+
+    private Map<String, String> loadThemePartials(final String folder) {
+        final Path dir = getTemplatesDir().resolve(folder);
+        if (!Files.isDirectory(dir)) {
+            return Map.of();
+        }
+        try (final Stream<Path> files = Files.list(dir)) {
+            return files
+                    .filter(it -> it.getFileName().toString().endsWith(".hb"))
+                    .collect(toMap(
+                            it -> partialName(it.getFileName()),
+                            it -> ofNullable(findTemplate(getTemplatesDir(), folder + '/' + it.getFileName()))
+                                    .map(s -> s.collect(joining("\n")))
+                                    .orElse("")));
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private String partialName(final Path filename) {
+        final String name = filename.toString();
+        return name.endsWith(".hb") ? name.substring(0, name.length() - 3) : name;
     }
 
     protected String getIcon(final Page it) {
@@ -237,33 +280,18 @@ public class MiniSite implements Runnable {
     protected String leftMenu(final Map<Page, Path> files) {
         final Path templatesDir = getTemplatesDir();
         final String template = findPageTemplate(templatesDir, "left-menu");
-        return new TemplateSubstitutor(key -> {
-            if ("listItems".equals(key)) {
-                final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
-                final Path output = configuration.getTarget();
-                return findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
-            }
-            try {
-                return findPageTemplate(templatesDir, key);
-            } catch (final RuntimeException re) {
-                throw new IllegalArgumentException("Unknown key '" + key + "'");
-            }
-        }).replace(template);
+        final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
+        final Path output = configuration.getTarget();
+        final String listItems = findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
+        return handlebars.render(template, Map.of("listItems", listItems));
     }
 
     protected String toMenuItem(final Path output, final Map.Entry<Page, Path> it, final String template) {
-        return new TemplateSubstitutor(key -> {
-            switch (key) {
-                case "title":
-                    return toLinkTitle(it.getKey());
-                case "text":
-                    return getTitle(it.getKey());
-                case "href":
-                    return configuration.getSiteBase() + '/' + output.relativize(it.getValue());
-                default:
-                    return getDefaultInterpolation(key, it.getKey(), null, null, null);
-            }
-        }).replace(template);
+        final Map<String, Object> model = buildInterpolationModel(it.getKey(), null, null, k -> null);
+        model.put("title", toLinkTitle(it.getKey()));
+        model.put("text", getTitle(it.getKey()));
+        model.put("href", configuration.getSiteBase() + '/' + output.relativize(it.getValue()));
+        return handlebars.render(template, model);
     }
 
     protected String toLinkTitle(final Page page) {
@@ -332,13 +360,19 @@ public class MiniSite implements Runnable {
                                                         null),
                                                 output.resolve("blog/index.html"))))) :
                 findIndexPages(htmls))
-                .map(p -> new TemplateSubstitutor(key -> {
-                    if ("href".equals(key)) {
-                        return configuration.getSiteBase() + '/' + output.relativize(p.getValue());
-                    }
-                    return getDefaultInterpolation(key, p.getKey(), null, null, null);
-                }).replace(itemTemplate))
+                .map(p -> {
+                    final Map<String, Object> itemModel = buildInterpolationModel(p.getKey(), null, null, k -> null);
+                    itemModel.put("href", configuration.getSiteBase() + '/' + output.relativize(p.getValue()));
+                    return handlebars.render(itemTemplate, itemModel);
+                })
                 .collect(joining(""));
+
+        final Map<String, Object> contentModel = new HashMap<>();
+        contentModel.put("title", indexText +
+                (!indexText.toLowerCase(Locale.ROOT).endsWith("documentation") && !configuration.isSkipIndexTitleDocumentationText() ?
+                        " Documentation" : ""));
+        contentModel.put("subTitle", getIndexSubTitle(options));
+        contentModel.put("content", indexContent);
 
         final String content = dropLeftMenu(
                 template.apply(new Page(
@@ -346,26 +380,7 @@ public class MiniSite implements Runnable {
                         ofNullable(configuration.getTitle()).orElse("Index"), Map.of(
                         "minisite-keywords", indexText,
                         "minisite-passthrough", "true"),
-                        new TemplateSubstitutor(key -> {
-                            switch (key) {
-                                case "title":
-                                    return indexText +
-                                            (!indexText.toLowerCase(Locale.ROOT).endsWith("documentation") && !configuration.isSkipIndexTitleDocumentationText() ?
-                                                    " Documentation" : "");
-                                case "subTitle":
-                                    return getIndexSubTitle(options);
-                                case "content":
-                                    return indexContent;
-                                default:
-                                    try {
-                                        return findPageTemplate(templatesDir, key);
-                                    } catch (final RuntimeException re) {
-                                        throw new IllegalArgumentException("Unknown key '" + key + "'");
-                                    }
-                            }
-                        }).replace(contentTemplate))));
-
-        // now we must drop the navigation-left/right since we reused the global template - easier than rebuilding a dedicated layout
+                        handlebars.render(contentTemplate, contentModel))));
         return dropRightColumn(content);
     }
 
@@ -533,6 +548,24 @@ public class MiniSite implements Runnable {
         }
     }
 
+    protected Map<String, Object> buildInterpolationModel(final Page page, final Asciidoc.AsciidocInstance asciidoctor,
+                                                          final Object options, final Function<String, String> customInterpolations) {
+        final Map<String, Object> model = new HashMap<>();
+        for (final String key : List.of(
+                "metaAuthor", "metaKeywords", "isBlogClass", "categoryClass", "icon", "description",
+                "hrefTitle", "pageClass", "href", "author", "authors", "authors-list", "gravatar",
+                "publishedDate", "summary", "readingTime", "xyz", "breadcrumb")) {
+            model.put(key, getDefaultInterpolation(key, page, asciidoctor, options, customInterpolations));
+        }
+        if (asciidoctor != null) {
+            model.put("body", getDefaultInterpolation("body", page, asciidoctor, options, customInterpolations));
+        } else {
+            model.put("body", page.content == null ? "" : page.content);
+        }
+        model.put("defaultEndOfContent", "");
+        return model;
+    }
+
     protected String getCategoryClass(final Object categories) {
         return "category-" + ofNullable(categories)
                 .map(String::valueOf)
@@ -670,6 +703,10 @@ public class MiniSite implements Runnable {
                             throw new IllegalStateException(e);
                         }
                     });
+
+            copyDefaultBinaryAsset(output,
+                    "yupiik-tools-maven-plugin/minisite/assets/images/favicon.png",
+                    configuration.getAsciidoctorConfiguration());
 
             if (configuration.isLlmChatEnabled()) {
                 Stream.of(
@@ -1168,34 +1205,28 @@ public class MiniSite implements Runnable {
         final List<List<BlogPage>> pages = splitByPage(blogPages, pageSize);
         IntStream.rangeClosed(1, pages.size()).forEach(page -> {
             final Path output = baseBlog.resolve(pageRelativeFolder + "page-" + page + ".html");
+            final String items = pages.get(page - 1).stream()
+                    .map(it -> {
+                        final Map<String, Object> itemModel = buildInterpolationModel(it.page, asciidoctor, options, null);
+                        itemModel.put("title", it.page.title);
+                        return handlebars.render(itemTemplate, itemModel);
+                    })
+                    .collect(joining("\n", "\n", "\n"));
+            final String links = "\n" +
+                    "[role=\"blog-links blog-links-page\"]\n" +
+                    (page > 1 ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page - 1) + ".html[Previous,role=\"blog-link-previous\"]\n" : "") +
+                    "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
+                    (page < pages.size() ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page + 1) + ".html[Next,role=\"blog-link-next\"]\n" : "");
+            final Map<String, Object> model = new HashMap<>();
+            model.put("title", prefix.apply(page, pages.size()));
+            model.put("items", items);
+            model.put("links", links);
             render(
                     new Page(
                             '/' + configuration.getTarget().relativize(output).toString().replace(File.separatorChar, '/'),
                             prefix.apply(page, pages.size()),
                             Map.of(),
-                            new TemplateSubstitutor(key -> {
-                                switch (key) {
-                                    case "title":
-                                        return prefix.apply(page, pages.size());
-                                    case "items":
-                                        return pages.get(page - 1).stream()
-                                                .map(it -> new TemplateSubstitutor(itemKey -> {
-                                                    if ("title".equals(itemKey)) {
-                                                        return it.page.title;
-                                                    }
-                                                    return getDefaultInterpolation(itemKey, it.page, asciidoctor, options, null);
-                                                }).replace(itemTemplate))
-                                                .collect(joining("\n", "\n", "\n"));
-                                    case "links":
-                                        return "\n" +
-                                                "[role=\"blog-links blog-links-page\"]\n" +
-                                                (page > 1 ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page - 1) + ".html[Previous,role=\"blog-link-previous\"]\n" : "") +
-                                                "* link:" + configuration.getSiteBase() + "/blog/index.html[All posts,role=\"blog-link-all\"]\n" +
-                                                (page < pages.size() ? "* link:" + configuration.getSiteBase() + "/blog/page-" + (page + 1) + ".html[Next,role=\"blog-link-next\"]\n" : "");
-                                    default:
-                                        throw new IllegalArgumentException("Unknown key '" + key + "'");
-                                }
-                            }).replace(contentTemplate)),
+                            handlebars.render(contentTemplate, model)),
                     output, asciidoctor, options, false,
                     this::markPageAsBlog, null, p -> "").accept(template);
         });
@@ -1230,8 +1261,8 @@ public class MiniSite implements Runnable {
 
     protected Function<Page, String> loadNavTemplates() {
         final Path templatesDir = getTemplatesDir();
-        final String globalTemplate = readTemplates(templatesDir, List.of("page-footer-nav.html"));
-        final String linkTemplate = readTemplates(templatesDir, List.of("page-footer-nav-link.html"));
+        final String globalTemplate = findPageTemplate(templatesDir, "page-footer-nav");
+        final String linkTemplate = findPageTemplate(templatesDir, "page-footer-nav-link");
         return page -> {
             if (page.attributes == null) {
                 return "";
@@ -1243,153 +1274,84 @@ public class MiniSite implements Runnable {
                 return "";
             }
 
-            return globalTemplate
-                    .replace("{{previousLink}}", prev.render(linkTemplate, "prev", "Previous"))
-                    .replace("{{nextLink}}", next.render(linkTemplate, "next", "Next"));
+            final Map<String, Object> model = new HashMap<>();
+            model.put("previousLink", renderNavLink(prev, "prev", "Previous", linkTemplate));
+            model.put("nextLink", renderNavLink(next, "next", "Next", linkTemplate));
+            return handlebars.render(globalTemplate, model);
         };
+    }
+
+    private String renderNavLink(final NavLink nav, final String clazz, final String subLabel, final String linkTemplate) {
+        if (nav.link == null || nav.link.isBlank()) {
+            return "";
+        }
+        final Map<String, Object> model = new HashMap<>();
+        model.put("class", "page-footer-nav-link-" + clazz);
+        model.put("link", nav.link);
+        model.put("subLabel", subLabel);
+        model.put("label", nav.label);
+        return handlebars.render(linkTemplate, model);
     }
 
     public Function<Page, String> createTemplate(final Object options,
                                                  final Asciidoc.AsciidocInstance asciidoctor,
                                                  final boolean hasBlog) {
         final Path layout = getTemplatesDir();
-        String prefix = readTemplates(layout, configuration.getTemplatePrefixes())
-                .replace("{{blogLink}}", !hasBlog ? "" : "<li class=\"list-inline-item\">" +
-                        "<a title=\"Blog\" href=\"" + configuration.getSiteBase() + "/blog/\">" +
-                        "<i class=\"fa fa-blog fa-fw\"></i></a></li>")
-                .replace("{{search}}", hasSearch() ? "" +
-                        "<li class=\"list-inline-item\">" +
-                        "<a title=\"Search\" id=\"search-button\" href=\"#\" data-toggle=\"modal\" data-target=\"#searchModal\">" +
-                        "<i data-toggle=\"tooltip\" data-placement=\"top\" title=\"Search\" class=\"fas fa-search\"></i>" +
-                        "</a>" +
-                        "</li>\n" +
-                        "" : "")
-                .replace("{{customHead}}", ofNullable(configuration.getCustomHead()).orElse(""))
-                .replace("{{customMenu}}", ofNullable(configuration.getCustomMenu()).orElse(""))
-                .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
-                .replace("{{logoText}}", getLogoText())
-                .replace("{{logoSideText}}", getLogoSideText())
-                .replace("{{logo}}", ofNullable(configuration.getLogo()).orElse("{{base}}/images/logo.svg"))
-                .replace("{{favicon}}", ofNullable(configuration.getFavicon()).orElse("{{base}}/images/favicon.png"))
-                .replace("{{base}}", configuration.getSiteBase())
-                .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
-                        .orElse("yupiik"));
-        final String suffix = readTemplates(layout, configuration.getTemplateSuffixes())
-                .replace("{{searchModal}}", hasSearch() ? "" +
-                        "<div class=\"modal fade\" id=\"searchModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"searchModalLabel\" aria-hidden=\"true\">\n" +
-                        "  <div class=\"modal-dialog modal-dialog-centered\" role=\"document\">\n" +
-                        "    <div class=\"modal-content\">\n" +
-                        "      <div class=\"modal-header\">\n" +
-                        "        <h5 class=\"modal-title\" id=\"searchModalLabel\">Search</h5>\n" +
-                        "        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" +
-                        "          <span aria-hidden=\"true\">&times;</span>\n" +
-                        "        </button>\n" +
-                        "      </div>\n" +
-                        "      <div class=\"modal-body\">\n" +
-                        "        <form onsubmit=\"return false;\" class=\"form-inline\">\n" +
-                        "          <div class=\"form-group\">\n" +
-                        "            <label for=\"searchInput\"><b>Search: </b></label>\n" +
-                        "            <input class=\"form-control\" id=\"searchInput\" placeholder=\"Enter search text and hit enter...\">\n" +
-                        "          </div>\n" +
-                        "        </form>\n" +
-                        "        <div class=\"search-hits\"></div>\n" +
-                        "      </div>\n" +
-                        "      <div class=\"modal-footer\">\n" +
-                        "        <button type=\"button\" class=\"btn btn-primary\" data-dismiss=\"modal\">Close</button>\n" +
-                        "      </div>\n" +
-                        "    </div>\n" +
-                        "  </div>\n" +
-                        "</div>" :
-                        "")
-                .replace("{{copyright}}", ofNullable(configuration.getCopyright())
-                        .orElse("Yupiik &copy;"))
-                .replace("{{linkedInCompany}}", ofNullable(configuration.getLinkedInCompany())
-                        .orElse("yupiik"))
-                .replace("{{customScripts}}",
-                        ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n")
-                .replace("{{projectVersion}}", configuration.getProjectVersion()) // enables to invalidate browser cache
-                .replace("{{base}}", configuration.getSiteBase());
-        if (configuration.isLlmChatEnabled()) {
-            prefix = prefix.replace("</head>",
-                    "<link rel=\"stylesheet\" href=\"" + configuration.getSiteBase() + "/css/llm-chat.css?v=" + configuration.getProjectVersion() + "\">\n" +
-                    "</head>");
-        }
-        if (configuration.isTemplateAddLeftMenu()) {
-            prefix += "\n<minisite-menu-placeholder/>\n";
-        }
-        final String suffixRef = configuration.isLlmChatEnabled() ?
-                suffix.replace("</body>",
-                        "<div id=\"llm-chat-root\" style=\"display:none\"\n" +
-                        "     data-model-id=\"" + configuration.getLlmModelId() + "\"\n" +
-                        "     data-base=\"" + configuration.getSiteBase() + "\"></div>\n" +
-                        "<script>\n" +
-                        "if ('serviceWorker' in navigator) {\n" +
-                        "  navigator.serviceWorker.register('" + configuration.getSiteBase() + "/llm-chat-sw.js', {scope: '/'});\n" +
-                        "}\n" +
-                        "</script>\n" +
-                        "<script src=\"" + configuration.getSiteBase() + "/js/llm-chat.js?v=" + configuration.getProjectVersion() + "\"></script>\n" +
-                        "</body>") :
-                suffix;
-        final String prefixRef = prefix;
-        return page -> String.join(
-                "\n",
-                prefixRef
-                        .replace("{{title}}", getDefaultInterpolation("title", page, null, null, null))
-                        .replace("{{metaAuthor}}", getDefaultInterpolation("metaAuthor", page, null, null, null))
-                        .replace("{{metaKeywords}}", getDefaultInterpolation("metaKeywords", page, null, null, null))
-                        .replace("{{highlightJsCss}}", page.attributes == null || !page.attributes.containsKey("minisite-highlightjs-skip") ?
-                                "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css\" integrity=\"sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==\" crossorigin=\"anonymous\" />" :
-                                "")
-                        .replace("{{description}}", ofNullable(page.attributes)
-                                .map(a -> a.get("minisite-description"))
-                                .map(String::valueOf)
-                                .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(() -> {
-                                    final String content = getIndexSubTitle(false, options).replace('\n', ' ');
-                                    if (content.startsWith("adoc:")) {
-                                        return content.substring("adoc:".length());
-                                    }
-                                    return content;
-                                }))),
-                page.attributes != null && page.attributes.containsKey("minisite-passthrough") ? page.content : renderAdoc(page, asciidoctor, options),
-                suffixRef.replace("{{highlightJs}}", page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip") ? "" : ("" +
-                        "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js\" integrity=\"sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==\" crossorigin=\"anonymous\"></script>\n" +
-                        "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js\" integrity=\"sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==\" crossorigin=\"anonymous\"></script>\n" +
-                        "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js\" integrity=\"sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==\" crossorigin=\"anonymous\"></script>\n" +
-                        "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js\" integrity=\"sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==\" crossorigin=\"anonymous\"></script>\n" +
-                        "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js\" integrity=\"sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==\" crossorigin=\"anonymous\"></script>\n" +
-                        "    <script>if (!(window.minisite || {}).skipHighlightJs) { " +
-                        "hljs.highlightAll();\n" +
-                        (configuration.isAddCodeCopyButton() ?
-                                "function addCopyButtons(clipboard) {\n" +
-                                        "  document.querySelectorAll('pre > code').forEach(function (codeBlock) {\n" +
-                                        "  var button = document.createElement('button');" +
-                                        "  button.className = 'copy-code-button';" +
-                                        "  button.type = 'button';" +
-                                        "  button.innerText = 'Copy';" +
-                                        "  button.addEventListener('click', function () {" +
-                                        "   clipboard.writeText(codeBlock.innerText).then(function () {" +
-                                        "   button.blur();" +
-                                        "   button.innerText = 'Copied!';" +
-                                        "   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });" +
-                                        "  });" +
-                                        "  var pre = codeBlock.parentNode;" +
-                                        "  if (pre.parentNode.classList.contains('highlight')) { " +
-                                        "  var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);" +
-                                        "  } else { pre.parentNode.insertBefore(button, pre); }" +
-                                        " });" +
-                                        "}\n" +
-                                        "if (navigator && navigator.clipboard) {" +
-                                        " addCopyButtons(navigator.clipboard);" +
-                                        "} else {" +
-                                        " var script = document.createElement('script');" +
-                                        " script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';" +
-                                        " script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';" +
-                                        " script.crossOrigin = 'anonymous';" +
-                                        " script.onload = function() {addCopyButtons(clipboard);};" +
-                                        " document.body.appendChild(script);" +
-                                        "}" :
-                                "") +
-                        " }</script>")));
+        final String prefixTemplate = joinTemplates(layout, configuration.getTemplatePrefixes());
+        final String suffixTemplate = joinTemplates(layout, configuration.getTemplateSuffixes());
+
+        final boolean search = hasSearch();
+        final Map<String, Object> globalModel = new HashMap<>();
+        globalModel.put("blogLink", hasBlog);
+        globalModel.put("search", search);
+        globalModel.put("searchModal", search);
+        globalModel.put("highlightJs", true); // enabled unless the page opts out (see per-page override below)
+        globalModel.put("highlightJsCss", true);
+        globalModel.put("llmChat", configuration.isLlmChatEnabled());
+        globalModel.put("llmModelId", configuration.getLlmModelId());
+        globalModel.put("addCodeCopyButton", configuration.isAddCodeCopyButton());
+        globalModel.put("addLeftMenu", configuration.isTemplateAddLeftMenu());
+        globalModel.put("customHead", ofNullable(configuration.getCustomHead()).orElse(""));
+        globalModel.put("customMenu", ofNullable(configuration.getCustomMenu()).orElse(""));
+        globalModel.put("projectVersion", configuration.getProjectVersion()); // enables to invalidate browser cache
+        globalModel.put("logoText", getLogoText());
+        globalModel.put("logoSideText", getLogoSideText());
+        final String siteBase = configuration.getSiteBase();
+        // values coming from the mojo defaults can embed the {{base}} placeholder (e.g. "{{base}}/images/logo.svg"):
+        // resolve it against the real siteBase since handlebars would otherwise leave it raw
+        globalModel.put("logo", withBase(ofNullable(configuration.getLogo())
+                .orElse(siteBase + "/images/logo.svg"), siteBase));
+        globalModel.put("favicon", withBase(ofNullable(configuration.getFavicon())
+                .orElse(siteBase + "/images/favicon.png"), siteBase));
+        globalModel.put("base", siteBase);
+        globalModel.put("siteBase", siteBase);
+        globalModel.put("linkedInCompany", ofNullable(configuration.getLinkedInCompany()).orElse("yupiik"));
+        globalModel.put("copyright", ofNullable(configuration.getCopyright()).orElse("Yupiik &copy;"));
+        globalModel.put("customScripts", ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n");
+
+        return page -> {
+            final Map<String, Object> model = new HashMap<>(globalModel);
+            final boolean skipHighlightJs = page.attributes != null && page.attributes.containsKey("minisite-highlightjs-skip");
+            model.put("highlightJsCss", !skipHighlightJs);
+            model.put("highlightJs", !skipHighlightJs);
+            model.put("title", getDefaultInterpolation("title", page, null, null, null));
+            model.put("metaAuthor", getDefaultInterpolation("metaAuthor", page, null, null, null));
+            model.put("metaKeywords", getDefaultInterpolation("metaKeywords", page, null, null, null));
+            model.put("description", ofNullable(page.attributes)
+                    .map(a -> a.get("minisite-description"))
+                    .map(String::valueOf)
+                    .orElseGet(() -> ofNullable(configuration.getDescription()).orElseGet(() -> {
+                        final String content = getIndexSubTitle(false, options).replace('\n', ' ');
+                        return content.startsWith("adoc:") ? content.substring("adoc:".length()) : content;
+                    })));
+
+            final String body = page.attributes != null && page.attributes.containsKey("minisite-passthrough") ?
+                    page.content : renderAdoc(page, asciidoctor, options);
+            return String.join("\n",
+                    handlebars.render(prefixTemplate, model),
+                    body,
+                    handlebars.render(suffixTemplate, model));
+        };
     }
 
     protected Collection<Page> findPages(final Asciidoc.AsciidocInstance asciidoctor, final Object options) {
@@ -1478,11 +1440,26 @@ public class MiniSite implements Runnable {
         return asciidoctor.convert(page.content, options);
     }
 
-    protected String readTemplates(final Path layout, final List<String> templatePrefixes) {
-        return newTemplateSubstitutor(layout).replace(templatePrefixes.stream()
+    protected String joinTemplates(final Path layout, final List<String> names) {
+        return names.stream()
                 .flatMap(it -> findTemplate(layout, it))
                 .filter(Objects::nonNull)
-                .collect(joining("\n")));
+                .collect(joining("\n"));
+    }
+
+    private static String withBase(final String value, final String siteBase) {
+        return value == null ? null : value.replace("{{base}}", siteBase);
+    }
+
+    private static void copyDefaultBinaryAsset(final Path output, final String resource,
+                                               final io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration asciidoctorConfiguration) {
+        try (final InputStream stream = MiniSite.class.getClassLoader().getResourceAsStream(resource)) {
+            final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
+            Files.createDirectories(out.getParent());
+            Files.copy(requireNonNull(stream), out, StandardCopyOption.REPLACE_EXISTING);
+        } catch (final IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private Stream<String> findTemplate(final Path layout, final String it) {
@@ -1507,12 +1484,6 @@ public class MiniSite implements Runnable {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private TemplateSubstitutor newTemplateSubstitutor(final Path layout) {
-        return new TemplateSubstitutor(key -> ofNullable(configuration.getTemplateExtensionPoints().get(key))
-                .or(() -> ofNullable(findTemplate(layout.resolve("extension-points"), key + ".html")).map(s -> s.collect(joining("\n"))))
-                .orElse(null));
     }
 
     public Object createOptions() {
@@ -1542,14 +1513,6 @@ public class MiniSite implements Runnable {
             this.link = ofNullable(props.get(prefix + "link"))
                     .filter(Predicate.not(String::isBlank))
                     .orElseGet(() -> label == null || label.isBlank() ? null : label.toLowerCase(ROOT).replace(' ', '-') + ".html");
-        }
-
-        public String render(final String template, final String clazz, final String subLabel) {
-            return link == null || link.isBlank() ? "" : template
-                    .replace("{{class}}", "page-footer-nav-link-" + clazz)
-                    .replace("{{link}}", link)
-                    .replace("{{subLabel}}", subLabel)
-                    .replace("{{label}}", label);
         }
     }
 }

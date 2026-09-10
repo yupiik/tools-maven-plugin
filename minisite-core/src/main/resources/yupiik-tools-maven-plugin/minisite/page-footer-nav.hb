@@ -1,4 +1,4 @@
 <nav class="page-footer-nav" aria-label="Docs pages">
-    {{previousLink}}
-    {{nextLink}}
+    {{{previousLink}}}
+    {{{nextLink}}}
 </nav>

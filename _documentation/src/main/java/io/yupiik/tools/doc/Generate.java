@@ -114,8 +114,8 @@ public final class Generate {
         configuration.setProjectArtifactId(projectArtifact);
         configuration.setProjectVersion(projectVersion);
         configuration.setTemplateExtensionPoints(Map.of("point", "{{point}}"));
-        configuration.setTemplatePrefixes(List.of("header.html", "menu.html"));
-        configuration.setTemplateSuffixes(List.of("footer-top.html", "footer-end.html"));
+        configuration.setTemplatePrefixes(List.of("header.hb", "menu.hb"));
+        configuration.setTemplateSuffixes(List.of("footer-top.hb", "footer-end.hb"));
         configuration.setTemplateAddLeftMenu(true);
         configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
             // avoid it to be closed too early by wrapping it in a not URLCLassLoader

@@ -153,7 +153,7 @@ public class GithubContributorGenerator implements Runnable {
                 if (Files.exists(path)) {
                     template = Files.readString(path, UTF_8);
                 }
-                content = Handlebars.render(template, Map.of("contributors", jsonb.fromJson(jsonb.toJson(model), Object.class)));
+                content = new Handlebars(Map.of()).render(template, Map.of("contributors", jsonb.fromJson(jsonb.toJson(model), Object.class)));
             }
             Files.writeString(outputPath, content);
         } catch (final RuntimeException re) {
