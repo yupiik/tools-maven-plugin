@@ -455,7 +455,7 @@ public class Parser {
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
-                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver).value(), options));
+                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", stripped.substring(1).strip()));
@@ -526,7 +526,7 @@ public class Parser {
                     options = null;
                 }
             } else if (Objects.equals("++++", stripped)) {
-                elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver));
+                elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver, attributes));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options));
@@ -582,7 +582,7 @@ public class Parser {
 
     private PassthroughBlock parsePassthrough(final Path enclosingDocument,
                                               final Reader reader, final Map<String, String> options, final String marker,
-                                              final ContentResolver resolver) {
+                                              final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
@@ -600,14 +600,14 @@ public class Parser {
         // a literal block ("....") is verbatim, a passthrough block ("++++") has no substitution by default
         final var substitutions = resolveSubs(actualOpts.get("subs"), "....".equals(marker) ? VERBATIM_SUBS : NO_SUBS);
         if (!text.contains("include::")) {
-            return new PassthroughBlock(subs(text, actualOpts, substitutions), actualOpts);
+            return new PassthroughBlock(subs(text, currentAttributes, substitutions), actualOpts);
         }
 
         final var filtered = Stream.of(text.split("\n"))
                 .map(it -> {
                     try {
                         return it.startsWith("include::") ?
-                                handleIncludes(enclosingDocument, it, resolver, actualOpts, false).stream()
+                                handleIncludes(enclosingDocument, it, resolver, currentAttributes, false).stream()
                                         .map(e -> e instanceof Text t ? t.value() : "")
                                         .collect(joining("")) :
                                 it;
@@ -616,7 +616,7 @@ public class Parser {
                     }
                 })
                 .collect(joining("\n"));
-        return new PassthroughBlock(subs(filtered, actualOpts, substitutions), actualOpts);
+        return new PassthroughBlock(subs(filtered, currentAttributes, substitutions), actualOpts);
     }
 
     /**
@@ -666,8 +666,9 @@ public class Parser {
         return resolved == null ? defaults : resolved;
     }
 
-    private String subs(final String value, final Map<String, String> opts, final Set<String> substitutions) {
-        return substitutions.contains("attributes") ? earlyAttributeReplacement(value, opts) : value;
+    private String subs(final String value, final Map<String, String> currentAttributes, final Set<String> substitutions) {
+        // the same lookup as a paragraph line: the document attributes, then the parser's global ones
+        return substitutions.contains("attributes") ? earlyAttributeReplacement(value, currentAttributes) : value;
     }
 
     private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1057,12 +1058,12 @@ public class Parser {
         final var substitutions = resolveSubs(codeOptions.get("subs"), VERBATIM_SUBS);
         if (!substitutions.contains("callouts")) {
             // the block dropped the callout substitution so `<1>` is code text and the `<1> ...` lines after it are content
-            return new Code(subs(code, codeOptions, substitutions), List.of(), codeOptions, false);
+            return new Code(subs(code, currentAttributes, substitutions), List.of(), codeOptions, false);
         }
 
         final var contentWithCallouts = parseWithCallouts(code);
         if (contentWithCallouts.callOutReferences().isEmpty()) {
-            return new Code(subs(code, codeOptions, substitutions), List.of(), codeOptions, false);
+            return new Code(subs(code, currentAttributes, substitutions), List.of(), codeOptions, false);
         }
 
         final var callOuts = new ArrayList<CallOut>(contentWithCallouts.callOutReferences().size());
@@ -1095,7 +1096,7 @@ public class Parser {
             throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
         }
 
-        return new Code(subs(contentWithCallouts.content(), codeOptions, substitutions), callOuts, codeOptions, false);
+        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), callOuts, codeOptions, false);
     }
 
     private ContentWithCalloutIndices parseWithCallouts(final String snippet) {
