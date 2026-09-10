@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static io.yupiik.tools.cli.launcher.Main.main;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Log
@@ -72,54 +72,38 @@ class VersionInjectorCommandTest {
                 "--inplace=true",
                 "--version-folder-parent=" + workDir,
                 "--select-properties=id=version-selector\nonchange=console.log(document.getElementById('version-selector').value)",
-                "--replaced-string=regex:(?s)<div class=\"page-navigation-left\">(.*)            </ul>\n        </div>",
+                "--replaced-string=regex:(?s)<div class=\"page-navigation-left\">\n" +
+                        "    <h3 class=\"menu-label\">Menu</h3>\n" +
+                        "    <ul>\n" +
+                        "(.*?)" +
+                        "    </ul>\n" +
+                        "</div>",
                 "--replacing-content=" +
                         "<div class=\"page-navigation-left\">\n" +
-                        "\n" +
-                        "<div class=\"version-selector\">\n" +
-                        "<!-- generated_versions_select -->\n" +
-                        "</div>\n" +
-                        "$1\n" +
+                        "    <h3 class=\"menu-label\">Menu</h3>\n" +
+                        "    <ul>\n" +
+                        "      $1" +
+                        "      <li>\n" +
+                        "        <div class=\"version-selector\">" +
+                        "          <!-- generated_versions_select -->" +
+                        "        </div>\n" +
+                        "      </li>\n" +
                         "    </ul>\n" +
-                        "  </div>\n");
-        assertEquals(
-                "<div class=\"page\">\n" +
-                        "        <div class=\"page-navigation-left\">\n" +
-                        "\n" +
-                        "<div class=\"version-selector\">\n" +
-                        "<!-- START generated_versions_select -->" +
-                        "<select id=\"version-selector\" onchange=\"console.log(document.getElementById('version-selector').value)\"" +
-                        " data-versioninjector-generation-iteration=\"1\">" +
-                        "<option>1.0.0</option>" +
-                        "<option>1.0.1</option>" +
-                        "<option>v1.2.1</option>" +
-                        "<option>1.3.1</option>" +
-                        "<option>1.12.1</option>" +
-                        "<option>1.121.1</option>" +
-                        "</select>" +
-                        "<!-- END generated_versions_select -->/div>\n" +
-                        "\n" +
-                        "            <h3>Menu</h3>\n" +
-                        "            <ul>\n" +
-                        "\n" +
-                        "\n" +
-                        "    </ul>\n" +
-                        "  </div>\n" +
-                        "\n" +
-                        "\n" +
-                        "        <div id=\"page-html-container\" class=\"container page-content page-html \">\n" +
-                        "                        <div class=\"page-header\">\n" +
-                        "                <h1>Page 1</h1>\n" +
-                        "            </div>\n" +
-                        "            <div class=\"page-content-body\">\n" +
-                        "                <div class=\"paragraph\">\n" +
-                        "<p>Content.</p>\n" +
-                        "</div>\n" +
-                        "                \n" +
-                        "                \n" +
-                        "            </div>\n" +
-                        "        </div>",
-                extractContent(Files.readString(output.resolve("page.html"))).strip());
+                        "</div>");
+
+        final var content = extractContent(Files.readString(output.resolve("page.html"))).strip().replace("\r", "");
+        assertTrue(content.contains("<div class=\"page-navigation-left\">"), "left menu present");
+        final var ul = content.substring(content.indexOf("<ul>"), content.indexOf("</ul>"));
+        assertTrue(ul.contains("version-selector"), "version selector within ul: " + ul);
+        assertTrue(ul.contains("onchange=\"console.log(document.getElementById('version-selector').value)\""), "onchange");
+        assertTrue(ul.contains("data-versioninjector-generation-iteration=\"1\""), "generation iteration");
+        for (final var version : List.of("1.0.0", "1.0.1", "v1.2.1", "1.3.1", "1.12.1", "1.121.1")) {
+            assertTrue(ul.contains("<option>" + version + "</option>"), "option " + version);
+        }
+        assertTrue(content.contains("<div class=\"page\">"), "page wrapper present");
+        assertTrue(content.contains("<div class=\"page-header\">"), "page header present");
+        assertTrue(content.contains("<h1>Page 1</h1>"), "page title");
+        assertTrue(content.contains("<p>Content.</p>"), "asciidoctor content");
     }
 
     private String extractContent(final String readString) {
@@ -151,8 +135,8 @@ class VersionInjectorCommandTest {
                         .linkedInCompany("test linkedin")
                         .siteBase("")
                         .searchIndexName("search.json")
-                        .templatePrefixes(List.of("header.html", "menu.html"))
-                        .templateSuffixes(List.of("footer-top.html", "footer-end.html"))
+                        .templatePrefixes(List.of("header.hb", "menu.hb"))
+                        .templateSuffixes(List.of("footer-top.hb", "footer-end.hb"))
                         .projectVersion("1.0.0")
                         .projectName("test project")
                         .projectArtifactId("test-artifact")

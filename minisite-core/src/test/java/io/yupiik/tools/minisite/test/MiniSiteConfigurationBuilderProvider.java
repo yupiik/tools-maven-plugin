@@ -122,8 +122,8 @@ public @interface MiniSiteConfigurationBuilderProvider {
                         .linkedInCompany("test linkedin")
                         .siteBase("")
                         .searchIndexName("search.json")
-                        .templatePrefixes(List.of("header.html", "menu.html"))
-                        .templateSuffixes(List.of("footer-top.html", "footer-end.html"))
+                        .templatePrefixes(List.of("header.hb", "menu.hb"))
+                        .templateSuffixes(List.of("footer-top.hb", "footer-end.hb"))
                         .projectVersion("1.0.0")
                         .projectName("test project")
                         .projectArtifactId("test-artifact")
@@ -182,6 +182,10 @@ public @interface MiniSiteConfigurationBuilderProvider {
                     Files.walkFileTree(base, new SimpleFileVisitor<>() {
                         @Override
                         public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                            final var name = file.getFileName().toString();
+                            if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".ico") || name.endsWith(".woff") || name.endsWith(".woff2")) {
+                                return super.visitFile(file, attrs);
+                            }
                             collector.generated.put(base.relativize(file).toString().replace(File.separatorChar, '/'), Files.readString(file));
                             return super.visitFile(file, attrs);
                         }

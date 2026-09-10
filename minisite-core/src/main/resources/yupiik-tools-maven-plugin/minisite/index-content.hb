@@ -1,4 +1,4 @@
-    <div class="page-content">
+<div class="page-content">
         <div class="container">
             <h1 class="page-heading mx-auto">{{{title}}}</h1>
             <div class="page-intro mx-auto">{{{subTitle}}}</div>

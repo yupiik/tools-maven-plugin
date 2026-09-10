@@ -13,23 +13,78 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+/* The chat follows the global theme: variables are defined on #llm-chat-root
+   which lives inside <body> under the <html data-theme="..."> toggle. */
+#llm-chat-root {
+  --brand: var(--brand-blue, #02ABEA);
+  --brand-soft: #e3f2fd;
+  --brand-strong: #1557b0;
+  --bg: var(--surface, #ffffff);
+  --border: var(--border, #e2e5ea);
+  --text: var(--text, #333333);
+  --muted: var(--muted, #888888);
+  --msg-user-bg: #e3f2fd;
+  --msg-user-text: #1565c0;
+  --msg-assistant-bg: var(--surface-2, #f5f5f5);
+  --code-bg: rgba(0, 0, 0, 0.06);
+  --error-bg: #fdecea;
+  --error-text: #c62828;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']) #llm-chat-root {
+    --brand: var(--brand-blue, #02ABEA);
+    --brand-soft: #0b2a3a;
+    --brand-strong: #5cc9f5;
+    --bg: #1a1d24;
+    --border: #262b36;
+    --text: #eaeef3;
+    --muted: #9aa4b2;
+    --msg-user-bg: #0b2a3a;
+    --msg-user-text: #7ad2f7;
+    --msg-assistant-bg: #23262e;
+    --code-bg: rgba(255, 255, 255, 0.08);
+    --error-bg: #3a1f22;
+    --error-text: #f18080;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+html[data-theme='dark'] #llm-chat-root {
+  --brand: var(--brand-blue, #02ABEA);
+  --brand-soft: #0b2a3a;
+  --brand-strong: #5cc9f5;
+  --bg: #1a1d24;
+  --border: #262b36;
+  --text: #eaeef3;
+  --muted: #9aa4b2;
+  --msg-user-bg: #0b2a3a;
+  --msg-user-text: #7ad2f7;
+  --msg-assistant-bg: #23262e;
+  --code-bg: rgba(255, 255, 255, 0.08);
+  --error-bg: #3a1f22;
+  --error-text: #f18080;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
 #llm-chat-container {
   position: fixed;
   bottom: 20px;
   right: 20px;
   width: 380px;
   max-height: 560px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
-  color: #333;
+  color: var(--text);
   overflow: hidden;
 }
 
@@ -48,7 +103,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: #1a73e8;
+  background: var(--brand);
   color: #fff;
   font-weight: 600;
   font-size: 13px;
@@ -84,7 +139,7 @@
 }
 
 .llm-send-btn {
-  background: #1a73e8;
+  background: var(--brand);
   color: #fff;
   padding: 6px 16px;
   border-radius: 8px;
@@ -93,7 +148,7 @@
 }
 
 .llm-send-btn:hover:not(:disabled) {
-  background: #1557b0;
+  background: var(--brand-strong);
 }
 
 #llm-chat-messages {
@@ -114,34 +169,34 @@
 }
 
 .llm-message.llm-user {
-  background: #e3f2fd;
+  background: var(--msg-user-bg);
   align-self: flex-end;
-  color: #1565c0;
+  color: var(--msg-user-text);
 }
 
 .llm-message.llm-assistant {
-  background: #f5f5f5;
+  background: var(--msg-assistant-bg);
   align-self: flex-start;
-  color: #333;
+  color: var(--text);
 }
 
 .llm-message.llm-system {
   background: transparent;
   align-self: center;
   font-size: 12px;
-  color: #888;
+  color: var(--muted);
   font-style: italic;
 }
 
 .llm-message.llm-error {
-  background: #fdecea;
+  background: var(--error-bg);
   align-self: center;
-  color: #c62828;
+  color: var(--error-text);
   font-size: 12px;
 }
 
 .llm-message a {
-  color: #1a73e8;
+  color: var(--brand);
   text-decoration: underline;
 }
 
@@ -168,7 +223,7 @@
   font-weight: 600;
 }
 .llm-message code {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--code-bg);
   padding: 1px 4px;
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -179,24 +234,26 @@
   display: flex;
   gap: 8px;
   padding: 8px 14px 12px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 #llm-chat-input {
   flex: 1;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   font-family: inherit;
   font-size: 13px;
   resize: none;
   outline: none;
+  background: var(--bg);
+  color: var(--text);
   transition: border-color 0.2s;
 }
 
 #llm-chat-input:focus {
-  border-color: #1a73e8;
+  border-color: var(--brand);
 }
 
 #llm-chat-loading {
@@ -207,7 +264,7 @@
 #llm-chat-loading-bar-container {
   width: 100%;
   height: 4px;
-  background: #eee;
+  background: var(--border);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 4px;
@@ -216,14 +273,14 @@
 #llm-chat-loading-bar {
   height: 100%;
   width: 0;
-  background: #1a73e8;
+  background: var(--brand);
   border-radius: 2px;
   transition: width 0.3s;
 }
 
 #llm-chat-loading-text {
   font-size: 11px;
-  color: #888;
+  color: var(--muted);
 }
 
 .llm-chat-open-btn {
@@ -233,11 +290,11 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #1a73e8;
+  background: var(--brand);
   color: #fff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow);
   display: flex;
   align-items: center;
   justify-content: center;

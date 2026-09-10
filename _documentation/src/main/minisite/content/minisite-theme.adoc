@@ -1,0 +1,128 @@
+= Minisite Theme
+:minisite-index-title: Theme
+:minisite-index-description: Customize the minisite look and feel with the default handlebars-based theme.
+
+The minisite default template is a modern, agency-quality theme derived from the link:https://yupiik.com[yupiik.com] brand identity.
+It ships as a set of link:https://handlebarsjs.com/[handlebars]-like templates (`.hb` files) and a CSS variable-driven stylesheet supporting **light** and **dark** color schemes with a manual toggle.
+
+This page documents how the template engine works, which templates and partials exist, and how to override them for your own website.
+
+== How templating works
+
+Templates are rendered by an embedded handlebars engine (fusion-handlebars).
+The syntax is a subset of handlebars:
+
+[TIP]
+====
+* `{{name}}` interpolates the `name` value and **HTML-escapes** it.
+* `{{{name}}}` interpolates the `name` value **without** escaping (raw). Use it for values that already contain HTML such as the rendered page `body`, `breadcrumb` or generated navigation.
+* `{{#if name}}...{{else}}...{{/if}}`, `{{#each items}}...{{/each}}` and similar block helpers are supported.
+* `{{> partialName}}` includes a partial (see <<Partials>>). Note there is **no space** after `>`.
+* `{{lowercase value}}` / `{{uppercase value}}` are built-in helpers.
+====
+
+The values (the "model") are provided by the generator Java code.
+Most of them are dynamic (page title, body, breadcrumb, dates and so on).
+Values that are only relevant when a feature is enabled (search, blog, llm chat, copy button) are available as boolean flags you can use with `{{#if ...}}`.
+
+== Default templates
+
+Templates live under the `templates` folder of your minisite source (`src/main/minisite/templates` by default).
+If a template is not found there, the generator falls back to its bundled defaults, so you only need to copy the files you want to customize.
+
+The layout is composed of the following default templates:
+
+[options="header",cols="1,2"]
+|====
+|File|Purpose
+|`header.hb`|`<head>` plus the opening `<body>`. Global meta, fonts, icons, theme stylesheet and the inline anti-flicker theme script.
+|`menu.hb`|Sticky site header: brand/logo, header actions (custom menu, search, blog link, social links, theme toggle) and the opening `.page` wrapper.
+|`footer-top.hb`|Right-hand navigation column (the table of contents populated by `minisite.js`), closes the `.page` wrapper.
+|`footer-end.hb`|Site footer (social links + copyright), search modal, jQuery, highlight.js, `minisite.js`, llm chat scripts, custom scripts, closing `</body></html>`.
+|`page-title.hb`|The page `<h1>` heading block.
+|`page-content.hb`|The main content column: breadcrumb, title and the `.page-content-body` that receives the rendered Asciidoctor content and the previous/next navigation.
+|`left-menu.hb`|Optional left navigation column rendered when the left menu is enabled.
+|`left-menu-item.hb`|Single entry of the left navigation.
+|`index-item.hb`|One tile (card) of an automatically generated index page.
+|`index-content.hb`|The index page layout: heading, intro and the docs overview grid.
+|`page-footer-nav.hb`|Previous/next pagination navigation block.
+|`page-footer-nav-link.hb`|Single previous/next link.
+|`blog-list.adoc.hb`|Asciidoctor page listing all blog posts (title, items and pagination links).
+|`blog-list-item.adoc.hb`|Asciidoctor passthrough wrapping one blog post card.
+|====
+
+=== Prefix and suffix
+
+`header.hb`, `menu.hb` and `footer-top.hb`, `footer-end.hb` are the *prefix* and *suffix* templates that wrap each page.
+The `templatePrefixes` / `templateSuffixes` configuration (default `header.hb,menu.hb` and `footer-top.hb,footer-end.hb`) lists which files to use, in order.
+
+== Partials
+
+Reusable fragments are stored in the `templates/_partials` folder and included with `{{> name}}`.
+They are exposed to templates either as static HTML or as HTML gated behind a boolean model flag:
+
+[options="header",cols="1,2"]
+|====
+|Partial|Purpose
+|`search.hb`|The search button in the header (`{{#if search}}`).
+|`searchModal.hb`|The search modal dialog (`{{#if searchModal}}`).
+|`blogLink.hb`|The blog link in the header (`{{#if blogLink}}`).
+|`highlightJsCss.hb`|The highlight.js stylesheet link (`{{#if highlightJsCss}}`).
+|`highlightJs.hb`|The highlight.js script tag (`{{#if highlightJs}}`), including the optional copy-to-clipboard button.
+|`llmChatCss.hb`|LLM chat stylesheet link (`{{#if llmChat}}`).
+|`llmChatScripts.hb`|The LLM chat widget markup and scripts (`{{#if llmChat}}`).
+|====
+
+=== Extension points
+
+The generator sets a few partials from your site configuration so they can be placed anywhere:
+`socialLinks`, `socialLinksFooter`, `copyrightLine` and any custom entry of `templateExtensionPoints`.
+You can also provide your own partial by putting a `*.hb` file under the `templates/extension-points` folder; its name (without the `.hb` extension) is then usable as `{{> name}}`.
+
+== Model (available values)
+
+The following keys are available in all page templates when applicable:
+
+[options="header",cols="1,2"]
+|====
+|Key|Description
+|`base` / `siteBase`|The site absolute base URL.
+|`title`|Page title.
+|`description`|Page description (from `minisite-description`, the global config, or the index subtitle).
+|`metaAuthor`|Author or `Yupiik Minisite Generator` by default.
+|`metaKeywords`|Prebuilt `<meta name="keywords">` HTML or empty.
+|`logo`|Logo URL.
+|`logoText`|Text next to the logo.
+|`logoSideText`|Small uppercase label next to the logo text.
+|`favicon`|Favicon URL.
+|`projectVersion`|Current project version.
+|`linkedInCompany`|LinkedIn company identifier.
+|`copyright`|Copyright line.
+|`body`|Rendered Asciidoctor content (raw HTML).
+|`breadcrumb`|Breadcrumb HTML (raw).
+|`pageClass`, `categoryClass`, `icon`, `isBlogClass`|Classes/icons used to style cards and pages.
+|`author`, `authors`, `authors-list`, `gravatar`, `publishedDate`, `summary`, `readingTime`|Blog metadata.
+|`defaultEndOfContent`|Blog extra content (categories, authors, navigation).
+|`href`, `hrefTitle`|Link and title used by cards.
+|`customHead`, `customMenu`, `customScripts`|Raw HTML injected by the user configuration.
+|`search`, `searchModal`, `blogLink`, `highlightJs`, `highlightJsCss`, `llmChat`, `addCodeCopyButton`, `addLeftMenu`|Boolean toggles gating feature HTML via `{{#if ...}}`.
+|====
+
+== Theme colors and light/dark mode
+
+The theme uses CSS variables defined on `:root`, overridden by `:root[data-theme='light']` and `:root[data-theme='dark']`.
+The `data-theme` attribute is set on the `<html>` element and persisted in the `yupiik-theme` localStorage key; an inline script in `header.hb` applies it before first paint to avoid a flicker, and the toggle button in `menu.hb` switches it in `footer-end.hb`.
+
+The palette is derived from the yupiik.com brand:
+
+[options="header",cols="2,4"]
+|====
+|Token|Value
+|`--brand-green`|`#46F72F`
+|`--brand-purple`|`#D858FF`
+|`--brand-blue`|`#02ABEA`
+|`--brand-blue-dark`|`#056EBB`
+|====
+
+When the visitor has not toggled the theme yet, the site follows the operating system preference via `prefers-color-scheme` (defaulting to dark, the ``.io`` look).
+Override `--bg`, `--surface`, `--text`, `--brand`, `--ring` and the other `--*` variables in your own `css/theme.css` (set directly on `:root`) to rebrand the site with one click.

@@ -86,8 +86,7 @@
     <dependency>
       <groupId>io.yupiik.fusion</groupId>
       <artifactId>fusion-handlebars</artifactId>
-      <version>1.0.29</version>
-      <scope>provided</scope>
+      <version>${fusion.version}</version>
     </dependency>
 
     <dependency>

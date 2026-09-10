@@ -336,9 +336,9 @@ TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 yo
 |searchIndexName|String|search.json|yupiik.minisite.generateSearchIndex|Should search.json be generated and if not `none` its name.
 |generateIndex|boolean|true|yupiik.minisite.generateIndex|Should index be generated from the pages.
 |generateSiteMap|boolean|true|yupiik.minisite.generateSiteMap|Should sitemap be generated.
-|templatePrefixes|List<String>|default|-|List of html templates to prepend to the content.
+|templatePrefixes|List<String>|`header.hb,menu.hb`|yupiik.minisite.templatePrefixes|List of handlebars templates to prepend to the content.
 |templateAddLeftMenu|boolean|true|yupiik.minisite.addLeftMenu|Should a left menu inheriting from index logic be generated.
-|templateSuffixes|List<String>|default|-|List of html templates to append to the content.
+|templateSuffixes|List<String>|`footer-top.hb,footer-end.hb`|yupiik.minisite.templateSuffixes|List of handlebars templates to append to the content.
 |useDefaultAssets|boolean|true|yupiik.minisite.useDefaultAssets|Should default css/js be extracted and added to the website.
 |customHead|String|-|yupiik.minisite.customHead|String injected at the end of head tag of html pages.
 |customScripts|String|-|yupiik.minisite.customScripts|String injected at the end of script tags of html pages.
@@ -358,7 +358,7 @@ TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 yo
 |skipIndexTitleDocumentationText|boolean|false|yupiik.minisite.skipIndexTitleDocumentationText|Should ` Documentation` be appended to index text.
 |logoSideText|String|Docs|yupiik.minisite.logoSideText|Text next logo text, generally the subproject or just `Docs`.
 |injectYupiikTemplateExtensionPoints|boolean|true|yupiik.minisite.injectYupiikTemplateExtensionPoints|Should Yupiik custom points be used (alias for multiple custom extension points, only override missing ones).
-|templateExtensionPoints|Map<String,String>|-|yupiik.minisite.templateExtensionPoints|Values for custom template extension points like `socialLinks` and `copyrightLine`. Note that these templates can also be put in `templates/extension-points` folder (with `.html` extension appended to their name).
+|templateExtensionPoints|Map<String,String>|-|yupiik.minisite.templateExtensionPoints|Values for custom template extension points like `socialLinks` and `copyrightLine`. Note that these templates can also be put in `templates/extension-points` folder (with `.hb` extension appended to their name).
 |gravatar|GravatarConfiguration|-|-|An object where gravatar URL pattern can be configured. Default is equivalent to: `<gravatar><url>https://www.gravatar.com/avatar/%s?d=identicon&size=40</url></gravatar>`.
 |====
 
