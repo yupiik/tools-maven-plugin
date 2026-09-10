@@ -2609,4 +2609,34 @@ class ParserTest {
                 List.of(new Text(List.of(), "snippet b", Map.of())),
                 body.children());
     }
+
+    @Test
+    void attributeValueSubstitutedWhenAssigned() { // #122, as asciidoctor the value is resolved before the assignment, not when referenced
+        final var doc = new Parser().parse(List.of(
+                ":a: 1", ":b: {a}", ":a: 2", "", "b is {b}, a is {a}."), new Parser.ParserContext(null));
+        assertEquals("1", doc.header().attributes().get("b"));
+        assertEquals(List.of(new Text(List.of(), "b is 1, a is 2.", Map.of())), doc.body().children());
+    }
+
+    @Test
+    void attributeValueSubstitutedWhenAssignedInTheBody() {
+        final var doc = new Parser().parse(List.of(
+                "= Title", "", ":a: 1", ":b: {a}", ":a: 2", "", "b is {b}, a is {a}."), new Parser.ParserContext(null));
+        assertEquals(List.of(new Text(List.of(), "b is 1, a is 2.", Map.of())), doc.body().children());
+    }
+
+    @Test
+    void attributeValueSubstitutedAcrossTheAuthorLine() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= Title", ":a: 1", "Dave Grohl", ":b: {a}", "", "content")));
+        assertEquals("1", header.attributes().get("b"));
+    }
+
+    @Test
+    void attributeValueKeepsUnknownReferences() { // #122, asciidoctor keeps a reference it can not resolve as is
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                ":a: ${a}", ":b: x{c}y", "", "content")));
+        assertEquals("${a}", header.attributes().get("a"));
+        assertEquals("x{c}y", header.attributes().get("b"));
+    }
 }

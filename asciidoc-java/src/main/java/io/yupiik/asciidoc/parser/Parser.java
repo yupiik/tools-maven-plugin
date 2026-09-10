@@ -217,7 +217,7 @@ public class Parser {
         var revision = NO_REVISION;
         if (!title.isEmpty()) {
             // attribute entries can precede the author line, in particular when it references one of them
-            attributes.putAll(readAttributes(enclosingElement, reader, resolver));
+            attributes.putAll(readAttributes(enclosingElement, reader, resolver, attributes));
 
             final var authorLine = reader.nextLine();
             if (authorLine == null || authorLine.isBlank()) {
@@ -254,7 +254,7 @@ public class Parser {
         }
 
         final var beforeAuthorLine = Map.copyOf(attributes);
-        attributes.putAll(readAttributes(enclosingElement, reader, resolver));
+        attributes.putAll(readAttributes(enclosingElement, reader, resolver, attributes));
         return buildHeader(title, authors, revision, merge(attributes, preTitleOptions), beforeAuthorLine);
     }
 
@@ -566,8 +566,8 @@ public class Parser {
                     } catch (final RuntimeException nfe) { // NumberFormatException mainly
                         attributes.put(rawName, value);
                     }
-                } else {
-                    attributes.put(rawName, value);
+                } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
+                    attributes.put(rawName, earlyAttributeReplacement(value, attributes));
                 }
             } else {
                 reader.rewind();
@@ -1314,7 +1314,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var attributeName = line.substring(i + 1, end);
-                        elements.add(new Attribute(attributeName, value -> doParse(enclosingDocument, new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true, false)));
+                        elements.add(lazyAttribute(enclosingDocument, attributeName, resolver, currentAttributes, Set.of(attributeName)));
                         i = end;
                         start = end + 1;
                     }
@@ -1827,6 +1827,40 @@ public class Parser {
         return strip.startsWith("\"") && strip.endsWith("\"") && strip.length() > 1 ? strip.substring(1, strip.length() - 1) : strip;
     }
 
+    // a reference is evaluated when it is rendered, its value can come from the renderer configuration, by parsing the
+    // value as a line of the document. so a value referencing a name which is being evaluated (":a: ${a}") must keep
+    // the reference literal, as asciidoctor keeps an unresolvable reference, otherwise the evaluation never ends.
+    // the guard follows the chain of evaluations since a cycle can go through several names.
+    private Attribute lazyAttribute(final Path enclosingDocument, final String name, final ContentResolver resolver,
+                                    final Map<String, String> currentAttributes, final Set<String> evaluating) {
+        return new Attribute(name, value -> {
+            final var parsed = keepLiteralReferences(
+                    doParse(enclosingDocument, new Reader(List.of(value)), l -> true, resolver, new HashMap<>(currentAttributes), true, false),
+                    evaluating);
+            // a value is inline content but the parsing wraps it in a paragraph when it has several elements
+            return parsed.size() == 1 && parsed.get(0) instanceof Paragraph p && p.options().isEmpty() ? p.children() : parsed;
+        });
+    }
+
+    private List<Element> keepLiteralReferences(final List<Element> elements, final Set<String> evaluating) {
+        return elements.stream()
+                .map(it -> {
+                    if (it instanceof Attribute a) {
+                        if (evaluating.contains(a.attribute())) {
+                            return new Text(List.of(), '{' + a.attribute() + '}', Map.of());
+                        }
+                        final var chain = new HashSet<>(evaluating);
+                        chain.add(a.attribute());
+                        return new Attribute(a.attribute(), value -> keepLiteralReferences(a.evaluator().apply(value), chain));
+                    }
+                    if (it instanceof Paragraph p) { // the shape a one-line value takes
+                        return new Paragraph(keepLiteralReferences(p.children(), evaluating), p.options());
+                    }
+                    return it;
+                })
+                .toList();
+    }
+
     private String earlyAttributeReplacement(final String value, final Map<String, String> attributes) {
         return earlyAttributeReplacement(value, attributes::get);
     }
@@ -1847,7 +1881,11 @@ public class Parser {
         for (final var key : keys) {
             final var placeholder = '{' + key + '}';
             final var replacement = attributes.apply(key);
-            out = out.replace(placeholder, replacement == null ? globalAttributes.getOrDefault(key, placeholder) : replacement);
+            final var resolved = replacement == null ? globalAttributes.getOrDefault(key, placeholder) : replacement;
+            if (resolved.contains(placeholder)) { // ":a: ${a}", inlining it would create a new reference to evaluate, the lazy evaluation handles it
+                continue;
+            }
+            out = out.replace(placeholder, resolved);
         }
         return out;
     }
@@ -2611,7 +2649,10 @@ public class Parser {
         return new Revision(number, date, remark);
     }
 
-    private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver) {
+    // knownAttributes are the ones read before this batch (a header has one before and one after the author line),
+    // a value can reference them as well as the ones of the batch
+    private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver,
+                                               final Map<String, String> knownAttributes) {
         Map<String, String> attributes = new LinkedHashMap<>();
         String line;
         while ((line = reader.nextLine()) != null) {
@@ -2638,8 +2679,11 @@ public class Parser {
                 final var rawName = matcher.group("name");
                 if (rawName.startsWith("!")) {
                     attributes.remove(rawName.substring(1));
-                } else {
-                    attributes.put(rawName, value);
+                } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
+                    attributes.put(rawName, earlyAttributeReplacement(value, name -> {
+                        final var local = attributes.get(name);
+                        return local != null ? local : knownAttributes.get(name);
+                    }));
                 }
             } else if (isBlockMacro(line)) {
                 // simplistic macro handling, mainly for conditional blocks since we still are in headers
