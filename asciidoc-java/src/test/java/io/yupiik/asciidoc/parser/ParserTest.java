@@ -254,6 +254,83 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithInlineConditionals() { // ifdef::attr[content] has no endif, the content is a single line
+        {   // condition is false, the line is dropped but the header parsing goes on
+            final var header = new Parser().parseHeader(new Reader(List.of(
+                    "= Title",
+                    "ifdef::env-github[:imagesdir: ../assets/images/posts]",
+                    ":page-layout: post")));
+            assertEquals("Title", header.title());
+            assertEquals(Map.of("page-layout", "post", "authorcount", "0"), header.attributes());
+        }
+        {   // condition is true, the content is evaluated as a header line
+            final var header = new Parser(Map.of("env-github", "true")).parseHeader(new Reader(List.of(
+                    "= Title",
+                    "ifdef::env-github[:imagesdir: ../assets/images/posts]",
+                    ":page-layout: post")));
+            assertEquals("Title", header.title());
+            assertEquals(Map.of(
+                    "imagesdir", "../assets/images/posts",
+                    "page-layout", "post",
+                    "authorcount", "0"), header.attributes());
+        }
+        {   // the attribute the condition tests can be set by the header itself
+            final var header = new Parser().parseHeader(new Reader(List.of(
+                    "= Title",
+                    ":my-flag:",
+                    "ifdef::my-flag[:page-set-by-inline: yes]")));
+            assertEquals(Map.of(
+                    "my-flag", "",
+                    "page-set-by-inline", "yes",
+                    "authorcount", "0"), header.attributes());
+        }
+        {   // ifndef inline form
+            final var header = new Parser().parseHeader(new Reader(List.of(
+                    "= Title",
+                    "ifndef::env-github[:imagesdir: ./images]",
+                    ":page-layout: post")));
+            assertEquals(Map.of(
+                    "imagesdir", "./images",
+                    "page-layout", "post",
+                    "authorcount", "0"), header.attributes());
+        }
+    }
+
+    @Test
+    void parseHeaderWithMultipleAttributesConditionals() { // "," is an or, "+" is an and
+        final var orForm = List.of(
+                "= Title",
+                "ifdef::env-github,env-browser[:imagesdir: ../assets/images/posts]",
+                ":page-layout: post");
+        assertEquals(
+                Map.of("page-layout", "post", "authorcount", "0"),
+                new Parser().parseHeader(new Reader(orForm)).attributes());
+        assertEquals(
+                Map.of("imagesdir", "../assets/images/posts", "page-layout", "post", "authorcount", "0"),
+                new Parser(Map.of("env-browser", "true")).parseHeader(new Reader(orForm)).attributes());
+
+        final var andForm = List.of(
+                "= Title",
+                "ifdef::env-github+env-browser[:imagesdir: ../assets/images/posts]",
+                ":page-layout: post");
+        assertEquals(
+                Map.of("page-layout", "post", "authorcount", "0"),
+                new Parser(Map.of("env-github", "true")).parseHeader(new Reader(andForm)).attributes());
+        assertEquals(
+                Map.of("imagesdir", "../assets/images/posts", "page-layout", "post", "authorcount", "0"),
+                new Parser(Map.of("env-github", "true", "env-browser", "true")).parseHeader(new Reader(andForm)).attributes());
+
+        // as of asciidoctor an empty name is an undefined attribute so a trailing separator is never true
+        final var trailingSeparator = List.of(
+                "= Title",
+                "ifdef::env-github+[:imagesdir: ../assets/images/posts]",
+                ":page-layout: post");
+        assertEquals(
+                Map.of("page-layout", "post", "authorcount", "0"),
+                new Parser(Map.of("env-github", "true")).parseHeader(new Reader(trailingSeparator)).attributes());
+    }
+
+    @Test
     void parseHeaderAndContent() {
         final var doc = new Parser().parse(List.of("= Title", "", "++++", "pass", "++++"), new Parser.ParserContext(null));
         assertEquals("Title", doc.header().title());
@@ -2266,6 +2343,21 @@ class ParserTest {
                         new ConditionalBlock.Ifdef("foo"),
                         List.of(new Text(List.of(), "This is value.", Map.of())),
                         Map.of())),
+                body.children());
+    }
+
+    @Test
+    void inlineIfdef() { // ifdef::attr[content] has no endif::[], the lines after it are not part of the block
+        final var body = new Parser().parseBody(
+                new Reader(List.of("ifdef::foo[This is value.]", "After.")),
+                null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new ConditionalBlock(
+                                new ConditionalBlock.Ifdef("foo"),
+                                List.of(new Text(List.of(), "This is value.", Map.of())),
+                                Map.of()),
+                        new Text(List.of(), "After.", Map.of())), Map.of())),
                 body.children());
     }
 

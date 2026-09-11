@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AsciidoctorLikeHtmlRendererTest {
@@ -615,6 +616,32 @@ class AsciidoctorLikeHtmlRendererTest {
                   </table>
                  </div>
                 """);
+    }
+
+    @Test
+    void inlineIfdef() { // ifdef::attr[content] renders its content when the attribute is set and never swallows what follows
+        final var doc = new Parser().parse(List.of("""
+                = Title
+
+                ifdef::foo[Only with foo.]
+                Always there.
+
+                Last paragraph.""".split("\n")), new Parser.ParserContext(null));
+        {
+            final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                    .setAttributes(Map.of("noheader", "true")));
+            renderer.visit(doc);
+            final var html = renderer.result();
+            assertFalse(html.contains("Only with foo."), html);
+            assertTrue(html.contains("Always there.") && html.contains("Last paragraph."), html);
+        }
+        {
+            final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                    .setAttributes(Map.of("noheader", "true", "foo", "")));
+            renderer.visit(doc);
+            final var html = renderer.result();
+            assertTrue(html.contains("Only with foo.") && html.contains("Always there.") && html.contains("Last paragraph."), html);
+        }
     }
 
     @Test
