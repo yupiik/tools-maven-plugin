@@ -46,7 +46,7 @@ The parser supports standard Asciidoc syntax including:
 * Open/closed blocks, quote blocks, listing blocks, example blocks
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
-* Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`)
+* Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
 * Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
 * Callouts, footnotes, index terms, counters
 * Table features: colspan, rowspan, header option, autowidth, stripes, column alignment

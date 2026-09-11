@@ -1634,13 +1634,17 @@ public class Parser {
                                 switch (macro.name()) {
                                     case "include" ->
                                             elements.addAll(doInclude(enclosingDocument, macro, resolver, currentAttributes, true));
-                                    case "ifdef" -> {
-                                        final var ifBlock = readIfBlock(reader);
-                                        elements.add(parseConditionalBlock("ifdef", macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
-                                    }
-                                    case "ifndef" -> {
-                                        final var ifBlock = readIfBlock(reader);
-                                        elements.add(parseConditionalBlock("ifndef", macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
+                                    case "ifdef", "ifndef" -> {
+                                        // ifdef::attr[content] is the inline form: the content sits in the brackets
+                                        // and there is no endif::[], so nothing more is read from the document
+                                        final var enclosed = line.substring(i + 1, end);
+                                        final var inline = !enclosed.isBlank();
+                                        final var ifBlock = inline ?
+                                                new IfBlock(List.of(enclosed), List.of(List.of(enclosed)), List.of()) :
+                                                readIfBlock(reader);
+                                        elements.add(parseConditionalBlock(
+                                                macro.name(), macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes,
+                                                inline ? Map.of() : macro.options()));
                                     }
                                     case "ifeval" -> {
                                         final var condition = macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip();
@@ -2715,54 +2719,62 @@ public class Parser {
                     }));
                 }
             } else if (isBlockMacro(line)) {
-                // simplistic macro handling, mainly for conditional blocks since we still are in headers
+                // simplistic macro handling, mainly for conditional blocks since we still are in headers,
+                // HEADER_MACRO guarantees the "::" and the trailing "[...]" so no need to guard the indexes
                 final var stripped = line.strip();
-                final int options = stripped.indexOf("[]");
-                if (stripped.length() - "[]".length() == options) { // endsWith
-                    final int sep = stripped.indexOf("::");
-                    if (sep > 0) {
-                        final var macro = new Macro(
-                                stripped.substring(0, sep),
-                                stripped.substring(sep + "::".length(), options),
-                                Map.of(), false);
-                        if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
-                            final var ifBlock = readIfBlock(reader);
+                final int sep = stripped.indexOf("::");
+                final int options = stripped.indexOf('[', sep);
+                final var macro = new Macro(
+                        stripped.substring(0, sep),
+                        stripped.substring(sep + "::".length(), options),
+                        Map.of(), false);
+                // what sits in the brackets: empty for the block form (it is closed by a endif::[]),
+                // the conditioned content itself for the inline form of ifdef/ifndef which has no endif::[]
+                final var enclosed = stripped.substring(options + 1, stripped.length() - 1);
+                if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
+                    final var ctx = new ConditionalBlock.Context() {
+                        @Override
+                        public String attribute(final String key) {
+                            return attributes.getOrDefault(key, globalAttributes.get(key));
+                        }
+                    };
+                    final boolean branchMatched = switch (macro.name()) {
+                        case "ifdef" -> new ConditionalBlock.Ifdef(macro.label()).test(ctx);
+                        case "ifndef" -> new ConditionalBlock.Ifndef(macro.label()).test(ctx);
+                        case "ifeval" ->
+                                new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), attributes)).test(ctx);
+                        default -> false; // not possible
+                    };
 
-                            final var ctx = new ConditionalBlock.Context() {
-                                @Override
-                                public String attribute(final String key) {
-                                    return attributes.getOrDefault(key, globalAttributes.get(key));
-                                }
-                            };
-                            boolean branchMatched = switch (macro.name()) {
-                                case "ifdef" -> new ConditionalBlock.Ifdef(macro.label()).test(ctx);
-                                case "ifndef" -> new ConditionalBlock.Ifndef(macro.label()).test(ctx);
-                                case "ifeval" ->
-                                        new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), attributes)).test(ctx);
-                                default -> false; // not possible
-                            };
-                            if (branchMatched) {
-                                reader.insert(ifBlock.mainContent());
-                            } else {
-                                for (int i = 1; i < ifBlock.branches.size(); i++) {
-                                    final var branchCond = ifBlock.branchConditions.get(i - 1);
-                                    if ("else::[]".equals(branchCond)) {
-                                        reader.insert(ifBlock.branches.get(i));
-                                        break;
-                                    }
-                                    final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
-                                    if (new ConditionalBlock.Ifdef(elsifLabel).test(ctx)) {
-                                        reader.insert(ifBlock.branches.get(i));
-                                        break;
-                                    }
-                                }
+                    // ifeval has no inline form so it is always a block, for ifdef/ifndef the brackets tell
+                    if (!enclosed.isBlank() && !"ifeval".equals(macro.name())) {
+                        if (branchMatched) { // give the line back to the loop, it is a header line as any other
+                            reader.insert(List.of(enclosed));
+                        }
+                        continue; // either way the header does not end here
+                    }
+
+                    final var ifBlock = readIfBlock(reader);
+                    if (branchMatched) {
+                        reader.insert(ifBlock.mainContent());
+                    } else {
+                        for (int i = 1; i < ifBlock.branches.size(); i++) {
+                            final var branchCond = ifBlock.branchConditions.get(i - 1);
+                            if ("else::[]".equals(branchCond)) {
+                                reader.insert(ifBlock.branches.get(i));
+                                break;
                             }
-                            continue;
-                        } else if ("include".equals(macro.name())) {
-                            doInclude(enclosingElement, macro, resolver, attributes, true);
-                            continue;
+                            final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
+                            if (new ConditionalBlock.Ifdef(elsifLabel).test(ctx)) {
+                                reader.insert(ifBlock.branches.get(i));
+                                break;
+                            }
                         }
                     }
+                    continue;
+                } else if ("include".equals(macro.name()) && enclosed.isEmpty()) {
+                    doInclude(enclosingElement, macro, resolver, attributes, true);
+                    continue;
                 }
 
                 // not a preprocessor macro, as of asciidoctor it is a plain line of the header or of the body
