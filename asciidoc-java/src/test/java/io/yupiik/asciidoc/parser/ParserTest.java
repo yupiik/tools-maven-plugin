@@ -27,6 +27,7 @@ import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
@@ -1315,11 +1316,258 @@ class ParserTest {
     }
 
     @Test
-    void escapedIncludeInText(@TempDir final Path work) throws IOException {
+    void codeIncludeKeepsTheLinesAfterIt(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("one.txt"), "one\n");
+        Files.writeString(work.resolve("two.txt"), "two\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,text]
+                ----
+                before
+                include::one.txt[]
+                middle
+                include::two.txt[]
+                after
+                ----
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Code("before\none\nmiddle\ntwo\nafter\n", Map.of("language", "text"), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void codeIncludeFollowedByACalloutIsCode(@TempDir final Path work) throws IOException { // as asciidoctor, text after ] is not a directive
+        Files.writeString(work.resolve("attrs.adoc"), ":a: 1\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,asciidoc]
+                ----
+                = Title
+                include::attrs.adoc[] <1>
+                :type: howto
+                ----
+                <1> The attributes.
+                """.split("\n"))), ContentResolver.of(work));
+        final var callOut = new CallOut(1, new Text(List.of(), "The attributes.", Map.of()));
+        assertEquals(
+                List.of(new Code("= Title\ninclude::attrs.adoc[]\n:type: howto\n", Map.of("language", "asciidoc"), false,
+                        List.of(List.of(), List.of(callOut), List.of()))),
+                body.children());
+    }
+
+    @Test
+    void codeIncludeOnlyAsAWholeLine(@TempDir final Path work) throws IOException { // indented, inside a line, escaped with trailing text
+        Files.writeString(work.resolve("one.txt"), "one\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,text]
+                ----
+                  include::one.txt[]
+                text include::one.txt[] more
+                \\include::one.txt[] trailing
+                ----
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Code("  include::one.txt[]\ntext include::one.txt[] more\n\\include::one.txt[] trailing\n", Map.of("language", "text"), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void literalIncludeFollowedByTextIsText(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("one.txt"), "one\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ....
+                include::one.txt[] trailing
+                after
+                ....
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(List.of(new Listing("include::one.txt[] trailing\nafter", null)), body.children());
+    }
+
+    @Test
+    void includeInTextOnlyAsAWholeLine(@TempDir final Path work) throws IOException { // text around it, single colon, space before the brackets
+        Files.writeString(work.resolve("one.txt"), "one\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                text include::one.txt[] more
+
+                include::one.txt[] trailing
+
+                include:one.txt[]
+
+                include::one.txt []
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "text include::one.txt[] more", Map.of()),
+                        new Text(List.of(), "include::one.txt[] trailing", Map.of()),
+                        new Text(List.of(), "include:one.txt[]", Map.of()),
+                        new Text(List.of(), "include::one.txt []", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void includesInACompleteDocument(@TempDir final Path work) throws IOException {
+        // the document must parse as the same document with each directive replaced by what it includes,
+        // the lines which are not a directive staying as they are: the flattened document is parsed without any file
+        // so a line read as a directive by mistake fails
+        Files.writeString(work.resolve("one.txt"), "one\n");
+        Files.writeString(work.resolve("two.txt"), "two\n");
+        Files.writeString(work.resolve("intro.adoc"), "Included paragraph.\n");
+        Files.writeString(work.resolve("section.adoc"), "== Included\n\nSection text.\n");
+        Files.writeString(work.resolve("code.java"), "a();\n// tag::body[]\nb();\n// end::body[]\nc();\n");
+        Files.createDirectories(work.resolve("sub"));
+        Files.writeString(work.resolve("sub/nested.txt"), "nested\ninclude::sibling.txt[]\n");
+        Files.writeString(work.resolve("sub/sibling.txt"), "sibling\n");
+        final var document = """
+                = Include directives
+                :partial: one.txt
+
+                include::intro.adoc[]
+
+                == Text
+
+                A first line
+                include::one.txt[]
+                and a last line.
+
+                text include::one.txt[] more
+
+                include::one.txt[] trailing
+
+                include:one.txt[]
+
+                include::one.txt []
+
+                include::[]
+
+                include::{partial}[]
+
+                * item
+                +
+                include::one.txt[]
+
+                ====
+                include::one.txt[]
+                ====
+
+                include::section.adoc[leveloffset=+1]
+
+                == Code
+
+                [source,java]
+                ----
+                include::one.txt[]
+                middle
+                include::two.txt[]  \s
+                include::code.java[tag=body]
+                  include::one.txt[]
+                x(); <1>
+                text include::one.txt[] more
+                include::one.txt[] <2>
+                include::{partial}[]
+                include::sub/nested.txt[]
+                include::one.txt []
+                include::[]
+                include::two.txt[]
+                ----
+                <1> A callout after includes.
+                <2> A marker after a directive.
+
+                ....
+                include::one.txt[] trailing
+                text include::one.txt[] more
+                ....
+
+                ++++
+                include::one.txt[] trailing
+                include::[]
+                ++++
+                """;
+        final var flattened = """
+                = Include directives
+                :partial: one.txt
+
+                Included paragraph.
+
+                == Text
+
+                A first line
+                one
+                and a last line.
+
+                text include::one.txt[] more
+
+                include::one.txt[] trailing
+
+                include:one.txt[]
+
+                include::one.txt []
+
+                include::[]
+
+                one
+
+                * item
+                +
+                one
+
+                ====
+                one
+                ====
+
+                === Included
+
+                Section text.
+
+                == Code
+
+                [source,java]
+                ----
+                one
+                middle
+                two
+                b();
+                  include::one.txt[]
+                x(); <1>
+                text include::one.txt[] more
+                include::one.txt[] <2>
+                one
+                nested
+                sibling
+                include::one.txt []
+                include::[]
+                two
+                ----
+                <1> A callout after includes.
+                <2> A marker after a directive.
+
+                ....
+                include::one.txt[] trailing
+                text include::one.txt[] more
+                ....
+
+                ++++
+                include::one.txt[] trailing
+                include::[]
+                ++++
+                """;
+        assertEquals(
+                new Parser().parse(flattened, new Parser.ParserContext(ContentResolver.of(work.resolve("missing")))).body(),
+                new Parser().parse(document, new Parser.ParserContext(ContentResolver.of(work))).body());
+    }
+
+    @Test
+    void escapedIncludeInText(@TempDir final Path work) throws IOException { // as asciidoctor, only a whole line is a directive
         Files.writeString(work.resolve("content.properties"), "test = value\n");
         final var body = new Parser().parseBody(new Reader(List.of("a line with \\include::content.properties[] in it")), ContentResolver.of(work));
         assertEquals(
-                List.of(new Text(List.of(), "a line with include::content.properties[] in it", Map.of())),
+                List.of(new Text(List.of(), "a line with \\include::content.properties[] in it", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void escapedIncludeLineInText(@TempDir final Path work) throws IOException { // documenting the directive: the backslash goes
+        Files.writeString(work.resolve("content.properties"), "test = value\n");
+        final var body = new Parser().parseBody(new Reader(List.of("before", "\\include::content.properties[]", "after")), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Text(List.of(), "before include::content.properties[] after", Map.of())),
                 body.children());
     }
 
