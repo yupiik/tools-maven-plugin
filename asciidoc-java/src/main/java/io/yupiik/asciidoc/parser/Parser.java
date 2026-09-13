@@ -1149,38 +1149,58 @@ public class Parser {
                                          final ContentResolver resolver,
                                          final Map<String, String> currentAttributes,
                                          final boolean parse) {
-        final var literal = new StringBuilder(); // what precedes the include, escaped directives included
-        int from = 0;
-        while (true) {
-            final int start = content.indexOf("include::", from);
-            if (start < 0) {
-                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
-            }
-            final int opts = content.indexOf('[', start);
-            if (opts < 0) {
-                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
-            }
-            final int end = content.indexOf(']', opts);
-            if (end < 0) {
-                return List.of(new Text(List.of(), literal.append(content, from, content.length()).toString(), Map.of()));
-            }
-            if (start > 0 && content.charAt(start - 1) == '\\') { // escaped directive, asciidoctor drops the backslash and keeps the text
-                literal.append(content, from, start - 1).append(content, start, end + 1);
-                from = end + 1;
-                continue;
-            }
-            final var include = doInclude(
-                    enclosingDocument,
-                    new Macro(
-                            "include",
-                            earlyAttributeReplacement(content.substring(start + "include::".length(), opts), currentAttributes),
-                            parseOptions(content.substring(opts + 1, end)), false),
-                    resolver, currentAttributes, parse);
-            return Stream.concat(
-                            Stream.of(new Text(List.of(), literal.append(content, from, start).toString(), Map.of())),
-                            include.stream())
-                    .toList();
+        if (!content.contains("include::")) {
+            return List.of(new Text(List.of(), content, Map.of()));
         }
+        // line by line, as asciidoctor's preprocessor: a line is expanded only when it is an include directive as a whole,
+        // and the lines after an include are kept
+        final var elements = new ArrayList<Element>();
+        final var literal = new StringBuilder();
+        int from = 0;
+        while (from < content.length()) {
+            final int newLine = content.indexOf('\n', from);
+            final int lineEnd = newLine < 0 ? content.length() : newLine;
+            final int next = newLine < 0 ? content.length() : newLine + 1;
+            final boolean escaped = content.startsWith("\\include::", from);
+            final var include = escaped || content.startsWith("include::", from) ?
+                    includeDirective(content.substring(escaped ? from + 1 : from, lineEnd), currentAttributes) :
+                    null;
+            if (include == null) {
+                literal.append(content, from, next);
+            } else if (escaped) { // documenting the directive: asciidoctor drops the backslash
+                literal.append(content, from + 1, next);
+            } else {
+                if (!literal.isEmpty()) {
+                    elements.add(new Text(List.of(), literal.toString(), Map.of()));
+                    literal.setLength(0);
+                }
+                elements.addAll(doInclude(enclosingDocument, include, resolver, currentAttributes, parse));
+            }
+            from = next;
+        }
+        if (!literal.isEmpty() || elements.isEmpty()) {
+            elements.add(new Text(List.of(), literal.toString(), Map.of()));
+        }
+        return elements;
+    }
+
+    // the include directive as asciidoctor's preprocessor reads it: `include::target[options]` is the whole line - trailing
+    // spaces aside - and the target neither is empty nor starts or ends with a space, else the line is text and null is returned
+    private Macro includeDirective(final String line, final Map<String, String> currentAttributes) {
+        final var directive = line.stripTrailing();
+        if (!directive.startsWith("include::") || !directive.endsWith("]")) {
+            return null;
+        }
+        final int target = "include::".length();
+        final int options = directive.indexOf('[', target);
+        if (options <= target ||
+                Character.isWhitespace(directive.charAt(target)) || Character.isWhitespace(directive.charAt(options - 1))) {
+            return null;
+        }
+        return new Macro(
+                "include",
+                earlyAttributeReplacement(directive.substring(target, options), currentAttributes),
+                parseOptions(directive.substring(options + 1, directive.length() - 1)), false);
     }
 
     private Paragraph parseParagraph(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1597,12 +1617,32 @@ public class Parser {
                         var offset = 0;
                         if (backward >= 0 && backward < i) { // start by assuming it a link then fallback on a macro
                             var optionsPrefix = line.substring(backward, i);
+                            final boolean escaped = optionsPrefix.startsWith("\\");
+                            if (optionsPrefix.startsWith("include:", escaped ? 1 : 0)) {
+                                // not an inline macro but a directive, as in asciidoctor: only a whole line is one,
+                                // anywhere else it stays text with its backslash, which only goes for an escaped whole line
+                                final var include = backward == 0 ? includeDirective(line.substring(escaped ? 1 : 0), currentAttributes) : null;
+                                if (include == null) { // text, with the backslash the escaping case skipped put back
+                                    flushText(elements, line.substring(escaped && start == backward + 1 ? backward : start, end + 1));
+                                } else {
+                                    if (escaped) {
+                                        flushText(elements, line.substring(1).stripTrailing());
+                                    } else {
+                                        elements.addAll(doInclude(enclosingDocument, include, resolver, currentAttributes, true));
+                                    }
+                                    end = line.length() - 1; // the directive runs to the end of the line, its options can hold a ']'
+                                }
+                                i = end;
+                                start = end + 1;
+                                continue;
+                            }
+
                             var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
                                 flushText(elements, line.substring(start, backward));
                             }
 
-                            if (optionsPrefix.startsWith("\\")) { // escaped macro, asciidoctor drops the backslash and keeps the text
+                            if (escaped) { // escaped macro, asciidoctor drops the backslash and keeps the text
                                 flushText(elements, line.substring(backward + 1, end + 1));
                                 i = end;
                                 start = end + 1;
@@ -1635,8 +1675,6 @@ public class Parser {
 
                                 final var macro = new Macro(type, label, isStemLike ? Map.of() : options, inlined);
                                 switch (macro.name()) {
-                                    case "include" ->
-                                            elements.addAll(doInclude(enclosingDocument, macro, resolver, currentAttributes, true));
                                     case "ifdef", "ifndef" -> {
                                         // ifdef::attr[content] is the inline form: the content sits in the brackets
                                         // and there is no endif::[], so nothing more is read from the document
@@ -2142,7 +2180,8 @@ public class Parser {
         if (parse) {
             return doParse(resolved.path(), new Reader(content), l -> true, resolver, currentAttributes, true, false);
         }
-        return List.of(new Text(List.of(), String.join("\n", content) + '\n', Map.of()));
+        // as for a parsed include, the includes of the included content are relative to it
+        return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
     }
 
     private int findSectionLevel(final String line) {
