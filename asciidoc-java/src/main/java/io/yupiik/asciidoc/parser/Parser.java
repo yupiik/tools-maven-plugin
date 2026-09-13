@@ -1067,8 +1067,11 @@ public class Parser {
         final var numbers = callOuts.stream().map(CallOut::number).toList();
         final var references = new HashSet<Integer>();
         contentWithCallouts.lineReferences().forEach(references::addAll);
-        if (!numbers.containsAll(references) &&
-                // asciidoctor renders such a document with a warning; opt in to that with `:callout-mismatch: ignore`
+        // the markers and the list must match both ways: a marker without an item, or an item whose marker is not in the
+        // code (the model keeps callouts per code line, so such an item has no place)
+        // asciidoctor renders such a document with a warning; opt in to that with `:callout-mismatch: ignore`,
+        // which keeps the document without the unmatched markers and items
+        if ((!numbers.containsAll(references) || !references.containsAll(numbers)) &&
                 !"ignore".equals(currentAttributes.getOrDefault("callout-mismatch", globalAttributes.get("callout-mismatch")))) {
             throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
         }

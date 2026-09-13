@@ -1427,6 +1427,40 @@ class ParserTest {
     }
 
     @Test
+    void codeCalloutItemWithoutMarkerFails() { // the opposite case of a marker without an item
+        final var reader = new Reader(List.of("""
+                [source,java]
+                ----
+                a(); <1>
+                b();
+                ----
+                <1> One.
+                <2> Two.
+                """.split("\n")));
+        final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
+        assertTrue(error.getMessage().startsWith("Invalid callout references"), error::getMessage);
+    }
+
+    @Test
+    void codeCalloutItemWithoutMarkerIgnoredOnDemand() { // the document is kept, the item has no line to sit on
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :callout-mismatch: ignore
+
+                [source,java]
+                ----
+                a(); <1>
+                b();
+                ----
+                <1> One.
+                <2> Two.
+                """.split("\n"))), null);
+        final var one = new CallOut(1, new Text(List.of(), "One.", Map.of()));
+        assertEquals(
+                List.of(new Code("a();\nb();\n", Map.of("language", "java"), false, List.of(List.of(one), List.of()))),
+                body.children());
+    }
+
+    @Test
     void codeWithCallout() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 [source,java,.hljs]
