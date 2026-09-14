@@ -2674,6 +2674,28 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void attributeReferencesInBlockTitleAndAttributeLine() {
+        assertRenderingContent("""
+                :product: Quarkus
+                :lang: properties
+
+                .{product} configuration
+                [source,{lang}]
+                ----
+                quarkus.http.port=8081
+                ----
+                """, """
+                 <div class="listingblock">
+                  <div class="title">Quarkus configuration</div>
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">quarkus.http.port=8081
+                </code></pre>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void percentOptionPrefix() {
         assertRendering("[%collapsible]\n====\nSome text\n====",
                 "<!DOCTYPE html>\n" +
