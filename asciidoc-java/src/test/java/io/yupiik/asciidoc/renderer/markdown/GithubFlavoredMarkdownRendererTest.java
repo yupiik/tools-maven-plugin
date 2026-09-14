@@ -775,6 +775,19 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void escapedAttributeReferenceInABlockTitle() { // as asciidoctor, the escaped reference stays literal without its backslash
+        assertEquals("**Title with {name} and value**\n\n```java\nrun();\n```\n", md("""
+                :name: value
+
+                .Title with \\{name} and {name}
+                [source,java]
+                ----
+                run();
+                ----
+                """));
+    }
+
+    @Test
     void tableWithoutHeaderRowAmongOtherOptions() { // the parser reads [%autowidth%noheader] as one option key
         final var table = """
                 |===

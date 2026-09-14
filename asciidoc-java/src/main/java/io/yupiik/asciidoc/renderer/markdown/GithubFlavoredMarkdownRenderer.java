@@ -48,6 +48,7 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiPredicate;
 
 import static java.util.stream.Collectors.joining;
 
@@ -180,10 +181,10 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     /**
      * Renders the children of a block container (body, section, open block, ...), where each inline element is a
-     * paragraph of its own unless a line break ties it to its neighbours, see {@link VisitorSibling#segments(List, boolean)}.
+     * paragraph of its own unless a line break ties it to its neighbours, see {@link #segments(List, boolean)}.
      */
     protected void renderChildren(final List<Element> children) {
-        renderSegments(sibling.segments(children, false));
+        renderSegments(segments(children, false));
     }
 
     protected void renderSegments(final List<List<Element>> segments) {
@@ -194,6 +195,91 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 paragraph(inlineChildren(segment));
             }
         }
+    }
+
+    /**
+     * Splits sibling elements into segments: each block element alone, and each run of inline elements forming one
+     * paragraph.
+     * <p>
+     * The parser does not wrap every paragraph, so where a paragraph ends is guessed from the whitespace the parser
+     * keeps around the styled texts, attributes and links it splits a paragraph into:
+     * <ul>
+     *     <li>in a {@code Paragraph} the children are one paragraph, except that a delimited block (admonition, list
+     *     item) gives its source paragraphs as sibling texts: two unstyled texts meeting with no whitespace are two
+     *     paragraphs,</li>
+     *     <li>in a block container each inline element is a paragraph, except that a paragraph holding a line break is
+     *     given as its inline elements: around a line break, elements meeting on whitespace or punctuation are one
+     *     paragraph.</li>
+     * </ul>
+     *
+     * @param children       the sibling elements.
+     * @param paragraphLevel true for the children of a {@code Paragraph}, false for the children of a block container.
+     * @return the segments, in order.
+     */
+    protected List<List<Element>> segments(final List<Element> children, final boolean paragraphLevel) {
+        final var segments = new ArrayList<List<Element>>();
+        List<Element> run = null;
+        for (final var child : children) {
+            if (run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph
+                    && paragraph.children().stream().allMatch(sibling::isInline)) {
+                run.addAll(paragraph.children()); // the parser wraps the line after a line break when it has markup
+            } else if (!sibling.isInline(child)) {
+                if (run != null) {
+                    segments.addAll(paragraphLevel ? splitParagraphRun(run) : splitBlockRun(run));
+                    run = null;
+                }
+                segments.add(List.of(child));
+            } else {
+                if (run == null) {
+                    run = new ArrayList<>();
+                }
+                run.add(child);
+            }
+        }
+        if (run != null) {
+            segments.addAll(paragraphLevel ? splitParagraphRun(run) : splitBlockRun(run));
+        }
+        return segments;
+    }
+
+    // the parser gives the paragraphs of a delimited admonition or of a list item as sibling texts, see segments()
+    protected List<List<Element>> splitParagraphRun(final List<Element> run) {
+        return split(run, (before, after) -> before instanceof Text b && after instanceof Text a
+                && b.style().isEmpty() && a.style().isEmpty()
+                && !endsWithWhitespace(b) && !startsWithWhitespaceOrPunctuation(a));
+    }
+
+    protected List<List<Element>> splitBlockRun(final List<Element> run) {
+        if (run.stream().noneMatch(LineBreak.class::isInstance)) {
+            return run.stream().map(List::of).toList();
+        }
+        return split(run, (before, after) -> !(before instanceof LineBreak) && !(after instanceof LineBreak)
+                && !(before instanceof Text b && endsWithWhitespace(b))
+                && !(after instanceof Text a && startsWithWhitespaceOrPunctuation(a)));
+    }
+
+    private List<List<Element>> split(final List<Element> run, final BiPredicate<Element, Element> isBoundary) {
+        final var segments = new ArrayList<List<Element>>();
+        var current = new ArrayList<Element>();
+        for (final var element : run) {
+            if (!current.isEmpty() && isBoundary.test(current.get(current.size() - 1), element)) {
+                segments.add(current);
+                current = new ArrayList<>();
+            }
+            current.add(element);
+        }
+        segments.add(current);
+        return segments;
+    }
+
+    protected boolean endsWithWhitespace(final Text text) {
+        final var value = text.value();
+        return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(value.length() - 1));
+    }
+
+    protected boolean startsWithWhitespaceOrPunctuation(final Text text) {
+        final var value = text.value();
+        return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(0)) || ".,;:!?)]}".indexOf(value.charAt(0)) >= 0;
     }
 
     private void paragraph(final String text) {
@@ -278,7 +364,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         if (id != null) {
             anchor(id);
         }
-        renderSegments(sibling.segments(paragraph.children(), true));
+        renderSegments(segments(paragraph.children(), true));
     }
 
     @Override
@@ -450,10 +536,10 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * code blocks, nested lists) in source order, indented under the marker.
      */
     protected void listItem(final String marker, final Element item) {
-        final var segments = new ArrayList<>(sibling.segments(item instanceof Paragraph paragraph ? paragraph.children() : List.of(item), true));
+        final var segments = new ArrayList<>(segments(item instanceof Paragraph paragraph ? paragraph.children() : List.of(item), true));
         if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped
                 && !wrapped.children().isEmpty() && wrapped.children().stream().allMatch(sibling::isInline)
-                && sibling.segments(wrapped.children(), true).size() == 1) { // first paragraph of an item carrying blocks
+                && segments(wrapped.children(), true).size() == 1) { // first paragraph of an item carrying blocks
             segments.set(0, wrapped.children());
         }
         final var first = segments.isEmpty() || !sibling.isInline(segments.get(0).get(0)) ? List.<Element>of() : segments.remove(0);
@@ -499,7 +585,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 builder.append("\n\n");
             } else if (sibling.isInline(description) || description instanceof Paragraph paragraph
                     && paragraph.children().stream().allMatch(sibling::isInline)
-                    && sibling.segments(paragraph.children(), true).size() == 1) {
+                    && segments(paragraph.children(), true).size() == 1) {
                 builder.append("\\\n").append(inline(description).strip()).append("\n\n");
             } else {
                 builder.append("\n\n").append(indent(block(List.of(description)), "  ")).append("\n\n");
@@ -794,15 +880,18 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * @return the text with a backslash before each of the characters.
      */
     protected String escape(final String text, final String characters) {
-        final var escaped = new StringBuilder(text.length() + 8);
+        StringBuilder escaped = null; // most texts have nothing to escape, then the text is returned as is
+        int copied = 0;
         for (int i = 0; i < text.length(); i++) {
-            final char c = text.charAt(i);
-            if (characters.indexOf(c) >= 0) {
-                escaped.append('\\');
+            if (characters.indexOf(text.charAt(i)) >= 0) {
+                if (escaped == null) {
+                    escaped = new StringBuilder(text.length() + 8);
+                }
+                escaped.append(text, copied, i).append('\\');
+                copied = i;
             }
-            escaped.append(c);
         }
-        return escaped.toString();
+        return escaped == null ? text : escaped.append(text, copied, text.length()).toString();
     }
 
     /**
@@ -863,7 +952,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case "link" -> "[" + sibling.substitute(options.getOrDefault("", label), context()).strip() + "](" + destination(sibling.substitute(label, context()).strip()) + ")";
             case "xref" -> xref(macro, options);
             case "mailto" -> "[" + options.getOrDefault("", label).strip() + "](" + destination("mailto:" + label.strip()) + ")";
-            case "kbd" -> kbd(sibling.keys(macro));
+            case "kbd" -> kbd(sibling.kbdKeys(macro));
             case "btn" -> "**" + sibling.content(macro).strip() + "**";
             case "menu" -> "**" + (label.isBlank() ?
                     options.getOrDefault("", "").strip() :
@@ -899,7 +988,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     /**
      * @return the keys of a {@code kbd} macro, each in a {@code <kbd>} element, joined with {@code +}, see
-     * {@link VisitorSibling#keys(Macro)}.
+     * {@link VisitorSibling#kbdKeys(Macro)}.
      */
     protected String kbd(final List<String> keys) {
         final var out = new StringBuilder();
