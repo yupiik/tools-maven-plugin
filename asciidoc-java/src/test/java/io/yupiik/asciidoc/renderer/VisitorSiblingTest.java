@@ -16,10 +16,12 @@
 package io.yupiik.asciidoc.renderer;
 
 import io.yupiik.asciidoc.model.Code;
+import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
@@ -32,6 +34,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VisitorSiblingTest { // the options come from the parser, so a change of the parser shows here
@@ -80,13 +83,29 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
     }
 
     @Test
-    void keys() {
+    void kbdKeys() {
         final var macros = ((Paragraph) parse("Press kbd:[Ctrl+Shift+T], kbd:[Ctrl++] or kbd:[Ctrl,Shift].")).children().stream()
                 .filter(Macro.class::isInstance)
                 .map(Macro.class::cast)
                 .toList();
         assertEquals(List.of(List.of("Ctrl", "Shift", "T"), List.of("Ctrl", "+"), List.of("Ctrl", "Shift")),
-                macros.stream().map(sibling::keys).toList());
+                macros.stream().map(sibling::kbdKeys).toList());
+    }
+
+    @Test
+    void attributeReferences() { // as asciidoctor substitutes them
+        final ConditionalBlock.Context context = Map.of("name", "value", "other-name", "other")::get;
+        assertEquals("value and other", sibling.substitute("{name} and {other-name}", context));
+        assertEquals("{name} and {name} and value", sibling.substitute("\\{name} and {name\\} and {name}", context));
+        assertEquals("{missing} stays", sibling.substitute("{missing} stays", context));
+        final var plain = "no reference {here or { name}";
+        assertSame(plain, sibling.substitute(plain, context)); // nothing to replace, so nothing is copied
+    }
+
+    @Test
+    void titleText() {
+        final var title = ((Section) parse("== Install   the\t [CLI]\n\nText.\n")).title();
+        assertEquals("Install the [CLI]", sibling.titleText(title, key -> null));
     }
 
     @Test
