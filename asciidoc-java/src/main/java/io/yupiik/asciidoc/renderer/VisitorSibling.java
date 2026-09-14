@@ -22,7 +22,6 @@ import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
-import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Paragraph;
@@ -32,23 +31,17 @@ import io.yupiik.asciidoc.renderer.html.IdGenerator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiPredicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.joining;
 
 /**
  * Reads what the model keeps as raw values, so every visitor reads them the same way: ids and styles in the block
- * options, attribute references in titles and targets, cross reference and image targets, macro labels, and where
- * paragraphs end when the parser gives them as sibling elements.
+ * options, attribute references in titles and targets, cross reference and image targets, and macro labels.
  * <p>
  * It has no state and writes no output format, so any visitor can instantiate it; the attributes a reading needs come
  * from the {@link ConditionalBlock.Context} the visitor passes, see {@link VisitorState#context()}.
  */
 public class VisitorSibling {
-    private static final Pattern ATTRIBUTE_REFERENCE = Pattern.compile("\\{([a-zA-Z0-9_][a-zA-Z0-9_-]*)}");
-
     // ------------------------------------------------------------------------------------------------------- options
 
     /**
@@ -140,12 +133,14 @@ public class VisitorSibling {
      * parser, the style must be written in upper case, {@code [note]} is no admonition.
      */
     public Admonition.Level admonitionLevel(final String style) {
-        for (final var level : Admonition.Level.values()) {
-            if (level.name().equals(style)) {
-                return level;
-            }
+        if (style == null) {
+            return null;
         }
-        return null;
+        try {
+            return Admonition.Level.valueOf(style);
+        } catch (final IllegalArgumentException iae) {
+            return null;
+        }
     }
 
     /**
@@ -226,91 +221,6 @@ public class VisitorSibling {
     }
 
     /**
-     * Splits sibling elements into segments: each block element alone, and each run of inline elements forming one
-     * paragraph.
-     * <p>
-     * The parser does not wrap every paragraph, so where a paragraph ends is guessed from the whitespace the parser
-     * keeps around the styled texts, attributes and links it splits a paragraph into:
-     * <ul>
-     *     <li>in a {@code Paragraph} the children are one paragraph, except that a delimited block (admonition, list
-     *     item) gives its source paragraphs as sibling texts: two unstyled texts meeting with no whitespace are two
-     *     paragraphs,</li>
-     *     <li>in a block container each inline element is a paragraph, except that a paragraph holding a line break is
-     *     given as its inline elements: around a line break, elements meeting on whitespace or punctuation are one
-     *     paragraph.</li>
-     * </ul>
-     *
-     * @param children       the sibling elements.
-     * @param paragraphLevel true for the children of a {@code Paragraph}, false for the children of a block container.
-     * @return the segments, in order.
-     */
-    public List<List<Element>> segments(final List<Element> children, final boolean paragraphLevel) {
-        final var segments = new ArrayList<List<Element>>();
-        List<Element> run = null;
-        for (final var child : children) {
-            if (run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph
-                    && paragraph.children().stream().allMatch(this::isInline)) {
-                run.addAll(paragraph.children()); // the parser wraps the line after a line break when it has markup
-            } else if (!isInline(child)) {
-                if (run != null) {
-                    segments.addAll(paragraphLevel ? splitParagraphRun(run) : splitBlockRun(run));
-                    run = null;
-                }
-                segments.add(List.of(child));
-            } else {
-                if (run == null) {
-                    run = new ArrayList<>();
-                }
-                run.add(child);
-            }
-        }
-        if (run != null) {
-            segments.addAll(paragraphLevel ? splitParagraphRun(run) : splitBlockRun(run));
-        }
-        return segments;
-    }
-
-    // the parser gives the paragraphs of a delimited admonition or of a list item as sibling texts, see segments()
-    protected List<List<Element>> splitParagraphRun(final List<Element> run) {
-        return split(run, (before, after) -> before instanceof Text b && after instanceof Text a
-                && b.style().isEmpty() && a.style().isEmpty()
-                && !endsWithWhitespace(b) && !startsWithWhitespaceOrPunctuation(a));
-    }
-
-    protected List<List<Element>> splitBlockRun(final List<Element> run) {
-        if (run.stream().noneMatch(LineBreak.class::isInstance)) {
-            return run.stream().map(List::of).toList();
-        }
-        return split(run, (before, after) -> !(before instanceof LineBreak) && !(after instanceof LineBreak)
-                && !(before instanceof Text b && endsWithWhitespace(b))
-                && !(after instanceof Text a && startsWithWhitespaceOrPunctuation(a)));
-    }
-
-    private List<List<Element>> split(final List<Element> run, final BiPredicate<Element, Element> isBoundary) {
-        final var segments = new ArrayList<List<Element>>();
-        var current = new ArrayList<Element>();
-        for (final var element : run) {
-            if (!current.isEmpty() && isBoundary.test(current.get(current.size() - 1), element)) {
-                segments.add(current);
-                current = new ArrayList<>();
-            }
-            current.add(element);
-        }
-        segments.add(current);
-        return segments;
-    }
-
-    protected boolean endsWithWhitespace(final Text text) {
-        final var value = text.value();
-        return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(value.length() - 1));
-    }
-
-    protected boolean startsWithWhitespaceOrPunctuation(final Text text) {
-        final var value = text.value();
-        return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(0)) || ".,;:!?)]}".indexOf(value.charAt(0)) >= 0;
-    }
-
-    /**
      * @return the text of an element without markup; footnotes, index terms, icons and images give no text.
      */
     public String plainText(final Element element, final ConditionalBlock.Context context) {
@@ -352,22 +262,27 @@ public class VisitorSibling {
      * plain text without leading and trailing whitespace, each other run of whitespace read as one space.
      */
     public String titleText(final Element title, final ConditionalBlock.Context context) {
-        final var text = plainText(title, context);
-        final var out = new StringBuilder(text.length());
-        boolean space = false;
+        final var text = plainText(title, context).strip();
+        StringBuilder out = null; // most titles have single spaces only, then the text is returned as is
+        int copied = 0;
         for (int i = 0; i < text.length(); i++) {
-            final char c = text.charAt(i);
-            if (Character.isWhitespace(c)) {
-                space = !out.isEmpty();
+            if (!Character.isWhitespace(text.charAt(i))) {
                 continue;
             }
-            if (space) {
-                out.append(' ');
-                space = false;
+            int end = i + 1;
+            while (end < text.length() && Character.isWhitespace(text.charAt(end))) {
+                end++;
             }
-            out.append(c);
+            if (end - i > 1 || text.charAt(i) != ' ') {
+                if (out == null) {
+                    out = new StringBuilder(text.length());
+                }
+                out.append(text, copied, i).append(' ');
+                copied = end;
+            }
+            i = end - 1;
         }
-        return out.toString();
+        return out == null ? text : out.append(text, copied, text.length()).toString();
     }
 
     /**
@@ -388,24 +303,52 @@ public class VisitorSibling {
     // ---------------------------------------------------------------------------------------------------- attributes
 
     /**
-     * Replaces {@code {name}} references in a string the parser did not evaluate (block titles, image targets, ...);
-     * a reference to an attribute the context does not define stays literal.
+     * Replaces {@code {name}} references in a string the parser did not evaluate (block titles, image targets, ...), as
+     * asciidoctor reads them: a reference to an attribute the context does not define stays as written, and an escaped
+     * reference, {@code \{name}} or {@code {name\}}, stays literal without its backslash.
      */
     public String substitute(final String text, final ConditionalBlock.Context context) {
         if (text == null) {
             return "";
         }
-        if (text.indexOf('{') < 0) {
-            return text;
+        StringBuilder out = null; // most texts have no reference, then the text is returned as is
+        int copied = 0;
+        for (int open = text.indexOf('{'); open >= 0; open = text.indexOf('{', open + 1)) {
+            int end = open + 1;
+            if (end >= text.length() || !isWordCharacter(text.charAt(end))) {
+                continue;
+            }
+            while (end < text.length() && (isWordCharacter(text.charAt(end)) || text.charAt(end) == '-')) {
+                end++;
+            }
+            final boolean escapedEnd = end < text.length() && text.charAt(end) == '\\';
+            final int close = escapedEnd ? end + 1 : end;
+            if (close >= text.length() || text.charAt(close) != '}') {
+                continue;
+            }
+            final var name = text.substring(open + 1, end);
+            final boolean escapedStart = open > copied && text.charAt(open - 1) == '\\';
+            final String replacement;
+            if (escapedStart || escapedEnd) {
+                replacement = '{' + name + '}';
+            } else {
+                replacement = context.attribute(name);
+                if (replacement == null) {
+                    continue;
+                }
+            }
+            if (out == null) {
+                out = new StringBuilder(text.length() + 16);
+            }
+            out.append(text, copied, escapedStart ? open - 1 : open).append(replacement);
+            copied = close + 1;
+            open = close;
         }
-        final var matcher = ATTRIBUTE_REFERENCE.matcher(text);
-        final var result = new StringBuilder();
-        while (matcher.find()) {
-            final var value = context.attribute(matcher.group(1));
-            matcher.appendReplacement(result, Matcher.quoteReplacement(value == null ? matcher.group() : value));
-        }
-        matcher.appendTail(result);
-        return result.toString();
+        return out == null ? text : out.append(text, copied, text.length()).toString();
+    }
+
+    private boolean isWordCharacter(final char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
     }
 
     /**
@@ -432,8 +375,10 @@ public class VisitorSibling {
      * @return how many section levels the table of contents lists, {@code toclevels} defaulting to 2 as in asciidoctor.
      */
     public int tocLevels(final String macroLevels, final ConditionalBlock.Context context) {
-        final var toclevels = context.attribute("toclevels");
-        final var levels = macroLevels != null && !macroLevels.isBlank() ? macroLevels : toclevels == null ? "2" : toclevels;
+        final var levels = macroLevels != null && !macroLevels.isBlank() ? macroLevels : context.attribute("toclevels");
+        if (levels == null) {
+            return 2;
+        }
         try {
             return Integer.parseInt(levels.strip());
         } catch (final NumberFormatException nfe) {
@@ -474,7 +419,7 @@ public class VisitorSibling {
      *
      * @return the keys, in order, without the empty ones.
      */
-    public List<String> keys(final Macro macro) {
+    public List<String> kbdKeys(final Macro macro) {
         final var opts = options(macro.options()).get("opts"); // the parser splits kbd:[Ctrl,Shift] at the comma
         final var value = (opts == null ? content(macro) : content(macro) + "," + opts).strip();
         final int comma = value.indexOf(',', 1);
