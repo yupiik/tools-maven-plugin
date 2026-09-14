@@ -47,26 +47,38 @@ final var markdown = renderer.result();
 
 The Markdown renderer writes each construct as follows:
 
-* sections as ATX headings (`## Title`),
-* source blocks as fenced code blocks with the language, a `[mermaid]` style being kept as the language,
-* tables as pipe tables,
-* admonitions as GitHub alerts (`> [!NOTE]`),
-* callouts as a numbered list after the code block, the `<1>` markers staying in the code,
-* description lists as a bold term followed by its description,
-* collapsible blocks (`[%collapsible]` or `opts=collapsible`) as `<details>` elements,
-* footnotes as `[^1]` references with their definitions at the end of the document,
-* the ids of sections and blocks as empty `<a id="...">` anchors, so `<<id>>` links work; a section without an explicit id gets the id the HTML renderer would give it when the document links to it.
+[options="header",cols="1,2"]
+|====
+|AsciiDoc|Markdown
+|Section (`== Title`)|ATX heading (`## Title`).
+|Source block|Fenced code block with the language. A diagram style such as `[mermaid]` is kept as the language.
+|Table|Pipe table.
+|Admonition|GitHub alert (`> [!NOTE]`).
+|Callouts|Numbered list after the code block, the `<1>` markers staying in the code.
+|Description list|Bold term followed by its description.
+|Collapsible block (`[%collapsible]` or `opts=collapsible`)|`<details>` element.
+|Footnote|`[^1]` reference, with its definition at the end of the document.
+|Id of a section or of a block|Empty `<a id="...">` anchor, so `<<id>>` links work. A section without an explicit id gets the id the HTML renderer would give it when the document links to it.
+|Table of contents (`:toc:`)|List of links to the sections, where asciidoctor places it: at the top, after the preamble (`:toc: preamble`) or at the `toc::[]` macro (`:toc: macro`).
+|Icon (`icon:lock[]`)|`[lock]`, as asciidoctor writes an icon without an icon font.
+|====
 
-When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal.
+When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An `include` macro reaching the renderer fails, since the parser resolves includes before rendering.
 
 One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
 
 The Markdown renderer reads these attributes:
 
-* `noheader` skips the document title,
-* `imagesdir` is prefixed to relative image targets,
-* `idprefix` and `idseparator` build the id of a section without an explicit id, as in the HTML renderer,
-* `relfileprefix` and `relfilesuffix` build the target of an `xref:page.adoc[]` link, `relfilesuffix` defaulting to `outfilesuffix` and then to `.md`.
+[options="header",cols="1,2"]
+|====
+|Attribute|Use
+|`noheader`|Skips the document title.
+|`imagesdir`|Prefixed to a relative image target.
+|`idprefix`, `idseparator`|Build the id of a section without an explicit id, as in the HTML renderer.
+|`relfileprefix`, `relfilesuffix`|Build the target of an `xref:page.adoc[]` link, `relfilesuffix` defaulting to `outfilesuffix` and then to `.md`.
+|`asciidoc-extensions`|Extensions of the documents an `xref:` link points at, `adoc,asciidoc` by default. A link to a file with another extension keeps the file name, and a file without extension before a `#` is a document, as in asciidoctor.
+|`toc`, `toc-placement`, `toc-title`, `toclevels`|Write the table of contents, as in asciidoctor.
+|====
 
 == Syntax
 
