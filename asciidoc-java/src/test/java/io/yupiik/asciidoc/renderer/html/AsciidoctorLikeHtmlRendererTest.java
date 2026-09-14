@@ -2277,6 +2277,45 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void descriptionListsWithDocumentAttributes() {
+        final var doc = new Parser().parse("""
+                [id=user-guide]
+                = User guide
+                :title: Custom title
+                :role: guide
+
+                CPU:: The brain of the computer.
+
+                .Shortcuts
+                [horizontal,role=keys]
+                Save:: Ctrl+S
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <div class="dlist">
+                  <dl>
+                    <dt class="hdlist1">CPU</dt>
+                    <dd>
+                <p>The brain of the computer.</p>
+                </dd>
+                  </dl>
+                 </div>
+                 <div class="hdlist keys">
+                  <div class="title">Shortcuts</div>
+                  <table>
+                   <tr>
+                    <td class="hdlist1">Save</td>
+                    <td class="hdlist2">
+                Ctrl+S    </td>
+                   </tr>
+                  </table>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
     void simpleTable() {
         assertRenderingContent("|===\n| A1 | B1\n| A2 | B2\n|===\n",
                 " <table class=\"tableblock frame-all grid-all stretch\">\n" +
