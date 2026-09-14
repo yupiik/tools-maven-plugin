@@ -32,6 +32,42 @@ final var html = renderer.result(); <5>
 
 IMPORTANT: the asciidoc syntax is not 100% implemented yet, if you encounter anything you miss, feel free to open an issue or pull request on our bugtracker.
 
+== Markdown output
+
+`GithubFlavoredMarkdownRenderer` renders the same model as GitHub-Flavored Markdown, for example to publish a Markdown copy of a page for AI agents or to feed a text pipeline:
+
+[source,java]
+----
+final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+    .setAttributes(Map.of("imagesdir", "/images"))); <1>
+renderer.visit(doc);
+final var markdown = renderer.result();
+----
+<.> Pass the attributes the renderer uses when the document does not define them, as for the HTML renderer.
+
+The Markdown renderer writes each construct as follows:
+
+* sections as ATX headings (`## Title`),
+* source blocks as fenced code blocks with the language, a `[mermaid]` style being kept as the language,
+* tables as pipe tables,
+* admonitions as GitHub alerts (`> [!NOTE]`),
+* callouts as a numbered list after the code block, the `<1>` markers staying in the code,
+* description lists as a bold term followed by its description,
+* collapsible blocks (`[%collapsible]` or `opts=collapsible`) as `<details>` elements,
+* footnotes as `[^1]` references with their definitions at the end of the document,
+* the ids of sections and blocks as empty `<a id="...">` anchors, so `<<id>>` links work; a section without an explicit id gets the id the HTML renderer would give it when the document links to it.
+
+When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal.
+
+One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
+
+The Markdown renderer reads these attributes:
+
+* `noheader` skips the document title,
+* `imagesdir` is prefixed to relative image targets,
+* `idprefix` and `idseparator` build the id of a section without an explicit id, as in the HTML renderer,
+* `relfileprefix` and `relfilesuffix` build the target of an `xref:page.adoc[]` link, `relfilesuffix` defaulting to `outfilesuffix` and then to `.md`.
+
 == Syntax
 
 The parser supports standard Asciidoc syntax including:
