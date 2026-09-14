@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static io.yupiik.asciidoc.model.Admonition.Level.NOTE;
 import static io.yupiik.asciidoc.model.Admonition.Level.WARNING;
 import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
 import static io.yupiik.asciidoc.model.Element.ElementType.HORIZONTAL_RULE;
@@ -69,6 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ParserTest {
     @Test
@@ -207,6 +209,17 @@ class ParserTest {
                 "= Fighter")));
         assertEquals("Fighter", header.title());
         assertEquals(Map.of("id", "foo", "role", "bar", "authorcount", "0"), header.attributes());
+    }
+
+    @Test
+    void parseHeaderWithBlockAnchorBeforeTitle() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "[[foo]]",
+                "= Fighter",
+                "",
+                "Yes the music band.")));
+        assertEquals("Fighter", header.title());
+        assertEquals(Map.of("id", "foo", "authorcount", "0"), header.attributes());
     }
 
     @Test
@@ -2365,6 +2378,41 @@ class ParserTest {
                         List.of(new Text(List.of(), "A configuration model is a record marked with RootConfiguration.", Map.of())),
                         Map.of())),
                 body.children());
+    }
+
+    @Test
+    void blockAnchors() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [[install]]
+                == Install
+
+                [[install-command, Install command]]
+                [source,bash]
+                ----
+                quarkus create app
+                ----
+
+                [[configuration]]
+                [NOTE]
+                ====
+                Configure it.
+                ====
+
+                [[1st]]
+                == First steps
+
+                Text.
+                """.split("\n"))), null);
+        assertEquals(
+                new Section(
+                        2,
+                        new Text(List.of(), "Install", Map.of()),
+                        List.of(
+                                new Code("quarkus create app\n", Map.of("id", "install-command", "reftext", "Install command", "language", "bash"), false, List.of()),
+                                new Admonition(NOTE, new Text(List.of(), "Configure it.", Map.of()), Map.of("id", "configuration"))),
+                        Map.of("id", "install")),
+                body.children().get(0));
+        assertNull(((Section) body.children().get(1)).options().get("id")); // as asciidoctor, an id does not start with a digit
     }
 
     @Test
