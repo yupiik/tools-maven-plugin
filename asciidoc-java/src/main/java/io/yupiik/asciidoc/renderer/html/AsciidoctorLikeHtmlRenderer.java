@@ -976,7 +976,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final var isListing = lang != null || "source".equals(style) || "listing".equals(style);
         if (isListing) {
-            builder.append(" <div class=\"listingblock\">\n <div class=\"content\">\n");
+            builder.append(" <div class=\"listingblock\">\n");
+            writeBlockTitle(element.options());
+            builder.append(" <div class=\"content\">\n");
             final var linenums = element.options().containsKey("linenums-option");
             builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append("\">");
             builder.append("<code");
@@ -1010,7 +1012,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("</code></pre>\n </div>\n </div>\n");
         } else {
             final var nowrap = element.options().containsKey("nowrap-option") || state.nowrap;
-            builder.append(" <div class=\"literalblock\">\n <div class=\"content\">\n");
+            builder.append(" <div class=\"literalblock\">\n");
+            writeBlockTitle(element.options());
+            builder.append(" <div class=\"content\">\n");
             builder.append(" <pre").append(nowrap ? " class=\"nowrap\"" : "").append(">");
             builder.append(escape(element.value()));
             builder.append("</pre>\n </div>\n </div>\n");

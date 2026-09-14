@@ -2600,6 +2600,80 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void codeBlockTitle() { // the title line can be before or after the attribute line, and a literal block has one too
+        assertRenderingContent("""
+                Add the extension to your build file:
+
+                .pom.xml
+                [source,xml]
+                ----
+                <dependency>
+                    <groupId>io.quarkus</groupId>
+                    <artifactId>quarkus-rest</artifactId>
+                </dependency>
+                ----
+
+                Then build the application:
+
+                [source,bash]
+                .CLI
+                ----
+                quarkus build
+                ----
+
+                .Build output
+                ....
+                BUILD SUCCESS
+                ....
+
+                [source,properties]
+                ----
+                quarkus.http.port=8081
+                ----
+                """, """
+                 <div class="paragraph">
+                 <p>
+                Add the extension to your build file:
+                 </p>
+                 </div>
+                 <div class="listingblock">
+                  <div class="title">pom.xml</div>
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;dependency&gt;
+                    &lt;groupId&gt;io.quarkus&lt;/groupId&gt;
+                    &lt;artifactId&gt;quarkus-rest&lt;/artifactId&gt;
+                &lt;/dependency&gt;
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="paragraph">
+                 <p>
+                Then build the application:
+                 </p>
+                 </div>
+                 <div class="listingblock">
+                  <div class="title">CLI</div>
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">quarkus build
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="literalblock">
+                  <div class="title">Build output</div>
+                 <div class="content">
+                 <pre>BUILD SUCCESS</pre>
+                 </div>
+                 </div>
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">quarkus.http.port=8081
+                </code></pre>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
     void percentOptionPrefix() {
         assertRendering("[%collapsible]\n====\nSome text\n====",
                 "<!DOCTYPE html>\n" +
