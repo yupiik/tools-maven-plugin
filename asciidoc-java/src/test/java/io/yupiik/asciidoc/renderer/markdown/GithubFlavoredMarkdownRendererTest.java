@@ -17,11 +17,14 @@ package io.yupiik.asciidoc.renderer.markdown;
 
 import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.Code;
+import io.yupiik.asciidoc.model.ConditionalBlock;
+import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.VisitorSibling;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -673,6 +676,115 @@ class GithubFlavoredMarkdownRendererTest {
         final var renderer = new GithubFlavoredMarkdownRenderer();
         renderer.visitBody(document.body());
         assertEquals("<a id=\"sec\"></a>\n## Section title\n\nSee [Section title](#sec).\n", renderer.result());
+    }
+
+    @Test
+    void visitBodyAloneReadsTheConfigurationAttributes() { // without visit(Document) there is no document attribute to read
+        final var body = new Parser().parse("""
+                = Doc
+                :imagesdir: ignored
+
+                image::logo.png[]
+
+                See xref:other.adoc[the other page] footnote:[A note.].
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))).body();
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setAttributes(Map.of("imagesdir", "img", "relfilesuffix", "/")));
+        renderer.visitBody(body);
+        assertEquals("![logo](img/logo.png)\n\nSee [the other page](other/) [^1].\n\n[^1]: A note.\n", renderer.result());
+    }
+
+    @Test
+    void siblingReadingAppliesToTheIndexToo() { // the table of contents, the anchor and the link text use the same id
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration(), new VisitorSibling() {
+            @Override
+            public String generatedId(final Element title, final ConditionalBlock.Context context) {
+                return "custom-" + super.generatedId(title, context).substring(1);
+            }
+        });
+        renderer.visit(new Parser().parse("""
+                = Doc
+                :toc:
+
+                See <<custom-install>>.
+
+                == Install
+
+                Text.
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))));
+        assertEquals("""
+                # Doc
+
+                **Table of Contents**
+
+                - [Install](#custom-install)
+
+                See [Install](#custom-install).
+
+                <a id="custom-install"></a>
+                ## Install
+
+                Text.
+                """, renderer.result());
+    }
+
+    @Test
+    void contextOverrideAppliesToTheIndexToo() {
+        final var renderer = new GithubFlavoredMarkdownRenderer() {
+            @Override
+            public ConditionalBlock.Context context() {
+                final var attributes = super.context();
+                return key -> switch (key) {
+                    case "toc" -> "";
+                    case "idprefix" -> "sec-";
+                    default -> attributes.attribute(key);
+                };
+            }
+        };
+        renderer.visit(new Parser().parse("""
+                = Doc
+
+                See <<sec-install>>.
+
+                == Install
+
+                Text.
+
+                ifdef::toc[]
+                == With a table of contents
+                endif::[]
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))));
+        assertEquals("""
+                # Doc
+
+                **Table of Contents**
+
+                - [Install](#sec-install)
+                - [With a table of contents](#sec-with_a_table_of_contents)
+
+                See [Install](#sec-install).
+
+                <a id="sec-install"></a>
+                ## Install
+
+                Text.
+
+                <a id="sec-with_a_table_of_contents"></a>
+                ## With a table of contents
+                """, renderer.result());
+    }
+
+    @Test
+    void tableWithoutHeaderRowAmongOtherOptions() { // the parser reads [%autowidth%noheader] as one option key
+        final var table = """
+                |===
+                |a |b
+                |c |d
+                |===
+                """;
+        final var expected = "|  |  |\n| --- | --- |\n| a | b |\n| c | d |\n";
+        assertEquals(expected, md("[%noheader]\n" + table));
+        assertEquals(expected, md("[%autowidth%noheader]\n" + table));
     }
 
     @Test
