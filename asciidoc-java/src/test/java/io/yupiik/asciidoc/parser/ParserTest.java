@@ -255,6 +255,26 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithNamedEndif() { // the named endif did not close the block, so the rest of the document was part of it
+        final var content = List.of("""
+                = Title
+                ifndef::env-github[]
+                :toc: left
+                endif::env-github[]
+                ifdef::env-github[]
+                :toc: macro
+                endif::env-github[]
+                :icons: font
+                """.split("\n"));
+        assertEquals(
+                Map.of("toc", "left", "icons", "font", "authorcount", "0"),
+                new Parser().parseHeader(new Reader(content)).attributes());
+        assertEquals(
+                Map.of("toc", "macro", "icons", "font", "authorcount", "0"),
+                new Parser(Map.of("env-github", "true")).parseHeader(new Reader(content)).attributes());
+    }
+
+    @Test
     void parseHeaderWithInlineConditionals() { // ifdef::attr[content] has no endif, the content is a single line
         {   // condition is false, the line is dropped but the header parsing goes on
             final var header = new Parser().parseHeader(new Reader(List.of(
@@ -2657,6 +2677,157 @@ class ParserTest {
                         new ConditionalBlock.Ifndef("foo"),
                         List.of(new Text(List.of(), "This is value.", Map.of())),
                         Map.of())),
+                body.children());
+    }
+
+    @Test
+    void namedEndifAfterText() { // the named endif did not close the block, so the next sections were part of it
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                TLS Registry also provides automatic certificate reloading
+                ifndef::no-lets-encrypt[]
+                , integration with Let's Encrypt (ACME)
+                endif::no-lets-encrypt[]
+                and compatibility with various keystore formats.
+
+                == Using the TLS registry
+
+                Content.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "TLS Registry also provides automatic certificate reloading", Map.of()),
+                                new ConditionalBlock(
+                                        new ConditionalBlock.Ifndef("no-lets-encrypt"),
+                                        List.of(new Text(List.of(), ", integration with Let's Encrypt (ACME)", Map.of())),
+                                        Map.of()),
+                                new Text(List.of(), "and compatibility with various keystore formats.", Map.of())), Map.of()),
+                        new Section(2, new Text(List.of(), "Using the TLS registry", Map.of()), List.of(new Text(List.of(), "Content.", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void namedEndifAfterABlock() { // the section after the block was hidden with the block
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifdef::with-code[]
+                [source,java]
+                ----
+                run();
+                ----
+                endif::with-code[]
+
+                == Next section
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new ConditionalBlock(
+                                new ConditionalBlock.Ifdef("with-code"),
+                                List.of(new Code("run();\n", Map.of("language", "java"), false, List.of())),
+                                Map.of()),
+                        new Section(2, new Text(List.of(), "Next section", Map.of()), List.of(), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void namedEndifIgnoresTheCase() { // as asciidoctor
+        final var body = new Parser().parseBody(new Reader(List.of("ifdef::Flag[]", "Content.", "endif::flag[]", "", "After.")), null);
+        assertEquals(
+                List.of(
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("Flag"), List.of(new Text(List.of(), "Content.", Map.of())), Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void mismatchedNamedEndifFails() { // asciidoctor logs an error and keeps the block open
+        final var reader = new Reader(List.of("""
+                ifdef::first[]
+                ifdef::second[]
+                Content.
+                endif::first[]
+                endif::second[]
+                """.split("\n")));
+        final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
+        assertEquals("Mismatched preprocessor directive: 'endif::first[]', expected 'endif::second[]'", error.getMessage());
+    }
+
+    @Test
+    void textAfterEndifFails() { // asciidoctor logs an error and keeps the block open
+        final var reader = new Reader(List.of("""
+                ifdef::env-github1[]
+                ifdef::env-github2[]
+                Content.
+                endif::env-github2[] endif::env-github1[]
+                """.split("\n")));
+        final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
+        assertEquals("Malformed preprocessor directive, text not permitted: 'endif::env-github2[] endif::env-github1[]'", error.getMessage());
+    }
+
+    @Test
+    void ifevalInsideAConditionalBlock() { // as asciidoctor, endif::[] closes an ifeval block, which has no name
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifdef::flag[]
+                ifeval::[1 == 1]
+                Level one.
+                endif::[]
+                endif::flag[]
+
+                After.
+                """.split("\n"))), null);
+        assertEquals(2, body.children().size());
+        final var ifeval = assertInstanceOf(ConditionalBlock.class, assertInstanceOf(ConditionalBlock.class, body.children().get(0)).children().get(0));
+        assertInstanceOf(ConditionalBlock.Ifeval.class, ifeval.evaluator());
+        assertEquals(List.of(new Text(List.of(), "Level one.", Map.of())), ifeval.children());
+        assertEquals(new Text(List.of(), "After.", Map.of()), body.children().get(1));
+
+        final var reader = new Reader(List.of("ifdef::flag[]", "ifeval::[1 == 1]", "Level one.", "endif::flag[]", "endif::flag[]"));
+        final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
+        assertEquals("Mismatched preprocessor directive: 'endif::flag[]', expected 'endif::[]'", error.getMessage());
+    }
+
+    @Test
+    void ifevalWithTextAfterItsBracketsDoesNotOpenABlock() { // as asciidoctor, a directive is a whole line, so the ifdef block ends at its endif
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifdef::flag[]
+                ifeval::[1 == 1] is text
+                endif::flag[]
+
+                After.
+                """.split("\n"))), null);
+        assertEquals(2, body.children().size());
+        assertInstanceOf(ConditionalBlock.class, body.children().get(0));
+        assertEquals(new Text(List.of(), "After.", Map.of()), body.children().get(1));
+    }
+
+    @Test
+    void inlineIfdefInsideAConditionalBlock() { // ifdef::attr[content] has no endif, counting it as a block made the first block hold the second one
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifndef::devtools-no-maven[]
+                ifdef::devtools-wrapped[+]
+                [source,bash]
+                ----
+                ./mvnw install
+                ----
+                endif::[]
+                ifndef::devtools-no-gradle[]
+                [source,bash]
+                ----
+                ./gradlew build
+                ----
+                endif::[]
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new ConditionalBlock(
+                                new ConditionalBlock.Ifndef("devtools-no-maven"),
+                                List.of(
+                                        new ConditionalBlock(new ConditionalBlock.Ifdef("devtools-wrapped"), List.of(new Text(List.of(), "+", Map.of())), Map.of()),
+                                        new Code("./mvnw install\n", Map.of("language", "bash"), false, List.of())),
+                                Map.of()),
+                        new ConditionalBlock(
+                                new ConditionalBlock.Ifndef("devtools-no-gradle"),
+                                List.of(new Code("./gradlew build\n", Map.of("language", "bash"), false, List.of())),
+                                Map.of())), Map.of())),
                 body.children());
     }
 

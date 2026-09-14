@@ -1682,14 +1682,14 @@ public class Parser {
                                         final var inline = !enclosed.isBlank();
                                         final var ifBlock = inline ?
                                                 new IfBlock(List.of(enclosed), List.of(List.of(enclosed)), List.of()) :
-                                                readIfBlock(reader);
+                                                readIfBlock(reader, macro.label());
                                         elements.add(parseConditionalBlock(
                                                 macro.name(), macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes,
                                                 inline ? Map.of() : macro.options()));
                                     }
                                     case "ifeval" -> {
                                         final var condition = macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip();
-                                        final var ifBlock = readIfBlock(reader);
+                                        final var ifBlock = readIfBlock(reader, macro.label());
                                         elements.add(parseConditionalBlock("ifeval", condition, ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
                                     }
                                     default -> {
@@ -1964,27 +1964,40 @@ public class Parser {
         return out;
     }
 
-    private IfBlock readIfBlock(final Reader reader) {
+    private IfBlock readIfBlock(final Reader reader, final String name) {
         final var mainContent = new ArrayList<String>();
         final var branches = new ArrayList<List<String>>();
         final var branchConditions = new ArrayList<String>();
+        final var openNames = new ArrayList<String>(); // as asciidoctor, an endif closes the last block opened
+        openNames.add(name);
         List<String> current = mainContent;
         String next;
-        int remaining = 1;
         while ((next = reader.nextLine()) != null) {
             final var stripped = next.strip();
-            if (Objects.equals("endif::[]", stripped)) {
-                if (--remaining <= 0) break;
-            } else if (remaining == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
+            final int bracket = stripped.indexOf('['); // as asciidoctor, a directive is a whole line: name::target[text]
+            if (stripped.startsWith("endif::") && bracket > 0 && stripped.endsWith("]")) { // endif::[] or endif::name[]
+                if (bracket != stripped.length() - "[]".length()) {
+                    throw new IllegalArgumentException("Malformed preprocessor directive, text not permitted: '" + stripped + "'");
+                }
+                final var endName = stripped.substring("endif::".length(), bracket);
+                final var expected = openNames.remove(openNames.size() - 1);
+                if (!endName.isEmpty() && !endName.equalsIgnoreCase(expected)) {
+                    throw new IllegalArgumentException("Mismatched preprocessor directive: '" + stripped + "', expected 'endif::" + expected + "[]'");
+                }
+                if (openNames.isEmpty()) {
+                    break;
+                }
+            } else if (openNames.size() == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
                 branches.add(current);
                 branchConditions.add(stripped);
                 current = new ArrayList<>();
                 continue;
+            } else if ((next.startsWith("ifdef::") || next.startsWith("ifndef::") || next.startsWith("ifeval::")) && bracket > 0 && stripped.endsWith("]")) {
+                if (next.startsWith("ifeval::") || bracket == stripped.length() - "[]".length()) { // ifdef::name[content] has no endif
+                    openNames.add(stripped.substring(stripped.indexOf("::") + "::".length(), bracket));
+                }
             }
             current.add(next);
-            if (next.startsWith("ifndef::") || next.startsWith("ifdef::") || next.startsWith("ifeval::")) {
-                remaining++;
-            }
         }
         branches.add(current);
         return new IfBlock(mainContent, branches, branchConditions);
@@ -2796,7 +2809,7 @@ public class Parser {
                         continue; // either way the header does not end here
                     }
 
-                    final var ifBlock = readIfBlock(reader);
+                    final var ifBlock = readIfBlock(reader, macro.label());
                     if (branchMatched) {
                         reader.insert(ifBlock.mainContent());
                     } else {
