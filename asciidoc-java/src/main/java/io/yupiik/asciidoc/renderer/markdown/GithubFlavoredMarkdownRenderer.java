@@ -52,9 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
-import static java.util.Locale.ROOT;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -65,21 +63,17 @@ import static java.util.stream.Collectors.joining;
  * table cells) is rendered by the same renderer into a temporary buffer, so a subclass's overrides apply at any
  * depth. When neither the document nor the configuration defines an attribute, its reference stays literal, as
  * asciidoctor does with {@code attribute-missing=skip}. An unknown construct never throws, the renderer falls back to
- * the element text.
+ * the element text; only an {@code include} macro fails, since the parser resolves includes before any rendering.
  * <p>
  * A renderer can render several documents one after the other, {@link #visit(Document)} starts from a clean state.
  * Like {@link io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer} it is not thread safe.
  */
 public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
-    private static final Set<String> ADMONITION_STYLES = Set.of("NOTE", "TIP", "IMPORTANT", "CAUTION", "WARNING");
-    private static final Set<String> ASCIIDOC_EXTENSIONS = Set.of(".adoc", ".asciidoc", ".ad", ".asc");
     private static final Pattern ATTRIBUTE_REFERENCE = Pattern.compile("\\{([a-zA-Z0-9_][a-zA-Z0-9_-]*)}");
-    private static final Pattern URL_SCHEME = Pattern.compile("^[a-zA-Z][a-zA-Z0-9+.-]*:");
-    private static final Pattern BLOCK_STYLE = Pattern.compile("[a-zA-Z][a-zA-Z0-9_+-]*");
-    private static final Pattern BACKTICK_RUN = Pattern.compile("`+");
 
     protected final Configuration configuration;
     protected final State state; // this is why we are not thread safe
+    protected final ConditionalBlock.Context context; // document attributes first, then the configuration ones
     protected StringBuilder builder = new StringBuilder(); // replaced while a nested block renders, see block()
 
     public GithubFlavoredMarkdownRenderer() {
@@ -89,6 +83,10 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     public GithubFlavoredMarkdownRenderer(final Configuration configuration) {
         this.configuration = configuration;
         this.state = new State();
+        this.context = key -> {
+            final var value = state.documentAttributes.get(key);
+            return value != null ? value : configuration.getAttributes().get(key);
+        };
     }
 
     // ------------------------------------------------------------------------------------------------------ document
@@ -125,11 +123,103 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     @Override
     public void visitBody(final Body body) {
         // indexed here rather than in visit(Document), so rendering only a body keeps section links working
-        final var references = new References();
-        references.visitBody(body);
-        state.referencedIds = references.ids;
-        state.sectionTitlesById = indexSectionTitles(body.children());
-        renderChildren(body.children());
+        final var index = new Index();
+        index.visitBody(body);
+        state.referencedIds = index.ids;
+        state.sectionTitlesById = index.titles;
+        state.tocSections = index.sections;
+
+        final var placement = tocPlacement();
+        if (placement == null) {
+            renderChildren(body.children());
+            return;
+        }
+        // the table of contents links every section it lists, so each one gets its anchor
+        final int levels = "macro".equals(placement) ? index.tocMacroLevels : tocLevels(null);
+        for (final var section : index.sections) {
+            if (section.level() <= levels) {
+                state.referencedIds.add(section.id());
+            }
+        }
+        final var children = body.children();
+        switch (placement) {
+            case "macro" -> renderChildren(children); // written by visitMacro
+            case "preamble" -> { // after the content before the first section
+                int firstSection = 0;
+                while (firstSection < children.size() && children.get(firstSection).type() != Element.ElementType.SECTION) {
+                    firstSection++;
+                }
+                renderChildren(children.subList(0, firstSection));
+                toc(null, null);
+                renderChildren(children.subList(firstSection, children.size()));
+            }
+            default -> {
+                toc(null, null);
+                renderChildren(children);
+            }
+        }
+    }
+
+    /**
+     * @return where asciidoctor places the table of contents: {@code auto} (at the top), {@code preamble} or
+     * {@code macro} (at the {@code toc::[]} macro); {@code null} when the document has no {@code toc} attribute.
+     */
+    protected String tocPlacement() {
+        final var toc = attr("toc", null);
+        if (toc == null) {
+            return null;
+        }
+        final var placement = attr("toc-placement", null);
+        if (placement != null && !placement.isBlank()) {
+            return placement.strip();
+        }
+        return switch (toc.strip()) {
+            case "macro", "preamble" -> toc.strip();
+            default -> "auto"; // empty, auto, left and right: embedded, the table of contents comes first
+        };
+    }
+
+    /**
+     * @param macroLevels the {@code levels} attribute of a {@code toc::[]} macro, {@code null} when there is none.
+     * @return how many section levels the table of contents lists, {@code toclevels} defaulting to 2 as in asciidoctor.
+     */
+    protected int tocLevels(final String macroLevels) {
+        final var levels = macroLevels != null && !macroLevels.isBlank() ? macroLevels : attr("toclevels", "2");
+        try {
+            return Integer.parseInt(levels.strip());
+        } catch (final NumberFormatException nfe) {
+            return 2;
+        }
+    }
+
+    /**
+     * Writes the table of contents as a nested list of links to the sections, under its title in bold.
+     *
+     * @param title       the title of the {@code toc::[]} macro block, {@code null} to use {@code toc-title}.
+     * @param macroLevels the {@code levels} attribute of the macro, {@code null} to use {@code toclevels}.
+     */
+    protected void toc(final String title, final String macroLevels) {
+        final int levels = tocLevels(macroLevels);
+        int top = Integer.MAX_VALUE; // a book starts at level 0, an article at level 1
+        for (final var section : state.tocSections) {
+            if (section.level() <= levels) {
+                top = Math.min(top, section.level());
+            }
+        }
+        if (top == Integer.MAX_VALUE) { // asciidoctor writes no table of contents for a document without section
+            return;
+        }
+        final var tocTitle = title != null && !title.isBlank() ? title : attr("toc-title", "Table of Contents");
+        if (!tocTitle.isBlank()) {
+            builder.append("**").append(substitute(tocTitle).strip()).append("**\n\n");
+        }
+        for (final var section : state.tocSections) {
+            if (section.level() <= levels) {
+                builder.append("  ".repeat(section.level() - top))
+                        .append("- [").append(section.title()).append("](#").append(section.id()).append(")\n");
+            }
+        }
+        builder.append('\n');
     }
 
     /**
@@ -174,7 +264,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         List<Element> run = null;
         for (final var child : children) {
             if (run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph
-                    && paragraph.children().stream().allMatch(GithubFlavoredMarkdownRenderer::isInline)) {
+                    && paragraph.children().stream().allMatch(this::isInline)) {
                 run.addAll(paragraph.children()); // the parser wraps the line after a line break when it has markup
             } else if (!isInline(child)) {
                 if (run != null) {
@@ -195,13 +285,14 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return segments;
     }
 
-    private static List<List<Element>> splitParagraphRun(final List<Element> run) {
+    // the parser gives the paragraphs of a delimited admonition or of a list item as sibling texts, see segments()
+    protected List<List<Element>> splitParagraphRun(final List<Element> run) {
         return split(run, (before, after) -> before instanceof Text b && after instanceof Text a
                 && b.style().isEmpty() && a.style().isEmpty()
                 && !endsWithWhitespace(b) && !startsWithWhitespaceOrPunctuation(a));
     }
 
-    private static List<List<Element>> splitBlockRun(final List<Element> run) {
+    protected List<List<Element>> splitBlockRun(final List<Element> run) {
         if (run.stream().noneMatch(LineBreak.class::isInstance)) {
             return run.stream().map(List::of).toList();
         }
@@ -210,7 +301,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 && !(after instanceof Text a && startsWithWhitespaceOrPunctuation(a)));
     }
 
-    private static List<List<Element>> split(final List<Element> run, final java.util.function.BiPredicate<Element, Element> isBoundary) {
+    private List<List<Element>> split(final List<Element> run, final java.util.function.BiPredicate<Element, Element> isBoundary) {
         final var segments = new ArrayList<List<Element>>();
         var current = new ArrayList<Element>();
         for (final var element : run) {
@@ -224,12 +315,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return segments;
     }
 
-    private static boolean endsWithWhitespace(final Text text) {
+    protected boolean endsWithWhitespace(final Text text) {
         final var value = text.value();
         return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(value.length() - 1));
     }
 
-    private static boolean startsWithWhitespaceOrPunctuation(final Text text) {
+    protected boolean startsWithWhitespaceOrPunctuation(final Text text) {
         final var value = text.value();
         return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(0)) || ".,;:!?)]}".indexOf(value.charAt(0)) >= 0;
     }
@@ -246,22 +337,27 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     @Override
     public ConditionalBlock.Context context() {
-        return key -> {
-            final var value = state.documentAttributes.get(key);
-            return value != null ? value : configuration.getAttributes().get(key);
-        };
+        return context;
     }
 
+    /**
+     * @return the Markdown, ending with one line feed as a text file does.
+     */
     @Override
     public String result() {
-        final var result = new StringBuilder(builder.toString().strip());
-        if (!state.footnotes.isEmpty()) {
-            result.append("\n\n");
-            for (final var footNote : state.footnotes) {
-                result.append("[^").append(footNote.label).append("]: ").append(footNote.text.strip()).append('\n');
-            }
+        final var body = builder.toString().strip();
+        if (state.footnotes.isEmpty()) {
+            return body + '\n';
         }
-        return result.toString().strip() + "\n";
+        final var result = new StringBuilder(body);
+        if (!body.isEmpty()) {
+            result.append("\n\n");
+        }
+        for (final var footNote : state.footnotes) {
+            final var text = footNote.text.strip();
+            result.append("[^").append(footNote.label).append("]:").append(text.isEmpty() ? "" : " ").append(text).append('\n');
+        }
+        return result.toString();
     }
 
     // -------------------------------------------------------------------------------------------------------- blocks
@@ -314,7 +410,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * @return the explicit id of a block, given as {@code [#id]}, as a {@code [[id]]} line above the block, or in a
      * style shorthand such as {@code [NOTE#id]}; {@code null} when the block has none.
      */
-    protected static String id(final Map<String, String> options) {
+    protected String id(final Map<String, String> options) {
         if (options == null) {
             return null;
         }
@@ -340,9 +436,10 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
-     * @return the style name of a block, without the {@code #id}, {@code .role} or {@code %option} shorthands.
+     * @return the style name of a block, without the {@code #id}, {@code .role} or {@code %option} shorthands; empty
+     * when the block has no style, the parser also storing a {@code [[id]]} block anchor there, as {@code [id]}.
      */
-    private static String styleName(final Map<String, String> options) {
+    protected String styleName(final Map<String, String> options) {
         final var style = options == null ? null : options.get("");
         if (style == null || style.isBlank() || style.strip().startsWith("[")) {
             return "";
@@ -352,7 +449,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return end < 0 ? value : value.substring(0, end);
     }
 
-    private static int firstIndexOf(final String value, final String characters) {
+    private int firstIndexOf(final String value, final String characters) {
         for (int i = 0; i < value.length(); i++) {
             if (characters.indexOf(value.charAt(i)) >= 0) {
                 return i;
@@ -416,11 +513,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         }
         blockAnchor(code.options());
         blockTitle(code.options());
-        var language = language(code.options());
-        if (language.isEmpty()) { // [mermaid] and other diagram blocks keep their style as the fence info string
-            language = style(code.options());
-        }
-        fence(language, withCallOutMarkers(code));
+        fence(fenceInfo(options(code.options())), withCallOutMarkers(code));
         final var callOuts = code.callOuts(); // derived from the lines, so materialized once
         if (!callOuts.isEmpty()) {
             for (final var callOut : callOuts) { // a callout can carry blocks, attached with +
@@ -461,30 +554,36 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         final var options = options(listing.options());
         blockAnchor(options);
         blockTitle(options);
-        final var style = style(options);
-        final var diagramOrLanguage = !style.isEmpty() && !"listing".equals(style) && !"literal".equals(style);
-        fence(diagramOrLanguage ? style : language(options), listing.value() == null ? "" : listing.value());
+        fence(fenceInfo(options), listing.value() == null ? "" : listing.value());
     }
 
     /**
-     * @return the block style (first positional attribute) when it is a name, empty otherwise;
-     * the parser also stores a {@code [[id]]} block anchor there, as {@code [id]}.
+     * @return the info string of a code fence: the language, else the style of a diagram block such as
+     * {@code [mermaid]}; empty for the {@code source}, {@code listing} and {@code literal} styles, which name no language.
      */
-    private static String style(final Map<String, String> options) {
-        final var style = options == null ? null : options.get("");
-        return style != null && BLOCK_STYLE.matcher(style.strip()).matches() ? style.strip() : "";
+    protected String fenceInfo(final Map<String, String> options) {
+        final var language = language(options);
+        if (!language.isEmpty()) {
+            return language;
+        }
+        final var style = styleName(options);
+        if ("source".equals(style) || "listing".equals(style) || "literal".equals(style)) {
+            return "";
+        }
+        for (int i = 0; i < style.length(); i++) { // a backtick or a space would end the info string of the fence
+            if (style.charAt(i) == '`' || Character.isWhitespace(style.charAt(i))) {
+                return "";
+            }
+        }
+        return style;
     }
 
     /**
-     * The fence is one backtick longer than the longest run of backticks in the code, and at least three long.
+     * The fence is one backtick longer than the longest run of backticks in the code, and at least three long, so no
+     * line of the code can close it.
      */
     protected void fence(final String language, final String value) {
-        int longest = 0;
-        final var runs = BACKTICK_RUN.matcher(value);
-        while (runs.find()) {
-            longest = Math.max(longest, runs.end() - runs.start());
-        }
-        final var fence = "`".repeat(Math.max(3, longest + 1));
+        final var fence = "`".repeat(Math.max(3, longestBacktickRun(value) + 1));
         builder.append(fence).append(language == null ? "" : language).append('\n').append(value);
         if (!value.endsWith("\n")) {
             builder.append('\n');
@@ -492,7 +591,23 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         builder.append(fence).append("\n\n");
     }
 
-    private static String language(final Map<String, String> options) {
+    /**
+     * @return the length of the longest run of backticks in the value, which a Markdown code delimiter must exceed.
+     */
+    protected int longestBacktickRun(final String value) {
+        int longest = 0;
+        int current = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (value.charAt(i) == '`') {
+                longest = Math.max(longest, ++current);
+            } else {
+                current = 0;
+            }
+        }
+        return longest;
+    }
+
+    protected String language(final Map<String, String> options) {
         if (options == null) {
             return "";
         }
@@ -541,7 +656,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     protected void listItem(final String marker, final Element item) {
         final var segments = segments(item instanceof Paragraph paragraph ? paragraph.children() : List.of(item), true);
         if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped
-                && !wrapped.children().isEmpty() && wrapped.children().stream().allMatch(GithubFlavoredMarkdownRenderer::isInline)
+                && !wrapped.children().isEmpty() && wrapped.children().stream().allMatch(this::isInline)
                 && segments(wrapped.children(), true).size() == 1) { // first paragraph of an item carrying blocks
             segments.set(0, wrapped.children());
         }
@@ -567,7 +682,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         }
     }
 
-    private static String checkbox(final Element item) {
+    protected String checkbox(final Element item) {
         if (item instanceof Paragraph paragraph && paragraph.options() != null
                 && paragraph.options().containsKey("checkbox")) {
             final var checked = paragraph.options().containsKey("checked")
@@ -592,7 +707,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             if (description == null) {
                 builder.append("\n\n");
             } else if (isInline(description) || description instanceof Paragraph paragraph
-                    && paragraph.children().stream().allMatch(GithubFlavoredMarkdownRenderer::isInline)
+                    && paragraph.children().stream().allMatch(this::isInline)
                     && segments(paragraph.children(), true).size() == 1) {
                 builder.append("\\\n").append(inline(description).strip()).append("\n\n");
             } else {
@@ -603,15 +718,15 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     @Override
     public void visitAdmonition(final Admonition admonition) {
-        alert(admonition.level().name(), options(admonition.options()), List.of(admonition.content()));
+        alert(admonition.level(), options(admonition.options()), List.of(admonition.content()));
     }
 
     /**
      * GitHub alert, {@code > [!NOTE]} followed by the content as a quote.
      */
-    protected void alert(final String level, final Map<String, String> options, final List<Element> content) {
+    protected void alert(final Admonition.Level level, final Map<String, String> options, final List<Element> content) {
         blockAnchor(options);
-        builder.append("> [!").append(level).append("]\n");
+        builder.append("> [!").append(level.name()).append("]\n");
         final var title = options.get("title");
         if (title != null && !title.isBlank()) {
             builder.append("> **").append(substitute(title).strip()).append("**\n>\n");
@@ -622,9 +737,9 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     @Override
     public void visitOpenBlock(final OpenBlock block) {
         final var options = options(block.options());
-        final var style = styleName(options).toUpperCase(ROOT);
-        if (ADMONITION_STYLES.contains(style)) {
-            alert(style, options, block.children());
+        final var level = admonitionLevel(styleName(options));
+        if (level != null) {
+            alert(level, options, block.children());
             return;
         }
         if (hasOption(options, "collapsible")) {
@@ -641,6 +756,19 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         if (!body.isEmpty()) {
             builder.append(body).append("\n\n");
         }
+    }
+
+    /**
+     * @return the admonition level a block style names, {@code null} when it names none; as in asciidoctor and in the
+     * parser, the style must be written in upper case, {@code [note]} is no admonition.
+     */
+    protected Admonition.Level admonitionLevel(final String style) {
+        for (final var level : Admonition.Level.values()) {
+            if (level.name().equals(style)) {
+                return level;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -762,9 +890,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 }
                 builder.append("\n\n");
             }
-            case "toc", "include" -> {
-                // nothing to show
+            case "toc" -> {
+                if ("macro".equals(tocPlacement())) { // asciidoctor ignores the macro unless the toc attribute is macro
+                    toc(options.get("title"), options.get("levels"));
+                }
             }
+            case "include" -> throw unresolvedInclude(macro);
             case "video", "audio" -> {
                 final var target = substitute(macro.label() == null ? "" : macro.label()).strip();
                 builder.append('[').append(target).append("](").append(destination(target)).append(")\n\n");
@@ -780,7 +911,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     // -------------------------------------------------------------------------------------------------------- inline
 
-    protected static boolean isInline(final Element element) {
+    protected boolean isInline(final Element element) {
         return switch (element.type()) {
             case TEXT, LINK, ANCHOR, ATTRIBUTE, LINE_BREAK -> true;
             case CODE -> ((Code) element).inline();
@@ -855,9 +986,18 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return prefix + value.substring(0, start) + styled + value.substring(end);
     }
 
-    private static String inlineCode(final String value) {
+    /**
+     * A code span is delimited by more backticks than the longest run inside it, padded with a space when it holds
+     * backticks so one at its start or end does not join the delimiter.
+     */
+    protected String inlineCode(final String value) {
         final var code = value == null ? "" : value;
-        return code.contains("`") ? "`` " + code + " ``" : "`" + code + "`";
+        final int longest = longestBacktickRun(code);
+        if (longest == 0) {
+            return "`" + code + "`";
+        }
+        final var delimiter = "`".repeat(longest + 1);
+        return delimiter + ' ' + code + ' ' + delimiter;
     }
 
     protected String link(final Link link) {
@@ -879,18 +1019,59 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             final var closing = url.substring(end);
             // an autolink needs a scheme and no space, other targets become a link showing the target,
             // escaped so a <name> placeholder in it is not read as an HTML tag
-            return (URL_SCHEME.matcher(target).find() && target.equals(destination(target)) ?
+            return (isUri(target) && target.equals(destination(target)) ?
                     "<" + target + ">" :
-                    "[" + target.replaceAll("([\\[\\]<>])", "\\\\$1") + "](" + destination(target) + ")") + closing;
+                    "[" + escapeLinkText(target) + "](" + destination(target) + ")") + closing;
         }
         return "[" + label + "](" + destination(url) + ")";
     }
 
     /**
-     * @return a link destination, in angle brackets when CommonMark would otherwise end it too early: on whitespace,
-     * on an angle bracket, or on a parenthesis without its pair.
+     * @return true when the value starts with a URI scheme as asciidoctor's {@code Helpers.uriish?} reads it: a letter,
+     * at least one more letter, digit, {@code +}, {@code .} or {@code -}, then a colon, so {@code C:/images} is a path.
+     * The scheme is at most 32 characters long, as a CommonMark autolink requires.
      */
-    protected static String destination(final String url) {
+    protected boolean isUri(final String value) {
+        final int colon = value.indexOf(':');
+        if (colon < 2 || colon > 32 || !isAsciiLetter(value.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < colon; i++) {
+            final char c = value.charAt(i);
+            if (!isAsciiLetter(c) && (c < '0' || c > '9') && c != '+' && c != '.' && c != '-') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isAsciiLetter(final char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+
+    /**
+     * @return the text of a link with its brackets escaped, so they do not end the text, and its angle brackets
+     * escaped, so a {@code <name>} placeholder is not read as an HTML tag.
+     */
+    protected String escapeLinkText(final String text) {
+        final var escaped = new StringBuilder(text.length() + 8);
+        for (int i = 0; i < text.length(); i++) {
+            final char c = text.charAt(i);
+            if (c == '[' || c == ']' || c == '<' || c == '>') {
+                escaped.append('\\');
+            }
+            escaped.append(c);
+        }
+        return escaped.toString();
+    }
+
+    /**
+     * Escapes a link destination for the Markdown syntax, without interpreting the URL.
+     *
+     * @return the destination, in angle brackets when CommonMark would otherwise end it too early: on whitespace, on an
+     * angle bracket, or on a parenthesis without its pair.
+     */
+    protected String destination(final String url) {
         int depth = 0;
         boolean wrap = false;
         for (int i = 0; i < url.length() && !wrap; i++) {
@@ -942,7 +1123,9 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                     options.getOrDefault("", "").strip() :
                     label.strip() + (options.get("") != null && !options.get("").isBlank() ? " > " + options.get("").strip() : "")) + "**";
             case "pass" -> options.getOrDefault("", ""); // the label holds the substitutions, pass:q[...]
-            case "icon", "toc", "include", "indexterm" -> ""; // indexterm:[...] only feeds the index
+            case "icon" -> icon(macro, options);
+            case "include" -> throw unresolvedInclude(macro);
+            case "indexterm" -> ""; // indexterm:[...] only feeds the index, asciidoctor shows nothing either
             case "indexterm2" -> options.getOrDefault("", label); // indexterm2:[term] shows the term
             case "footnote", "footnoteref", "doublefootnote" -> footnote(macro, options);
             case "stem", "latexmath", "asciimath" -> "$" + content.strip() + "$";
@@ -951,31 +1134,68 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
+     * Markdown has no icon font, so an icon is written as asciidoctor writes it without one: {@code [name]}, the name
+     * being the {@code alt} attribute or the icon name with {@code _} and {@code -} read as spaces.
+     */
+    protected String icon(final Macro macro, final Map<String, String> options) {
+        final var alt = options.get("alt");
+        final var name = alt != null && !alt.isBlank() ? alt.strip() : defaultAlt(macro.label() == null ? "" : macro.label().strip());
+        final var text = "[" + name + "]";
+        final var link = options.get("link");
+        return link != null && !link.isBlank() ? "[" + text + "](" + destination(substitute(link).strip()) + ")" : text;
+    }
+
+    /**
+     * @return the text asciidoctor gives an image or an icon without an alt text: the file name without its directory
+     * and extension, {@code _} and {@code -} read as spaces.
+     */
+    protected String defaultAlt(final String target) {
+        final var name = target.substring(target.lastIndexOf('/') + 1);
+        final int dot = name.lastIndexOf('.');
+        return (dot > 0 ? name.substring(0, dot) : name).replace('_', ' ').replace('-', ' ');
+    }
+
+    /**
+     * The parser resolves includes, a missing one failing the parsing unless it is optional, so an include reaching
+     * the renderer means the model was not built by the parser.
+     */
+    protected IllegalArgumentException unresolvedInclude(final Macro macro) {
+        return new IllegalArgumentException("Unresolved include: '" + macro.label() + "', the parser resolves includes before rendering");
+    }
+
+    /**
      * Splits keys as asciidoctor does: on the first of {@code ,} or {@code +} found after the first character, a
      * trailing delimiter being a key itself ({@code Ctrl++}).
      */
-    static String keys(final String label) {
+    protected String keys(final String label) {
         final var value = label.strip();
-        List<String> keys;
         final int comma = value.indexOf(',', 1);
         final int plus = value.indexOf('+', 1);
         final int delimiter = comma < 0 ? plus : plus < 0 ? comma : Math.min(comma, plus);
-        if (value.length() > 1 && delimiter > 0) {
-            final var separator = value.substring(delimiter, delimiter + 1);
-            if (value.endsWith(separator)) {
-                keys = new ArrayList<>(List.of(value.substring(0, value.length() - 1).split(Pattern.quote(separator), -1)));
-                keys.set(keys.size() - 1, keys.get(keys.size() - 1) + separator);
-            } else {
-                keys = List.of(value.split(Pattern.quote(separator)));
-            }
-        } else {
-            keys = List.of(value);
+        if (value.length() <= 1 || delimiter <= 0) {
+            return value.isEmpty() ? "" : "<kbd>" + value + "</kbd>";
         }
-        return keys.stream()
-                .map(String::strip)
-                .filter(key -> !key.isEmpty())
-                .map(key -> "<kbd>" + key + "</kbd>")
-                .collect(joining("+"));
+        final char separator = value.charAt(delimiter);
+        final boolean trailingKey = value.charAt(value.length() - 1) == separator;
+        final var keys = new ArrayList<String>();
+        final var list = trailingKey ? value.substring(0, value.length() - 1) : value;
+        int from = 0;
+        for (int i = 0; i <= list.length(); i++) {
+            if (i == list.length() || list.charAt(i) == separator) {
+                keys.add(list.substring(from, i).strip());
+                from = i + 1;
+            }
+        }
+        if (trailingKey) {
+            keys.set(keys.size() - 1, keys.get(keys.size() - 1) + separator);
+        }
+        final var out = new StringBuilder();
+        for (final var key : keys) {
+            if (!key.isEmpty()) {
+                out.append(out.isEmpty() ? "" : "+").append("<kbd>").append(key).append("</kbd>");
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -1018,46 +1238,112 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
-     * {@code xref:page.adoc#id[text]} links the rendered page, see {@link #xrefTarget(String)}; same-page references,
-     * {@code xref:#id[]} or {@code xref:id[]}, keep {@code #id} and take the section title as text when the macro has none.
+     * Reads the target as asciidoctor reads the {@code xref} macro, split at its first {@code #}:
+     * <ul>
+     *     <li>{@code #id}, or an id without {@code #} and without extension, links the same page, with the section
+     *     title as text when the macro has none,</li>
+     *     <li>a document, with one of the {@code asciidoc-extensions} or without extension before the {@code #}, links
+     *     the rendered page, see {@link #xrefTarget(String)},</li>
+     *     <li>any other file keeps its name.</li>
+     * </ul>
      */
     protected String xref(final Macro macro, final Map<String, String> options) {
         final var target = substitute(macro.label() == null ? "" : macro.label()).strip();
-        final int hash = target.indexOf('#');
-        final var internal = xrefInternalId(target);
-        final var file = internal != null ? "" : hash >= 0 ? target.substring(0, hash) : target;
-        final var fragment = internal != null ? internal : hash >= 0 ? target.substring(hash + 1) : "";
-        final int extension = file.lastIndexOf('.');
-        final var path = extension > 0 && ASCIIDOC_EXTENSIONS.contains(file.substring(extension)) ? xrefTarget(file.substring(0, extension)) : file;
-        final var href = destination(file.isEmpty() ? "#" + fragment : fragment.isEmpty() ? path : path + "#" + fragment);
         var text = options.get("");
+        final var internal = xrefInternalId(target);
+        if (internal != null) {
+            if (text == null || text.isBlank()) {
+                text = state.sectionTitlesById.getOrDefault(internal, internal);
+            }
+            return "[" + text.strip() + "](" + destination("#" + internal) + ")";
+        }
+        final int hash = target.indexOf('#');
+        final var file = hash >= 0 ? target.substring(0, hash) : target;
+        final var fragment = hash >= 0 ? target.substring(hash + 1) : "";
+        final var page = documentName(file);
+        final var path = page != null ? xrefTarget(page) : relativeFile(file);
         if (text == null || text.isBlank()) {
-            if (file.isEmpty()) {
-                text = state.sectionTitlesById.getOrDefault(fragment, fragment);
-            } else {
-                text = fragment.isEmpty() ? path : fragment;
+            text = fragment.isEmpty() ? path : fragment;
+        }
+        return "[" + text.strip() + "](" + destination(fragment.isEmpty() ? path : path + "#" + fragment) + ")";
+    }
+
+    /**
+     * @return the id a cross reference points at in the same document, {@code null} when it points at a file: as in
+     * asciidoctor, a target starting with {@code #}, or without {@code #} and without extension, is an id.
+     */
+    protected String xrefInternalId(final String target) {
+        if (target.startsWith("#")) {
+            return target.substring(1);
+        }
+        if (target.isEmpty() || target.indexOf('#') >= 0 || hasExtension(target)) {
+            return null;
+        }
+        return target;
+    }
+
+    /**
+     * @param file the file part of a cross reference to another file, before its {@code #}.
+     * @return the referenced document without its extension when the file is an AsciiDoc document (one of the
+     * {@code asciidoc-extensions}, or no extension at all), {@code null} for any other file.
+     */
+    protected String documentName(final String file) {
+        if (!hasExtension(file)) {
+            return file;
+        }
+        for (final var extension : asciidocExtensions()) {
+            if (file.endsWith(extension) && file.length() > extension.length()) {
+                return file.substring(0, file.length() - extension.length());
             }
         }
-        return "[" + text.strip() + "](" + href + ")";
+        return null;
+    }
+
+    /**
+     * @return the extensions of the AsciiDoc documents a cross reference can point at, from the
+     * {@code asciidoc-extensions} attribute, {@code adoc,asciidoc} by default.
+     */
+    protected List<String> asciidocExtensions() {
+        if (state.asciidocExtensions == null) {
+            final var extensions = new ArrayList<String>();
+            for (final var extension : attr("asciidoc-extensions", "adoc,asciidoc").split(",")) {
+                final var value = extension.strip();
+                if (!value.isEmpty()) {
+                    extensions.add(value.startsWith(".") ? value : "." + value);
+                }
+            }
+            state.asciidocExtensions = extensions;
+        }
+        return state.asciidocExtensions;
+    }
+
+    // as asciidoctor's Helpers.extname?, a dot in the last segment of the path
+    private boolean hasExtension(final String path) {
+        final int dot = path.lastIndexOf('.');
+        return dot >= 0 && path.indexOf('/', dot) < 0;
     }
 
     /**
      * Where a cross reference to another document points, as the HTML renderer does:
      * {@code relfileprefix} + page + {@code relfilesuffix}, the suffix defaulting to {@code outfilesuffix} then {@code .md}.
      *
-     * @param page the referenced document without its {@code .adoc} extension.
+     * @param page the referenced document without its extension.
      * @return the link target.
      */
     protected String xrefTarget(final String page) {
+        return relativeFile(page) + attr("relfilesuffix", attr("outfilesuffix", ".md"));
+    }
+
+    // relfileprefix applies to every file a cross reference names, as in asciidoctor
+    private String relativeFile(final String file) {
         final var prefix = attr("relfileprefix", "");
-        return prefix + (!prefix.isEmpty() && page.startsWith("./") ? page.substring(2) : page)
-                + attr("relfilesuffix", attr("outfilesuffix", ".md"));
+        return prefix + (!prefix.isEmpty() && file.startsWith("./") ? file.substring(2) : file);
     }
 
     protected String image(final Macro macro) {
         final var options = options(macro.options());
         var target = substitute(macro.label() == null ? "" : macro.label()).strip();
-        if (!target.isEmpty() && !target.startsWith("/") && !URL_SCHEME.matcher(target).find()) {
+        if (!target.isEmpty() && !target.startsWith("/") && !isUri(target)) {
             final var imagesDir = context().attribute("imagesdir");
             if (imagesDir != null && !imagesDir.isBlank()) {
                 final var dir = substitute(imagesDir).strip();
@@ -1069,28 +1355,11 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             alt = options.get("");
         }
         if (alt == null || alt.isBlank()) {
-            final var name = target.substring(target.lastIndexOf('/') + 1);
-            final int dot = name.lastIndexOf('.');
-            alt = dot > 0 ? name.substring(0, dot) : name;
+            alt = defaultAlt(target);
         }
         final var image = "![" + alt.strip() + "](" + destination(target) + ")";
         final var link = options.get("link");
         return link != null && !link.isBlank() ? "[" + image + "](" + destination(substitute(link).strip()) + ")" : image;
-    }
-
-    /**
-     * @return the id a cross reference points at in the same document, {@code null} when it points at another
-     * document: as in asciidoctor, a target without {@code #} and without an AsciiDoc extension is an id.
-     */
-    protected static String xrefInternalId(final String target) {
-        if (target.startsWith("#")) {
-            return target.substring(1);
-        }
-        if (target.isEmpty() || target.indexOf('#') >= 0) {
-            return null;
-        }
-        final int dot = target.lastIndexOf('.');
-        return dot >= 0 && ASCIIDOC_EXTENSIONS.contains(target.substring(dot)) ? null : target;
     }
 
     // ------------------------------------------------------------------------------------------------------- helpers
@@ -1113,29 +1382,39 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     /**
      * @return true when the block sets the option, as {@code %name}, {@code options="name"} or {@code opts=name}.
      */
-    protected static boolean hasOption(final Map<String, String> options, final String name) {
+    protected boolean hasOption(final Map<String, String> options, final String name) {
         if (options.containsKey(name + "-option")) {
             return true;
         }
         final var opts = options.get("opts");
-        if (opts != null && Stream.of(opts.split(",")).map(String::strip).anyMatch(name::equals)) {
-            return true;
+        if (opts != null) {
+            for (final var option : opts.split(",")) {
+                if (name.equals(option.strip())) {
+                    return true;
+                }
+            }
         }
-        // the parser reads [%collapsible%open] as one "collapsible%open-option" key
-        return options.keySet().stream()
-                .filter(key -> key.endsWith("-option"))
-                .anyMatch(key -> Stream.of(key.substring(0, key.length() - "-option".length()).split("%")).anyMatch(name::equals));
+        for (final var key : options.keySet()) { // the parser reads [%collapsible%open] as one "collapsible%open-option" key
+            if (key.indexOf('%') > 0 && key.endsWith("-option")) {
+                for (final var option : key.substring(0, key.length() - "-option".length()).split("%")) {
+                    if (name.equals(option)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
-    protected static String quote(final String text) {
+    protected String quote(final String text) {
         return text.lines().map(line -> line.isEmpty() ? ">" : "> " + line).collect(joining("\n"));
     }
 
-    protected static String indent(final String text, final String indent) {
+    protected String indent(final String text, final String indent) {
         return text.lines().map(line -> line.isEmpty() ? line : indent + line).collect(joining("\n"));
     }
 
-    private static Map<String, String> options(final Map<String, String> options) {
+    private Map<String, String> options(final Map<String, String> options) {
         return options == null ? Map.of() : options;
     }
 
@@ -1165,38 +1444,29 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return result.toString();
     }
 
-    private Map<String, String> indexSectionTitles(final List<Element> elements) {
-        final var titles = new HashMap<String, String>();
-        collectTitles(elements, titles);
-        return titles;
-    }
-
-    private void collectTitles(final List<Element> elements, final Map<String, String> titles) {
-        for (final var element : elements) {
-            if (element instanceof Section section) {
-                registerTitle(section.options(), section.title(), titles);
-                collectTitles(section.children(), titles);
-            } else if (element instanceof FloatingTitle floatingTitle) {
-                registerTitle(floatingTitle.options(), floatingTitle.title(), titles);
-            } else if (element instanceof ConditionalBlock conditional) {
-                if (conditional.evaluator().test(context())) {
-                    collectTitles(conditional.children(), titles);
-                } else if (conditional.elseBranches() != null) {
-                    conditional.elseBranches().stream()
-                            .filter(branch -> branch.evaluator().test(context()))
-                            .findFirst()
-                            .ifPresent(branch -> collectTitles(branch.children(), titles));
-                }
-            } else if (element instanceof OpenBlock openBlock) {
-                collectTitles(openBlock.children(), titles);
+    /**
+     * @return the text of a link to a section: the plain text of its title on one line, its brackets escaped.
+     */
+    protected String sectionLinkText(final Element title) {
+        final var text = plainText(title);
+        final var out = new StringBuilder(text.length());
+        boolean space = false;
+        for (int i = 0; i < text.length(); i++) {
+            final char c = text.charAt(i);
+            if (Character.isWhitespace(c)) {
+                space = !out.isEmpty();
+                continue;
             }
+            if (space) {
+                out.append(' ');
+                space = false;
+            }
+            if (c == '[' || c == ']') {
+                out.append('\\');
+            }
+            out.append(c);
         }
-    }
-
-    private void registerTitle(final Map<String, String> options, final Element title, final Map<String, String> titles) {
-        final var explicit = id(options);
-        titles.putIfAbsent(explicit != null ? explicit : generatedId(title),
-                plainText(title).replaceAll("\\s+", " ").strip().replace("[", "\\[").replace("]", "\\]"));
+        return out.toString();
     }
 
     /**
@@ -1228,7 +1498,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 final var macro = (Macro) element;
                 yield switch (macro.name()) {
                     case "footnote", "footnoteref", "doublefootnote", "indexterm", "icon", "image" -> "";
-                    default -> macro.options().getOrDefault("", macro.label());
+                    default -> options(macro.options()).getOrDefault("", macro.label());
                 };
             }
             case LINE_BREAK -> " ";
@@ -1256,6 +1526,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         protected Map<String, String> documentAttributes = Map.of();
         protected Map<String, String> sectionTitlesById = Map.of();
         protected Set<String> referencedIds = Set.of(); // ids the document links to, a generated section id is written only then
+        protected List<TocSection> tocSections = List.of(); // in document order, following the rendered conditional branches
+        protected List<String> asciidocExtensions; // read from the attributes on first use, see asciidocExtensions()
         protected final List<FootNote> footnotes = new ArrayList<>(); // definitions, in order
         protected final Map<String, FootNote> footnotesById = new HashMap<>();
         protected final Set<String> footnoteLabels = new HashSet<>();
@@ -1265,6 +1537,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             documentAttributes = Map.of();
             sectionTitlesById = Map.of();
             referencedIds = Set.of();
+            tocSections = List.of();
+            asciidocExtensions = null;
             footnotes.clear();
             footnotesById.clear();
             footnoteLabels.clear();
@@ -1273,11 +1547,15 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
-     * Collects the ids the document links to, with {@code <<id>>} or {@code xref:id[]}, following only the
-     * conditional branches that are rendered.
+     * Indexes the body in one walk, following only the conditional branches that are rendered: the ids the document
+     * links to, with {@code <<id>>} or {@code xref:id[]}, the link text of each section and floating title by id, the
+     * sections a table of contents lists, and the deepest {@code levels} a {@code toc::[]} macro asks for.
      */
-    private final class References implements Visitor<Void> {
+    private final class Index implements Visitor<Void> {
         private final Set<String> ids = new HashSet<>();
+        private final Map<String, String> titles = new HashMap<>();
+        private final List<TocSection> sections = new ArrayList<>();
+        private int tocMacroLevels;
 
         @Override
         public ConditionalBlock.Context context() {
@@ -1298,18 +1576,30 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 if (id != null) {
                     ids.add(id);
                 }
+            } else if ("toc".equals(element.name())) {
+                tocMacroLevels = Math.max(tocMacroLevels, tocLevels(options(element.options()).get("levels")));
             }
         }
 
         @Override
         public void visitSection(final Section element) {
+            final var id = sectionId(element.options(), element.title());
+            final var text = sectionLinkText(element.title());
+            titles.putIfAbsent(id, text);
+            sections.add(new TocSection(element.level() - 1, id, text));
             visitElement(element.title());
             Visitor.super.visitSection(element);
         }
 
         @Override
         public void visitFloatingTitle(final FloatingTitle element) {
+            titles.putIfAbsent(sectionId(element.options(), element.title()), sectionLinkText(element.title()));
             visitElement(element.title());
+        }
+
+        private String sectionId(final Map<String, String> options, final Element title) {
+            final var explicit = id(options);
+            return explicit != null ? explicit : generatedId(title);
         }
 
         @Override
@@ -1345,6 +1635,16 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                         .ifPresent(branch -> branch.children().forEach(this::visitElement));
             }
         }
+    }
+
+    /**
+     * A section a table of contents can list.
+     *
+     * @param level its asciidoctor level, 1 for {@code ==}.
+     * @param id    its explicit or generated id.
+     * @param title the text of a link to it.
+     */
+    protected record TocSection(int level, String id, String title) {
     }
 
     /**
