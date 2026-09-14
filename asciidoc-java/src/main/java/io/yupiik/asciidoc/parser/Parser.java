@@ -2505,8 +2505,7 @@ public class Parser {
     }
 
     private Map<String, String> parseQuoteLikeOptions(final String options, final String prefix, final String type) {
-        final var rest = options.substring(prefix.length()).strip();
-        final var result = doParseOptions(rest, "attribution", true);
+        final var result = doParseOptions(options.substring(prefix.length()), "attribution", true);
         final var opts = result.remove("opts");
         if (opts != null) {
             final var comma = opts.indexOf(',');
@@ -2529,7 +2528,7 @@ public class Parser {
         if (options.startsWith(matcher + ",")) {
             return of(merge(
                     role == null ? Map.of() : Map.of("role", role),
-                    doParseOptions(options.substring(matcher.length() + ",".length()).strip(), defaultKey, true)));
+                    doParseOptions(options.substring(matcher.length() + ",".length()), defaultKey, true)));
         }
 
         return empty();
@@ -2929,6 +2928,16 @@ public class Parser {
                 key.setLength(0);
                 value.setLength(0);
                 inKey = true;
+            } else if (c == ' ' || c == '\t') { // as asciidoctor, blanks around a name or a value are not part of it
+                final var current = inKey ? key : value;
+                int next = i + 1;
+                while (next < options.length() && (options.charAt(next) == ' ' || options.charAt(next) == '\t')) {
+                    next++;
+                }
+                if (!current.isEmpty() && next < options.length() && options.charAt(next) != ',' && options.charAt(next) != '=') {
+                    current.append(options, i, next);
+                }
+                i = next - 1;
             } else {
                 (inKey ? key : value).append(c);
             }

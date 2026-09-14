@@ -1091,6 +1091,53 @@ class ParserTest {
     }
 
     @Test
+    void blanksAroundAttributeNamesAndValues() { // as asciidoctor, they are not part of the name or of the value, except in quotes
+        final var body = new Parser(Map.of("version", "1.0")).parseBody(new Reader(List.of("""
+                [source, xml, subs="attributes+"]
+                ----
+                <version>{version}</version>
+                ----
+
+                [source,java,\ttitle = " Spaced title " ]
+                ----
+                run();
+                ----
+
+                [.configuration-reference, cols="1,1"]
+                |===
+                |Name|Value
+                |===
+
+                image::logo.png[Quarkus logo, width=100]
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Code("<version>1.0</version>\n", Map.of("language", "xml", "subs", "attributes+"), false, List.of()),
+                        new Code("run();\n", Map.of("language", "java", "title", " Spaced title "), false, List.of()),
+                        new Table(
+                                List.of(List.of(new Text(List.of(), "Name", Map.of()), new Text(List.of(), "Value", Map.of()))),
+                                Map.of("role", "configuration-reference", "cols", "1,1")),
+                        new Macro("image", "logo.png", Map.of("", "Quarkus logo", "width", "100"), false)),
+                body.children());
+    }
+
+    @Test
+    void includeAttributesAfterABlank() { // the tag was ignored, so the whole file was included
+        final var body = new Parser().parseBody(
+                new Reader(List.of("include::snippet.adoc[leveloffset=+1, tag=snippet-a]")),
+                (ref, encoding) -> switch (ref) {
+                    case "snippet.adoc" -> Optional.of(List.of(
+                            "Not included.",
+                            "",
+                            "// tag::snippet-a[]",
+                            "== Included",
+                            "// end::snippet-a[]"));
+                    default -> Optional.empty();
+                });
+        assertEquals(List.of(new Section(3, new Text(List.of(), "Included", Map.of()), List.of(), Map.of())), body.children());
+    }
+
+    @Test
     void parseParagraphAndSectionsAndSubsections() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 == Section #1
