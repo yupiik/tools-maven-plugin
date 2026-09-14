@@ -1318,7 +1318,7 @@ public class Parser {
                     if (matcher.matches() && "::".equals(matcher.group("marker"))) {
                         reader.rewind();
                         elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver,
-                                merge(currentAttributes, pendingOptions)));
+                                currentAttributes, pendingOptions));
                         i = line.length();
                         start = i;
                         break;
@@ -1331,7 +1331,7 @@ public class Parser {
                     if (matcher.matches() && ";;".equals(matcher.group("marker"))) {
                         reader.rewind();
                         elements.add(parseDescriptionList(enclosingDocument, reader, ";; ", resolver,
-                                merge(currentAttributes, pendingOptions)));
+                                currentAttributes, pendingOptions));
                         i = line.length();
                         start = i;
                         break;
@@ -2231,7 +2231,8 @@ public class Parser {
 
     private DescriptionList parseDescriptionList(final Path enclosingDocument, final Reader reader, final String prefix,
                                                  final ContentResolver resolver,
-                                                 final Map<String, String> currentAttributes) {
+                                                 final Map<String, String> currentAttributes,
+                                                 final Map<String, String> options) {
         final var children = new LinkedHashMap<Element, Element>(2);
         String next;
         final var buffer = new ArrayList<String>();
@@ -2279,7 +2280,7 @@ public class Parser {
                 } else {
                     nestedPrefix = marker + " ";
                 }
-                final var nestedList = parseDescriptionList(enclosingDocument, reader, nestedPrefix, resolver, currentAttributes);
+                final var nestedList = parseDescriptionList(enclosingDocument, reader, nestedPrefix, resolver, currentAttributes, Map.of());
                 if (!nestedList.children().isEmpty() && last != null) {
                     addCollapsingChildOnParent(List.of(last), nestedList);
                 }
@@ -2288,7 +2289,7 @@ public class Parser {
         if (next != null) {
             reader.rewind();
         }
-        return new DescriptionList(children, currentAttributes == null ? Map.of() : currentAttributes);
+        return new DescriptionList(children, options);
     }
 
     private UnOrderedList parseUnorderedList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,

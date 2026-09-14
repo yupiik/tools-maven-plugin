@@ -2181,6 +2181,38 @@ class ParserTest {
     }
 
     @Test
+    void descriptionListOptionsWithoutDocumentAttributes() {
+        final var doc = new Parser().parse("""
+                [id=user-guide]
+                = User guide
+                :title: Custom title
+                :role: guide
+
+                Terms:
+
+                CPU:: The brain of the computer.
+                RAM:: Temporary storage.
+
+                .Shortcuts
+                [horizontal,role=keys]
+                Save:: Ctrl+S
+                """, new Parser.ParserContext(null));
+        assertEquals(
+                List.of("user-guide", "Custom title", "guide"),
+                Stream.of("id", "title", "role").map(doc.header().attributes()::get).toList());
+        assertEquals(List.of(
+                        new Text(List.of(), "Terms:", Map.of()),
+                        new DescriptionList(Map.of(
+                                new Text(List.of(), "CPU", Map.of()), new Text(List.of(), "The brain of the computer.", Map.of()),
+                                new Text(List.of(), "RAM", Map.of()), new Text(List.of(), "Temporary storage.", Map.of())),
+                                Map.of()),
+                        new DescriptionList(Map.of(
+                                new Text(List.of(), "Save", Map.of()), new Text(List.of(), "Ctrl+S", Map.of())),
+                                Map.of("", "horizontal", "role", "keys", "title", "Shortcuts"))),
+                doc.body().children());
+    }
+
+    @Test
     void image() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 image:test.png[Test]
