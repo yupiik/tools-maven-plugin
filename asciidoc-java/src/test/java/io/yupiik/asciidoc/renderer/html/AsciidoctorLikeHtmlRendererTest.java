@@ -1197,6 +1197,40 @@ class AsciidoctorLikeHtmlRendererTest {
                 " <a href=\"../foo/\">Bar</a>\n");
     }
 
+    @Test
+    void blockAnchor() {
+        assertRenderingContent("""
+                [[install]]
+                == Install
+
+                [[configuration]]
+                [NOTE]
+                ====
+                Configure it.
+                ====
+                """,
+                """
+                         <div class="sect1" id="install">
+                          <h2>Install</h2>
+                         <div class="sectionbody">
+                         <div id="configuration" class="admonitionblock note">
+                          <table>
+                            <tbody>
+                             <tr>
+                              <td class="icon">
+                             <div class="title">NOTE</div>
+                               </td>
+                              <td class="content">
+                        Configure it.    </td>
+                           </tr>
+                              </tbody>
+                          </table>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
 
     @Test
     void embeddedImage(@TempDir final Path work) throws IOException {

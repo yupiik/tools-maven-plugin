@@ -261,8 +261,7 @@ public class Parser {
     private String readHeaderTitleLine(final Reader reader, final Map<String, String> preTitleOptions) {
         var line = reader.skipCommentsAndEmptyLines();
         while (line != null && isBlockAttributeLine(line)) {
-            final var stripped = line.strip();
-            preTitleOptions.putAll(parseOptions(stripped.substring(1, stripped.length() - 1)));
+            preTitleOptions.putAll(parseBlockAttributes(line.strip()));
             line = reader.skipCommentsAndEmptyLines();
         }
         return line;
@@ -271,6 +270,37 @@ public class Parser {
     private boolean isBlockAttributeLine(final String line) {
         final var stripped = line.strip();
         return stripped.startsWith("[") && stripped.endsWith("]");
+    }
+
+    private Map<String, String> parseBlockAttributes(final String stripped) {
+        if (stripped.startsWith("[[") && stripped.endsWith("]]")) { // as asciidoctor, [[id]] and [[id, reftext]] are block anchors
+            final var anchor = stripped.substring("[[".length(), stripped.length() - "]]".length());
+            final int comma = anchor.indexOf(',');
+            final var id = comma < 0 ? anchor : anchor.substring(0, comma);
+            if (isAnchorId(id)) {
+                final var reftext = comma < 0 ? "" : anchor.substring(comma + 1).strip();
+                return reftext.isEmpty() ? Map.of("id", id) : Map.of("id", id, "reftext", reftext);
+            }
+        }
+        return parseOptions(stripped.substring(1, stripped.length() - 1));
+    }
+
+    // an anchor id starts with a letter, '_' or ':' and goes on with letters, digits, '_', '-', ':' or '.'
+    private boolean isAnchorId(final String id) {
+        if (id.isEmpty()) {
+            return false;
+        }
+        final char first = id.charAt(0);
+        if (!Character.isLetter(first) && first != '_' && first != ':') {
+            return false;
+        }
+        for (int i = 1; i < id.length(); i++) {
+            final char c = id.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '_' && c != '-' && c != ':' && c != '.') {
+                return false;
+            }
+        }
+        return true;
     }
 
     public Body parseBody(final String reader, final ParserContext context) {
@@ -452,8 +482,7 @@ public class Parser {
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
                     // as asciidoctor, the attribute references of a block attribute line are substituted before it is parsed
-                    final var substituted = newValue.strip();
-                    options = merge(options, parseOptions(substituted.substring(1, substituted.length() - 1)));
+                    options = merge(options, parseBlockAttributes(newValue.strip()));
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {

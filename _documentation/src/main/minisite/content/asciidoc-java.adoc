@@ -44,6 +44,7 @@ The parser supports standard Asciidoc syntax including:
 * Source blocks (`[source,...]`)
 * Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
 * Open/closed blocks, quote blocks, listing blocks, example blocks
+* Block ids, written `[#id]`, `[id=name]` or as an anchor line `[[id]]` (`[[id, reftext]]` with a reference text) above a block or the document title
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
 * Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
