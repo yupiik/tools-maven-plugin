@@ -2074,6 +2074,31 @@ class ParserTest {
     }
 
     @Test
+    void attributeReferencesInBlockTitlesAndAttributeLines() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :product: Quarkus
+                :lang: properties
+
+                .{product} configuration
+                [source,{lang}]
+                ----
+                quarkus.http.port=8081
+                ----
+
+                :product: Quarkus REST
+
+                .{product} endpoints, see {missing}
+                * /hello
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Code("quarkus.http.port=8081\n", Map.of("language", "properties", "title", "Quarkus configuration"), false, List.of()),
+                        new UnOrderedList(
+                                List.of(new Text(List.of(), "/hello", Map.of())),
+                                Map.of("title", "Quarkus REST endpoints, see {missing}"))),
+                body.children());
+    }
+
+    @Test
     void descriptionList() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 CPU:: The brain of the computer.

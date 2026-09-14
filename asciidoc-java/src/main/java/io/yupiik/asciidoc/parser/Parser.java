@@ -451,14 +451,16 @@ public class Parser {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
-                    options = merge(options, parseOptions(stripped.substring(1, stripped.length() - 1)));
+                    // as asciidoctor, the attribute references of a block attribute line are substituted before it is parsed
+                    final var substituted = newValue.strip();
+                    options = merge(options, parseOptions(substituted.substring(1, substituted.length() - 1)));
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
-                options = merge(options, Map.of("title", stripped.substring(1).strip()));
+                options = merge(options, Map.of("title", newValue.strip().substring(1).strip()));
             } else if (Objects.equals("====", stripped)) {
                 Optional<Admonition.Level> level;
                 final var potentialLevel = options == null ? "" : options.getOrDefault("", "");
