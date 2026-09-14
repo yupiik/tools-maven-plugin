@@ -15,7 +15,11 @@
  */
 package io.yupiik.asciidoc.renderer.markdown;
 
+import io.yupiik.asciidoc.model.Body;
+import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.Macro;
+import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
@@ -25,10 +29,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GithubFlavoredMarkdownRendererTest {
@@ -106,8 +112,28 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
-    void crossReferencesToEveryAsciiDocExtension() {
-        assertEquals("See [B](b.md), [C](c.md#x) and [D](d.md).\n", md("See xref:b.asciidoc[B], xref:c.ad#x[C] and xref:d.asc[D]."));
+    void crossReferencesToAsciiDocExtensions() { // .adoc and .asciidoc by default, another extension names a file
+        assertEquals("See [B](b.md), [C](c.ad#x) and [D](d.asc).\n", md("See xref:b.asciidoc[B], xref:c.ad#x[C] and xref:d.asc[D]."));
+    }
+
+    @Test
+    void crossReferencesToConfiguredAsciiDocExtensions() {
+        assertEquals("# Doc\n\nSee [B](b.asciidoc), [C](c.md#x) and [D](d.md).\n", md("""
+                = Doc
+                :asciidoc-extensions: adoc, .ad,asc
+
+                See xref:b.asciidoc[B], xref:c.ad#x[C] and xref:d.asc[D].
+                """));
+        assertEquals("See [B](b.md) and [C](c.ad#x).\n",
+                md("See xref:b.adoc[B] and xref:c.ad#x[C].", Map.of("asciidoc-extensions", "adoc")));
+    }
+
+    @Test
+    void crossReferencesWithoutExtensionOrToAnotherFile() { // as asciidoctor reads the xref macro
+        assertEquals("See [Dev mode](../cli-tooling/index.md#development-mode), [the guide](../guide.html), " +
+                        "[the section](#dir/page) and [Two](../a/index.md#s1#s2).\n",
+                md("See xref:cli-tooling#development-mode[Dev mode], xref:guide.html[the guide], xref:dir/page[the section] " +
+                        "and xref:a.adoc#s1#s2[Two].", Map.of("relfileprefix", "../", "relfilesuffix", "/index.md")));
     }
 
     @Test
@@ -732,6 +758,223 @@ class GithubFlavoredMarkdownRendererTest {
     @Test
     void indexTerms() {
         assertEquals("A  B visible C\n", md("A indexterm:[hidden term] B indexterm2:[visible] C"));
+    }
+
+    @Test
+    void iconsAreWrittenAsAsciidoctorDoesWithoutAnIconFont() {
+        assertEquals("""
+                        - [lock] `quarkus.http.port` is fixed at build time
+                        - [question circle] see the duration format
+                        - [Love] and [[check]](https://example.org) and [my icon]
+                        """,
+                md("""
+                        * icon:lock[title=Fixed at build time] `quarkus.http.port` is fixed at build time
+                        * icon:question-circle[] see the duration format
+                        * icon:heart[alt=Love] and icon:check[link=https://example.org] and icon:my_icon[2x]
+                        """));
+    }
+
+    @Test
+    void tableOfContentsAtTheMacro() {
+        assertEquals("""
+                        # Doc
+
+                        Intro.
+
+                        **Table of Contents**
+
+                        - [One](#_one)
+                          - [Two](#_two)
+                        - [Four](#_four)
+
+                        <a id="_one"></a>
+                        ## One
+
+                        <a id="_two"></a>
+                        ### Two
+
+                        #### Three
+
+                        <a id="_four"></a>
+                        ## Four
+                        """,
+                md("""
+                        = Doc
+                        :toc: macro
+
+                        Intro.
+
+                        toc::[]
+
+                        == One
+
+                        === Two
+
+                        ==== Three
+
+                        == Four
+                        """));
+        assertEquals("""
+                        **Sections**
+
+                        - [One](#_one)
+                          - [Two](#_two)
+                            - [Three](#_three)
+
+                        <a id="_one"></a>
+                        ## One
+
+                        <a id="_two"></a>
+                        ### Two
+
+                        <a id="_three"></a>
+                        #### Three
+                        """,
+                md("""
+                        = Doc
+                        :toc: macro
+
+                        .Sections
+                        toc::[levels=3]
+
+                        == One
+
+                        === Two
+
+                        ==== Three
+                        """, Map.of("noheader", "true")));
+    }
+
+    @Test
+    void tableOfContentsPlacements() {
+        assertEquals("""
+                        # Doc
+
+                        **Table of Contents**
+
+                        - [One](#_one)
+
+                        Preamble.
+
+                        <a id="_one"></a>
+                        ## One
+                        """,
+                md("""
+                        = Doc
+                        :toc:
+
+                        Preamble.
+
+                        toc::[]
+
+                        == One
+                        """), "at the top, the macro being ignored unless the toc attribute is macro");
+        assertEquals("""
+                        # Doc
+
+                        Preamble.
+
+                        **Contents**
+
+                        - [One](#custom)
+
+                        <a id="custom"></a>
+                        ## One
+
+                        ### Two
+                        """,
+                md("""
+                        = Doc
+                        :toc: preamble
+                        :toc-title: Contents
+                        :toclevels: 1
+
+                        Preamble.
+
+                        [#custom]
+                        == One
+
+                        === Two
+                        """), "after the preamble");
+        assertEquals("# Doc\n\n## One\n", md("""
+                = Doc
+
+                toc::[]
+
+                == One
+                """), "no toc attribute, no table of contents");
+        assertEquals("# Doc\n\nJust text.\n", md("""
+                = Doc
+                :toc:
+
+                Just text.
+                """), "no section, no table of contents");
+    }
+
+    @Test
+    void includeReachingTheRendererFails() {
+        final var block = assertThrows(IllegalArgumentException.class, () -> new GithubFlavoredMarkdownRenderer()
+                .visitBody(new Body(List.of(new Macro("include", "chapter.adoc", Map.of(), false)))));
+        assertEquals("Unresolved include: 'chapter.adoc', the parser resolves includes before rendering", block.getMessage());
+        final var inline = assertThrows(IllegalArgumentException.class, () -> new GithubFlavoredMarkdownRenderer()
+                .visitBody(new Body(List.of(new Paragraph(List.of(
+                        new Text(List.of(), "See ", Map.of()), new Macro("include", "part.adoc", Map.of(), true)), Map.of())))));
+        assertEquals("Unresolved include: 'part.adoc', the parser resolves includes before rendering", inline.getMessage());
+    }
+
+    @Test
+    void admonitionStyleIsUpperCase() { // as in asciidoctor, [note] is no admonition
+        assertEquals("> [!NOTE]\n> Upper case.\n\nLower case.\n", md("""
+                [NOTE]
+                --
+                Upper case.
+                --
+
+                [note]
+                --
+                Lower case.
+                --
+                """));
+    }
+
+    @Test
+    void imageTargetsThatLookLikeAUri() { // a scheme has two characters at least, so C: starts a path
+        assertEquals("![a](img/C:/images/a.png)\n\nA ![x:y](img/x:y.png) B ![a](https://example.org/a.png) C ![ab:c](ab:c.png) " +
+                        "D ![a](/abs/a.png) E ![my logo file](img/my_logo-file.png)\n",
+                md("""
+                        image::C:/images/a.png[]
+
+                        A image:x:y.png[] B image:https://example.org/a.png[] C image:ab:c.png[] D image:/abs/a.png[] E image:my_logo-file.png[]
+                        """, Map.of("imagesdir", "img")));
+    }
+
+    @Test
+    void inlineCodeDelimiterIsLongerThanTheBackticksInTheCode() {
+        final var renderer = new GithubFlavoredMarkdownRenderer();
+        renderer.visitBody(new Body(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Use ", Map.of()),
+                new Code("a``b", Map.of(), true, List.of()),
+                new Text(List.of(), " or ", Map.of()),
+                new Code("`c", Map.of(), true, List.of()),
+                new Text(List.of(), " but not ", Map.of()),
+                new Code("d", Map.of(), true, List.of()),
+                new Text(List.of(), ".", Map.of())), Map.of()))));
+        assertEquals("Use ``` a``b ``` or `` `c `` but not `d`.\n", renderer.result());
+    }
+
+    @Test
+    void listingAndLiteralStylesNameNoLanguage() {
+        assertEquals("```\ny\n```\n\n```\nz\n```\n", md("""
+                [listing]
+                ----
+                y
+                ----
+
+                [literal]
+                ....
+                z
+                ....
+                """));
     }
 
     @Test
