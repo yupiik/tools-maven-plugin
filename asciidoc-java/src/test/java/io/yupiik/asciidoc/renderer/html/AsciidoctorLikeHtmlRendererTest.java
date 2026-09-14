@@ -1554,7 +1554,7 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void imagesDirs() {
+    void imagesDirs() { // as asciidoctor, the default alt text is the file name without its extension
         assertRenderingContent(
                 """
                         = Foo
@@ -1568,7 +1568,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
-                         <img src="/assets/relative.png" alt="relative.png">
+                         <img src="/assets/relative.png" alt="relative">
                          </div>
                          </div>
                          </div>
@@ -1591,7 +1591,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
-                         <img src="/assets/relative.png" alt="relative.png">
+                         <img src="/assets/relative.png" alt="relative">
                          </div>
                          </div>
                          </div>
@@ -2873,6 +2873,142 @@ class AsciidoctorLikeHtmlRendererTest {
         final var renderer = new AsciidoctorLikeHtmlRenderer();
         renderer.visit(doc);
         assertEquals(html, renderer.result());
+    }
+
+    @Test
+    void crossReferencesReadAsAsciidoctorReadsThem() { // an id without # links the page, a document without extension gets the suffix
+        assertRenderingContent("""
+                        = Guide
+
+                        [#install]
+                        == Install
+
+                        === Other details
+
+                        See <<_other_details>>, xref:install[] and xref:cli-tooling#dev-mode[the CLI].
+                        """,
+                """
+                         <div class="sect0" id="_guide">
+                          <h1>Guide</h1>
+                         <div class="sectionbody">
+                         <div class="sect1" id="install">
+                          <h2>Install</h2>
+                         <div class="sectionbody">
+                         <div class="sect2" id="_other_details">
+                          <h3>Other details</h3>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>See  <a href="#_other_details">Other details</a>
+                        ,  <a href="#install">Install</a>
+                         and  <a href="cli-tooling.html#dev-mode">the CLI</a>
+                        .</p>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void blockTitleAttributesAndPositionalLinenums() {
+        assertRenderingContent("""
+                        :config-file: application.properties
+
+                        .Example \\{config-file} and {config-file}
+                        [source,properties,linenums]
+                        ----
+                        a=b
+                        ----
+                        """,
+                """
+                         <div class="listingblock">
+                          <div class="title">Example {config-file} and application.properties</div>
+                         <div class="content">
+                         <pre class="highlightjs highlight linenums"><code class="language-properties hljs" data-lang="properties" data-linenums="true"><span class="linenums">1</span>a=b
+                        </code></pre>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void imageUriAndKeyboardKeys() { // imagesdir is not added to a URI, and kbd keys are split on + and on ,
+        assertRenderingContent("""
+                        :imagesdir: /assets
+
+                        image::https://example.org/logo.png[]
+
+                        Press kbd:[Ctrl,Shift] or kbd:[Ctrl++].
+                        """,
+                """
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="https://example.org/logo.png" alt="logo">
+                         </div>
+                         </div>
+                         <div class="paragraph">
+                         <p>Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd>
+                         or <kbd>Ctrl</kbd> + <kbd>+</kbd>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void styleShorthandsAndDocumentTitleAttribute() { // [NOTE#note] is an admonition, a :title: attribute is no list title
+        assertRenderingContent("""
+                        = Doc
+                        :title: Custom title
+
+                        [NOTE#note]
+                        ====
+                        A note.
+                        ====
+
+                        [%collapsible%open]
+                        .Details
+                        ====
+                        Shown.
+                        ====
+
+                        Term:: Definition.
+                        """,
+                """
+                         <div class="sect0" id="_doc">
+                          <h1>Doc</h1>
+                         <div class="sectionbody">
+                         <div id="note" class="admonitionblock note">
+                          <table>
+                            <tbody>
+                             <tr>
+                              <td class="icon">
+                             <div class="title">NOTE</div>
+                               </td>
+                              <td class="content">
+                        A note.    </td>
+                           </tr>
+                              </tbody>
+                          </table>
+                         </div>
+                         <details open>
+                          <summary class="title">Details</summary>
+                          <div class="content">
+                        Shown.  </div>
+                         </details>
+                         <div class="dlist">
+                          <dl>
+                            <dt class="hdlist1">Term</dt>
+                            <dd>
+                        <p>Definition.</p>
+                        </dd>
+                          </dl>
+                         </div>
+                         </div>
+                         </div>
+                        """);
     }
 
     private void assertRenderingContent(final String adoc, final String html) {

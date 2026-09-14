@@ -47,6 +47,8 @@ import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.Visitor;
+import io.yupiik.asciidoc.renderer.VisitorSibling;
+import io.yupiik.asciidoc.renderer.VisitorState;
 import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
 import io.yupiik.asciidoc.renderer.uri.DataUri;
@@ -90,6 +92,8 @@ import static java.util.stream.Collectors.toMap;
 public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final StringBuilder builder = new StringBuilder();
     protected final Configuration configuration;
+    protected final VisitorSibling sibling; // reads the model as the other renderers do
+    protected final VisitorState visitorState; // the section index shared with the other renderers, its document is state.document
     protected final boolean dataUri;
     protected final DataResolver resolver;
     protected final State state = new State(); // this is why we are not thread safe
@@ -102,7 +106,27 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     public AsciidoctorLikeHtmlRenderer(final Configuration configuration) {
+        this(configuration, new VisitorSibling());
+    }
+
+    /**
+     * @param sibling how the renderer reads the model, a subclass of {@link VisitorSibling} changes a reading in the
+     *                renderer and in the renderers it creates for titles and labels.
+     */
+    public AsciidoctorLikeHtmlRenderer(final Configuration configuration, final VisitorSibling sibling) {
         this.configuration = configuration;
+        this.sibling = sibling;
+        this.visitorState = new VisitorState(sibling, key -> configuration.getAttributes().get(key)) {
+            @Override
+            public Document document() { // state.document stays the document subclasses read and set
+                return state.document;
+            }
+
+            @Override
+            public ConditionalBlock.Context context() { // a subclass overriding context() changes the index too
+                return AsciidoctorLikeHtmlRenderer.this.context();
+            }
+        };
 
         final var dataUriValue = configuration.getAttributes().getOrDefault("data-uri", "false");
         this.dataUri = Boolean.parseBoolean(dataUriValue) || dataUriValue.isBlank();
@@ -124,6 +148,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitBody(final Body body) {
+        visitorState.visitBody(body); // indexed here, so rendering only a body keeps the section titles of links
         final var noheader = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
         final var tocAttr = attr("toc", "toc", "none", state.document.header().attributes());
         final var showToc = !"none".equals(tocAttr);
@@ -168,28 +193,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitConditionalBlock(final ConditionalBlock element) {
-        final var ctx = context();
-        if (element.evaluator().test(ctx)) {
-            state.stackChain(element.children(), () -> element.children().forEach(this::visitElement));
-        } else {
-            for (final var branch : element.elseBranches()) {
-                if (branch.evaluator().test(ctx)) {
-                    state.stackChain(branch.children(), () -> branch.children().forEach(this::visitElement));
-                    return;
-                }
-            }
-        }
+        final var children = sibling.renderedChildren(element, context());
+        state.stackChain(children, () -> children.forEach(this::visitElement));
     }
 
     @Override
     public ConditionalBlock.Context context() {
-        final var attrs = configuration.getAttributes();
-        final var docAttrs = state.document.header().attributes();
-        return key -> {
-            final var v = docAttrs.get(key);
-            if (v != null) return v;
-            return attrs.get(key);
-        };
+        return visitorState.attributes();
     }
 
     @Override
@@ -208,6 +218,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visit(final Document document) {
         state.document = document;
+        visitorState.visit(document);
         final var embeddedAttr = attr("embedded", document.header().attributes());
         final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"))
                 || "true".equals(embeddedAttr) || "".equals(embeddedAttr);
@@ -497,7 +508,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitSection(final Section element) {
         state.stackChain(element.children(), () -> {
-            final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
+            final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
             titleRenderer.state.sawPreamble = true;
             titleRenderer.state.nowrap = true;
             titleRenderer.visitElement(element.title());
@@ -571,7 +582,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitFloatingTitle(final FloatingTitle element) {
-        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
+        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
         titleRenderer.state.sawPreamble = true;
         titleRenderer.state.nowrap = true;
         titleRenderer.visitElement(element.title());
@@ -705,7 +716,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final var role = element.options().get("role");
             final var classes = "dlist" + (style != null ? " " + style : "") + (role != null ? " " + role : "");
             builder.append(" <div class=\"").append(classes).append("\">\n");
-            writeBlockTitle(element.options());
+            if (sibling.descriptionListTitle(element, context()) != null) { // the parser copies a :title: document attribute there
+                writeBlockTitle(element.options());
+            }
             builder.append("  <dl");
             writeCommonAttributes(element.options(), null);
             builder.append(">\n");
@@ -738,7 +751,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final var role = element.options().get("role");
             final var classes = "qlist qanda" + (role != null ? ' ' + role : "");
             builder.append(" <div class=\"").append(classes).append("\">\n");
-            writeBlockTitle(element.options());
+            if (sibling.descriptionListTitle(element, context()) != null) { // the parser copies a :title: document attribute there
+                writeBlockTitle(element.options());
+            }
             builder.append("  <ol>\n");
             for (final var elt : element.children().entrySet()) {
                 builder.append("   <li>\n");
@@ -760,7 +775,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final var role = element.options().get("role");
             final var classes = "hdlist" + (role != null ? ' ' + role : "");
             builder.append(" <div class=\"").append(classes).append("\">\n");
-            writeBlockTitle(element.options());
+            if (sibling.descriptionListTitle(element, context()) != null) { // the parser copies a :title: document attribute there
+                writeBlockTitle(element.options());
+            }
             builder.append("  <table>\n");
             for (final var elt : element.children().entrySet()) {
                 builder.append("   <tr>\n");
@@ -847,8 +864,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var isInteractive = listOptions.containsKey("interactive");
         for (final var elt : element) {
             builder.append("  <li>\n");
-            if (elt instanceof Paragraph p && isChecklist && "true".equals(p.options().get("checkbox"))) {
-                final var checked = "true".equals(p.options().get("checked"));
+            if (isChecklist && sibling.isChecklistItem(elt) && elt instanceof Paragraph p) {
+                final var checked = sibling.isChecked(elt);
                 builder.append("   <p>");
                 if (isInteractive) {
                     builder.append(checked ?
@@ -971,7 +988,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        final var lang = element.options().getOrDefault("lang", element.options().get("language"));
+        final var language = sibling.language(element.options());
+        final var lang = language.isEmpty() ? null : language;
         final var style = element.options().get("");
 
         final var isListing = lang != null || "source".equals(style) || "listing".equals(style);
@@ -979,7 +997,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" <div class=\"listingblock\">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
-            final var linenums = element.options().containsKey("linenums-option");
+            final var linenums = sibling.hasOption(element.options(), "linenums");
             builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append("\">");
             builder.append("<code");
             writeCommonAttributes(element.options(), c -> (lang != null ? "language-" + lang + (c != null ? ' ' + c : "") : c) + " hljs");
@@ -1011,7 +1029,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
             builder.append("</code></pre>\n </div>\n </div>\n");
         } else {
-            final var nowrap = element.options().containsKey("nowrap-option") || state.nowrap;
+            final var nowrap = sibling.hasOption(element.options(), "nowrap") || state.nowrap;
             builder.append(" <div class=\"literalblock\">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
@@ -1116,7 +1134,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
             builder.append("  </colgroup>\n");
 
-            if (!element.options().containsKey("noheader-option")) {
+            final var noheader = sibling.hasOption(element.options(), "noheader");
+            if (!noheader) {
                 builder.append("  <thead>\n");
                 builder.append("   <tr>\n");
                 int colIdx = 0;
@@ -1129,8 +1148,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append("  </thead>\n");
             }
 
-            if (element.options().containsKey("noheader-option") || element.elements().size() > 1) {
-                final var startRow = element.options().containsKey("noheader-option") ? 0 : 1;
+            if (noheader || element.elements().size() > 1) {
+                final var startRow = noheader ? 0 : 1;
                 builder.append("  <tbody>\n");
                 element.elements().stream().skip(startRow).forEach(row -> {
                     builder.append("   <tr>\n");
@@ -1189,9 +1208,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var id = element.value();
         var text = element.label();
         if (text == null || text.isBlank()) {
-            ensureXrefCatalog();
-            final var resolved = state.xrefCatalog != null ? state.xrefCatalog.get(id) : null;
-            text = resolved != null ? resolved : id;
+            final var title = visitorState.sectionTitle(id);
+            text = title != null ? title : id;
         }
         visitLink(new Link("#" + id, new Text(List.of(), text, Map.of()), Map.of()));
     }
@@ -1206,74 +1224,72 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitOpenBlock(final OpenBlock element) {
-        switch (element.options().getOrDefault("", "")) {
-            case "NOTE" -> visitAsAdmonition(Admonition.Level.NOTE, element);
-            case "TIP" -> visitAsAdmonition(Admonition.Level.TIP, element);
-            case "IMPORTANT" -> visitAsAdmonition(Admonition.Level.IMPORTANT, element);
-            case "WARNING" -> visitAsAdmonition(Admonition.Level.WARNING, element);
-            case "CAUTION" -> visitAsAdmonition(Admonition.Level.CAUTION, element);
-            default -> state.stackChain(element.children(), () -> {
-                boolean collapsibleHandled = false;
-                boolean skipDiv = false;
-                boolean innerContent = false;
-                if (element.options().get("abstract") != null) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "quoteblock abstract" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                } else if ("sidebar".equals(element.options().get(""))) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "sidebarblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                } else if ("example".equals(element.options().get(""))) {
-                    final var collapsible = element.options().containsKey("collapsible-option") || "collapsible".equals(element.options().get("opts"));
-                    if (collapsible) {
-                        final var open = element.options().containsKey("open-option") || "open".equals(element.options().get("opts"));
-                        builder.append(" <details");
-                        writeCommonAttributes(element.options(), null);
-                        if (open) {
-                            builder.append(" open");
-                        }
-                        builder.append(">\n");
-                        final var title = element.options().get("title");
-                        builder.append("  <summary class=\"title\">").append(title != null ? escape(title) : "Details").append("</summary>\n");
-                        builder.append("  <div class=\"content\">\n");
-                        Visitor.super.visitOpenBlock(element);
-                        builder.append("  </div>\n");
-                        builder.append(" </details>\n");
-                        collapsibleHandled = true;
-                    } else {
-                        builder.append(" <div");
-                        writeCommonAttributes(element.options(), c -> "exampleblock" + (c == null ? "" : (' ' + c)));
-                        builder.append(">\n");
-                        innerContent = true;
-                    }
-                } else if ("listing".equals(element.options().get(""))) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                } else {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "openblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                }
-                if (!collapsibleHandled) {
-                    writeBlockTitle(element.options());
-                    builder.append("  <div");
-                    if (innerContent) {
-                        writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+        final var level = sibling.admonitionLevel(sibling.styleName(element.options()));
+        if (level != null) {
+            visitAsAdmonition(level, element);
+            return;
+        }
+        state.stackChain(element.children(), () -> {
+            boolean collapsibleHandled = false;
+            boolean skipDiv = false;
+            boolean innerContent = false;
+            if (element.options().get("abstract") != null) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "quoteblock abstract" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+            } else if ("sidebar".equals(element.options().get(""))) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "sidebarblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            } else if ("example".equals(element.options().get(""))) {
+                final var collapsible = sibling.hasOption(element.options(), "collapsible");
+                if (collapsible) {
+                    final var open = sibling.hasOption(element.options(), "open");
+                    builder.append(" <details");
+                    writeCommonAttributes(element.options(), null);
+                    if (open) {
+                        builder.append(" open");
                     }
                     builder.append(">\n");
+                    final var title = element.options().get("title");
+                    builder.append("  <summary class=\"title\">").append(title != null ? escape(title) : "Details").append("</summary>\n");
+                    builder.append("  <div class=\"content\">\n");
                     Visitor.super.visitOpenBlock(element);
                     builder.append("  </div>\n");
-                    if (!skipDiv) {
-                        builder.append(" </div>\n");
-                    }
+                    builder.append(" </details>\n");
+                    collapsibleHandled = true;
+                } else {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "exampleblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                    innerContent = true;
                 }
-            });
-        }
+            } else if ("listing".equals(element.options().get(""))) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            } else {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "openblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            }
+            if (!collapsibleHandled) {
+                writeBlockTitle(element.options());
+                builder.append("  <div");
+                if (innerContent) {
+                    writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+                }
+                builder.append(">\n");
+                Visitor.super.visitOpenBlock(element);
+                builder.append("  </div>\n");
+                if (!skipDiv) {
+                    builder.append(" </div>\n");
+                }
+            }
+        });
     }
 
     @Override
@@ -1450,28 +1466,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(" </div>\n");
     }
 
-    // todo: enhance
     protected void visitXref(final Macro element) {
-        final var outFileSuffix = attr("outfilesuffix", ".html");
-        final var relFilePrefix = attr("relfileprefix", "");
-        final var relFileSuffix = attr("relfilesuffix", outFileSuffix);
-        var target = element.label();
-        final int anchor = target.lastIndexOf('#');
-        if (anchor > 0) {
-            final var page = target.substring(0, anchor);
-            if (page.endsWith(".adoc")) {
-                target = relFilePrefix + page.substring(0, page.length() - ".adoc".length()) + relFileSuffix + target.substring(anchor);
-            }
-        } else if (target.endsWith(".adoc")) {
-            target = relFilePrefix + target.substring(0, target.length() - ".adoc".length()) + relFileSuffix;
+        final var reference = sibling.crossReference(sibling.substitute(element.label(), context()).strip(), visitorState.asciidocExtensions());
+        final String target;
+        if (reference.id() != null) {
+            target = "#" + reference.id();
+        } else {
+            final var path = reference.document() != null ?
+                    sibling.documentPath(reference.document(), context(), ".html") :
+                    sibling.relativeFile(reference.file(), context());
+            target = reference.fragment().isEmpty() ? path : path + '#' + reference.fragment();
         }
         final var label = element.options().get("");
         if (label != null) {
             builder.append(" <a href=\"").append(target).append("\">").append(parseLabel(label)).append("</a>\n");
         } else {
-            ensureXrefCatalog();
-            final var displayText = state.xrefCatalog != null ? state.xrefCatalog.get(target) : null;
-            builder.append(" <a href=\"").append(target).append("\">").append(displayText != null ? escape(displayText) : element.label()).append("</a>\n");
+            final var title = reference.id() == null ? null : visitorState.sectionTitle(reference.id());
+            builder.append(" <a href=\"").append(target).append("\">").append(title != null ? escape(title) : element.label()).append("</a>\n");
         }
     }
 
@@ -1489,7 +1500,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private AsciidoctorLikeHtmlRenderer render(final Body body) {
-        final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
+        final var nested = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
         nested.state.sawPreamble = true;
         (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
                 p.children() :
@@ -1520,13 +1531,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        final String resolvedSrc;
-        if (element.label().startsWith("data:")) {
-            resolvedSrc = element.label();
-        } else {
-            String imagesDir = attr("imagesdir", "");
-            resolvedSrc = (imagesDir.isEmpty() || imagesDir.endsWith("/")) ? imagesDir + element.label() : imagesDir + "/" + element.label();
-        }
+        final var resolvedSrc = element.label().startsWith("data:") ? element.label() : sibling.imageTarget(element, context());
 
         if (!this.state.visitingWrapperLink) {
             String linkValue = element.options().get("link");
@@ -1554,7 +1559,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         builder.append(addSpan ? "" : " ").append("<img src=\"")
                 .append(resolvedSrc)
-                .append("\" alt=\"").append(element.options().getOrDefault("alt", element.options().getOrDefault("", element.label())))
+                .append("\" alt=\"").append(sibling.imageAlt(element, element.label()))
                 .append('"');
         if (element.options().containsKey("width")) {
             builder.append(" width=\"").append(element.options().get("width")).append('"');
@@ -1677,23 +1682,22 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitBtn(final Macro element) {
-        final var label = elementLabel(element);
+        final var label = sibling.content(element);
         builder.append(" <b class=\"button\">").append(escape(label)).append("</b>\n");
     }
 
     protected void visitKbd(final Macro element) {
-        final var label = elementLabel(element);
-        final var keys = label.split("\\+");
-        if (keys.length > 1) {
-            for (int i = 0; i < keys.length; i++) {
+        final var keys = sibling.kbdKeys(element);
+        if (keys.size() > 1) {
+            for (int i = 0; i < keys.size(); i++) {
                 if (i > 0) {
                     builder.append(" + ");
                 }
-                builder.append("<kbd>").append(escape(keys[i].strip())).append("</kbd>");
+                builder.append("<kbd>").append(escape(keys.get(i))).append("</kbd>");
             }
             builder.append('\n');
         } else {
-            builder.append(" <kbd>").append(escape(label)).append("</kbd>\n");
+            builder.append(" <kbd>").append(escape(keys.isEmpty() ? "" : keys.get(0))).append("</kbd>\n");
         }
     }
 
@@ -1727,15 +1731,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitFootnote(final Macro element) {
-        final String id;
-        final String text;
-        if ("footnoteref".equals(element.name()) && element.label().isEmpty()) {
-            id = element.options().getOrDefault("", "");
-            text = element.options().getOrDefault("opts", "");
-        } else {
-            id = element.label();
-            text = element.options().getOrDefault("", "");
-        }
+        final var id = sibling.footnoteId(element);
+        final var text = sibling.footnoteText(element);
         if (!id.isEmpty() && text.isEmpty()) {
             final var existing = state.footnotes.stream().filter(fn -> id.equals(fn.id)).findFirst();
             if (existing.isPresent()) {
@@ -1903,7 +1900,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected void writeBlockTitle(final Map<String, String> options) {
         final var title = options.get("title");
         if (title != null) {
-            builder.append("  <div class=\"title\">").append(escape(title)).append("</div>\n");
+            builder.append("  <div class=\"title\">").append(escape(sibling.substitute(title, context()))).append("</div>\n");
         }
     }
 
@@ -2009,11 +2006,6 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return "xml".equals(attr("htmlsyntax", attrs)) ? " " + name + "=\"" + name + "\"" : " " + name;
     }
 
-    private static String elementLabel(final Macro element) {
-        final var label = element.label();
-        return label.isEmpty() ? element.options().getOrDefault("", "") : label;
-    }
-
     protected String attr(final String key, final String defaultValue) {
         return attr(key, key, defaultValue, state.document.header().attributes());
     }
@@ -2030,6 +2022,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return type == UNORDERED_LIST || type == ORDERED_LIST;
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}, see
+     * {@link io.yupiik.asciidoc.renderer.VisitorSibling#plainText(Element, ConditionalBlock.Context)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected String extractPlainText(final Element element) {
         if (element instanceof Text t) {
             return t.value();
@@ -2053,6 +2051,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return "";
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected Map<String, String> buildXrefCatalog(final List<Element> children) {
         final var catalog = new HashMap<String, String>();
         buildXrefCatalog(children, catalog);
@@ -2085,6 +2088,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected void ensureXrefCatalog() {
         if (state.xrefCatalog == null && state.document != null) {
             state.xrefCatalog = buildXrefCatalog(state.document.body().children());
@@ -2124,6 +2132,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private void visitAsAdmonition(final Admonition.Level level, final OpenBlock element) {
+        var options = element.options();
+        final var id = sibling.id(options);
+        if (id != null && options.get("id") == null) { // written in the style, [NOTE#id]
+            final var withId = new HashMap<>(options);
+            withId.put("id", id);
+            options = withId;
+        }
         visitAdmonition(new Admonition(
                 level, element.children().size() == 1 ?
                 element.children().get(0) :
@@ -2133,7 +2148,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                                 element.options().entrySet().stream()
                                         .filter(it -> !"".equals(it.getKey()))
                                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))),
-                element.options()));
+                options));
     }
 
     @Getter
