@@ -3311,6 +3311,74 @@ class AsciidoctorLikeHtmlRendererTest {
                         """);
     }
 
+    @Test
+    void optionsInTheStyleOrGrouped() { // [NOTE#note] is an admonition, %collapsible%open opens, %autowidth%noheader has no header, linenums is positional
+        assertRenderingContent("""
+                        [NOTE#note]
+                        ====
+                        A note.
+                        ====
+
+                        [%collapsible%open]
+                        .Details
+                        ====
+                        Shown.
+                        ====
+
+                        [%autowidth%noheader]
+                        |===
+                        |a |b
+                        |===
+
+                        [source,properties,linenums]
+                        ----
+                        a=b
+                        ----
+                        """,
+                """
+                         <div id="note" class="admonitionblock note">
+                          <table>
+                            <tbody>
+                             <tr>
+                              <td class="icon">
+                             <div class="title">NOTE</div>
+                               </td>
+                              <td class="content">
+                        A note.    </td>
+                           </tr>
+                              </tbody>
+                          </table>
+                         </div>
+                         <details open>
+                          <summary class="title">Details</summary>
+                          <div class="content">
+                        Shown.  </div>
+                         </details>
+                         <table class="tableblock frame-all grid-all stretch">
+                          <colgroup>
+                          </colgroup>
+                          <tbody>
+                           <tr>
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
+                        a</p>
+                            </td>
+                            <td class="tableblock halign-left">
+                        <p class="tableblock">
+                        b</p>
+                            </td>
+                           </tr>
+                          </tbody>
+                         </table>
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight linenums"><code class="language-properties hljs" data-lang="properties" data-linenums="true"><span class="linenums">1</span>a=b
+                        </code></pre>
+                         </div>
+                         </div>
+                        """);
+    }
+
     private void assertRenderingContent(final String adoc, final String html) {
         assertRenderingContent(adoc, html, null);
     }
