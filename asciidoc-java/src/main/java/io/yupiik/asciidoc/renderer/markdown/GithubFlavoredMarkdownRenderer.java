@@ -503,7 +503,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     protected void blockTitle(final Map<String, String> options) {
         final var title = options == null ? null : options.get("title");
         if (title != null && !title.isBlank()) {
-            builder.append("**").append(sibling.substitute(title, context()).strip()).append("**\n\n");
+            builder.append("**").append(title.strip()).append("**\n\n");
         }
     }
 
@@ -574,9 +574,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     @Override
     public void visitDescriptionList(final DescriptionList list) {
         blockAnchor(list.options());
-        if (sibling.descriptionListTitle(list, context()) != null) {
-            blockTitle(list.options());
-        }
+        blockTitle(list.options());
         // GFM has no description list, a bold term followed by a hard line break and the description.
         for (final var entry : list.children().entrySet()) {
             builder.append("**").append(inline(entry.getKey()).strip()).append("**");
@@ -606,7 +604,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         builder.append("> [!").append(level.name()).append("]\n");
         final var title = options.get("title");
         if (title != null && !title.isBlank()) {
-            builder.append("> **").append(sibling.substitute(title, context()).strip()).append("**\n>\n");
+            builder.append("> **").append(title.strip()).append("**\n>\n");
         }
         builder.append(quote(block(content))).append("\n\n");
     }
@@ -623,7 +621,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             blockAnchor(options);
             final var title = options.getOrDefault("title", "Details");
             builder.append(sibling.hasOption(options, "open") ? "<details open>" : "<details>")
-                    .append("\n<summary>").append(sibling.substitute(title, context()).strip()).append("</summary>\n\n")
+                    .append("\n<summary>").append(title.strip()).append("</summary>\n\n")
                     .append(block(block.children())).append("\n\n</details>\n\n");
             return;
         }
@@ -737,7 +735,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 builder.append(image(macro));
                 final var title = options.get("title");
                 if (title != null && !title.isBlank()) {
-                    builder.append("\n*").append(sibling.substitute(title, context()).strip()).append('*');
+                    builder.append("\n*").append(title.strip()).append('*');
                 }
                 builder.append("\n\n");
             }

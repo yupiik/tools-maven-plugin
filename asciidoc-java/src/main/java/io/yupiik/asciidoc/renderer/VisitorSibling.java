@@ -20,7 +20,6 @@ import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
-import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
@@ -175,16 +174,6 @@ public class VisitorSibling {
         }
         final var checked = ((Paragraph) item).options().get("checked");
         return checked != null && !"false".equalsIgnoreCase(checked);
-    }
-
-    /**
-     * @return the title of a description list, {@code null} when it has none. The parser copies the document attributes
-     * into the options of a description list, so a title equal to the {@code title} attribute of the document is not the
-     * title of the list.
-     */
-    public String descriptionListTitle(final DescriptionList list, final ConditionalBlock.Context context) {
-        final var title = list.options() == null ? null : list.options().get("title");
-        return title == null || title.equals(context.attribute("title")) ? null : title;
     }
 
     // ------------------------------------------------------------------------------------------------------ elements
