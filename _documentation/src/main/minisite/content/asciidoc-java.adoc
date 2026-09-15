@@ -82,16 +82,16 @@ The Markdown renderer reads these attributes:
 
 == Reading the model in a visitor
 
-A custom visitor can read the model as the Markdown renderer does, with two classes of `io.yupiik.asciidoc.renderer`:
+A custom visitor can read the model as the HTML and Markdown renderers do, with two classes of `io.yupiik.asciidoc.renderer`:
 
 [options="header",cols="1,3"]
 |====
 |Class|Use
 |`VisitorSibling`|Reads the values the parser keeps as raw text: the id, the style and the options of a block, attribute references in titles, cross reference and image targets, macro labels such as the keys of `kbd:[]`, and where paragraphs end when the parser gives them as sibling elements. It has no state, so any visitor can create one.
-|`VisitorState`|Keeps the state of a rendering: the attributes of the document then the fallback ones, the title of each section by id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its `visit` and `visitBody` methods, then queries it while it writes. Before any `visit` it reads the fallback attributes only, so a visitor can render a body alone.
+|`VisitorState`|Keeps the state of a rendering: the attributes of the document then the fallback ones, the title of each section by id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its `visit` and `visitBody` methods, then queries it while it writes; the state of the HTML renderer extends it with the flags of that output. Before any `visit` it reads the fallback attributes only, so a visitor can render a body alone.
 |====
 
-`new GithubFlavoredMarkdownRenderer(configuration, sibling)` takes a subclass of `VisitorSibling`, whose readings then apply to the renderer and to its state.
+`new AsciidoctorLikeHtmlRenderer(configuration, sibling)` and `new GithubFlavoredMarkdownRenderer(configuration, sibling)` take a subclass of `VisitorSibling`, whose readings then apply to the renderer and to its state.
 
 == Syntax
 

@@ -110,6 +110,8 @@ class VisitorStateTest {
         assertEquals("Named.", definition.text());
         assertNull(undefined.text());
         assertEquals(0, undefined.index());
+        assertSame(definition, state.footnote("note"));
+        assertNull(state.footnote("nothing"));
 
         state.visit(new Parser().parse("= Other\n", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))));
         assertTrue(state.footnotes().isEmpty()); // a new document starts without footnotes
