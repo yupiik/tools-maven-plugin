@@ -1000,7 +1000,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" <div class=\"listingblock\">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
-            final var linenums = element.options().containsKey("linenums-option");
+            final var linenums = sibling.hasOption(element.options(), "linenums");
             builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append("\">");
             builder.append("<code");
             writeCommonAttributes(element.options(), c -> (lang != null ? "language-" + lang + (c != null ? ' ' + c : "") : c) + " hljs");
@@ -1032,7 +1032,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
             builder.append("</code></pre>\n </div>\n </div>\n");
         } else {
-            final var nowrap = element.options().containsKey("nowrap-option") || state.nowrap;
+            final var nowrap = sibling.hasOption(element.options(), "nowrap") || state.nowrap;
             builder.append(" <div class=\"literalblock\">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
@@ -1137,7 +1137,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
             builder.append("  </colgroup>\n");
 
-            if (!element.options().containsKey("noheader-option")) {
+            final var noheader = sibling.hasOption(element.options(), "noheader");
+            if (!noheader) {
                 builder.append("  <thead>\n");
                 builder.append("   <tr>\n");
                 final boolean inTableHeaderRow = state.inTableHeaderRow;
@@ -1153,8 +1154,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append("  </thead>\n");
             }
 
-            if (element.options().containsKey("noheader-option") || element.elements().size() > 1) {
-                final var startRow = element.options().containsKey("noheader-option") ? 0 : 1;
+            if (noheader || element.elements().size() > 1) {
+                final var startRow = noheader ? 0 : 1;
                 builder.append("  <tbody>\n");
                 element.elements().stream().skip(startRow).forEach(row -> {
                     builder.append("   <tr>\n");
@@ -1229,74 +1230,72 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitOpenBlock(final OpenBlock element) {
-        switch (element.options().getOrDefault("", "")) {
-            case "NOTE" -> visitAsAdmonition(Admonition.Level.NOTE, element);
-            case "TIP" -> visitAsAdmonition(Admonition.Level.TIP, element);
-            case "IMPORTANT" -> visitAsAdmonition(Admonition.Level.IMPORTANT, element);
-            case "WARNING" -> visitAsAdmonition(Admonition.Level.WARNING, element);
-            case "CAUTION" -> visitAsAdmonition(Admonition.Level.CAUTION, element);
-            default -> state.stackChain(element.children(), () -> {
-                boolean collapsibleHandled = false;
-                boolean skipDiv = false;
-                boolean innerContent = false;
-                if (element.options().get("abstract") != null) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "quoteblock abstract" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                } else if ("sidebar".equals(element.options().get(""))) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "sidebarblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                } else if ("example".equals(element.options().get(""))) {
-                    final var collapsible = element.options().containsKey("collapsible-option") || "collapsible".equals(element.options().get("opts"));
-                    if (collapsible) {
-                        final var open = element.options().containsKey("open-option") || "open".equals(element.options().get("opts"));
-                        builder.append(" <details");
-                        writeCommonAttributes(element.options(), null);
-                        if (open) {
-                            builder.append(" open");
-                        }
-                        builder.append(">\n");
-                        final var title = element.options().get("title");
-                        builder.append("  <summary class=\"title\">").append(title != null ? escape(title) : "Details").append("</summary>\n");
-                        builder.append("  <div class=\"content\">\n");
-                        Visitor.super.visitOpenBlock(element);
-                        builder.append("  </div>\n");
-                        builder.append(" </details>\n");
-                        collapsibleHandled = true;
-                    } else {
-                        builder.append(" <div");
-                        writeCommonAttributes(element.options(), c -> "exampleblock" + (c == null ? "" : (' ' + c)));
-                        builder.append(">\n");
-                        innerContent = true;
-                    }
-                } else if ("listing".equals(element.options().get(""))) {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                } else {
-                    builder.append(" <div");
-                    writeCommonAttributes(element.options(), c -> "openblock" + (c == null ? "" : (' ' + c)));
-                    builder.append(">\n");
-                    innerContent = true;
-                }
-                if (!collapsibleHandled) {
-                    writeBlockTitle(element.options());
-                    builder.append("  <div");
-                    if (innerContent) {
-                        writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+        final var level = sibling.admonitionLevel(sibling.styleName(element.options()));
+        if (level != null) {
+            visitAsAdmonition(level, element);
+            return;
+        }
+        state.stackChain(element.children(), () -> {
+            boolean collapsibleHandled = false;
+            boolean skipDiv = false;
+            boolean innerContent = false;
+            if (element.options().get("abstract") != null) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "quoteblock abstract" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+            } else if ("sidebar".equals(element.options().get(""))) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "sidebarblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            } else if ("example".equals(element.options().get(""))) {
+                final var collapsible = sibling.hasOption(element.options(), "collapsible");
+                if (collapsible) {
+                    final var open = sibling.hasOption(element.options(), "open");
+                    builder.append(" <details");
+                    writeCommonAttributes(element.options(), null);
+                    if (open) {
+                        builder.append(" open");
                     }
                     builder.append(">\n");
+                    final var title = element.options().get("title");
+                    builder.append("  <summary class=\"title\">").append(title != null ? escape(title) : "Details").append("</summary>\n");
+                    builder.append("  <div class=\"content\">\n");
                     Visitor.super.visitOpenBlock(element);
                     builder.append("  </div>\n");
-                    if (!skipDiv) {
-                        builder.append(" </div>\n");
-                    }
+                    builder.append(" </details>\n");
+                    collapsibleHandled = true;
+                } else {
+                    builder.append(" <div");
+                    writeCommonAttributes(element.options(), c -> "exampleblock" + (c == null ? "" : (' ' + c)));
+                    builder.append(">\n");
+                    innerContent = true;
                 }
-            });
-        }
+            } else if ("listing".equals(element.options().get(""))) {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            } else {
+                builder.append(" <div");
+                writeCommonAttributes(element.options(), c -> "openblock" + (c == null ? "" : (' ' + c)));
+                builder.append(">\n");
+                innerContent = true;
+            }
+            if (!collapsibleHandled) {
+                writeBlockTitle(element.options());
+                builder.append("  <div");
+                if (innerContent) {
+                    writeCommonAttributes(element.options(), c -> "content" + (c == null ? "" : (' ' + c)));
+                }
+                builder.append(">\n");
+                Visitor.super.visitOpenBlock(element);
+                builder.append("  </div>\n");
+                if (!skipDiv) {
+                    builder.append(" </div>\n");
+                }
+            }
+        });
     }
 
     @Override
@@ -2259,6 +2258,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private void visitAsAdmonition(final Admonition.Level level, final OpenBlock element) {
+        var options = element.options();
+        final var id = sibling.id(options);
+        if (id != null && options.get("id") == null) { // written in the style, [NOTE#id]
+            final var withId = new HashMap<>(options);
+            withId.put("id", id);
+            options = withId;
+        }
         visitAdmonition(new Admonition(
                 level, element.children().size() == 1 ?
                 element.children().get(0) :
@@ -2268,7 +2274,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                                 element.options().entrySet().stream()
                                         .filter(it -> !"".equals(it.getKey()))
                                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))),
-                element.options()));
+                options));
     }
 
     @Getter
