@@ -74,7 +74,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
 
     @Override
     public void visit(final Document document) {
-        state.document = document;
+        state.visit(document);
         configuration.setAttributes(customizeAttributes(configuration.getAttributes()));
         super.visit(document);
     }
@@ -88,7 +88,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
                 copy.getOrDefault("shower-ratio", "16/9") +
                 ");}</style>\n");
         append(copy, "header-html", " <header class=\"caption\">\n    <h1>" +
-                escape(state.document.header().title()) +
+                escape(state.document().header().title()) +
                 "</h1>\n </header>");
         append(copy, "custom-js", "" +
                 " <footer class=\"badge\">\n" +

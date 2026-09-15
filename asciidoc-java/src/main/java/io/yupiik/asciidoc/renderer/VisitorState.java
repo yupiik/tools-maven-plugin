@@ -55,7 +55,6 @@ public class VisitorState implements Visitor<Void> {
     protected final VisitorSibling sibling;
     protected final ConditionalBlock.Context attributes; // document attributes first, then the fallback ones
     protected Document document = EMPTY_DOCUMENT;
-    protected Map<String, String> documentAttributes = Map.of();
     protected final Map<String, String> sectionTitles = new HashMap<>();
     protected final Set<String> referencedIds = new HashSet<>();
     protected final List<TocSection> tocSections = new ArrayList<>(); // in document order, following the rendered conditional branches
@@ -72,7 +71,8 @@ public class VisitorState implements Visitor<Void> {
     public VisitorState(final VisitorSibling sibling, final ConditionalBlock.Context fallback) {
         this.sibling = sibling;
         this.attributes = key -> {
-            final var value = documentAttributes.get(key);
+            final var header = document().header();
+            final var value = header == null || header.attributes() == null ? null : header.attributes().get(key);
             return value != null ? value : fallback.attribute(key);
         };
     }
@@ -84,12 +84,17 @@ public class VisitorState implements Visitor<Void> {
     @Override
     public void visit(final Document document) {
         this.document = document;
-        this.documentAttributes = document.header() == null || document.header().attributes() == null ?
-                Map.of() : document.header().attributes();
         sectionTitles.clear();
         referencedIds.clear();
         tocSections.clear();
         asciidocExtensions = null;
+        resetFootnotes();
+    }
+
+    /**
+     * Forgets the footnotes, as a new document does.
+     */
+    protected void resetFootnotes() {
         footnotes.clear();
         footnotesById.clear();
         footnoteLabels.clear();
@@ -136,7 +141,8 @@ public class VisitorState implements Visitor<Void> {
     }
 
     /**
-     * @return the document being rendered, an empty one before {@link #visit(Document)}.
+     * @return the document being rendered, an empty one before {@link #visit(Document)}; a renderer that keeps the
+     * document elsewhere returns it from an override, the attributes are read from it.
      */
     public Document document() {
         return document;
@@ -213,6 +219,13 @@ public class VisitorState implements Visitor<Void> {
             define(footnote, text);
         }
         return footnote;
+    }
+
+    /**
+     * @return the footnote this id was used for, {@code null} when the document did not use it yet.
+     */
+    public Footnote footnote(final String id) {
+        return footnotesById.get(id);
     }
 
     private void define(final Footnote footnote, final String text) {

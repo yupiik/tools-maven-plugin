@@ -47,6 +47,8 @@ import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.Visitor;
+import io.yupiik.asciidoc.renderer.VisitorSibling;
+import io.yupiik.asciidoc.renderer.VisitorState;
 import io.yupiik.asciidoc.renderer.a2s.YupiikA2s;
 import io.yupiik.asciidoc.renderer.uri.DataResolver;
 import io.yupiik.asciidoc.renderer.uri.DataUri;
@@ -91,9 +93,10 @@ import static java.util.stream.Collectors.toMap;
 public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final StringBuilder builder = new StringBuilder();
     protected final Configuration configuration;
+    protected final VisitorSibling sibling; // reads the model as the other renderers do
     protected final boolean dataUri;
     protected final DataResolver resolver;
-    protected final State state = new State(); // this is why we are not thread safe
+    protected final State state; // the document, its index, the footnotes and the flags of this output; this is why we are not thread safe
     protected final Parser subParser;
     protected final ContentResolver subResolver;
     protected boolean usesMermaid;
@@ -103,7 +106,22 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     public AsciidoctorLikeHtmlRenderer(final Configuration configuration) {
+        this(configuration, new VisitorSibling());
+    }
+
+    /**
+     * @param sibling how the renderer reads the model, a subclass of {@link VisitorSibling} changes a reading in the
+     *                renderer and in the renderers it creates for titles and labels.
+     */
+    public AsciidoctorLikeHtmlRenderer(final Configuration configuration, final VisitorSibling sibling) {
         this.configuration = configuration;
+        this.sibling = sibling;
+        this.state = new State(sibling, key -> configuration.getAttributes().get(key)) {
+            @Override
+            public ConditionalBlock.Context context() { // a subclass overriding context() changes the index too
+                return AsciidoctorLikeHtmlRenderer.this.context();
+            }
+        };
 
         final var dataUriValue = configuration.getAttributes().getOrDefault("data-uri", "false");
         this.dataUri = Boolean.parseBoolean(dataUriValue) || dataUriValue.isBlank();
@@ -125,10 +143,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitBody(final Body body) {
+        state.visitBody(body); // indexed here, so rendering only a body keeps the section titles of links
         final var noheader = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
-        final var tocAttr = attr("toc", "toc", "none", state.document.header().attributes());
+        final var tocAttr = attr("toc", "toc", "none", state.document().header().attributes());
         final var showToc = !"none".equals(tocAttr);
-        final var headerAttrs = state.document.header().attributes();
+        final var headerAttrs = state.document().header().attributes();
         final var maxWidthAttr = attr("max-width", headerAttrs);
         final var maxWidthStyle = maxWidthAttr != null ? " style=\"max-width: " + maxWidthAttr + ";\"" : "";
 
@@ -146,21 +165,19 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
         }
 
-        state.footnoteIndex = 0;
-        state.footnotes.clear();
         state.stackChain(body.children(), () -> Visitor.super.visitBody(body));
 
         if (!noheader && !configuration.isSkipGlobalContentWrapper()) {
             builder.append(" </div>\n");
         }
 
-        if (!state.footnotes.isEmpty()) {
+        if (!state.footnotes().isEmpty()) {
             builder.append(" <div id=\"footnotes\"").append(maxWidthStyle).append(">\n");
             builder.append("  <hr").append(voidSlash()).append(">\n");
-            for (final var fn : state.footnotes) {
-                builder.append("  <div class=\"footnote\" id=\"_footnotedef_").append(fn.index).append("\">\n");
-                builder.append("   <a href=\"#_footnoteref_").append(fn.index).append("\">").append(fn.index).append("</a>");
-                builder.append(". ").append(escape(fn.text)).append("\n");
+            for (final var fn : state.footnotes()) {
+                builder.append("  <div class=\"footnote\" id=\"_footnotedef_").append(fn.index()).append("\">\n");
+                builder.append("   <a href=\"#_footnoteref_").append(fn.index()).append("\">").append(fn.index()).append("</a>");
+                builder.append(". ").append(escape(fn.text())).append("\n");
                 builder.append("  </div>\n");
             }
             builder.append(" </div>\n");
@@ -169,28 +186,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitConditionalBlock(final ConditionalBlock element) {
-        final var ctx = context();
-        if (element.evaluator().test(ctx)) {
-            state.stackChain(element.children(), () -> element.children().forEach(this::visitElement));
-        } else {
-            for (final var branch : element.elseBranches()) {
-                if (branch.evaluator().test(ctx)) {
-                    state.stackChain(branch.children(), () -> branch.children().forEach(this::visitElement));
-                    return;
-                }
-            }
-        }
+        final var children = sibling.renderedChildren(element, context());
+        state.stackChain(children, () -> children.forEach(this::visitElement));
     }
 
     @Override
     public ConditionalBlock.Context context() {
-        final var attrs = configuration.getAttributes();
-        final var docAttrs = state.document.header().attributes();
-        return key -> {
-            final var v = docAttrs.get(key);
-            if (v != null) return v;
-            return attrs.get(key);
-        };
+        return state.attributes();
     }
 
     @Override
@@ -208,7 +210,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visit(final Document document) {
-        state.document = document;
+        state.visit(document);
         final var embeddedAttr = attr("embedded", document.header().attributes());
         final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"))
                 || "true".equals(embeddedAttr) || "".equals(embeddedAttr);
@@ -387,7 +389,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                              <tr>
                               <td class="icon">
                         """);
-        final var docAttrs = state.document == null ? Map.<String, String>of() : state.document.header().attributes();
+        final var docAttrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
         final var icons = attr("icons", docAttrs);
         if (icons != null) {
             final var label = element.level().name();
@@ -498,13 +500,13 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitSection(final Section element) {
         state.stackChain(element.children(), () -> {
-            final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
+            final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
             titleRenderer.state.sawPreamble = true;
             titleRenderer.state.nowrap = true;
             titleRenderer.visitElement(element.title());
             var title = titleRenderer.result();
 
-            final var docAttrs = state.document.header().attributes();
+            final var docAttrs = state.document().header().attributes();
             final var sectnums = docAttrs.get("sectnums");
             if (sectnums != null) {
                 final int level = element.level();
@@ -589,7 +591,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitFloatingTitle(final FloatingTitle element) {
-        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration);
+        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
         titleRenderer.state.sawPreamble = true;
         titleRenderer.state.nowrap = true;
         titleRenderer.visitElement(element.title());
@@ -865,8 +867,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var isInteractive = listOptions.containsKey("interactive");
         for (final var elt : element) {
             builder.append("  <li>\n");
-            if (elt instanceof Paragraph p && isChecklist && "true".equals(p.options().get("checkbox"))) {
-                final var checked = "true".equals(p.options().get("checked"));
+            if (isChecklist && sibling.isChecklistItem(elt) && elt instanceof Paragraph p) {
+                final var checked = sibling.isChecked(elt);
                 builder.append("   <p>");
                 if (isInteractive) {
                     builder.append(checked ?
@@ -989,7 +991,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        final var lang = element.options().getOrDefault("lang", element.options().get("language"));
+        final var language = sibling.language(element.options());
+        final var lang = language.isEmpty() ? null : language;
         final var style = element.options().get("");
 
         final var isListing = lang != null || "source".equals(style) || "listing".equals(style);
@@ -1371,7 +1374,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
         if ("toc".equals(element.name())) {
-            visitToc(state.document.body());
+            visitToc(state.document().body());
             return;
         }
         if (!element.inline()) {
@@ -1454,17 +1457,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitToc(final Body body) {
-        final int toclevels = Integer.parseInt(attr("toclevels", "toclevels", "2", state.document.header().attributes()));
+        final int toclevels = Integer.parseInt(attr("toclevels", "toclevels", "2", state.document().header().attributes()));
         if (toclevels < 1) {
             return;
         }
 
-        builder.append(" <div id=\"toc\" class=\"").append(attr("toc-class", "toc-class", "toc", state.document.header().attributes())).append("\">\n");
-        final var tocTitle = attr("toc-title", "toc-title", "Table of Contents", state.document.header().attributes());
+        builder.append(" <div id=\"toc\" class=\"").append(attr("toc-class", "toc-class", "toc", state.document().header().attributes())).append("\">\n");
+        final var tocTitle = attr("toc-title", "toc-title", "Table of Contents", state.document().header().attributes());
         if (tocTitle != null && !tocTitle.isBlank()) {
             builder.append("  <div id=\"toctitle\">").append(tocTitle).append("</div>\n");
         }
-        final var docAttrs = state.document.header().attributes();
+        final var docAttrs = state.document().header().attributes();
         final var toc = new TocVisitor(toclevels, 1, docAttrs.get("idprefix"), docAttrs.get("idseparator"));
         toc.visitBody(body);
         builder.append(toc.result());
@@ -1510,7 +1513,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private AsciidoctorLikeHtmlRenderer render(final Body body) {
-        final var nested = new AsciidoctorLikeHtmlRenderer(configuration);
+        final var nested = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
         nested.state.sawPreamble = true;
         (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
                 p.children() :
@@ -1623,7 +1626,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var poster = options.getOrDefault("", options.get("poster"));
         final var widthAttr = options.containsKey("width") ? " width=\"" + options.get("width") + '"' : "";
         final var heightAttr = options.containsKey("height") ? " height=\"" + options.get("height") + '"' : "";
-        final var docAttrs = state.document.header().attributes();
+        final var docAttrs = state.document().header().attributes();
         final var assetScheme = attr("asset-uri-scheme", "asset-uri-scheme", "https", docAttrs);
         final var assetSchemePrefix = assetScheme.isEmpty() ? "//" : assetScheme + "://";
         if (element.inline()) {
@@ -1698,12 +1701,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitBtn(final Macro element) {
-        final var label = elementLabel(element);
+        final var label = sibling.content(element);
         builder.append(" <b class=\"button\">").append(escape(label)).append("</b>\n");
     }
 
     protected void visitKbd(final Macro element) {
-        final var label = elementLabel(element);
+        final var label = sibling.content(element);
         final var keys = label.split("\\+");
         if (keys.length > 1) {
             for (int i = 0; i < keys.length; i++) {
@@ -1748,38 +1751,26 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitFootnote(final Macro element) {
-        final String id;
-        final String text;
-        if ("footnoteref".equals(element.name()) && element.label().isEmpty()) {
-            id = element.options().getOrDefault("", "");
-            text = element.options().getOrDefault("opts", "");
-        } else {
-            id = element.label();
-            text = element.options().getOrDefault("", "");
-        }
-        final var existing = id.isEmpty() ? null : state.footnotes.stream().filter(fn -> id.equals(fn.id)).findFirst().orElse(null);
+        final var id = sibling.footnoteId(element);
+        final var text = sibling.footnoteText(element);
+        final var existing = id.isEmpty() ? null : state.footnote(id);
         if (existing != null) { // a later use of the id refers to the footnote, as asciidoctor does, even with a text
             builder.append(" <sup class=\"footnoteref\">[");
-            builder.append("<a class=\"footnote\" href=\"#_footnotedef_").append(existing.index).append("\" title=\"View footnote.\">");
-            builder.append(existing.index).append("</a>]</sup>\n");
+            builder.append("<a class=\"footnote\" href=\"#_footnotedef_").append(existing.index()).append("\" title=\"View footnote.\">");
+            builder.append(existing.index()).append("</a>]</sup>\n");
         } else if (!id.isEmpty() && text.isEmpty()) {
             builder.append(" <sup class=\"footnoteref red\" title=\"Unresolved footnote reference.\">[");
             builder.append(escape(id)).append("]</sup>\n");
         } else {
-            state.footnoteIndex++;
-            final var fn = new FootNote(state.footnoteIndex, id.isEmpty() ? null : id, text);
-            state.footnotes.add(fn);
+            final var footnote = state.footnote(id, text);
             builder.append(" <sup class=\"footnote\"");
-            if (fn.id != null) {
-                builder.append(" id=\"_footnote_").append(escape(fn.id)).append("\"");
+            if (footnote.id() != null) {
+                builder.append(" id=\"_footnote_").append(escape(footnote.id())).append("\"");
             }
             builder.append(">[");
-            builder.append("<a id=\"_footnoteref_").append(fn.index).append("\" class=\"footnote\" href=\"#_footnotedef_").append(fn.index).append("\" title=\"View footnote.\">");
-            builder.append(fn.index).append("</a>]</sup>\n");
+            builder.append("<a id=\"_footnoteref_").append(footnote.index()).append("\" class=\"footnote\" href=\"#_footnotedef_").append(footnote.index()).append("\" title=\"View footnote.\">");
+            builder.append(footnote.index()).append("</a>]</sup>\n");
         }
-    }
-
-    protected record FootNote(int index, String id, String text) {
     }
 
     protected void visitIcon(final Macro element) {
@@ -1838,7 +1829,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final var stemType = element.inline() ? element.name() : element.options().getOrDefault("", "stem");
         final boolean latex = "latexmath".equals(stemType) ||
-                "latexmath".equals(attr("stem", state.document == null ? Map.of() : state.document.header().attributes()));
+                "latexmath".equals(attr("stem", state.document() == null ? Map.of() : state.document().header().attributes()));
         if (latex) {
             if (element.inline()) {
                 builder.append(" \\(").append(element.label()).append("\\) ");
@@ -1896,7 +1887,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
 
-        final boolean hasSingleSection = state.document != null && state.document.body().children().stream()
+        final boolean hasSingleSection = state.document() != null && state.document().body().children().stream()
                 .noneMatch(it -> it instanceof Section s && s.level() > 0);
         if (hasSingleSection) {
             state.sawPreamble = true; // there will be no preamble
@@ -1942,7 +1933,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (rowspan != null) {
             builder.append(" rowspan=\"").append(rowspan).append('"');
         }
-        final var cellBgColor = state.document == null ? null : state.document.header().attributes().get("cellbgcolor");
+        final var cellBgColor = state.document() == null ? null : state.document().header().attributes().get("cellbgcolor");
         if (cellBgColor != null) {
             builder.append(" style=\"background-color: ").append(cellBgColor).append(";\"");
         }
@@ -2128,7 +2119,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected String icons() {
-        return attr("icons", state.document == null ? Map.<String, String>of() : state.document.header().attributes());
+        return attr("icons", state.document() == null ? Map.<String, String>of() : state.document().header().attributes());
     }
 
     protected String escape(final String name) {
@@ -2144,23 +2135,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private String voidSlash() {
-        final var attrs = state.document == null ? Map.<String, String>of() : state.document.header().attributes();
+        final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
         final var htmlsyntax = attr("htmlsyntax", attrs);
         return "xml".equals(htmlsyntax) ? "/" : "";
     }
 
     private String booleanAttr(final String name) {
-        final var attrs = state.document == null ? Map.<String, String>of() : state.document.header().attributes();
+        final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
         return "xml".equals(attr("htmlsyntax", attrs)) ? " " + name + "=\"" + name + "\"" : " " + name;
     }
 
-    private static String elementLabel(final Macro element) {
-        final var label = element.label();
-        return label.isEmpty() ? element.options().getOrDefault("", "") : label;
-    }
-
     protected String attr(final String key, final String defaultValue) {
-        return attr(key, key, defaultValue, state.document.header().attributes());
+        return attr(key, key, defaultValue, state.document().header().attributes());
     }
 
     protected String attr(final String key, final String defaultKey, final String defaultValue, final Map<String, String> mainMap) {
@@ -2231,8 +2217,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void ensureXrefCatalog() {
-        if (state.xrefCatalog == null && state.document != null) {
-            state.xrefCatalog = buildXrefCatalog(state.document.body().children());
+        if (state.xrefCatalog == null && state.document() != null) {
+            state.xrefCatalog = buildXrefCatalog(state.document().body().children());
         }
     }
 
@@ -2348,21 +2334,20 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
-    protected static class State implements AutoCloseable {
-        protected static final Document EMPTY_DOC = new Document(new Header("", List.of(), null, Map.of()), new Body(List.of()));
-
-        protected Document document = EMPTY_DOC;
+    /**
+     * The state of a rendering: what {@link VisitorState} keeps for every renderer, the document, its index and the
+     * footnotes, plus the flags of the HTML output.
+     */
+    protected static class State extends VisitorState implements AutoCloseable {
         protected List<Element> currentChain = null;
         protected boolean hasStem = false;
         protected boolean nowrap = false;
         protected boolean sawPreamble = false;
         protected boolean inCallOut = false;
         protected boolean inTableHeaderRow = false;
-        protected int footnoteIndex = 0;
         protected int indexTermCount = 0;
         protected final Map<String, Integer> counters = new HashMap<>();
         protected final Map<Integer, Integer> sectionNumberCounters = new HashMap<>();
-        protected final List<FootNote> footnotes = new ArrayList<>();
 
         // Indicates that we currently are visiting a link wrapping an element (like an image)
         protected boolean visitingWrapperLink = false;
@@ -2372,19 +2357,27 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         // Catalog of id → title for xref resolution
         protected Map<String, String> xrefCatalog = null;
 
+        protected State(final VisitorSibling sibling, final ConditionalBlock.Context fallback) {
+            super(sibling, fallback);
+        }
+
+        @Override
+        public void visitBody(final Body body) { // the footnotes start with the body
+            resetFootnotes();
+            super.visitBody(body);
+        }
+
         @Override
         public void close() {
-            document = EMPTY_DOC;
+            visit(EMPTY_DOCUMENT); // forgets the document, its index and its footnotes
             currentChain = null;
             sawPreamble = false;
             inCallOut = false;
             inTableHeaderRow = false;
             lastElement.clear();
-            footnoteIndex = 0;
             indexTermCount = 0;
             counters.clear();
             sectionNumberCounters.clear();
-            footnotes.clear();
         }
 
         private void stackChain(final List<Element> next, final Runnable run) {

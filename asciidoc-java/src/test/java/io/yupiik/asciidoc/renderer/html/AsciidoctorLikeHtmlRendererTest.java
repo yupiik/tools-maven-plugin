@@ -2151,6 +2151,31 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void footnoteUnresolvedReference() {
+        assertRenderingContent("A footnote:none[] B",
+                " <div class=\"paragraph\">\n" +
+                        " <p>A  <sup class=\"footnoteref red\" title=\"Unresolved footnote reference.\">[none]</sup>\n" +
+                        " B</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void footnoteBeforeItsTextIsUnresolved() {
+        assertRenderingContent("A footnote:fw[] B footnote:fw[The text.] C",
+                " <div class=\"paragraph\">\n" +
+                        " <p>A  <sup class=\"footnoteref red\" title=\"Unresolved footnote reference.\">[fw]</sup>\n" +
+                        " B  <sup class=\"footnote\" id=\"_footnote_fw\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " C</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. The text.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void footnoterefLegacy() {
         assertRenderingContent("Some text footnoteref:[myid,A note.] And footnote:myid[] again.",
                 " <div class=\"paragraph\">\n" +
