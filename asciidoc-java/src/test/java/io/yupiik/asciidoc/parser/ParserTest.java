@@ -2352,6 +2352,60 @@ class ParserTest {
     }
 
     @Test
+    void escapedAttributeReferences() { // as asciidoctor, \\{name} is written {name} and {name} is substituted
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :name: value
+
+                Text \\{name} and {name}, `\\{name}/file` and `+\\{name}+`.
+
+                * item \\{name} {name\\} \\{name\\} {name} `%X\\{mdc-key\\}` `\\{not.a.name}`
+
+                link:https://yupiik.io/\\{name}[a \\{name}]
+
+                .Title with \\{name} and {name}
+                [source,text,subs="attributes+"]
+                ----
+                \\{name} {name}
+                ----
+
+                [role="\\{name}"]
+                Role.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Text {name} and value, ", Map.of()),
+                                new Code("{name}/file", Map.of(), true, List.of()),
+                                new Text(List.of(), " and ", Map.of()),
+                                new Code("+\\{name}+", Map.of(), true, List.of()),
+                                new Text(List.of(), ".", Map.of())), Map.of()),
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "item {name} {name} {name} value ", Map.of()),
+                                new Code("%X{mdc-key}", Map.of(), true, List.of()),
+                                new Text(List.of(), " ", Map.of()),
+                                new Code("\\{not.a.name}", Map.of(), true, List.of())), Map.of())), Map.of()),
+                        new Link("https://yupiik.io/{name}", new Text(List.of(), "a {name}", Map.of("", "a \\{name}", "nowrap", "true")), Map.of("", "a \\{name}", "nowrap", "true")),
+                        new Code("{name} value\n", Map.of("title", "Title with {name} and value", "language", "text", "subs", "attributes+"), false, List.of()),
+                        new Text(List.of(), "Role.", Map.of("role", "{name}"))),
+                body.children());
+    }
+
+    @Test
+    void escapedAttributeReferenceInATitleAttribute() { // asciidoctor substitutes the title again when it writes the block
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :name: value
+
+                [source,java,title="A \\{name} B {name}"]
+                ----
+                run();
+                ----
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("run();\n", Map.of("title", "A value B value", "language", "java"), false, List.of())),
+                body.children());
+    }
+
+    @Test
     void anchor() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 The section <<anchors>> describes how automatic anchors work.

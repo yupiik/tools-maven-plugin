@@ -485,14 +485,18 @@ public class Parser {
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
                     // as asciidoctor, the attribute references of a block attribute line are substituted before it is parsed
-                    options = merge(options, parseBlockAttributes(newValue.strip()));
+                    final var blockAttributes = parseBlockAttributes(unescapeAttributeReferences(newValue.strip()));
+                    final var title = blockAttributes.get("title");
+                    // as asciidoctor, a title from the attribute line is substituted again when the block is written
+                    options = merge(options, title == null ? blockAttributes : merge(
+                            Map.of("title", unescapeAttributeReferences(earlyAttributeReplacement(title, attributes))), blockAttributes));
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
                 elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
-                options = merge(options, Map.of("title", newValue.strip().substring(1).strip()));
+                options = merge(options, Map.of("title", unescapeAttributeReferences(newValue.strip().substring(1).strip())));
             } else if (Objects.equals("====", stripped)) {
                 Optional<Admonition.Level> level;
                 final var potentialLevel = options == null ? "" : options.getOrDefault("", "");
@@ -699,7 +703,7 @@ public class Parser {
 
     private String subs(final String value, final Map<String, String> currentAttributes, final Set<String> substitutions) {
         // the same lookup as a paragraph line: the document attributes, then the parser's global ones
-        return substitutions.contains("attributes") ? earlyAttributeReplacement(value, currentAttributes) : value;
+        return substitutions.contains("attributes") ? unescapeAttributeReferences(earlyAttributeReplacement(value, currentAttributes)) : value;
     }
 
     private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -1920,7 +1924,7 @@ public class Parser {
                                             linkLabel = l.label();
                                         }
                                         elements.add("link".equals(macro.name()) ?
-                                                new Link(macro.label(),
+                                                new Link(unescapeAttributeReferences(macro.label()),
                                                         linkLabel,
                                                         Stream.of(macro.options().entrySet(), Map.of("nowrap", "true").entrySet())
                                                                 .flatMap(Collection::stream)
@@ -1940,7 +1944,7 @@ public class Parser {
                                     linkLabel = l.label();
                                 }
                                 elements.add(new Link(
-                                        optionsPrefix,
+                                        unescapeAttributeReferences(optionsPrefix),
                                         linkLabel,
                                         removeEmptyKey(options)));
                             }
@@ -2023,8 +2027,8 @@ public class Parser {
                                                                 Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
                                                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
                             }
-                        } else {
-                            elements.add(new Code(content, Map.of(), true, List.of()));
+                        } else { // a +passthrough+ is kept as written, otherwise an escaped reference loses its backslash as in a text
+                            elements.add(new Code(content.length() > 1 && content.startsWith("+") && content.endsWith("+") ? content : unescapeAttributeReferences(content), Map.of(), true, List.of()));
                         }
                         i = end;
                         start = end + 1;
@@ -2155,29 +2159,84 @@ public class Parser {
         return earlyAttributeReplacement(value, attributes::get);
     }
 
-    private String earlyAttributeReplacement(final String value, final Function<String, String> attributes) { // todo: handle escaping
+    // an escaped reference, \\{name} or {name\\}, is kept as it is: the inline parser writes it without its backslash, as asciidoctor does
+    private String earlyAttributeReplacement(final String value, final Function<String, String> attributes) {
         if (!value.contains("{")) {
             return value;
         }
-        final var keys = new HashSet<String>(1);
         final var matcher = ATTRIBUTE_VALUE.matcher(value);
+        StringBuilder out = null;
+        int copied = 0;
         while (matcher.find()) {
-            final var name = matcher.group("name");
-            if (attributes.apply(name) != null || globalAttributes.containsKey(name)) {
-                keys.add(name);
-            }
-        }
-        var out = value;
-        for (final var key : keys) {
-            final var placeholder = '{' + key + '}';
-            final var replacement = attributes.apply(key);
-            final var resolved = replacement == null ? globalAttributes.getOrDefault(key, placeholder) : replacement;
-            if (resolved.contains(placeholder)) { // ":a: ${a}", inlining it would create a new reference to evaluate, the lazy evaluation handles it
+            final var escaped = escapedReferenceName(value, matcher);
+            if (escaped != null) {
+                if (matcher.group("name").endsWith("\\")) { // {name\\} becomes \\{name}, the form the inline parser reads
+                    if (out == null) {
+                        out = new StringBuilder(value.length());
+                    }
+                    final int start = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\' ? matcher.start() - 1 : matcher.start();
+                    out.append(value, copied, start).append("\\{").append(escaped).append('}');
+                    copied = matcher.end();
+                }
                 continue;
             }
-            out = out.replace(placeholder, resolved);
+            final var key = matcher.group("name");
+            final var replacement = attributes.apply(key);
+            final var resolved = replacement == null ? globalAttributes.get(key) : replacement;
+            if (resolved == null || resolved.contains('{' + key + '}')) { // ":a: ${a}", inlining it would create a new reference to evaluate, the lazy evaluation handles it
+                continue;
+            }
+            if (out == null) {
+                out = new StringBuilder(value.length());
+            }
+            out.append(value, copied, matcher.start()).append(resolved);
+            copied = matcher.end();
         }
-        return out;
+        return out == null ? value : out.append(value, copied, value.length()).toString();
+    }
+
+    // a block title, a block attribute line, a verbatim block and a code span get no attribute substitution later, so an escaped
+    // reference is written {name} here
+    private String unescapeAttributeReferences(final String value) {
+        if (!value.contains("\\")) {
+            return value;
+        }
+        final var matcher = ATTRIBUTE_VALUE.matcher(value);
+        StringBuilder out = null;
+        int copied = 0;
+        while (matcher.find()) {
+            final var name = escapedReferenceName(value, matcher);
+            if (name != null) {
+                if (out == null) {
+                    out = new StringBuilder(value.length());
+                }
+                final int start = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\' ? matcher.start() - 1 : matcher.start();
+                out.append(value, copied, start).append('{').append(name).append('}');
+                copied = matcher.end();
+            }
+        }
+        return out == null ? value : out.append(value, copied, value.length()).toString();
+    }
+
+    // as asciidoctor AttributeReferenceRx: (\\)?{name(\\)?} with a name made of word characters and '-', escaped by either backslash
+    private String escapedReferenceName(final String value, final Matcher matcher) {
+        final var name = matcher.group("name");
+        final boolean escapedStart = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\';
+        final boolean escapedEnd = name.endsWith("\\");
+        if (!escapedStart && !escapedEnd) {
+            return null;
+        }
+        final var plainName = escapedEnd ? name.substring(0, name.length() - 1) : name;
+        if (plainName.isEmpty() || !(Character.isLetterOrDigit(plainName.charAt(0)) || plainName.charAt(0) == '_')) {
+            return null;
+        }
+        for (int i = 1; i < plainName.length(); i++) {
+            final char c = plainName.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '_' && c != '-') {
+                return null;
+            }
+        }
+        return plainName;
     }
 
     private IfBlock readIfBlock(final Reader reader, final String name) {
