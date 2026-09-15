@@ -1213,9 +1213,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var id = element.value();
         var text = element.label();
         if (text == null || text.isBlank()) {
-            ensureXrefCatalog();
-            final var resolved = state.xrefCatalog != null ? state.xrefCatalog.get(id) : null;
-            text = resolved != null ? resolved : id;
+            final var title = state.sectionTitle(id);
+            text = title != null ? title : id;
         }
         visitLink(new Link("#" + id, new Text(List.of(), text, Map.of()), Map.of()));
     }
@@ -1474,28 +1473,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(" </div>\n");
     }
 
-    // todo: enhance
     protected void visitXref(final Macro element) {
-        final var outFileSuffix = attr("outfilesuffix", ".html");
-        final var relFilePrefix = attr("relfileprefix", "");
-        final var relFileSuffix = attr("relfilesuffix", outFileSuffix);
-        var target = element.label();
-        final int anchor = target.lastIndexOf('#');
-        if (anchor > 0) {
-            final var page = target.substring(0, anchor);
-            if (page.endsWith(".adoc")) {
-                target = relFilePrefix + page.substring(0, page.length() - ".adoc".length()) + relFileSuffix + target.substring(anchor);
-            }
-        } else if (target.endsWith(".adoc")) {
-            target = relFilePrefix + target.substring(0, target.length() - ".adoc".length()) + relFileSuffix;
+        final var reference = sibling.crossReference(sibling.substitute(element.label(), context()).strip(), state.asciidocExtensions());
+        final String target;
+        if (reference.id() != null) {
+            target = "#" + reference.id();
+        } else {
+            final var path = reference.document() != null ?
+                    sibling.documentPath(reference.document(), context(), ".html") :
+                    sibling.relativeFile(reference.file(), context());
+            target = reference.fragment().isEmpty() ? path : path + '#' + reference.fragment();
         }
         final var label = element.options().get("");
         if (label != null) {
             builder.append(" <a href=\"").append(target).append("\">").append(parseLabel(label)).append("</a>\n");
         } else {
-            ensureXrefCatalog();
-            final var displayText = state.xrefCatalog != null ? state.xrefCatalog.get(target) : null;
-            builder.append(" <a href=\"").append(target).append("\">").append(displayText != null ? escape(displayText) : element.label()).append("</a>\n");
+            final var title = reference.id() == null ? null : state.sectionTitle(reference.id());
+            builder.append(" <a href=\"").append(target).append("\">").append(title != null ? escape(title) : element.label()).append("</a>\n");
         }
     }
 
@@ -2161,6 +2155,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return type == UNORDERED_LIST || type == ORDERED_LIST;
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}, see
+     * {@link io.yupiik.asciidoc.renderer.VisitorSibling#plainText(Element, ConditionalBlock.Context)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected String extractPlainText(final Element element) {
         if (element instanceof Text t) {
             return t.value();
@@ -2184,6 +2184,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return "";
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected Map<String, String> buildXrefCatalog(final List<Element> children) {
         final var catalog = new HashMap<String, String>();
         buildXrefCatalog(children, catalog);
@@ -2216,6 +2221,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    /**
+     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * not called anymore.
+     */
+    @Deprecated
     protected void ensureXrefCatalog() {
         if (state.xrefCatalog == null && state.document() != null) {
             state.xrefCatalog = buildXrefCatalog(state.document().body().children());
