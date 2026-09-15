@@ -62,6 +62,7 @@ import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
 import static io.yupiik.asciidoc.model.Element.ElementType.SECTION;
 import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
 import static io.yupiik.asciidoc.model.Text.Style.BOLD;
+import static io.yupiik.asciidoc.model.Text.Style.EMPHASIS;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
 import static java.util.Map.entry;
@@ -2654,6 +2655,154 @@ class ParserTest {
                                 new Text(List.of(), "Blue", Map.of()),
                                 new Text(List.of(), "fish | turtle", Map.of()))
                 ), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void tableCellSpecifierStyles() { // the style of the cell specifier wins over the column style, as in asciidoctor
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="3*"]
+                |===
+                a|*bold* text s|strong `code` e|emphasis
+                h|Row header |plain d|*default*
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Paragraph(List.of(new Text(List.of(BOLD), "bold", Map.of()), new Text(List.of(), " text", Map.of())), Map.of()),
+                                new Paragraph(List.of(new Text(List.of(BOLD), "strong ", Map.of()), new Code("code", Map.of(), true, List.of())), Map.of()),
+                                new Text(List.of(EMPHASIS), "emphasis", Map.of())),
+                        List.of(
+                                new Text(List.of(), "Row header", Map.of("role", "header")),
+                                new Text(List.of(), "plain", Map.of()),
+                                new Text(List.of(BOLD), "default", Map.of()))
+                ), Map.of("cols", "3*"))),
+                body.children());
+    }
+
+    @Test
+    void tableCellSpecifierAlignmentSpanAndFactor() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="3*"]
+                |===
+                2+^.>|spans two >|right
+                3*|same
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "spans two", Map.of("colspan", "2", "halign", "center", "valign", "bottom")),
+                                new Text(List.of(), "right", Map.of("halign", "right"))),
+                        List.of(
+                                new Text(List.of(), "same", Map.of()),
+                                new Text(List.of(), "same", Map.of()),
+                                new Text(List.of(), "same", Map.of()))
+                ), Map.of("cols", "3*"))),
+                body.children());
+    }
+
+    @Test
+    void tableCellSpecifierAfterABlank() { // in the middle of a line, a specifier follows a blank, so the word a before a pipe is one
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="2*"]
+                |===
+                |data|x
+                |this is a|*b*
+                |x a\\|y |z
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(new Text(List.of(), "data", Map.of()), new Text(List.of(), "x", Map.of())),
+                        List.of(new Text(List.of(), "this is", Map.of()), new Text(List.of(BOLD), "b", Map.of())),
+                        List.of(new Text(List.of(), "x a|y", Map.of()), new Text(List.of(), "z", Map.of()))
+                ), Map.of("cols", "2*"))),
+                body.children());
+    }
+
+    @Test
+    void tableRowsByColumnCount() { // the shape of the generated configuration and build item tables
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="2,1"]
+                |===
+
+                h|Property
+                h|Type
+
+                a|`quarkus.foo`
+
+                [.description]
+                --
+                The description.
+                --
+                |boolean
+
+                a|`quarkus.bar`
+                [.description]
+                --
+                * one
+                * two
+
+                -- a|int
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "Property", Map.of("role", "header")),
+                                new Text(List.of(), "Type", Map.of("role", "header"))),
+                        List.of(
+                                new Paragraph(List.of(
+                                        new Code("quarkus.foo", Map.of(), true, List.of()),
+                                        new OpenBlock(List.of(new Text(List.of(), "The description.", Map.of())), Map.of("role", "description"))), Map.of()),
+                                new Text(List.of(), "boolean", Map.of())),
+                        List.of(
+                                new Paragraph(List.of(
+                                        new Code("quarkus.bar", Map.of(), true, List.of()),
+                                        new OpenBlock(List.of(new UnOrderedList(List.of(
+                                                new Text(List.of(), "one", Map.of()),
+                                                new Text(List.of(), "two", Map.of())), Map.of())), Map.of("role", "description"))), Map.of()),
+                                new Text(List.of(), "int", Map.of()))
+                ), Map.of("cols", "2,1", "noheader-option", ""))),
+                body.children());
+    }
+
+    @Test
+    void tableRowspanTakesAPlaceInTheNextRow() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="3*"]
+                |===
+                .2+h|rows |x |y
+                |z |w
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "rows", Map.of("role", "header", "rowspan", "2")),
+                                new Text(List.of(), "x", Map.of()),
+                                new Text(List.of(), "y", Map.of())),
+                        List.of(new Text(List.of(), "z", Map.of()), new Text(List.of(), "w", Map.of()))
+                ), Map.of("cols", "3*"))),
+                body.children());
+    }
+
+    @Test
+    void tableCellOptionsOnAList() { // no wrapper: the options of the cell go to the element of the cell, whatever it is
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="2*"]
+                |===
+                2+a|
+                * one
+                * two
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(List.of(new UnOrderedList(List.of(
+                        new Text(List.of(), "one", Map.of()),
+                        new Text(List.of(), "two", Map.of())), Map.of("colspan", "2")))), Map.of("cols", "2*"))),
                 body.children());
     }
 

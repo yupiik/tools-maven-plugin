@@ -1138,7 +1138,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append("   <tr>\n");
                 int colIdx = 0;
                 for (final var it : firstRow) {
-                    final var halign = colIdx < haligns.size() ? haligns.get(colIdx) : "left";
+                    final var halign = cellHalign(it, colIdx, haligns);
                     writeTableCell("th", it, halign, "halign-" + halign);
                     colIdx++;
                 }
@@ -1153,8 +1153,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append("   <tr>\n");
                     int colIdx = 0;
                     for (final var col : row) {
-                        final var halign = colIdx < haligns.size() ? haligns.get(colIdx) : "left";
-                        writeTableCell("td", col, halign, "halign-" + halign);
+                        final var halign = cellHalign(col, colIdx, haligns);
+                        writeTableCell("header".equals(getCellOptions(col).get("role")) ? "th" : "td", col, halign, "halign-" + halign);
                         colIdx++;
                     }
                     builder.append("   </tr>\n");
@@ -1957,11 +1957,37 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append("    </").append(tagName).append(">\n");
     }
 
+    // the alignment of the cell specifier (^|), else the one of the column (cols="^")
+    private String cellHalign(final Element cell, final int column, final List<String> columnHaligns) {
+        final var halign = getCellOptions(cell).get("halign");
+        if (halign != null) {
+            return halign;
+        }
+        return column < columnHaligns.size() ? columnHaligns.get(column) : "left";
+    }
+
+    // the parser puts the span, the alignment and the style of a cell in the options of its element, whatever it is
     private Map<String, String> getCellOptions(final Element cell) {
         return switch (cell.type()) {
             case TEXT -> ((Text) cell).options();
             case PARAGRAPH -> ((Paragraph) cell).options();
             case CODE -> ((Code) cell).options();
+            case UNORDERED_LIST -> ((UnOrderedList) cell).options();
+            case ORDERED_LIST -> ((OrderedList) cell).options();
+            case DESCRIPTION_LIST -> ((DescriptionList) cell).options();
+            case LINK -> ((Link) cell).options();
+            case MACRO -> ((Macro) cell).options();
+            case LISTING -> ((Listing) cell).options();
+            case ADMONITION -> ((Admonition) cell).options();
+            case TABLE -> ((Table) cell).options();
+            case OPEN_BLOCK -> ((OpenBlock) cell).options();
+            case QUOTE -> ((Quote) cell).options();
+            case PASS_BLOCK -> ((PassthroughBlock) cell).options();
+            case CONDITIONAL_BLOCK -> ((ConditionalBlock) cell).options();
+            case SECTION -> ((Section) cell).options();
+            case PAGE_BREAK -> ((PageBreak) cell).options();
+            case HORIZONTAL_RULE -> ((HorizontalRule) cell).options();
+            case FLOATING_TITLE -> ((FloatingTitle) cell).options();
             default -> Map.of();
         };
     }

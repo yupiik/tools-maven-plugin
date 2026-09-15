@@ -53,8 +53,10 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -111,7 +113,6 @@ public class Parser {
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
-    private static final Pattern CELL_SPEC = Pattern.compile("^(?:(?<colspan>\\d+)\\+)?(?:\\.(?<rowspan>\\d+)\\+)?(?<content>.*)");
     private static final Pattern LOWER_ROMAN = Pattern.compile("[ivx]+");
     private static final Pattern UPPER_ROMAN = Pattern.compile("[IVX]+");
     private static final Pattern DIGITS = Pattern.compile("\\d+");
@@ -757,53 +758,9 @@ public class Parser {
                              final ContentResolver resolver,
                              final Map<String, String> currentAttributes,
                              final String token) {
-        final var cellParser = ofNullable(options)
+        final var columnStyles = ofNullable(options)
                 .map(o -> o.get("cols"))
-                .map(String::strip)
-                .map(it -> Stream.of(it.split(","))
-                        .map(String::strip)
-                        .filter(Predicate.not(String::isBlank))
-                        .map(i -> {
-                            if (i.contains("a")) { // asciidoc
-                                return (Function<List<String>, Element>) c -> {
-                                    final var content = doParse(enclosingDocument, new Reader(c), line -> true, resolver, currentAttributes, true, false);
-                                    if (content.size() == 1) {
-                                        return content.get(0);
-                                    }
-                                    return new Paragraph(content, Map.of());
-                                };
-                            }
-                            if (i.contains("e")) { // emphasis
-                                return (Function<List<String>, Element>) c ->
-                                        new Text(List.of(EMPHASIS), String.join("\n", c), Map.of());
-                            }
-                            if (i.contains("s")) { // strong
-                                return (Function<List<String>, Element>) c ->
-                                        new Text(List.of(BOLD), String.join("\n", c), Map.of());
-                            }
-                            if (i.contains("l") || i.contains("m")) { // literal or monospace
-                                return (Function<List<String>, Element>) c -> {
-                                    final var elements = handleIncludes(enclosingDocument, String.join("\n", c), resolver, currentAttributes, true)
-                                            .stream()
-                                            .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
-                                            .collect(joining());
-                                    return new Code(elements, Map.of(), true, List.of());
-                                };
-                            }
-                            if (i.contains("h")) { // header
-                                return (Function<List<String>, Element>) c ->
-                                        new Text(List.of(), String.join("\n", c), Map.of("role", "header"));
-                            }
-                            // contains("d") == default, all inline markup
-                            return (Function<List<String>, Element>) c -> {
-                                final var content = doParse(enclosingDocument, new Reader(c), line -> true, resolver, currentAttributes, false, false);
-                                if (content.size() == 1) {
-                                    return content.get(0);
-                                }
-                                return new Paragraph(content, Map.of());
-                            };
-                        })
-                        .toList())
+                .map(this::parseColumnStyles)
                 .orElse(List.of());
 
         // Implicit header detection: blank lines between |=== and first row means no header
@@ -818,129 +775,358 @@ public class Parser {
             }
         }
 
-        final var rows = new ArrayList<List<Element>>(4);
+        final var lines = new ArrayList<String>();
         String next;
-        while (!Objects.equals(token, next = reader.skipCommentsAndEmptyLines()) && next != null) {
-            next = next.strip();
-            final var cells = new ArrayList<Element>();
-            if (!next.startsWith("|") && !rows.isEmpty() && !rows.get(rows.size() - 1).isEmpty()) {
-                final var lastRow = rows.get(rows.size() - 1);
-                final var line = cellParser.size() > lastRow.size() - 1
-                        ? cellParser.get(lastRow.size() - 1).apply(List.of(next))
-                        : new Text(List.of(), next, Map.of());
-                final var last = lastRow.get(lastRow.size() - 1);
-                final Element replacement;
-                if (last instanceof Text lt && line instanceof Text le) {
-                    replacement = mergeTexts(List.of(lt, le));
-                } else if (last instanceof Paragraph lt && line instanceof Paragraph le) {
-                    replacement = new Paragraph(Stream.concat(lt.children().stream(), le.children().stream()).toList(), lt.options());
-                } else if (last instanceof Paragraph lp) {
-                    replacement = new Paragraph(Stream.concat(lp.children().stream(), Stream.of(line)).toList(), lp.options());
+        while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
+            if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
+                lines.add(next.stripTrailing());
+            }
+        }
+
+        final var cells = new TableCells(enclosingDocument, columnStyles, resolver, currentAttributes);
+        int firstLine = 0;
+        while (firstLine < lines.size() && lines.get(firstLine).isEmpty()) {
+            firstLine++;
+        }
+        for (int i = firstLine; i < lines.size(); i++) {
+            var line = lines.get(i);
+            boolean lineStartsWithSeparator = false;
+            if (i > firstLine && line.isEmpty()) {
+                line = null;
+            } else if (line.startsWith("|")) {
+                line = line.substring(1);
+                lineStartsWithSeparator = true;
+                cells.closeOpenCell(CellSpec.NONE);
+            } else {
+                final var start = line.indexOf('|');
+                final var spec = start < 0 ? null : parseCellSpec(line.substring(0, start).stripLeading());
+                if (spec != null) { // otherwise the line continues the open cell
+                    cells.closeOpenCell(spec);
+                    line = line.substring(start + 1);
+                }
+            }
+
+            while (true) {
+                final int separator = line == null ? -1 : line.indexOf('|');
+                if (separator < 0) {
+                    if (line != null) {
+                        cells.buffer.append(line);
+                    }
+                    cells.buffer.append('\n');
+                    cells.cellOpen = true;
+                    break;
+                }
+
+                final var before = line.substring(0, separator);
+                final var after = line.substring(separator + 1);
+                if (before.endsWith("\\")) { // escaped separator
+                    cells.buffer.append(before, 0, before.length() - 1).append('|');
+                    if (after.isEmpty()) {
+                        cells.buffer.append('\n');
+                        cells.cellOpen = true;
+                        break;
+                    }
+                    line = after;
+                    continue;
+                }
+                if (lineStartsWithSeparator && isSpanOnly(before)) { // |2+| and |.2+| read as before, where asciidoctor writes 2+| and .2+|
+                    lineStartsWithSeparator = false;
+                    final var span = parseCellSpec(before);
+                    cells.specs.pollLast();
+                    cells.specs.add(new CellSpec(span.colspan(), span.rowspan(), 1, null, null, null, true));
+                    line = after.isEmpty() ? null : after;
+                    continue;
+                }
+                lineStartsWithSeparator = false;
+
+                final int blank = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\t'));
+                final var spec = blank < 0 ? null : parseCellSpec(before.substring(blank + 1));
+                if (spec == null) { // no specifier before the separator
+                    cells.specs.add(CellSpec.NONE);
+                    cells.buffer.append(before);
                 } else {
-                    replacement = unwrapElementIfPossible(new Paragraph(List.of(last, line), Map.of("nowrap", "true")));
+                    int textEnd = blank;
+                    while (textEnd > 0 && (before.charAt(textEnd - 1) == ' ' || before.charAt(textEnd - 1) == '\t')) {
+                        textEnd--;
+                    }
+                    cells.specs.add(spec);
+                    cells.buffer.append(before, 0, textEnd);
                 }
-                lastRow.set(lastRow.size() - 1, replacement);
-                continue;
+                line = after.isEmpty() ? null : after;
+                cells.closeCell(false);
             }
 
-            if (nextUnescapedPipe(next, 2) > 0) { // single line row
-                int cellIdx = 0;
-                int last = 1; // line starts with '|'
-                int nextSep = nextUnescapedPipe(next, last);
-                while (nextSep > 0) {
-                    var content = next.substring(last, nextSep);
-                    // handle cell specs like 2+| (colspan) or .2+| (rowspan) where
-                    // | is part of the spec, not a cell separator
-                    if (content.matches("^(\\d+|\\.\\d+)\\+$") && content.indexOf('+') == content.length() - 1) {
-                        final var nextCellSep = nextUnescapedPipe(next, nextSep + 1);
-                        if (nextCellSep > 0) {
-                            content += "|" + next.substring(nextSep + 1, nextCellSep);
-                            nextSep = nextCellSep;
-                        } else {
-                            content += "|" + next.substring(nextSep + 1);
-                            nextSep = next.length();
-                        }
-                    }
-                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content.replace("\\|", "|"), resolver, currentAttributes));
-                    last = nextSep + 1;
-                    nextSep = nextUnescapedPipe(next, last);
+            if (cells.cellOpen) {
+                if (i == lines.size() - 1) {
+                    cells.closeCell(true);
                 }
-                if (last < next.length()) {
-                    final var end = next.substring(last);
-                    cells.add(createCell(enclosingDocument, cellParser, cellIdx, end.replace("\\|", "|"), resolver, currentAttributes));
-                }
-            } else { // one cell per row
-                int cellIdx = 0;
-                do {
-                    final var content = new ArrayList<String>(2);
-                    content.add(next.substring(1));
-                    while ((next = reader.nextLine()) != null && !next.startsWith("|") && !next.isBlank()) {
-                        content.add(next.strip());
-                    }
-                    if (next != null) {
-                        reader.rewind();
-                    }
-
-                    cells.add(createCell(enclosingDocument, cellParser, cellIdx++, content, resolver, currentAttributes));
-                } while ((next = reader.nextLine()) != null && !next.isBlank() && !next.startsWith("|==="));
-                if (next != null && next.startsWith("|")) {
-                    reader.rewind();
+            } else {
+                while (i + 1 < lines.size() && lines.get(i + 1).isEmpty()) {
+                    i++;
                 }
             }
-            rows.add(cells);
         }
-        return new Table(rows, Map.copyOf(tableOptions));
+        if (!cells.row.isEmpty()) { // asciidoctor drops an incomplete last row with an error, its cells are kept here
+            cells.rows.add(cells.row);
+        }
+        return new Table(cells.rows, Map.copyOf(tableOptions));
     }
 
-    private Element createCell(final Path enclosingDocument,
-                               final List<Function<List<String>, Element>> cellParser,
-                               final int cellIdx,
-                               final String content,
-                               final ContentResolver resolver,
-                               final Map<String, String> currentAttributes) {
-        final var spec = CELL_SPEC.matcher(content);
-        var cellContent = spec.matches() ? spec.group("content") : content;
-        final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
-        final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
-        if ((colspan != null || rowspan != null) && cellContent.startsWith("|")) {
-            cellContent = cellContent.substring(1);
+    // the style of each column, from the cols attribute: "a" (asciidoc), "e", "s", "l", "m", "h" or "d" (default)
+    private List<String> parseColumnStyles(final String cols) {
+        final var specs = cols.replace(" ", "");
+        if (!specs.isEmpty() && specs.chars().allMatch(Character::isDigit)) { // cols="3"
+            return Collections.nCopies(Integer.parseInt(specs), "d");
         }
-        final var element = cellParser.size() > cellIdx ?
-                cellParser.get(cellIdx).apply(List.of(cellContent)) :
-                new Text(List.of(), cellContent.strip(), Map.of());
-        if (colspan != null || rowspan != null) {
-            return addCellSpan(element, colspan, rowspan);
+        final var styles = new ArrayList<String>();
+        for (final var spec : specs.split(specs.contains(",") || !specs.contains(";") ? "," : ";", -1)) {
+            final int star = spec.indexOf('*');
+            final int count = star > 0 && spec.substring(0, star).chars().allMatch(Character::isDigit) ? Integer.parseInt(spec.substring(0, star)) : 1;
+            final var style = columnStyle(count > 1 || star == 0 ? spec.substring(star + 1) : spec);
+            for (int i = 0; i < count; i++) {
+                styles.add(style);
+            }
         }
-        return element;
+        return styles;
     }
 
-    private Element addCellSpan(final Element element, final String colspan, final String rowspan) {
-        final Map<String, String> opts;
+    private String columnStyle(final String spec) {
+        if (spec.contains("a")) {
+            return "a";
+        }
+        if (spec.contains("e")) {
+            return "e";
+        }
+        if (spec.contains("s")) {
+            return "s";
+        }
+        if (spec.contains("l")) {
+            return "l";
+        }
+        if (spec.contains("m")) {
+            return "m";
+        }
+        if (spec.contains("h")) {
+            return "h";
+        }
+        return "d";
+    }
+
+    private Element parseCell(final Path enclosingDocument, final String style, final List<String> lines,
+                              final ContentResolver resolver, final Map<String, String> currentAttributes) {
+        return switch (style) {
+            case "a" -> {
+                final var content = doParse(enclosingDocument, new Reader(lines), line -> true, resolver, currentAttributes, true, false);
+                yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
+            }
+            case "e" -> withTextStyle(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), EMPHASIS);
+            case "s" -> withTextStyle(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), BOLD);
+            case "l", "m" -> new Code(handleIncludes(enclosingDocument, String.join("\n", lines), resolver, currentAttributes, true)
+                    .stream()
+                    .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
+                    .collect(joining()), Map.of(), true, List.of());
+            case "h" -> withCellOptions(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), Map.of("role", "header"));
+            default -> { // "d", all inline markup
+                final var content = doParse(enclosingDocument, new Reader(lines), line -> true, resolver, currentAttributes, false, false);
+                yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
+            }
+        };
+    }
+
+    // an emphasis or strong cell keeps its inline markup, and its texts get the style, as in asciidoctor
+    private Element withTextStyle(final Element element, final Text.Style style) {
         if (element instanceof Text t) {
-            opts = new HashMap<>(t.options());
-        } else if (element instanceof Paragraph p) {
-            opts = new HashMap<>(p.options());
-        } else if (element instanceof Code c) {
-            opts = new HashMap<>(c.options());
-        } else {
-            return element;
-        }
-        if (colspan != null) {
-            opts.put("colspan", colspan);
-        }
-        if (rowspan != null) {
-            opts.put("rowspan", rowspan);
-        }
-        if (element instanceof Text t) {
-            return new Text(t.style(), t.value(), Map.copyOf(opts));
+            return new Text(Stream.concat(Stream.of(style), t.style().stream()).toList(), t.value(), t.options());
         }
         if (element instanceof Paragraph p) {
-            return new Paragraph(p.children(), Map.copyOf(opts));
-        }
-        if (element instanceof Code c) {
-            return new Code(c.value(), Map.copyOf(opts), c.inline(), c.lineCallOuts());
+            return new Paragraph(p.children().stream().map(child -> withTextStyle(child, style)).toList(), p.options());
         }
         return element;
+    }
+
+    // the span, alignment and style of a cell go into the options of its element, whatever the element is
+    private Element withCellOptions(final Element element, final Map<String, String> cellOptions) {
+        if (cellOptions.isEmpty()) {
+            return element;
+        }
+        if (element instanceof Paragraph p) {
+            return new Paragraph(p.children(), merge(p.options(), cellOptions));
+        }
+        return unwrapElementIfPossible(new Paragraph(List.of(element), cellOptions));
+    }
+
+    private boolean isSpanOnly(final String value) {
+        int i = value.startsWith(".") ? 1 : 0;
+        final int digits = i;
+        while (i < value.length() && Character.isDigit(value.charAt(i))) {
+            i++;
+        }
+        return i > digits && i == value.length() - 1 && value.charAt(i) == '+';
+    }
+
+    // asciidoctor cell specifier (CellSpecStartRx): [factor*|colspan.rowspan+][halign][.valign][style], null when the value is not one
+    private CellSpec parseCellSpec(final String value) {
+        final int length = value.length();
+        int colspan = 1;
+        int rowspan = 1;
+        int repeat = 1;
+        int i = 0;
+
+        int j = 0;
+        while (j < length && Character.isDigit(value.charAt(j))) {
+            j++;
+        }
+        final var first = value.substring(0, j);
+        var second = "";
+        if (j < length && value.charAt(j) == '.') {
+            int k = j + 1;
+            while (k < length && Character.isDigit(value.charAt(k))) {
+                k++;
+            }
+            second = value.substring(j + 1, k);
+            j = k;
+        }
+        if ((!first.isEmpty() || !second.isEmpty()) && j < length && (value.charAt(j) == '+' || value.charAt(j) == '*')) {
+            if (value.charAt(j) == '+') {
+                colspan = first.isEmpty() ? 1 : Integer.parseInt(first);
+                rowspan = second.isEmpty() ? 1 : Integer.parseInt(second);
+            } else {
+                repeat = first.isEmpty() ? 1 : Integer.parseInt(first);
+            }
+            i = j + 1;
+        }
+
+        String halign = null;
+        String valign = null;
+        if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
+            halign = alignment(value.charAt(i), "left", "center", "right");
+            i++;
+            if (i < length && value.charAt(i) == '.') {
+                i++;
+                if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
+                    valign = alignment(value.charAt(i), "top", "middle", "bottom");
+                    i++;
+                }
+            }
+        } else if (i + 1 < length && value.charAt(i) == '.' && "<^>".indexOf(value.charAt(i + 1)) >= 0) {
+            valign = alignment(value.charAt(i + 1), "top", "middle", "bottom");
+            i += 2;
+        }
+
+        String style = null;
+        if (i < length && value.charAt(i) >= 'a' && value.charAt(i) <= 'z') {
+            style = "adehlmsv".indexOf(value.charAt(i)) >= 0 ? String.valueOf(value.charAt(i)) : null;
+            i++;
+        }
+        return i == length ? new CellSpec(colspan, rowspan, repeat, halign, valign, style, false) : null;
+    }
+
+    private String alignment(final char marker, final String start, final String center, final String end) {
+        return marker == '<' ? start : (marker == '^' ? center : end);
+    }
+
+    // legacy: a span written |2+| or |.2+|, whose row span does not take a place in the next rows, as before
+    private record CellSpec(int colspan, int rowspan, int repeat, String halign, String valign, String style, boolean legacy) {
+        private static final CellSpec NONE = new CellSpec(1, 1, 1, null, null, null, false);
+    }
+
+    // the cells of a psv table put into rows by column count, as asciidoctor Table::ParserContext does
+    private final class TableCells {
+        private final Path enclosingDocument;
+        private final List<String> columnStyles;
+        private final ContentResolver resolver;
+        private final Map<String, String> currentAttributes;
+        private final List<List<Element>> rows = new ArrayList<>();
+        private final ArrayDeque<CellSpec> specs = new ArrayDeque<>();
+        private final List<Integer> activeRowspans = new ArrayList<>(List.of(0));
+        private final StringBuilder buffer = new StringBuilder();
+        private List<Element> row = new ArrayList<>();
+        private int columnCount;
+        private int columnVisits;
+        private int lineNumber = -1;
+        private boolean cellOpen;
+
+        private TableCells(final Path enclosingDocument, final List<String> columnStyles,
+                           final ContentResolver resolver, final Map<String, String> currentAttributes) {
+            this.enclosingDocument = enclosingDocument;
+            this.columnStyles = columnStyles;
+            this.resolver = resolver;
+            this.currentAttributes = currentAttributes;
+            this.columnCount = columnStyles.isEmpty() ? -1 : columnStyles.size();
+        }
+
+        private void closeOpenCell(final CellSpec next) {
+            specs.add(next);
+            if (cellOpen) {
+                closeCell(true);
+            }
+            lineNumber++;
+        }
+
+        private void closeCell(final boolean endOfLine) {
+            final var text = buffer.toString();
+            buffer.setLength(0);
+            final var spec = specs.isEmpty() ? CellSpec.NONE : specs.poll(); // no leading separator: asciidoctor recovers the same way
+            for (int i = 1; i <= spec.repeat(); i++) {
+                row.add(createCell(text, spec, row.size()));
+                if (spec.rowspan() > 1 && !spec.legacy()) {
+                    for (int r = 1; r < spec.rowspan(); r++) {
+                        while (activeRowspans.size() <= r) {
+                            activeRowspans.add(0);
+                        }
+                        activeRowspans.set(r, activeRowspans.get(r) + spec.colspan());
+                    }
+                }
+                columnVisits += spec.colspan();
+                final boolean rowFull = columnCount == -1 || columnVisits + activeRowspans.get(0) >= columnCount;
+                if (rowFull && (columnCount != -1 || lineNumber > 0 || (endOfLine && i == spec.repeat()))) {
+                    rows.add(row); // asciidoctor drops a row with more cells than columns, its cells are kept here
+                    if (columnCount == -1) {
+                        columnCount = columnVisits;
+                    }
+                    columnVisits = 0;
+                    row = new ArrayList<>();
+                    activeRowspans.remove(0);
+                    if (activeRowspans.isEmpty()) {
+                        activeRowspans.add(0);
+                    }
+                }
+            }
+            cellOpen = false;
+        }
+
+        private Element createCell(final String text, final CellSpec spec, final int column) {
+            final var style = spec.style() != null ? spec.style() : (column < columnStyles.size() ? columnStyles.get(column) : null);
+            final String content;
+            if ("a".equals(style) || "l".equals(style)) { // as asciidoctor: the leading line feeds go, the indentation of the first line stays
+                final var trailingStripped = text.stripTrailing();
+                int firstLine = 0;
+                while (firstLine < trailingStripped.length() && trailingStripped.charAt(firstLine) == '\n') {
+                    firstLine++;
+                }
+                content = firstLine == 0 && "a".equals(style) ? trailingStripped.stripLeading() : trailingStripped.substring(firstLine);
+            } else {
+                content = text.strip();
+            }
+            final var element = style == null ?
+                    new Text(List.of(), content, Map.of()) :
+                    parseCell(enclosingDocument, style, List.of(content.split("\n", -1)), resolver, currentAttributes);
+
+            final var cellOptions = new HashMap<String, String>();
+            if (spec.colspan() > 1) {
+                cellOptions.put("colspan", Integer.toString(spec.colspan()));
+            }
+            if (spec.rowspan() > 1) {
+                cellOptions.put("rowspan", Integer.toString(spec.rowspan()));
+            }
+            if (spec.halign() != null) {
+                cellOptions.put("halign", spec.halign());
+            }
+            if (spec.valign() != null) {
+                cellOptions.put("valign", spec.valign());
+            }
+            return withCellOptions(element, cellOptions);
+        }
     }
 
     private int nextUnescapedPipe(final String line, final int from) {
@@ -959,28 +1145,6 @@ public class Parser {
             }
         }
         return idx;
-    }
-
-    private Element createCell(final Path enclosingDocument,
-                               final List<Function<List<String>, Element>> cellParser,
-                               final int cellIdx,
-                               final List<String> content,
-                               final ContentResolver resolver,
-                               final Map<String, String> currentAttributes) {
-        final var firstLine = content.get(0);
-        final var spec = CELL_SPEC.matcher(firstLine);
-        final var cellContent = spec.matches() && (spec.group("colspan") != null || spec.group("rowspan") != null || !spec.group("content").isEmpty()) ?
-                content.stream().map(l -> spec == CELL_SPEC.matcher(firstLine) && l == firstLine ? spec.group("content") : l).toList() :
-                content;
-        final var colspan = spec.matches() && spec.group("colspan") != null ? spec.group("colspan") : null;
-        final var rowspan = spec.matches() && spec.group("rowspan") != null ? spec.group("rowspan") : null;
-        final var element = cellParser.size() > cellIdx ?
-                cellParser.get(cellIdx).apply(cellContent) :
-                new Text(List.of(), String.join("\n", cellContent).strip(), Map.of());
-        if (colspan != null || rowspan != null) {
-            return addCellSpan(element, colspan, rowspan);
-        }
-        return element;
     }
 
     private Table parsePipeTable(final Path enclosingDocument, final Reader reader,
