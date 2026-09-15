@@ -3251,6 +3251,43 @@ class AsciidoctorLikeHtmlRendererTest {
         assertEquals(html, renderer.result());
     }
 
+    @Test
+    void crossReferencesReadAsAsciidoctorReadsThem() { // an id without # links the page, a document without extension gets the suffix
+        assertRenderingContent("""
+                        = Guide
+
+                        [#install]
+                        == Install
+
+                        === Other details
+
+                        See <<_other_details>>, xref:install[] and xref:cli-tooling#dev-mode[the CLI].
+                        """,
+                """
+                         <div class="sect0">
+                          <h1 id="_guide">Guide</h1>
+                         <div class="sectionbody">
+                         <div class="sect1">
+                          <h2 id="install">Install</h2>
+                         <div class="sectionbody">
+                         <div class="sect2">
+                          <h3 id="_other_details">Other details</h3>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>See  <a href="#_other_details">Other details</a>
+                        ,  <a href="#install">Install</a>
+                         and  <a href="cli-tooling.html#dev-mode">the CLI</a>
+                        .</p>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
     private void assertRenderingContent(final String adoc, final String html) {
         assertRenderingContent(adoc, html, null);
     }
