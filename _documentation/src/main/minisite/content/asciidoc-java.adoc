@@ -49,7 +49,7 @@ The parser supports standard Asciidoc syntax including:
 * Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
 * Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
 * Callouts, footnotes, index terms, counters
-* Table features: colspan, rowspan, header option, autowidth, stripes, column alignment
+* Table features: cell specifiers before `|` (a span `2+`, `.2+` or `2.3+`, a duplication factor `3*`, an alignment `^`, `>` or `.^`, and a style `a`, `d`, `e`, `h`, `l`, `m` or `s`, at the start of a line or after a blank), cells put into rows by column count, header option, autowidth, stripes, column alignment
 * Nested ordered/unordered lists, `[start=NN]` on ordered lists, `[qanda]`/`[horizontal]` description lists
 * Video macros for YouTube/Vimeo embed, audio/video with controls
 * Man page doctype (`= commandname(1)`)

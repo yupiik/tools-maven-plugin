@@ -993,7 +993,7 @@ class AsciidoctorLikeHtmlRendererTest {
                   <thead>
                    <tr>
                     <th class="tableblock halign-left">
-                Cell in column 1, header row     </th>
+                Cell in column 1, header row    </th>
                     <th class="tableblock halign-left">
                 Cell in column 2, header row    </th>
                    </tr>
@@ -2463,8 +2463,8 @@ class AsciidoctorLikeHtmlRendererTest {
                         "  </colgroup>\n" +
                         "  <thead>\n" +
                         "   <tr>\n" +
-                        "    <th class=\"tableblock halign-center\">\n Center     </th>\n" +
-                        "    <th class=\"tableblock halign-right\">\n Right    </th>\n" +
+                        "    <th class=\"tableblock halign-center\">\nCenter    </th>\n" +
+                        "    <th class=\"tableblock halign-right\">\nRight    </th>\n" +
                         "   </tr>\n" +
                         "  </thead>\n" +
                         " </table>\n");
@@ -2529,6 +2529,67 @@ class AsciidoctorLikeHtmlRendererTest {
                         "   </tr>\n" +
                         "  </tbody>\n" +
                         " </table>\n");
+    }
+
+    @Test
+    void tableCellSpecifiers() { // a header cell of a body row is a th, the alignment and the span come from the cell
+        assertRenderingContent("[cols=\"3*\"]\n|===\n\nh|Name ^|Value .>|Note\n\n2+a|\n* one\n* two\n>|right\n|===", """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 99%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <th class="tableblock halign-left">
+                 <p class="header">
+                Name
+                 </p>
+                    </th>
+                    <td class="tableblock halign-center">
+                <p class="tableblock">
+                 <p>
+                Value
+                 </p>
+                </p>
+                    </td>
+                    <td class="tableblock halign-left valign-bottom">
+                <p class="tableblock">
+                 <p>
+                Note
+                 </p>
+                </p>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td class="tableblock halign-left" colspan="2">
+                <p class="tableblock">
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <p>
+                one
+                 </p>
+                  </li>
+                  <li>
+                 <p>
+                two
+                 </p>
+                  </li>
+                 </ul>
+                 </div>
+                </p>
+                    </td>
+                    <td class="tableblock halign-right">
+                <p class="tableblock">
+                 <p>
+                right
+                 </p>
+                </p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
     }
 
     @Test
