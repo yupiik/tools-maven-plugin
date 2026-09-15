@@ -1288,13 +1288,13 @@ class ParserTest {
                         List.of(
                                 new Paragraph(
                                         List.of(
-                                                new Text(List.of(), "foo", Map.of()),
+                                                new Paragraph(List.of(new Text(List.of(), "foo", Map.of())), Map.of()),
                                                 new Code("public record Foo() {\n\n}\n", Map.of("language", "java", "role", "hljs"), false, List.of())
                                         ),
                                         Map.of()),
                                 new Paragraph(
                                         List.of(
-                                                new Text(List.of(), "bar", Map.of()),
+                                                new Paragraph(List.of(new Text(List.of(), "bar", Map.of())), Map.of()),
                                                 new Code("public record Bar() {\n\n}\n", Map.of(), false, List.of())
                                         ),
                                         Map.of()),
@@ -1643,11 +1643,11 @@ class ParserTest {
                 List.of(
                         new Code("a=b\nc=d\n", Map.of("language", "properties"), false, List.of(
                                 List.of(new CallOut(1, new Paragraph(List.of(
-                                        new Text(List.of(), "one, like", Map.of()),
+                                        new Paragraph(List.of(new Text(List.of(), "one, like", Map.of())), Map.of()),
                                         new Code("{\"a\": \"b\"}\n\n{\"c\": \"d\"}\n", Map.of("language", "json"), false, List.of())), Map.of()))),
                                 List.of(new CallOut(2, new Paragraph(List.of(
-                                        new Text(List.of(), "two, and", Map.of()),
-                                        new Text(List.of(), "more text attached", Map.of())), Map.of()))))),
+                                        new Paragraph(List.of(new Text(List.of(), "two, and", Map.of())), Map.of()),
+                                        new Paragraph(List.of(new Text(List.of(), "more text attached", Map.of())), Map.of())), Map.of()))))),
                         new Text(List.of(), "after", Map.of())),
                 body.children());
     }
@@ -1935,7 +1935,7 @@ class ParserTest {
                         new OrderedList(List.of(
                                 new Paragraph(
                                         List.of(
-                                                new Text(List.of(), "item 1", Map.of()),
+                                                new Paragraph(List.of(new Text(List.of(), "item 1", Map.of())), Map.of()),
                                                 new Code("record Foo() {}\n", Map.of("language", "java"), false, List.of())),
                                         Map.of()),
                                 new Text(List.of(), "item 2", Map.of())), Map.of())),
@@ -2232,6 +2232,90 @@ class ParserTest {
                         Map.of()), Map.of())),
                 body.children());
     }
+
+    @Test
+    void groupParagraphsUnwrappedOnDemand() { // with keep-paragraphs false, a paragraph of one text in a group gives its text, so both items give the same model
+        final var body = new Parser().parseBody(new Reader(List.of((":keep-paragraphs: false\n\n" + GROUP_PARAGRAPHS).split("\n"))), null);
+        final var first = new Text(List.of(BOLD), "First", Map.of());
+        final var second = new Text(List.of(), "Second", Map.of());
+        final var group = new Paragraph(List.of(first, second), Map.of());
+        assertEquals(
+                List.of(
+                        new Admonition(WARNING, group, Map.of()),
+                        new Admonition(WARNING, new Paragraph(List.of(
+                                new Text(List.of(), "Intro", Map.of()),
+                                new UnOrderedList(List.of(new Text(List.of(), "item", Map.of())), Map.of())), Map.of()), Map.of()),
+                        new Admonition(WARNING, new Text(List.of(), "Alone", Map.of()), Map.of()),
+                        new UnOrderedList(List.of(group, group, new Text(List.of(), "Alone", Map.of())), Map.of()),
+                        new Code("a();\n", Map.of("language", "java"), false, List.of(List.of(new CallOut(1, group))))),
+                body.children());
+
+        // the parser attributes turn it off for every document
+        assertEquals(
+                new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(List.of(GROUP_PARAGRAPHS.split("\n"))), null).children(),
+                body.children());
+    }
+
+    @Test
+    void groupParagraphsKeptByDefault() { // each paragraph of a group stays a Paragraph, one text glued to another does not
+        final var body = new Parser().parseBody(new Reader(List.of(GROUP_PARAGRAPHS.split("\n"))), null);
+        final var first = new Paragraph(List.of(new Text(List.of(BOLD), "First", Map.of())), Map.of());
+        final var second = new Paragraph(List.of(new Text(List.of(), "Second", Map.of())), Map.of());
+        final var group = new Paragraph(List.of(first, second), Map.of());
+        assertEquals(
+                List.of(
+                        new Admonition(WARNING, group, Map.of()),
+                        new Admonition(WARNING, new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "Intro", Map.of())), Map.of()),
+                                new UnOrderedList(List.of(new Text(List.of(), "item", Map.of())), Map.of())), Map.of()), Map.of()),
+                        new Admonition(WARNING, new Text(List.of(), "Alone", Map.of()), Map.of()),
+                        new UnOrderedList(List.of(
+                                group,
+                                new Paragraph(List.of(new Text(List.of(BOLD), "First", Map.of()), new Text(List.of(), "Second", Map.of())), Map.of()),
+                                new Text(List.of(), "Alone", Map.of())), Map.of()),
+                        new Code("a();\n", Map.of("language", "java"), false, List.of(List.of(new CallOut(1, group))))),
+                body.children());
+
+        // true, the default, can be set too
+        assertEquals(
+                new Parser(Map.of("keep-paragraphs", "true")).parseBody(new Reader(List.of(GROUP_PARAGRAPHS.split("\n"))), null).children(),
+                body.children());
+    }
+
+    private static final String GROUP_PARAGRAPHS = """
+            [WARNING]
+            ====
+            **First**
+
+            Second
+            ====
+
+            [WARNING]
+            ====
+            Intro
+
+            * item
+            ====
+
+            [WARNING]
+            ====
+            Alone
+            ====
+
+            * **First**
+            +
+            Second
+            * **First**Second
+            * Alone
+
+            [source,java]
+            ----
+            a(); <1>
+            ----
+            <1> **First**
+            +
+            Second
+            """;
 
     @Test
     void anchor() {

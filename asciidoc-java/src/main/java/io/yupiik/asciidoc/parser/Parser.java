@@ -426,6 +426,15 @@ public class Parser {
                                   final ContentResolver resolver, final Map<String, String> attributes,
                                   final boolean supportComplexStructures,
                                   final boolean skipTitle) {
+        return doParse(enclosingDocument, reader, continueTest, resolver, attributes, supportComplexStructures, skipTitle, false);
+    }
+
+    // with keepParagraphs, a paragraph parsed with other blocks stays a Paragraph even when it has one child,
+    // so the group of blocks of an admonition, a list item or a callout item tells its paragraphs apart
+    private List<Element> doParse(final Path enclosingDocument, final Reader reader, final Predicate<String> continueTest,
+                                  final ContentResolver resolver, final Map<String, String> attributes,
+                                  final boolean supportComplexStructures,
+                                  final boolean skipTitle, final boolean keepParagraphs) {
         final var elements = new ArrayList<Element>(8);
         String next;
 
@@ -486,7 +495,7 @@ public class Parser {
                     reader.rewind();
                 } else {
                     reader.rewind();
-                    elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
+                    elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
                     options = null;
                 }
             } else if (stripped.startsWith("=")) {
@@ -519,7 +528,7 @@ public class Parser {
                         reader.rewind(); // back to current line
                     }
                     reader.rewind(); // back to paragraph start
-                    elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
+                    elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
                     options = null;
                 }
             } else if (Objects.equals("++++", stripped)) {
@@ -568,13 +577,34 @@ public class Parser {
                 }
             } else {
                 reader.rewind();
-                elements.add(unwrapElementIfPossible(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures)));
+                elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
                 options = null;
             }
         }
-        return elements.stream()
+        final var parsed = elements.stream()
                 .filter(it -> !(it instanceof Paragraph p) || !p.children().isEmpty())
                 .toList();
+        if (keepParagraphs && parsed.size() == 1 && parsed.get(0) instanceof Paragraph p) { // alone, it is not a group
+            return List.of(unwrapElementIfPossible(p));
+        }
+        return parsed;
+    }
+
+    // a paragraph holding one block (a list, an image block, ...) is still unwrapped, since only its block is kept
+    private Element paragraphElement(final Paragraph paragraph, final boolean keepParagraphs) {
+        if (keepParagraphs && paragraph.children().size() == 1) {
+            final var child = paragraph.children().get(0);
+            if (child instanceof Text || child instanceof Link || child instanceof Code c && c.inline() || child instanceof Macro m && m.inline()) {
+                return paragraph;
+            }
+        }
+        return unwrapElementIfPossible(paragraph);
+    }
+
+    // on by default; false, in the document or the parser attributes, gives the model of the versions before the attribute
+    private boolean keepsParagraphs(final Map<String, String> currentAttributes) {
+        final var value = currentAttributes.getOrDefault("keep-paragraphs", globalAttributes.get("keep-paragraphs"));
+        return value == null || !"false".equalsIgnoreCase(value.strip());
     }
 
     private PassthroughBlock parsePassthrough(final Path enclosingDocument,
@@ -696,7 +726,7 @@ public class Parser {
         if (next != null && !next.startsWith("====")) {
             reader.rewind();
         }
-        final var elements = doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false);
+        final var elements = doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
         final var filteredOpts = options == null ? Map.<String, String>of() : options.entrySet().stream()
                 .filter(e -> !"".equals(e.getKey()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -1102,7 +1132,7 @@ public class Parser {
             final var text = new StringBuilder(matcher.group("description"));
             readContinuation(reader, l -> CALLOUT.matcher(l).matches(), text);
 
-            final var elements = doParse(enclosingDocument, new Reader(List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false);
+            final var elements = doParse(enclosingDocument, new Reader(List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null) {
@@ -2369,7 +2399,7 @@ public class Parser {
                     isChecked = false;
                 }
 
-                final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true);
+                final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true, keepsParagraphs(currentAttributes));
                 if (isCheckItem) {
                     children.add(new Paragraph(elements, isChecked ? Map.of("checkbox", "true", "checked", "true") : Map.of("checkbox", "true")));
                 } else {

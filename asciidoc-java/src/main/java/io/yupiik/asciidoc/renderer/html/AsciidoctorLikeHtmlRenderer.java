@@ -857,7 +857,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 } else {
                     builder.append(checked ? "&#10003; " : "&#10063; ");
                 }
-                for (final var child : p.children()) {
+                for (final var itemChild : p.children()) {
+                    final var child = unwrapKeptParagraph(itemChild);
                     if (child instanceof Text t) {
                         final var opts = new HashMap<>(t.options());
                         opts.put("nowrap", "true");
@@ -1053,7 +1054,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         state.inCallOut = true;
         state.nowrap = true;
         if (callOut.text() instanceof Paragraph p && p.options().isEmpty()) {
-            p.children().forEach(this::visitElement);
+            p.children().forEach(child -> visitElement(unwrapKeptParagraph(child)));
         } else {
             visitElement(callOut.text());
         }
@@ -2024,6 +2025,37 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     protected String attr(final String key, final Map<String, String> defaultMap) {
         return attr(key, key, null, defaultMap);
+    }
+
+    // the keep-paragraphs parser attribute keeps a paragraph of one inline element in the blocks of an item;
+    // a checklist item and a callout item write that element as without the attribute, with the paragraph options
+    protected Element unwrapKeptParagraph(final Element element) {
+        if (!(element instanceof Paragraph kept) || kept.children().size() != 1) {
+            return element;
+        }
+        final var child = kept.children().get(0);
+        if (child instanceof Text t) {
+            return new Text(t.style(), t.value(), withParagraphOptions(t.options(), kept));
+        }
+        if (child instanceof Link l) {
+            return new Link(l.url(), l.label(), withParagraphOptions(l.options(), kept));
+        }
+        if (child instanceof Code c && c.inline()) {
+            return new Code(c.value(), withParagraphOptions(c.options(), kept), true, c.lineCallOuts());
+        }
+        if (child instanceof Macro m && m.inline()) {
+            return new Macro(m.name(), m.label(), withParagraphOptions(m.options(), kept), true);
+        }
+        return element;
+    }
+
+    private Map<String, String> withParagraphOptions(final Map<String, String> options, final Paragraph paragraph) {
+        if (paragraph.options().isEmpty()) {
+            return options;
+        }
+        final var merged = new HashMap<>(paragraph.options());
+        merged.putAll(options);
+        return merged;
     }
 
     protected boolean isList(final Element.ElementType type) {
