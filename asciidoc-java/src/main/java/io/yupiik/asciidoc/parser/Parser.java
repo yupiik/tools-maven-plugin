@@ -1464,7 +1464,8 @@ public class Parser {
                     break;
                 }
 
-                {
+                final int firstSpace = line.indexOf(' '); // an ordered list marker ends with . or ) right before the first space
+                if (firstSpace > 0 && (line.charAt(firstSpace - 1) == '.' || line.charAt(firstSpace - 1) == ')')) {
                     final var matcher = ORDERED_LIST_PREFIX.matcher(line);
                     if (matcher.matches() && matcher.group("dots").length() == 1) {
                         final var prefix = matcher.group("prefix");
@@ -2483,6 +2484,10 @@ public class Parser {
                                                  final String line,
                                                  final ContentResolver resolver,
                                                  final Map<String, String> currentAttributes) {
+        final int labelEnd = line.indexOf(": ");
+        if (labelEnd < 3 || labelEnd > 9) { // TIP, NOTE, WARNING, CAUTION or IMPORTANT
+            return Optional.empty();
+        }
         return Stream.of(Admonition.Level.values())
                 .filter(it -> line.startsWith(it.name() + ": "))
                 .findFirst()
@@ -3312,8 +3317,8 @@ public class Parser {
         int start = 0;
         while (start < content.length()) {
             final int nextLink = findNextLink(content, start);
-            final var emailMatcher = EMAIL_PATTERN.matcher(content);
-            final int nextEmail = emailMatcher.find(start) ? emailMatcher.start() : -1;
+            final var emailMatcher = content.indexOf('@', start) < 0 ? null : EMAIL_PATTERN.matcher(content); // no regex without an @
+            final int nextEmail = emailMatcher != null && emailMatcher.find(start) ? emailMatcher.start() : -1;
             final int next;
             if (nextLink >= 0 && (nextEmail < 0 || nextLink <= nextEmail)) {
                 next = nextLink;
