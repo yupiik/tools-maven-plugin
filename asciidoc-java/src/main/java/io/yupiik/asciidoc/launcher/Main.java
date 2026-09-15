@@ -71,6 +71,9 @@ public final class Main {
             } else if ("--section-tag".equals(args[i])) {
                 configuration.setSectionTag(args[i + 1].strip());
                 i++;
+            } else if ("--section-id-on-title".equals(args[i])) {
+                configuration.setSectionIdOnTitle(Boolean.parseBoolean(args[i + 1]));
+                i++;
             } else if ("--skip-global-content-wrapper".equals(args[i])) {
                 configuration.setSkipGlobalContentWrapper(Boolean.parseBoolean(args[i + 1]));
                 i++;

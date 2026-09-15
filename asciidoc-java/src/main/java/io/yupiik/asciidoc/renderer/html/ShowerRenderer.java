@@ -64,6 +64,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
                 .setSkipGlobalContentWrapper(true)
                 .setSkipSectionBody(true)
                 .setSectionTag("section")
+                .setSectionIdOnTitle(false) // a slide is addressed by the id of its section
                 .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                 .setAttributes(configuration.getAttributes())
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())

@@ -77,6 +77,12 @@ public class AsciidocMojo extends AbstractMojo {
     private String sectionTag;
 
     /**
+     * should the id of a section be written on its title tag ({@code h2}...) as asciidoctor does, instead of on the section tag.
+     */
+    @Parameter(property = "yupiik.asciidoc.sectionIdOnTitle", defaultValue = "true")
+    private boolean sectionIdOnTitle;
+
+    /**
      * should ascii2svg diagram be rendered as {@code svg} or {@code img} tag.
      */
     @Parameter(property = "yupiik.asciidoc.dataUriForAscii2Svg", defaultValue = "true")
@@ -146,6 +152,7 @@ public class AsciidocMojo extends AbstractMojo {
                 .setSkipSectionBody(skipSectionBody)
                 .setSkipGlobalContentWrapper(skipGlobalContentWrapper)
                 .setSectionTag(sectionTag)
+                .setSectionIdOnTitle(sectionIdOnTitle)
                 .setDataUriForAscii2Svg(dataUriForAscii2Svg)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
@@ -260,6 +267,7 @@ public class AsciidocMojo extends AbstractMojo {
                     .setSkipGlobalContentWrapper(configuration.isSkipGlobalContentWrapper())
                     .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                     .setSectionTag(configuration.getSectionTag())
+                    .setSectionIdOnTitle(configuration.isSectionIdOnTitle())
                     .setAttributes(rendererAttributes(document)));
         }
         if ("io.yupiik.asciidoc.renderer.html.ShowerRenderer".equals(renderer) || "shower".equals(renderer)) {
