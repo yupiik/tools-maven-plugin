@@ -195,8 +195,8 @@ class AsciidoctorLikeHtmlRendererTest {
                   <blockquote>
                 Blabla.  </blockquote>
                  </div> </div>
-                 <div class="sect1" id="_whats_new">
-                  <h2>What's new?</h2>
+                 <div class="sect1">
+                  <h2 id="_whats_new">What's new?</h2>
                  <div class="sectionbody">
                  <div class="ulist">
                  <ul>
@@ -259,8 +259,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 </p>
                  </div>
                  </div>
-                 <div class="sect1" id="_second_part">
-                  <h2>Second part</h2>
+                 <div class="sect1">
+                  <h2 id="_second_part">Second part</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -409,8 +409,8 @@ class AsciidoctorLikeHtmlRendererTest {
 
                         content""",
                 """
-                 <div class="sect1" id="my-section_title">
-                  <h2>Section Title</h2>
+                 <div class="sect1">
+                  <h2 id="my-section_title">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -423,6 +423,88 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void sectionAnchors() {
+        assertRenderingContent("""
+                        :sectanchors:
+
+                        == Directory Structure
+
+                        [#custom,role=important]
+                        === Sub Section
+
+                        content""",
+                """
+                 <div class="sect1">
+                  <h2 id="_directory_structure"><a class="anchor" href="#_directory_structure"></a>Directory Structure</h2>
+                 <div class="sectionbody">
+                 <div class="sect2 important">
+                  <h3 id="custom"><a class="anchor" href="#custom"></a>Sub Section</h3>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void sectionLinksAndAnchorsAfter() {
+        assertRenderingContent("""
+                        :sectanchors: after
+                        :sectlinks:
+
+                        [#custom]
+                        == Directory Structure
+
+                        content""",
+                """
+                 <div class="sect1">
+                  <h2 id="custom"><a class="link" href="#custom">Directory Structure<a class="anchor" href="#custom"></a></a></h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void sectionIdOnSectionTag() {
+        final var doc = new Parser().parseBody(
+                "== Directory Structure\n\n[#custom,role=important]\n=== Sub Section\n\ncontent",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setSectionIdOnTitle(false)
+                .setAttributes(Map.of("noheader", "true", "sectanchors", "")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect1" id="_directory_structure">
+                  <h2><a class="anchor" href="#_directory_structure"></a>Directory Structure</h2>
+                 <div class="sectionbody">
+                 <div class="sect2 important" id="custom">
+                  <h3><a class="anchor" href="#custom"></a>Sub Section</h3>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
     void customIdSeparator() {
         assertRenderingContent("""
                         :idseparator: -
@@ -431,8 +513,8 @@ class AsciidoctorLikeHtmlRendererTest {
 
                         content""",
                 """
-                 <div class="sect1" id="_sectiontitle">
-                  <h2>Section Title</h2>
+                 <div class="sect1">
+                  <h2 id="_sectiontitle">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -454,8 +536,8 @@ class AsciidoctorLikeHtmlRendererTest {
 
                         content""",
                 """
-                 <div class="sect1" id="sectiontitle">
-                  <h2>Section Title</h2>
+                 <div class="sect1">
+                  <h2 id="sectiontitle">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -495,8 +577,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 <.> `toJsonString` is an instance method with no parameter used to replace `.name()` call during serialization,
                 <.> `fromJsonString` is a static method with a `String` parameter used to replace `.valueOf(String)` call during deserialization.
                 """, """
-                 <div class="sect1" id="_enums">
-                  <h2>Enums</h2>
+                 <div class="sect1">
+                  <h2 id="_enums">Enums</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -1125,8 +1207,8 @@ class AsciidoctorLikeHtmlRendererTest {
                                 
                 And inline stem:[[[a,b\\],[c,d\\]\\]((n),(k))] too.
                 """, """
-                 <div class="sect0" id="_some_formulas">
-                  <h1>Some formulas</h1>
+                 <div class="sect0">
+                  <h1 id="_some_formulas">Some formulas</h1>
                  <div class="sectionbody">
                  <div class="stemblock">
                   <div class="content">
@@ -1213,8 +1295,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true", "data-uri", "", "imagesdir", "images")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <div class="imageblock">
                  <div class="content">
@@ -1237,8 +1319,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <div class="imageblock center w80">
                  <div class="content">
@@ -1261,8 +1343,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <div class="imageblock">
                  <div class="content">
@@ -1285,8 +1367,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <div class="imageblock center w80">
                  <div class="content">
@@ -1309,8 +1391,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <div class="ulist">
                  <ul>
@@ -1443,8 +1525,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true", "data-uri", "false"/*true would mean we depend on the http url at test time, we don't want that*/)));
         renderer.visitBody(doc);
         assertEquals("""
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                                 
                   <iframe
@@ -1475,8 +1557,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 '-------------------------'
                 ....
                 """, """
-                 <div class="sect0" id="_test">
-                  <h1>Test</h1>
+                 <div class="sect0">
+                  <h1 id="_test">Test</h1>
                  <div class="sectionbody">
                  <img src="data:image/svg+xml;base64,PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj4KPHN2ZyB3aWR0aD0iMjUycHgiIGhlaWdodD0iMTYwcHgiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CjxkZWZzPgogICAgPGZpbHRlciBpZD0iZHNGaWx0ZXIiIHdpZHRoPSIxNTAlIiBoZWlnaHQ9IjE1MCUiPgogICAgICA8ZmVPZmZzZXQgcmVzdWx0PSJvZmZPdXQiIGluPSJTb3VyY2VHcmFwaGljIiBkeD0iMiIgZHk9IjIiLz4KICAgICAgPGZlQ29sb3JNYXRyaXggcmVzdWx0PSJtYXRyaXhPdXQiIGluPSJvZmZPdXQiIHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwLjIgMCAwIDAgMCAwIDAuMiAwIDAgMCAwIDAgMC4yIDAgMCAwIDAgMCAxIDAiLz4KICAgICAgPGZlR2F1c3NpYW5CbHVyIHJlc3VsdD0iYmx1ck91dCIgaW49Im1hdHJpeE91dCIgc3RkRGV2aWF0aW9uPSIzIi8+CiAgICAgIDxmZUJsZW5kIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9ImJsdXJPdXQiIG1vZGU9Im5vcm1hbCIvPgogICAgPC9maWx0ZXI+CiAgICA8bWFya2VyIGlkPSJpUG9pbnRlciIKICAgICAgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI1IiByZWZZPSI1IgogICAgICBtYXJrZXJVbml0cz0ic3Ryb2tlV2lkdGgiCiAgICAgIG1hcmtlcldpZHRoPSI4IiBtYXJrZXJIZWlnaHQ9IjE1IgogICAgb3JpZW50PSJhdXRvIj4KICAgIDxwYXRoIGQ9Ik0gMTAgMCBMIDEwIDEwIEwgMCA1IHoiIC8+CiAgPC9tYXJrZXI+CiAgPG1hcmtlciBpZD0iUG9pbnRlciIKICAgIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iNSIgcmVmWT0iNSIKICAgIG1hcmtlclVuaXRzPSJzdHJva2VXaWR0aCIKICAgIG1hcmtlcldpZHRoPSI4IiBtYXJrZXJIZWlnaHQ9IjE1IgogICAgb3JpZW50PSJhdXRvIj4KICAgIDxwYXRoIGQ9Ik0gMCAwIEwgMTAgNSBMIDAgMTAgeiIgLz4KICA8L21hcmtlcj4KPC9kZWZzPiAgPGcgaWQ9ImNsb3NlZCIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiPgogICAgPHBhdGggaWQ9ImNsb3NlZDAiIGZpbGw9IiNmZmYiIGQ9Ik0gNC41IDE4LjAgUSA0LjUgOC4wIDE0LjUgOC4wIEwgMTMuNSA4LjAgIEwgMjIuNSA4LjAgIEwgMzEuNSA4LjAgIEwgNDAuNSA4LjAgIEwgNDkuNSA4LjAgIEwgNTguNSA4LjAgIEwgNjcuNSA4LjAgIEwgNzYuNSA4LjAgIEwgODUuNSA4LjAgIEwgOTQuNSA4LjAgIEwgMTAzLjUgOC4wICBMIDExMi41IDguMCAgTCAxMjEuNSA4LjAgIEwgMTMwLjUgOC4wICBMIDEzOS41IDguMCAgTCAxNDguNSA4LjAgIEwgMTU3LjUgOC4wICBMIDE2Ni41IDguMCAgTCAxNzUuNSA4LjAgIEwgMTg0LjUgOC4wICBMIDE5My41IDguMCAgTCAyMDIuNSA4LjAgIEwgMjExLjUgOC4wICBMIDIyMC41IDguMCAgTCAyMjkuNSA4LjAgIEwgMjI4LjUgOC4wIFEgMjM4LjUgOC4wIDIzOC41IDE4LjAgIEwgMjM4LjUgMjQuMCAgTCAyMzguNSA0MC4wICBMIDIzOC41IDU2LjAgIEwgMjM4LjUgNzIuMCAgTCAyMzguNSA4OC4wICBMIDIzOC41IDEwNC4wICBMIDIzOC41IDEyMC4wICBMIDIzOC41IDEyNi4wIFEgMjM4LjUgMTM2LjAgMjI4LjUgMTM2LjAgIEwgMjI5LjUgMTM2LjAgIEwgMjIwLjUgMTM2LjAgIEwgMjExLjUgMTM2LjAgIEwgMjAyLjUgMTM2LjAgIEwgMTkzLjUgMTM2LjAgIEwgMTg0LjUgMTM2LjAgIEwgMTc1LjUgMTM2LjAgIEwgMTY2LjUgMTM2LjAgIEwgMTU3LjUgMTM2LjAgIEwgMTQ4LjUgMTM2LjAgIEwgMTM5LjUgMTM2LjAgIEwgMTMwLjUgMTM2LjAgIEwgMTIxLjUgMTM2LjAgIEwgMTEyLjUgMTM2LjAgIEwgMTAzLjUgMTM2LjAgIEwgOTQuNSAxMzYuMCAgTCA4NS41IDEzNi4wICBMIDc2LjUgMTM2LjAgIEwgNjcuNSAxMzYuMCAgTCA1OC41IDEzNi4wICBMIDQ5LjUgMTM2LjAgIEwgNDAuNSAxMzYuMCAgTCAzMS41IDEzNi4wICBMIDIyLjUgMTM2LjAgIEwgMTMuNSAxMzYuMCAgTCAxNC41IDEzNi4wIFEgNC41IDEzNi4wIDQuNSAxMjYuMCAgTCA0LjUgMTIwLjAgIEwgNC41IDEwNC4wICBMIDQuNSA4OC4wICBMIDQuNSA3Mi4wICBMIDQuNSA1Ni4wICBMIDQuNSA0MC4wICBMIDQuNSAyNC4wIFoiIC8+CiAgICA8cGF0aCBpZD0iY2xvc2VkMSIgZmlsbD0iI2ZmZiIgZD0iTSAyMi41IDUwLjAgUSAyMi41IDQwLjAgMzIuNSA0MC4wIEwgMzEuNSA0MC4wICBMIDQwLjUgNDAuMCAgTCA0OS41IDQwLjAgIEwgNTguNSA0MC4wICBMIDY3LjUgNDAuMCAgTCA2Ni41IDQwLjAgUSA3Ni41IDQwLjAgNzYuNSA1MC4wICBMIDc2LjUgNTYuMCAgTCA3Ni41IDcyLjAgIEwgNzYuNSA3OC4wIFEgNzYuNSA4OC4wIDY2LjUgODguMCAgTCA2Ny41IDg4LjAgIEwgNTguNSA4OC4wICBMIDQ5LjUgODguMCAgTCA0MC41IDg4LjAgIEwgMzEuNSA4OC4wICBMIDMyLjUgODguMCBRIDIyLjUgODguMCAyMi41IDc4LjAgIEwgMjIuNSA3Mi4wICBMIDIyLjUgNTYuMCBaIiAvPgogICAgPHBhdGggaWQ9ImNsb3NlZDMiIGZpbGw9IiNmZmYiIGQ9Ik0gOTQuNSA1MC4wIFEgOTQuNSA0MC4wIDEwNC41IDQwLjAgTCAxMDMuNSA0MC4wICBMIDExMi41IDQwLjAgIEwgMTIxLjUgNDAuMCAgTCAxMzAuNSA0MC4wICBMIDEzOS41IDQwLjAgIEwgMTM4LjUgNDAuMCBRIDE0OC41IDQwLjAgMTQ4LjUgNTAuMCAgTCAxNDguNSA1Ni4wICBMIDE0OC41IDcyLjAgIEwgMTQ4LjUgNzguMCBRIDE0OC41IDg4LjAgMTM4LjUgODguMCAgTCAxMzkuNSA4OC4wICBMIDEzMC41IDg4LjAgIEwgMTIxLjUgODguMCAgTCAxMTIuNSA4OC4wICBMIDEwMy41IDg4LjAgIEwgMTA0LjUgODguMCBRIDk0LjUgODguMCA5NC41IDc4LjAgIEwgOTQuNSA3Mi4wICBMIDk0LjUgNTYuMCBaIiAvPgogICAgPHBhdGggaWQ9ImNsb3NlZDUiIGZpbGw9IiNmZmYiIGQ9Ik0gMTY2LjUgNTAuMCBRIDE2Ni41IDQwLjAgMTc2LjUgNDAuMCBMIDE3NS41IDQwLjAgIEwgMTg0LjUgNDAuMCAgTCAxOTMuNSA0MC4wICBMIDIwMi41IDQwLjAgIEwgMjExLjUgNDAuMCAgTCAyMTAuNSA0MC4wIFEgMjIwLjUgNDAuMCAyMjAuNSA1MC4wICBMIDIyMC41IDU2LjAgIEwgMjIwLjUgNzIuMCAgTCAyMjAuNSA3OC4wIFEgMjIwLjUgODguMCAyMTAuNSA4OC4wICBMIDIxMS41IDg4LjAgIEwgMjAyLjUgODguMCAgTCAxOTMuNSA4OC4wICBMIDE4NC41IDg4LjAgIEwgMTc1LjUgODguMCAgTCAxNzYuNSA4OC4wIFEgMTY2LjUgODguMCAxNjYuNSA3OC4wICBMIDE2Ni41IDcyLjAgIEwgMTY2LjUgNTYuMCBaIiAvPgogIDwvZz4KICA8ZyBpZD0ibGluZXMiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIj4KICAgIDxwYXRoIGlkPSJvcGVuMiIgZD0iTSAyMi41IDUwLjAgUSAyMi41IDQwLjAgMzIuNSA0MC4wIEwgMzEuNSA0MC4wICBMIDQwLjUgNDAuMCAgTCA0OS41IDQwLjAgIEwgNTguNSA0MC4wICBMIDY3LjUgNDAuMCAgTCA2Ni41IDQwLjAgUSA3Ni41IDQwLjAgNzYuNSA1MC4wICBMIDc2LjUgNTYuMCAgTCA3Ni41IDcyLjAgIEwgNzYuNSA3OC4wIFEgNzYuNSA4OC4wIDY2LjUgODguMCAgTCA2Ny41IDg4LjAgIEwgNjguNSA4OC4wIFEgNTguNSA4OC4wIDU4LjUgNzguMCAgTCA1OC41IDgyLjAgUSA1OC41IDcyLjAgNDguNSA3Mi4wICBMIDQ5LjUgNzIuMCAgTCA1MC41IDcyLjAgUSA0MC41IDcyLjAgNDAuNSA2Mi4wICBMIDQwLjUgNjYuMCBRIDQwLjUgNTYuMCA1MC41IDU2LjAgIEwgNDkuNSA1Ni4wICBMIDQ4LjUgNTYuMCBRIDU4LjUgNTYuMCA1OC41IDQ2LjAgIiAvPgogICAgPHBhdGggaWQ9Im9wZW40IiBtYXJrZXItZW5kPSJ1cmwoI1BvaW50ZXIpIiAgZD0iTSAxNjYuNSA1MC4wIFEgMTY2LjUgNDAuMCAxNzYuNSA0MC4wIEwgMTc1LjUgNDAuMCAgTCAxODQuNSA0MC4wICBMIDE5My41IDQwLjAgIEwgMjAyLjUgNDAuMCAgTCAyMTEuNSA0MC4wICBMIDIxMC41IDQwLjAgUSAyMjAuNSA0MC4wIDIyMC41IDUwLjAgIEwgMjIwLjUgNTYuMCAgTCAyMjAuNSA3Mi4wICBMIDIyMC41IDc4LjAgUSAyMjAuNSA4OC4wIDIxMC41IDg4LjAgIEwgMjExLjUgODguMCAgTCAyMDIuNSA4OC4wICBMIDE5My41IDg4LjAgIEwgMTg0LjUgODguMCAgTCAxNzUuNSA4OC4wICBMIDE3Ni41IDg4LjAgUSAxNjYuNSA4OC4wIDE2Ni41IDc4LjAgIEwgMTY2LjUgNzIuMCAgTCAxNzUuNSA3Mi4wICBMIDE4NC41IDcyLjAgIEwgMTkzLjUgNzIuMCAiIC8+CiAgICA8cGF0aCBpZD0ib3BlbjYiIG1hcmtlci1lbmQ9InVybCgjUG9pbnRlcikiICBkPSJNIDk0LjUgNTYuMCBMIDEwMy41IDU2LjAgIEwgMTEyLjUgNTYuMCAgTCAxMjEuNSA1Ni4wICIgLz4KICAgIDxwYXRoIGlkPSJvcGVuNyIgbWFya2VyLXN0YXJ0PSJ1cmwoI2lQb2ludGVyKSIgIGQ9Ik0gMTkzLjUgNTYuMCBMIDIwMi41IDU2LjAgIEwgMjExLjUgNTYuMCAiIC8+CiAgICA8cGF0aCBpZD0ib3BlbjgiIG1hcmtlci1zdGFydD0idXJsKCNpUG9pbnRlcikiICBkPSJNIDEyMS41IDcyLjAgTCAxMzAuNSA3Mi4wICBMIDEzOS41IDcyLjAgIiAvPgogIDwvZz4KICA8ZyBpZD0idGV4dCIgc3Ryb2tlPSJub25lIiBzdHlsZT0iZm9udC1mYW1pbHk6Q29uc29sYXMsTW9uYWNvLEFub255bW91cyBQcm8sQW5vbnltb3VzLEJpdHN0cmVhbSBTYW5zIE1vbm8sbW9ub3NwYWNlO2ZvbnQtc2l6ZToxNS4ycHgiID4KICAgIDx0ZXh0IGlkPSJvYmo5IiB4PSIzMS41IiB5PSIxMDQuMCIgZmlsbD0iIzAwMCI+YXNjaWk8L3RleHQ+CiAgICA8dGV4dCBpZD0ib2JqMTAiIHg9IjEyMS41IiB5PSIxMDQuMCIgZmlsbD0iIzAwMCI+MjwvdGV4dD4KICAgIDx0ZXh0IGlkPSJvYmoxMSIgeD0iMTg0LjUiIHk9IjEwNC4wIiBmaWxsPSIjMDAwIj5zdmc8L3RleHQ+CiAgPC9nPgo8L3N2Zz4K" alt="a2s">
                  </div>
@@ -1492,8 +1574,8 @@ class AsciidoctorLikeHtmlRendererTest {
     @Test
     void codeInSectionTitle() {
         assertRenderingContent("== Section `#1`", """
-                 <div class="sect1" id="_section_1">
-                  <h2>Section <code>#1</code></h2>
+                 <div class="sect1">
+                  <h2 id="_section_1">Section <code>#1</code></h2>
                  <div class="sectionbody">
                  </div>
                  </div>
@@ -1506,8 +1588,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 == Title :: foo `bar.json`
                                 
                 foo""", """
-                 <div class="sect1" id="_title__foo_barjson">
-                  <h2>Title :: foo <code>bar.json</code></h2>
+                 <div class="sect1">
+                  <h2 id="_title__foo_barjson">Title :: foo <code>bar.json</code></h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -1563,8 +1645,8 @@ class AsciidoctorLikeHtmlRendererTest {
                         image::relative.png[]
                         """,
                 """
-                         <div class="sect0" id="_foo">
-                          <h1>Foo</h1>
+                         <div class="sect0">
+                          <h1 id="_foo">Foo</h1>
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
@@ -1586,8 +1668,8 @@ class AsciidoctorLikeHtmlRendererTest {
                         image::relative.png[]
                         """,
                 """
-                         <div class="sect0" id="_foo">
-                          <h1>Foo</h1>
+                         <div class="sect0">
+                          <h1 id="_foo">Foo</h1>
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
@@ -1646,8 +1728,8 @@ class AsciidoctorLikeHtmlRendererTest {
                         "[#io.yupiik.test.MyObject]\n" +
                         "== io.yupiik.test.MyObject\n",
                 """
-                         <div class="sect0" id="_ioyupiiktestmyrootobject">
-                          <h1>io.yupiik.test.MyRootObject</h1>
+                         <div class="sect0">
+                          <h1 id="_ioyupiiktestmyrootobject">io.yupiik.test.MyRootObject</h1>
                          <div class="sectionbody">
                          <table class="tableblock frame-all grid-all stretch">
                           <caption class="title">io.yupiik.test.MyRootObject</caption>
@@ -1694,8 +1776,8 @@ class AsciidoctorLikeHtmlRendererTest {
                            </tr>
                           </tbody>
                          </table>
-                         <div class="sect1" id="io.yupiik.test.MyObject">
-                          <h2>io.yupiik.test.MyObject</h2>
+                         <div class="sect1">
+                          <h2 id="io.yupiik.test.MyObject">io.yupiik.test.MyObject</h2>
                          <div class="sectionbody">
                          </div>
                          </div>
@@ -1809,8 +1891,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-             <div class="sect0" id="_test">
-              <h1>Test</h1>
+             <div class="sect0">
+              <h1 id="_test">Test</h1>
              <div class="sectionbody">
              <div class="videoblock">
              <div class="content">
@@ -1845,8 +1927,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 .setAttributes(Map.of("noheader", "true")));
         renderer.visitBody(doc);
         assertEquals("""
-                <div class="sect0" id="_test">
-                 <h1>Test</h1>
+                <div class="sect0">
+                 <h1 id="_test">Test</h1>
                 <div class="sectionbody">
                 <div class="videoblock">
                 <div class="content">
@@ -1926,8 +2008,8 @@ class AsciidoctorLikeHtmlRendererTest {
     void markdownHeading() {
         assertRenderingContent(
                 "# Title\n\nContent.",
-                " <div class=\"sect0\" id=\"_title\">\n" +
-                        "  <h1>Title</h1>\n" +
+                " <div class=\"sect0\">\n" +
+                        "  <h1 id=\"_title\">Title</h1>\n" +
                         " <div class=\"sectionbody\">\n" +
                         " <div class=\"paragraph\">\n" +
                         " <p>\n" +
@@ -2089,8 +2171,8 @@ class AsciidoctorLikeHtmlRendererTest {
                         " </li>\n" +
                         " </ul>\n" +
                         " </div>\n" +
-                        " <div class=\"sect1\" id=\"_section_a\">\n" +
-                        "  <h2>Section A</h2>\n" +
+                        " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"_section_a\">Section A</h2>\n" +
                         " <div class=\"sectionbody\">\n" +
                         " <div class=\"paragraph\">\n" +
                         " <p>\n" +

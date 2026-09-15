@@ -526,36 +526,53 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
 
             final var sectionStyle = element.options().get("");
+            final var explicitId = element.options().get("id");
+            final boolean hasExplicitId = explicitId != null && !explicitId.isBlank();
+            final String id;
+            if (!hasExplicitId) {
+                final var prefix = docAttrs.getOrDefault("idprefix", configuration.getAttributes().get("idprefix"));
+                final var separator = docAttrs.getOrDefault("idseparator", configuration.getAttributes().get("idseparator"));
+                id = IdGenerator.forTitle(title, prefix, separator);
+            } else {
+                id = explicitId;
+            }
+            final var sectanchors = attr("sectanchors", docAttrs);
+            if (sectanchors != null) {
+                final var anchor = "<a class=\"anchor\" href=\"#" + id + "\"></a>";
+                if ("after".equals(sectanchors)) {
+                    title = title + anchor;
+                } else {
+                    title = anchor + title;
+                }
+            }
+            if (attr("sectlinks", docAttrs) != null) {
+                title = "<a class=\"link\" href=\"#" + id + "\">" + title + "</a>";
+            }
+
             builder.append(" <").append(configuration.getSectionTag());
-            writeCommonAttributes(element.options(), c -> {
+            final Map<String, String> sectionOptions;
+            if (configuration.isSectionIdOnTitle() && explicitId != null) {
+                sectionOptions = new HashMap<>(element.options());
+                sectionOptions.remove("id");
+            } else {
+                sectionOptions = element.options();
+            }
+            writeCommonAttributes(sectionOptions, c -> {
                 var cls = "sect" + (element.level() - 1);
                 if (sectionStyle != null && !sectionStyle.isBlank()) {
                     cls += " " + sectionStyle;
                 }
                 return c == null ? cls : cls + " " + c;
             });
-            final var id = element.options().get("id");
-            if (id == null) {
-                final var prefix = docAttrs.getOrDefault("idprefix", configuration.getAttributes().get("idprefix"));
-                final var separator = docAttrs.getOrDefault("idseparator", configuration.getAttributes().get("idseparator"));
-                final var generatedId = IdGenerator.forTitle(title, prefix, separator);
-                builder.append(" id=\"").append(generatedId).append('"');
-                final var sectlinks = docAttrs.get("sectlinks");
-                final var sectanchors = docAttrs.get("sectanchors");
-                if (sectanchors != null) {
-                    final var anchor = "<a class=\"anchor\" href=\"#" + generatedId + "\"></a>";
-                    if ("after".equals(sectanchors)) {
-                        title = title + anchor;
-                    } else {
-                        title = anchor + title;
-                    }
-                }
-                if (sectlinks != null) {
-                    title = "<a class=\"link\" href=\"#" + generatedId + "\">" + title + "</a>";
-                }
+            if (!configuration.isSectionIdOnTitle() && !hasExplicitId) {
+                builder.append(" id=\"").append(id).append('"');
             }
             builder.append(">\n");
-            builder.append("  <h").append(element.level()).append(">");
+            builder.append("  <h").append(element.level());
+            if (configuration.isSectionIdOnTitle()) {
+                builder.append(" id=\"").append(id).append('"');
+            }
+            builder.append(">");
             builder.append(title);
             builder.append("</h").append(element.level()).append(">\n");
             if (!configuration.isSkipSectionBody()) {
@@ -2139,6 +2156,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Getter
     public static class Configuration {
         private String sectionTag = "div";
+        private boolean sectionIdOnTitle = true;
         private boolean dataUriForAscii2Svg = true;
         private boolean skipSectionBody = false;
         private boolean skipGlobalContentWrapper = false;
@@ -2154,6 +2172,16 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         public Configuration setSectionTag(final String sectionTag) {
             this.sectionTag = sectionTag;
+            return this;
+        }
+
+        /**
+         * @param sectionIdOnTitle {@code true} writes the id of a section on its title tag ({@code h2}...) as asciidoctor does,
+         *                         {@code false} writes it on the section tag.
+         * @return this.
+         */
+        public Configuration setSectionIdOnTitle(final boolean sectionIdOnTitle) {
+            this.sectionIdOnTitle = sectionIdOnTitle;
             return this;
         }
 

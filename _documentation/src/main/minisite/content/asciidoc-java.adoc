@@ -83,3 +83,40 @@ The parser also supports a subset of CommonMark syntax for convenience:
 * Trailing double space at end of line → hard line break (`<br>`)
 
 These syntaxes are recognized alongside native Asciidoc syntax and can be mixed freely.
+
+== HTML renderer configuration
+
+`AsciidoctorLikeHtmlRenderer.Configuration` changes the HTML that `AsciidoctorLikeHtmlRenderer` writes.
+The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc.` properties, such as `yupiik.asciidoc.sectionIdOnTitle`, and the `asciidoc-java` launcher sets `sectionTag`, `sectionIdOnTitle`, `skipSectionBody`, `skipGlobalContentWrapper` and `supportDataAttributes` with `--section-tag`, `--section-id-on-title`, `--skip-section-body`, `--skip-global-content-wrapper` and `--data-attribute`.
+
+[cols="2,1,4",options="header"]
+|===
+|Option |Default |Description
+
+|`sectionTag`
+|`div`
+|The tag that wraps a section and its title.
+
+|`sectionIdOnTitle`
+|`true`
+|`true` writes the id of a section on its title tag (`<h2 id="_intro">`), as asciidoctor does. `false` writes it on the section tag (`<div class="sect1" id="_intro">`), as the renderer did before version 1.2.17. `ShowerRenderer` always uses `false`, because a slide is addressed by the id of its `section`.
+
+|`skipSectionBody`
+|`false`
+|`true` does not write the `<div class="sectionbody">` wrapper of a section.
+
+|`skipGlobalContentWrapper`
+|`false`
+|`true` does not write the `<div id="content">` wrapper of the document.
+
+|`supportDataAttributes`
+|`true`
+|`true` writes the `data-*` attributes of a block on its HTML element.
+
+|`dataUriForAscii2Svg`
+|`true`
+|`true` writes an `ascii2svg` diagram as an image with a data URI, `false` writes it as an inline `svg` tag.
+|===
+
+The `:sectanchors:` attribute writes an anchor link before the title of each section (`:sectanchors: after` writes it after the title), and the `:sectlinks:` attribute turns the title into a link to the section.
+Both attributes can be set in the document or in the attributes of the configuration.
