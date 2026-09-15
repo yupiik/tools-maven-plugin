@@ -3211,6 +3211,26 @@ class ParserTest {
     }
 
     @Test
+    void headerTitleAttributes() {
+        final var header = new Parser().parseHeader(new Reader(List.of(
+                "= {my-guide-title} for {missing}",
+                ":my-guide-title: Some parameterized title",
+                ":description: About {my-guide-title}",
+                "",
+                "Body.")));
+        assertEquals("Some parameterized title for {missing}", header.title());
+        assertEquals("About Some parameterized title", header.attributes().get("description"));
+    }
+
+    @Test
+    void headerTitleAttributesAfterAuthorLine() {
+        final var doc = new Parser(Map.of("product", "Quarkus")).parse(List.of(
+                "= {product} {version}", "Jane Doe <jane@example.com>", ":version: 3.0", "", "Body."), new Parser.ParserContext(null));
+        assertEquals("Quarkus 3.0", doc.header().title());
+        assertEquals("Jane Doe", doc.header().author().get(0).name());
+    }
+
+    @Test
     void unsetHeaderAttributePreservesOthers() {
         final var header = new Parser().parseHeader(new Reader(List.of("= Title", ":foo: bar", ":baz: qux", ":!foo:", "", "content")));
         assertEquals("Title", header.title());

@@ -282,13 +282,15 @@ public class Parser {
         final var resolved = resolveAuthors(authorLineAuthors, attributes, beforeAuthorLine);
         final var merged = new LinkedHashMap<>(attributes);
         mergeAuthorAttributes(authorLineAuthors, resolved, merged);
-        final var manPageMatcher = MAN_PAGE_TITLE.matcher(title);
+        // as asciidoctor, the title references the attributes of the whole header, also the ones defined after it
+        final var substitutedTitle = earlyAttributeReplacement(title, merged);
+        final var manPageMatcher = MAN_PAGE_TITLE.matcher(substitutedTitle);
         if (manPageMatcher.matches()) {
             merged.put("doctype", "manpage");
             merged.put("manname", manPageMatcher.group(1));
             merged.put("mansection", manPageMatcher.group(2));
         }
-        return new Header(title, authorList(merged), revision, merged);
+        return new Header(substitutedTitle, authorList(merged), revision, merged);
     }
 
     // as of asciidoctor the rendered authors are the deduced attributes and not directly the parsed ones
