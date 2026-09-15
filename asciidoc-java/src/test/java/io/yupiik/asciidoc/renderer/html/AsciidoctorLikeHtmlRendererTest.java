@@ -1670,7 +1670,7 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void imagesDirs() {
+    void imagesDirs() { // as asciidoctor, the default alt text is the file name without its extension, - and _ read as spaces
         assertRenderingContent(
                 """
                         = Foo
@@ -1684,7 +1684,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
-                         <img src="/assets/relative.png" alt="relative.png">
+                         <img src="/assets/relative.png" alt="relative">
                          </div>
                          </div>
                          </div>
@@ -1707,7 +1707,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="sectionbody">
                          <div class="imageblock">
                          <div class="content">
-                         <img src="/assets/relative.png" alt="relative.png">
+                         <img src="/assets/relative.png" alt="relative">
                          </div>
                          </div>
                          </div>
@@ -3283,6 +3283,29 @@ class AsciidoctorLikeHtmlRendererTest {
                          </div>
                          </div>
                          </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void imageUriTarget() { // imagesdir is not added to a URI or to an absolute path
+        assertRenderingContent("""
+                        :imagesdir: /assets
+
+                        image::https://example.org/logo.png[]
+
+                        image::/abs/icon.png[]
+                        """,
+                """
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="https://example.org/logo.png" alt="logo">
+                         </div>
+                         </div>
+                         <div class="imageblock">
+                         <div class="content">
+                         <img src="/abs/icon.png" alt="icon">
                          </div>
                          </div>
                         """);
