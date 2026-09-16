@@ -32,6 +32,24 @@ final var html = renderer.result(); <5>
 
 IMPORTANT: the asciidoc syntax is not 100% implemented yet, if you encounter anything you miss, feel free to open an issue or pull request on our bugtracker.
 
+== Parser attributes
+
+These attributes change how the parser reads a document.
+Set them in the document (`:keep-paragraphs: false`), or pass them to the `Parser` constructor to apply them to every document.
+
+[cols="1,1,4",options="header"]
+|===
+|Name |Default |Description
+
+|`callout-mismatch`
+|unset
+|`ignore` keeps a code block whose callout markers do not match the callout list after it, without the unmatched markers and items. By default the parser fails on such a block.
+
+|`keep-paragraphs`
+|`true`
+|Each paragraph of the blocks of an admonition block, a list item or a callout item stays a `Paragraph`, also when it holds one text. `false` gives the model of the versions before this attribute: the parser replaces such a paragraph with its text, so `* **First**` followed by a `+` continuation paragraph `Second` gives the same model as `* **First**Second`.
+|===
+
 == Syntax
 
 The parser supports standard Asciidoc syntax including:
