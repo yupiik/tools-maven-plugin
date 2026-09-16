@@ -1292,8 +1292,8 @@ class AsciidoctorLikeHtmlRendererTest {
                 ====
                 """,
                 """
-                         <div class="sect1" id="install">
-                          <h2>Install</h2>
+                         <div class="sect1">
+                          <h2 id="install">Install</h2>
                          <div class="sectionbody">
                          <div id="configuration" class="admonitionblock note">
                           <table>
