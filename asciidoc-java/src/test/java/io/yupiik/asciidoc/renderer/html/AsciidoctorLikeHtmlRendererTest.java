@@ -2135,6 +2135,22 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void footnoteSecondDefinitionRefersToTheFirst() {
+        assertRenderingContent("First footnote:dup[First.] And footnote:dup[Second.] again.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>First  <sup class=\"footnote\" id=\"_footnote_dup\">[<a id=\"_footnoteref_1\" class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " And  <sup class=\"footnoteref\">[<a class=\"footnote\" href=\"#_footnotedef_1\" title=\"View footnote.\">1</a>]</sup>\n" +
+                        " again.</p>\n" +
+                        " </div>\n" +
+                        " <div id=\"footnotes\">\n" +
+                        "  <hr>\n" +
+                        "  <div class=\"footnote\" id=\"_footnotedef_1\">\n" +
+                        "   <a href=\"#_footnoteref_1\">1</a>. First.\n" +
+                        "  </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void footnoterefLegacy() {
         assertRenderingContent("Some text footnoteref:[myid,A note.] And footnote:myid[] again.",
                 " <div class=\"paragraph\">\n" +

@@ -1757,17 +1757,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             id = element.label();
             text = element.options().getOrDefault("", "");
         }
-        if (!id.isEmpty() && text.isEmpty()) {
-            final var existing = state.footnotes.stream().filter(fn -> id.equals(fn.id)).findFirst();
-            if (existing.isPresent()) {
-                final var fn = existing.get();
-                builder.append(" <sup class=\"footnoteref\">[");
-                builder.append("<a class=\"footnote\" href=\"#_footnotedef_").append(fn.index).append("\" title=\"View footnote.\">");
-                builder.append(fn.index).append("</a>]</sup>\n");
-            } else {
-                builder.append(" <sup class=\"footnoteref red\" title=\"Unresolved footnote reference.\">[");
-                builder.append(escape(id)).append("]</sup>\n");
-            }
+        final var existing = id.isEmpty() ? null : state.footnotes.stream().filter(fn -> id.equals(fn.id)).findFirst().orElse(null);
+        if (existing != null) { // a later use of the id refers to the footnote, as asciidoctor does, even with a text
+            builder.append(" <sup class=\"footnoteref\">[");
+            builder.append("<a class=\"footnote\" href=\"#_footnotedef_").append(existing.index).append("\" title=\"View footnote.\">");
+            builder.append(existing.index).append("</a>]</sup>\n");
+        } else if (!id.isEmpty() && text.isEmpty()) {
+            builder.append(" <sup class=\"footnoteref red\" title=\"Unresolved footnote reference.\">[");
+            builder.append(escape(id)).append("]</sup>\n");
         } else {
             state.footnoteIndex++;
             final var fn = new FootNote(state.footnoteIndex, id.isEmpty() ? null : id, text);
