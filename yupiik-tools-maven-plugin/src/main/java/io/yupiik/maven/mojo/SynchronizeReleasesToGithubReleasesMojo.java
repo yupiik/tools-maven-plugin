@@ -125,6 +125,9 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
     @Parameter(property = "yupiik.synchronize-github-releases.dryRun")
     private boolean dryRun;
 
+    @Parameter(property = "yupiik.synchronize-github-releases.maxCommitMessageLength", defaultValue = "1024")
+    private int maxCommitMessageLength;
+
     @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession session;
 
@@ -252,11 +255,16 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                                     .map(c -> {
                                         final var author1 = c.getCommit().getAuthor();
                                         final var author2 = c.getAuthor();
-                                        return "" +
-                                                "* " + (author2 == null ? author1.getName() : ("[" + ofNullable(author1)
+                                        final var rawMessage = c.getCommit().getMessage().replace("\r", "").strip();
+                                        final var firstParagraph = extractFirstParagraph(rawMessage).strip();
+                                        var processedMessage = firstParagraph.replace("\n", " ").trim();
+                                        if (processedMessage.length() > maxCommitMessageLength) {
+                                            processedMessage = processedMessage.substring(0, maxCommitMessageLength - 3) + "...";
+                                        }
+                                        return "* " + (author2 == null ? author1.getName() : ("[" + ofNullable(author1)
                                                 .map(GithubCommitAuthor::getName)
                                                 .orElseGet(author2::getLogin) + "](" + author2.getHtmlUrl() + ")")) + ": " +
-                                                c.getCommit().getMessage() + (c.getCommit().getMessage().endsWith(".") ? "" : ".") + " [link](" + c.getHtmlUrl() + ").";
+                                                processedMessage + (processedMessage.endsWith(".") ? "" : ".") + " [link](" + c.getHtmlUrl() + ").";
                                     })
                                     .collect(joining("\n")))
                             .thenAccept(msg -> release.setBody(release.getBody() + "\n\n" + msg)))
@@ -320,6 +328,11 @@ public class SynchronizeReleasesToGithubReleasesMojo extends AbstractMojo {
                     .map(artifact -> attachArtifactToRelease(httpClient, release, spec, artifact, workDir))
                     .toArray(CompletableFuture<?>[]::new));
         });
+    }
+
+    private String extractFirstParagraph(final String content) {
+        final var sep = content.indexOf("\n\n");
+        return sep > 0 ? content.substring(0, sep) : content;
     }
 
     private CompletableFuture<Collection<GithubCommit>> fetchTagCommits(final HttpClient httpClient, final Jsonb jsonb,
