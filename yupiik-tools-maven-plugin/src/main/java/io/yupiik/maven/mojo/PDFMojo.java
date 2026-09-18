@@ -62,6 +62,19 @@ public class PDFMojo extends BaseMojo {
     protected File themeDir;
 
     /**
+     * If not null the file names (adoc) to generate a PDF for, others being ignored.
+     * Includes wins over excludes.
+     */
+    @Parameter(property = "yupiik.pdf.includes")
+    protected List<String> includes;
+
+    /**
+     * If not null the file names (adoc) to NOT generate a PDF for, others being included.
+     */
+    @Parameter(property = "yupiik.pdf.excludes")
+    protected List<String> excludes;
+
+    /**
      * Custom attributes. By default _partials and images folders are set to partialsdir and imagesdir attributes.
      */
     @Parameter
@@ -120,7 +133,17 @@ public class PDFMojo extends BaseMojo {
 
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        if (!adocOnly || file.getFileName().toString().endsWith(".adoc")) {
+                        String name = null;
+                        if (!adocOnly || (name = file.getFileName().toString()).endsWith(".adoc")) {
+                            if (includes != null || excludes != null) {
+                                if (name == null) {
+                                    name = file.getFileName().toString();
+                                }
+                                if (includes != null ? !includes.contains(name) : excludes.contains(name)) {
+                                    getLog().debug("'" + file + "' excluded");
+                                    return super.visitFile(file, attrs);
+                                }
+                            }
                             onFile.accept(file);
                         }
                         return super.visitFile(file, attrs);
