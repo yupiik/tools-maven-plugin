@@ -69,6 +69,7 @@ import java.util.stream.Stream;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.ANCHOR;
 import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
+import static io.yupiik.asciidoc.model.Element.ElementType.LINE_BREAK;
 import static io.yupiik.asciidoc.model.Element.ElementType.LINK;
 import static io.yupiik.asciidoc.model.Element.ElementType.ORDERED_LIST;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
@@ -1136,12 +1137,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             if (!element.options().containsKey("noheader-option")) {
                 builder.append("  <thead>\n");
                 builder.append("   <tr>\n");
+                final boolean inTableHeaderRow = state.inTableHeaderRow;
+                state.inTableHeaderRow = true;
                 int colIdx = 0;
                 for (final var it : firstRow) {
                     final var halign = cellHalign(it, colIdx, haligns);
                     writeTableCell("th", it, halign, "halign-" + halign);
                     colIdx++;
                 }
+                state.inTableHeaderRow = inTableHeaderRow;
                 builder.append("   </tr>\n");
                 builder.append("  </thead>\n");
             }
@@ -1946,15 +1950,116 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(" style=\"background-color: ").append(cellBgColor).append(";\"");
         }
         builder.append(">\n");
-        final var isHeader = "th".equals(tagName);
-        if (!isHeader) {
-            builder.append("<p class=\"tableblock\">\n");
-        }
-        visitElement(isHeader && cell instanceof Code c ? new Text(List.of(), c.value(), c.options()) : cell);
-        if (!isHeader) {
-            builder.append("</p>\n");
+        if (!isEmptyCell(cell)) { // as asciidoctor, an empty cell has no content
+            writeTableCellContent(cell);
         }
         builder.append("    </").append(tagName).append(">\n");
+    }
+
+    private void writeTableCellContent(final Element cell) {
+        if (state.inTableHeaderRow) { // as asciidoctor, a cell of the header row holds its text, without a paragraph
+            if (isInlineCell(cell)) {
+                writeInlineCellContent(cell instanceof Code c ? new Text(List.of(), c.value(), c.options()) : cell);
+            } else {
+                visitElement(withoutCellOptions(cell));
+            }
+        } else if (isInlineCell(cell)) { // as asciidoctor, the text of a cell is in a paragraph
+            builder.append("<p class=\"tableblock\">\n");
+            writeInlineCellContent(cell);
+            builder.append("</p>\n");
+        } else if (isParagraphGroup(cell)) { // one paragraph each, as asciidoctor does for a cell that is not an a| cell
+            for (final var paragraph : ((Paragraph) cell).children()) {
+                builder.append("<p class=\"tableblock\">\n");
+                writeInlineCellContent(paragraph);
+                builder.append("</p>\n");
+            }
+        } else { // as asciidoctor, the blocks of a cell (a list, an admonition, a listing...) are in a div, not in a paragraph
+            builder.append("<div class=\"content\">\n");
+            if (cell instanceof Paragraph p && hasOnlyCellOptions(p)) { // the parser groups the blocks of a cell in a paragraph
+                p.children().forEach(this::visitElement);
+            } else {
+                visitElement(withoutCellOptions(cell));
+            }
+            builder.append("</div>\n");
+        }
+    }
+
+    // the text, links and inline code of a cell, without a paragraph or a div around them
+    private void writeInlineCellContent(final Element content) {
+        final boolean nowrap = state.nowrap;
+        state.nowrap = true;
+        if (content instanceof Paragraph p) {
+            p.children().forEach(this::visitElement);
+        } else {
+            visitElement(withoutCellOptions(content));
+        }
+        state.nowrap = nowrap;
+    }
+
+    // an empty cell with an id or a role of its own still writes them
+    private boolean isEmptyCell(final Element cell) {
+        return (cell instanceof Paragraph p && p.children().isEmpty() && hasOnlyCellOptions(p)) ||
+                (cell instanceof Text t && t.value().isBlank() && withoutCellOptions(t.options()).isEmpty());
+    }
+
+    private boolean isInlineCell(final Element cell) {
+        return isInline(cell) || (cell instanceof Paragraph p && hasOnlyCellOptions(p) && p.children().stream().allMatch(this::isInline));
+    }
+
+    // several paragraphs: the parser groups the blocks of a cell in a Paragraph, whose children are then texts and
+    // Paragraphs of inline elements; the inline elements of one paragraph hold a Paragraph only with options (a role span)
+    private boolean isParagraphGroup(final Element cell) {
+        return cell instanceof Paragraph group && hasOnlyCellOptions(group) &&
+                group.children().stream().anyMatch(Paragraph.class::isInstance) &&
+                group.children().stream().allMatch(child -> isInline(child) ||
+                        (child instanceof Paragraph p && p.options().isEmpty() && p.children().stream().allMatch(this::isInline)));
+    }
+
+    private boolean isInline(final Element element) {
+        return element.type() == TEXT ||
+                element.type() == ATTRIBUTE ||
+                element.type() == LINK ||
+                element.type() == ANCHOR ||
+                element.type() == LINE_BREAK ||
+                (element instanceof Macro m && m.inline()) ||
+                (element instanceof Code c && c.inline());
+    }
+
+    // a paragraph with an id or a role of its own, set on an a| cell with a block attribute line, is a block
+    private boolean hasOnlyCellOptions(final Paragraph paragraph) {
+        return withoutCellOptions(paragraph.options()).isEmpty();
+    }
+
+    // the span, the alignment and the header role of a cell are written on its td or th, not on its content
+    private Element withoutCellOptions(final Element element) {
+        if (element instanceof Text t) {
+            return new Text(t.style(), t.value(), withoutCellOptions(t.options()));
+        }
+        if (element instanceof Link l) {
+            return new Link(l.url(), l.label(), withoutCellOptions(l.options()));
+        }
+        if (element instanceof Code c) {
+            return new Code(c.value(), withoutCellOptions(c.options()), c.inline(), c.lineCallOuts());
+        }
+        if (element instanceof Macro m) {
+            return new Macro(m.name(), m.label(), withoutCellOptions(m.options()), m.inline());
+        }
+        if (element instanceof Paragraph p) {
+            return new Paragraph(p.children(), withoutCellOptions(p.options()));
+        }
+        return element;
+    }
+
+    private Map<String, String> withoutCellOptions(final Map<String, String> options) {
+        if (options.isEmpty()) {
+            return options;
+        }
+        final var copy = new HashMap<>(options);
+        copy.keySet().removeAll(List.of("colspan", "rowspan", "halign", "valign"));
+        if ("header".equals(copy.get("role"))) {
+            copy.remove("role");
+        }
+        return copy;
     }
 
     // the alignment of the cell specifier (^|), else the one of the column (cols="^")
@@ -2255,6 +2360,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         protected boolean nowrap = false;
         protected boolean sawPreamble = false;
         protected boolean inCallOut = false;
+        protected boolean inTableHeaderRow = false;
         protected int footnoteIndex = 0;
         protected int indexTermCount = 0;
         protected final Map<String, Integer> counters = new HashMap<>();
@@ -2275,6 +2381,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             currentChain = null;
             sawPreamble = false;
             inCallOut = false;
+            inTableHeaderRow = false;
             lastElement.clear();
             footnoteIndex = 0;
             indexTermCount = 0;
