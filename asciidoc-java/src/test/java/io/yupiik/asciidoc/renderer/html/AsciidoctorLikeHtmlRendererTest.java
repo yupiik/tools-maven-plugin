@@ -1789,10 +1789,7 @@ class AsciidoctorLikeHtmlRendererTest {
                            <tr>
                             <td class="tableblock halign-left">
                         <p class="tableblock">
-                         <div class="paragraph">
-                         <p> <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
-                        </p>
-                         </div>
+                         <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
                         </p>
                             </td>
                             <td class="tableblock halign-left">
@@ -2462,8 +2459,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "  </colgroup>\n" +
                         "  <thead>\n" +
                         "   <tr>\n" +
-                        "    <th class=\"tableblock halign-left\" colspan=\"2\">\n <p>\nSpans two\n </p>\n" +
-                        "    </th>\n" +
+                        "    <th class=\"tableblock halign-left\" colspan=\"2\">\nSpans two    </th>\n" +
                         "    <th class=\"tableblock halign-left\">\nLast    </th>\n" +
                         "   </tr>\n" +
                         "  </thead>\n" +
@@ -2478,8 +2474,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "  </colgroup>\n" +
                         "  <thead>\n" +
                         "   <tr>\n" +
-                        "    <th class=\"tableblock halign-left\" rowspan=\"2\">\n <p>\nRows two\n </p>\n" +
-                        "    </th>\n" +
+                        "    <th class=\"tableblock halign-left\" rowspan=\"2\">\nRows two    </th>\n" +
                         "    <th class=\"tableblock halign-left\">\nB    </th>\n" +
                         "   </tr>\n" +
                         "  </thead>\n" +
@@ -2657,28 +2652,21 @@ class AsciidoctorLikeHtmlRendererTest {
                   <tbody>
                    <tr>
                     <th class="tableblock halign-left">
-                 <p class="header">
-                Name
-                 </p>
+                <p class="tableblock">
+                Name</p>
                     </th>
                     <td class="tableblock halign-center">
                 <p class="tableblock">
-                 <p>
-                Value
-                 </p>
-                </p>
+                Value</p>
                     </td>
                     <td class="tableblock halign-left valign-bottom">
                 <p class="tableblock">
-                 <p>
-                Note
-                 </p>
-                </p>
+                Note</p>
                     </td>
                    </tr>
                    <tr>
                     <td class="tableblock halign-left" colspan="2">
-                <p class="tableblock">
+                <div class="content">
                  <div class="ulist">
                  <ul>
                   <li>
@@ -2693,14 +2681,114 @@ class AsciidoctorLikeHtmlRendererTest {
                   </li>
                  </ul>
                  </div>
-                </p>
+                </div>
                     </td>
                     <td class="tableblock halign-right">
                 <p class="tableblock">
-                 <p>
-                right
-                 </p>
+                right</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableCellContent() { // as asciidoctor: text in one paragraph per paragraph, blocks in a div, nothing for an empty cell
+        assertRenderingContent("[cols=\"2*\",options=\"noheader\"]\n|===\n|`code` and *bold*\na|NOTE: an admonition\n\n|\nh|link:https://example.com[Example]\n\n|first `code`\n\nsecond *bold*\na|[.myrole]\nSome *text*\n|===", """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 100%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                <code>code</code> and <strong>bold</strong></p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <div class="content">
+                 <div class="admonitionblock note">
+                  <table>
+                    <tbody>
+                     <tr>
+                      <td class="icon">
+                     <div class="title">NOTE</div>
+                       </td>
+                      <td class="content">
+                an admonition    </td>
+                   </tr>
+                      </tbody>
+                  </table>
+                 </div>
+                </div>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td class="tableblock halign-left">
+                    </td>
+                    <th class="tableblock halign-left">
+                <p class="tableblock">
+                 <a href="https://example.com">Example</a>
                 </p>
+                    </th>
+                   </tr>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                first <code>code</code></p>
+                <p class="tableblock">
+                second <strong>bold</strong></p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <div class="content">
+                 <div class="paragraph myrole">
+                 <p>Some <strong>text</strong></p>
+                 </div>
+                </div>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableHeaderRowCells() { // as asciidoctor: the text of a header row cell has no paragraph, whatever its specifier
+        assertRenderingContent("[cols=\"4*\",options=\"header\"]\n|===\n^|Centered h|Header style |Name `code` |\n|a |b |c |d\n|===", """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 100%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-center">
+                Centered    </th>
+                    <th class="tableblock halign-left">
+                Header style    </th>
+                    <th class="tableblock halign-left">
+                Name <code>code</code>    </th>
+                    <th class="tableblock halign-left">
+                    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                a</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                b</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                c</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                d</p>
                     </td>
                    </tr>
                   </tbody>
