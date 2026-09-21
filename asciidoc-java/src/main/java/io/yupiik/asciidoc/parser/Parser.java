@@ -72,6 +72,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -99,6 +100,8 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
  * It also enables to add a phase to manipulate the model before the rendering by not merging model loading and rendering phases.
  */
 public class Parser {
+    private static final Logger LOGGER = Logger.getLogger(Parser.class.getName());
+
     private static final List<Author> NO_AUTHORS = List.of();
     private static final Revision NO_REVISION = new Revision("", "", "");
     private static final Header NO_HEADER = new Header("", List.of(), NO_REVISION, Map.of("authorcount", "0"));
@@ -2254,6 +2257,15 @@ public class Parser {
         return branches;
     }
 
+    // 'optional' is written as opts=optional, which parseOptions stores under the key "opts", or as the %optional shorthand
+    private boolean isOptionalInclude(final Map<String, String> options) {
+        if (options.containsKey("optional") || options.containsKey("optional-option")) {
+            return true;
+        }
+        final var opts = options.get("opts");
+        return opts != null && Stream.of(opts.split(",")).map(String::strip).anyMatch("optional"::equals);
+    }
+
     // include::target[leveloffset=offset,lines=ranges,tag(s)=name(s),indent=depth,encoding=encoding,opts=optional]
     protected List<Element> doInclude(final Path enclosingDocument,
                                       final Macro macro,
@@ -2268,10 +2280,15 @@ public class Parser {
                 resolver.resolve(macro.label(), encoding).map(it -> new RelativeContentResolver.Resolved(enclosingDocument, it)))
                 .orElse(null);
         if (resolved == null) {
-            if (macro.options().containsKey("optional")) {
+            if (isOptionalInclude(macro.options())) { // as asciidoctor, an optional include that is missing is dropped silently
                 return List.of();
             }
-            throw new IllegalArgumentException("Missing include: '" + macro.label() + "'");
+            // as asciidoctor, a missing include does not stop the document: it is logged and the line becomes this text
+            final var unresolved = "Unresolved directive in " +
+                    (enclosingDocument == null ? "<stdin>" : enclosingDocument.getFileName()) +
+                    " - include::" + macro.label() + "[]";
+            LOGGER.warning(unresolved);
+            return List.of(new Text(List.of(), unresolved, Map.of()));
         }
 
         var content = resolved.content();

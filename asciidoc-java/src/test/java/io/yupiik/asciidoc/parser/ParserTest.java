@@ -1366,6 +1366,38 @@ class ParserTest {
     }
 
     @Test
+    void missingIncludeBecomesAnUnresolvedDirective(@TempDir final Path work) {
+        final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
+        assertEquals( // as asciidoctor: the document is not stopped, the directive is reported in the text
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "Unresolved directive in <stdin> - include::missing-file.adoc[]", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void escapedIncludeIsNotAnUnresolvedDirective(@TempDir final Path work) {
+        final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "\\include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
+        assertEquals( // the backslash is dropped and the line stays text, as it already did
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "include::missing-file.adoc[]", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void missingOptionalIncludeIsDropped(@TempDir final Path work) {
+        final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[opts=optional]", "", "After.")), ContentResolver.of(work));
+        assertEquals( // as asciidoctor, an optional include that is missing leaves no text at all
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+    }
+
+    @Test
     void codeInclude(@TempDir final Path work) throws IOException {
         final var code = "test = value\nmultiline = true\n";
         Files.writeString(work.resolve("content.properties"), code);
