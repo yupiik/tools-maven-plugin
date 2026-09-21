@@ -1006,6 +1006,34 @@ class ParserTest {
     }
 
     @Test
+    void roleShorthandAddsToANamedRole() { // as asciidoctor, '.alpha' does not replace role=beta, it is added to it
+        final var body = new Parser().parseBody(new Reader(List.of("[.alpha,role=beta]", "Text.")), null);
+        assertEquals( // one text with no style, so the parser unwraps its paragraph
+                List.of(new Text(List.of(), "Text.", Map.of("role", "beta alpha"))), body.children());
+    }
+
+    @Test
+    void namedRoleSurvivesALaterShorthand() { // the named role used to be dropped, whichever side it was written on
+        final var body = new Parser().parseBody(new Reader(List.of("[role=beta,.alpha]", "Text.")), null);
+        assertEquals(
+                List.of(new Text(List.of(), "Text.", Map.of("role", "beta alpha"))), body.children());
+    }
+
+    @Test
+    void twoShorthandsInOneAttributeListBothApply() { // the second one used to replace the first
+        final var body = new Parser().parseBody(new Reader(List.of("[.alpha,.beta]", "Text.")), null);
+        assertEquals(
+                List.of(new Text(List.of(), "Text.", Map.of("role", "alpha beta"))), body.children());
+    }
+
+    @Test
+    void severalRolesInOneShorthandAreUnchanged() { // '[.alpha.beta]' already gave both, and still does
+        final var body = new Parser().parseBody(new Reader(List.of("[.alpha.beta]", "Text.")), null);
+        assertEquals(
+                List.of(new Text(List.of(), "Text.", Map.of("role", "alpha beta"))), body.children());
+    }
+
+    @Test
     void linksAttribute() {
         final var body = new Parser().parseBody(new Reader(List.of(":url: https://yupiik.io", "", "{url}[Yupiik OSS]")), null);
         assertEquals(
