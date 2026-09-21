@@ -2596,6 +2596,15 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void inlineAnchorInTheMiddleOfALine() {
+        assertRenderingContent("Text [[my-anchor]] more text.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Text <a id=\"my-anchor\"></a>\n" +
+                        " more text.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void pipeTable() {
         assertRenderingContent("| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |",
                 " <table class=\"tableblock frame-all grid-all stretch\">\n" +
