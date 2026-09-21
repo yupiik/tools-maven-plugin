@@ -1752,6 +1752,25 @@ public class Parser {
                             break;
                         }
                     }
+                    // Check for an [[id]] or [[id, reftext]] inline anchor in the middle of the line;
+                    // at the very start or the very end it stays the id of the enclosing text, as it was
+                    if (i > 0 && line.length() > i + 4 && line.charAt(i + 1) == '[' && line.charAt(i + 2) != '[') {
+                        final int end = line.indexOf("]]", i + 2);
+                        if (end > 0 && !line.substring(end + "]]".length()).isBlank()) {
+                            final var anchor = line.substring(i + 2, end);
+                            final int comma = anchor.indexOf(',');
+                            final var id = comma < 0 ? anchor : anchor.substring(0, comma);
+                            if (isAnchorId(id)) {
+                                if (start != i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                                elements.add(new Text(List.of(), "", Map.of("id", id, "anchor", "")));
+                                i = end + 1;
+                                start = i + 1;
+                                break;
+                            }
+                        }
+                    }
                     // Check for Markdown link [text](url) first (not preceded by a letter or colon which would indicate a macro, and not nested inside another [])
                     if ((i == 0 || !Character.isLetter(line.charAt(i - 1)) && line.charAt(i - 1) != ':') &&
                             line.lastIndexOf('[', i - 1) <= line.lastIndexOf(']', i - 1)) {

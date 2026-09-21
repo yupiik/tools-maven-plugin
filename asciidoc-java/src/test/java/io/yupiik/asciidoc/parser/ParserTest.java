@@ -3202,6 +3202,38 @@ class ParserTest {
     }
 
     @Test
+    void inlineAnchorInTheMiddleOfALine() { // as asciidoctor, [[id]] between two words is an anchor, not text
+        final var body = new Parser().parseBody(new Reader(List.of("Text [[my-anchor]] more text.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Text ", Map.of()),
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " more text.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfALineStaysTheIdOfTheText() { // unchanged: only the middle of the line is new
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]] text after a space.")), null);
+        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
+                new Text(List.of(), "text after a space.", Map.of("id", "my-anchor"))), body.children());
+    }
+
+    @Test
+    void inlineAnchorWithAnInvalidIdStaysText() { // as asciidoctor, an id must not start with a digit
+        final var body = new Parser().parseBody(new Reader(List.of("Text [[1bad]] more text.")), null);
+        assertEquals(List.of(
+                new Text(List.of(), "Text [[1bad]] more text.", Map.of())), body.children());
+    }
+
+    @Test
+    void bibliographyEntryIsNotReadAsAnInlineAnchor() { // [[[ref]]] keeps its own branch
+        final var body = new Parser().parseBody(new Reader(List.of("See [[[ref]]] for details.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Text(List.of(), "", Map.of("id", "ref", "bibliography", "")),
+                new Text(List.of(), " for details.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
     void markdownBoldStartingWithAListMarker() { // `1. ` is a list marker for a line, not inside a bold span
         final var body = new Parser().parseBody(new Reader(List.of("**1. Bold** text.")), null);
         assertEquals(List.of(new Paragraph(List.of(

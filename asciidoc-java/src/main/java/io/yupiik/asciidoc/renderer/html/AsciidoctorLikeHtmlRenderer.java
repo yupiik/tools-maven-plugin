@@ -897,7 +897,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final boolean preambleSaw = state.sawPreamble;
         handlePreamble(useWrappers, element, () -> {
-            if (element.options().containsKey("bibliography")) {
+            if (element.options().containsKey("bibliography") || element.options().containsKey("anchor")) {
                 builder.append("<a id=\"").append(escape(element.options().get("id"))).append("\"></a>\n");
                 return;
             }
