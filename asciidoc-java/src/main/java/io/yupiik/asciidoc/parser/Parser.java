@@ -3182,7 +3182,7 @@ public class Parser {
         for (int i = 0; i < positional.size(); i++) {
             final var pos = dropLegacyPassthroughMarkers(positional.get(i));
             if (pos.startsWith(".")) {
-                map.put("role", pos.substring(1).replace('.', ' '));
+                addRole(map, pos.substring(1).replace('.', ' '));
             } else if (pos.startsWith("#")) {
                 map.put("id", pos.substring(1));
             } else if (pos.startsWith("%")) {
@@ -3210,6 +3210,11 @@ public class Parser {
             }
         }
         return map;
+    }
+
+    // as asciidoctor, the roles of a '.name' shorthand are added to the role attribute, they do not replace it
+    private void addRole(final Map<String, String> map, final String roles) {
+        map.merge("role", roles, (existing, added) -> existing.isBlank() ? added : existing + ' ' + added);
     }
 
     private Map<String, String> merge(final Map<String, String> options, final Map<String, String> next) {
