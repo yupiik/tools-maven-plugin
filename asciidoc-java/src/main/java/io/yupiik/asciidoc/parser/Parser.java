@@ -1584,7 +1584,7 @@ public class Parser {
                             start = end + 2;
                         }
                     } else {
-                        final int end = line.indexOf('*', i + 1);
+                        final int end = constrainedEnd(line, i, '*');
                         if (end > 0) {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
@@ -1607,25 +1607,48 @@ public class Parser {
                     }
                 }
                 case '_' -> {
-                    final int end = line.indexOf('_', i + 1);
-                    if (end > 0) {
-                        String options = null;
-                        if (i > 0 && ']' == line.charAt(i - 1)) {
-                            final int optionsStart = line.lastIndexOf('[', i - 1);
-                            if (optionsStart >= 0) {
-                                options = line.substring(optionsStart + 1, i - 1);
-                                if (start < optionsStart) {
-                                    flushText(elements, line.substring(start, optionsStart));
+                    if (line.length() > i + 1 && line.charAt(i + 1) == '_') { // __italic__, unconstrained as in asciidoctor
+                        final int end = line.indexOf("__", i + 2);
+                        if (end > 0) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
                                 }
-                            } else if (start < i) {
+                            } else if (start != i) {
                                 flushText(elements, line.substring(start, i));
                             }
-                        } else if (start != i) {
-                            flushText(elements, line.substring(start, i));
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, ITALIC, options, resolver, currentAttributes);
+                            i = end + 1;
+                            start = end + 2;
                         }
-                        addTextElements(enclosingDocument, line, i, end, elements, ITALIC, options, resolver, currentAttributes);
-                        i = end;
-                        start = end + 1;
+                    } else {
+                        final int end = constrainedEnd(line, i, '_');
+                        if (end > 0) {
+                            String options = null;
+                            if (i > 0 && ']' == line.charAt(i - 1)) {
+                                final int optionsStart = line.lastIndexOf('[', i - 1);
+                                if (optionsStart >= 0) {
+                                    options = line.substring(optionsStart + 1, i - 1);
+                                    if (start < optionsStart) {
+                                        flushText(elements, line.substring(start, optionsStart));
+                                    }
+                                } else if (start < i) {
+                                    flushText(elements, line.substring(start, i));
+                                }
+                            } else if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            addTextElements(enclosingDocument, line, i, end, elements, ITALIC, options, resolver, currentAttributes);
+                            i = end;
+                            start = end + 1;
+                        }
                     }
                 }
                 case '~' -> {
@@ -2057,6 +2080,38 @@ public class Parser {
             flushText(elements, line.substring(start));
         }
         return flattenTexts(elements);
+    }
+
+    // the closing mark of a constrained pair, or -1 when the pair does not open or never closes.
+    // as in asciidoctor, a single * or _ opens only after a character that is not part of a word,
+    // and closes only before one, so snake_case_name and a*b*c keep their marks as text. the
+    // closing mark may not follow a space, and a mark that cannot close is skipped for the next one
+    private int constrainedEnd(final String line, final int markerStart, final char marker) {
+        if (markerStart > 0 && !opensConstrainedPair(line.charAt(markerStart - 1))) {
+            return -1;
+        }
+        if (markerStart + 1 >= line.length() || line.charAt(markerStart + 1) == ' ') {
+            return -1;
+        }
+        for (int end = line.indexOf(marker, markerStart + 1); end > 0; end = line.indexOf(marker, end + 1)) {
+            if (line.charAt(end - 1) == ' ') {
+                continue;
+            }
+            if (end + 1 < line.length() && isWordCharacter(line.charAt(end + 1))) {
+                continue;
+            }
+            return end;
+        }
+        return -1;
+    }
+
+    // asciidoctor also refuses to open a constrained pair after ';', ':' or '}'
+    private boolean opensConstrainedPair(final char previous) {
+        return !isWordCharacter(previous) && previous != ';' && previous != ':' && previous != '}';
+    }
+
+    private boolean isWordCharacter(final char c) {
+        return c == '_' || Character.isLetterOrDigit(c);
     }
 
     private boolean isInlineOptionContentMarker(final char c) {
