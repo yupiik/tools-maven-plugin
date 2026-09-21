@@ -63,6 +63,7 @@ import static io.yupiik.asciidoc.model.Element.ElementType.SECTION;
 import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
 import static io.yupiik.asciidoc.model.Text.Style.BOLD;
 import static io.yupiik.asciidoc.model.Text.Style.EMPHASIS;
+import static io.yupiik.asciidoc.model.Text.Style.ITALIC;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
 import static java.util.Map.entry;
@@ -3285,6 +3286,85 @@ class ParserTest {
                 new Text(List.of(), "See ", Map.of()),
                 new Text(List.of(), "", Map.of("id", "ref", "bibliography", "")),
                 new Text(List.of(), " for details.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkInsideAWord() { // as asciidoctor: snake_case_name and a*b*c keep their marks, they are not emphasis
+        final var body = new Parser().parseBody(new Reader(List.of("Use snake_case_name and a*b*c here.")), null);
+        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
+                new Text(List.of(), "Use snake_case_name and a*b*c here.", Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkAroundAWord() { // the same marks still open and close between words
+        final var body = new Parser().parseBody(new Reader(List.of("an _italic_ and a *bold* word")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "an ", Map.of()),
+                new Text(List.of(ITALIC), "italic", Map.of()),
+                new Text(List.of(), " and a ", Map.of()),
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " word", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkSkipsAClosingMarkBeforeAWordCharacter() { // as asciidoctor, the pair closes on the next mark that can close
+        final var body = new Parser().parseBody(new Reader(List.of("_italic_word and more_ here")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(ITALIC), "italic_word and more", Map.of()),
+                new Text(List.of(), " here", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void unconstrainedItalicInsideAWord() { // __text__ is unconstrained, so it emphasizes inside a word
+        final var body = new Parser().parseBody(new Reader(List.of("snake__case__name here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "snake", Map.of()),
+                new Text(List.of(ITALIC), "case", Map.of()),
+                new Text(List.of(), "name here.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkAfterAClosingBrace() { // as asciidoctor, '}' does not open a pair
+        final var body = new Parser().parseBody(new Reader(List.of("see }*bold* and }_italic_ here.")), null);
+        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
+                new Text(List.of(), "see }*bold* and }_italic_ here.", Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkAfterASemicolonOrAColon() { // as asciidoctor, ';' and ':' do not open a pair either
+        final var body = new Parser().parseBody(new Reader(List.of("see x;*bold* and x:*bold* here.")), null);
+        assertEquals(List.of(
+                new Text(List.of(), "see x;*bold* and x:*bold* here.", Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarkAfterAnOpeningBrace() { // '{' is not in that list, so the pair still opens, as asciidoctor has it
+        final var body = new Parser().parseBody(new Reader(List.of("see {*bold* here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "see {", Map.of()),
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarksStayLiteralInAListingBlock() { // a block is still not parsed for inline marks
+        final var body = new Parser().parseBody(new Reader(List.of("----", "snake_case_name and *bold*", "----")), null);
+        assertEquals(List.of(new Code("snake_case_name and *bold*\n", Map.of(), false, List.of())), body.children());
+    }
+
+    @Test
+    void constrainedMarksStayLiteralInALiteralBlock() { // the same for a '....' block
+        final var body = new Parser().parseBody(new Reader(List.of("....", "snake_case_name and *bold*", "....")), null);
+        assertEquals(List.of(new Listing("snake_case_name and *bold*", null)), body.children());
+    }
+
+    @Test
+    void constrainedMarkStaysLiteralInInlineCode() { // an underscore inside backticks is still code, not emphasis
+        final var body = new Parser().parseBody(new Reader(List.of("use `snake_case_name` here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "use ", Map.of()),
+                new Code("snake_case_name", Map.of(), true, List.of()),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
     }
 
     @Test
