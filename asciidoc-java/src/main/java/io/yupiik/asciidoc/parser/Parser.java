@@ -1911,9 +1911,11 @@ public class Parser {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
                                 final var isStemLike = "stem".equals(type) || "latexmath".equals(type) || "asciimath".equals(type);
+                                // as for a link, an escaped reference in the target keeps its braces and loses its
+                                // backslash; a stem macro keeps what is written, so it is not touched
                                 final var label = isStemLike ?
                                         line.substring(i + 1, end) :
-                                        optionsPrefix.substring(macroMarker + (inlined ? 1 : 2));
+                                        unescapeAttributeReferences(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)));
 
                                 if ("link".equals(type) && options.containsKey("")) {
                                     var linkName = options.get("");

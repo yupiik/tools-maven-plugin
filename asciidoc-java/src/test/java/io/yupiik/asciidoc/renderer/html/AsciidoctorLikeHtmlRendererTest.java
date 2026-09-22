@@ -3037,6 +3037,20 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void escapedAttributeReferenceInAMacroTarget() { // the backslash reached the target and the alt text before
+        assertRenderingContent(":name: value\n\nimage::\\{name}.png[]\n\nSee xref:\\{name}[].\n",
+                " <div class=\"imageblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <img src=\"{name}.png\" alt=\"{name}.png\">\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>See  <a href=\"{name}\">{name}</a>\n" +
+                        ".</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void authorAttributes() {
         assertRendering("= My Title\n:author: Dave Grohl\n:email: grohl@foofighter.com\n\nSome content here.",
                 "<!DOCTYPE html>\n" +
