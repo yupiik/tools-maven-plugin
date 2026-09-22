@@ -68,9 +68,9 @@ class VisitorStateTest {
                         new VisitorState.TocSection(2, "_unlinked", "Unlinked"),
                         new VisitorState.TocSection(1, "_the_end", "The end")),
                 state.tocSections());
-        assertEquals("Install the [CLI]", state.sectionTitle("install"));
-        assertEquals("Floating", state.sectionTitle("_floating"));
-        assertNull(state.sectionTitle("_extras")); // not rendered
+        assertEquals("Install the [CLI]", state.referenceText("install"));
+        assertEquals("Floating", state.referenceText("_floating"));
+        assertNull(state.referenceText("_extras")); // not rendered
         assertTrue(state.isReferenced("_details")); // linked with <<_details>>
         assertTrue(state.isReferenced("_more_details")); // linked with xref:#_more_details[]
         assertFalse(state.isReferenced("_unlinked")); // deeper than toclevels, not linked

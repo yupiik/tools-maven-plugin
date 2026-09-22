@@ -1215,8 +1215,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var id = element.value();
         var text = element.label();
         if (text == null || text.isBlank()) {
-            final var title = state.sectionTitle(id);
-            text = title != null ? title : id;
+            final var referenceText = state.referenceText(id);
+            text = referenceText != null ? referenceText : '[' + id + ']';
         }
         visitLink(new Link("#" + id, new Text(List.of(), text, Map.of()), Map.of()));
     }
@@ -1488,8 +1488,14 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (label != null) {
             builder.append(" <a href=\"").append(target).append("\">").append(parseLabel(label)).append("</a>\n");
         } else {
-            final var title = reference.id() == null ? null : state.sectionTitle(reference.id());
-            builder.append(" <a href=\"").append(target).append("\">").append(title != null ? escape(title) : element.label()).append("</a>\n");
+            final String text;
+            if (reference.id() == null) {
+                text = element.label();
+            } else {
+                final var referenceText = state.referenceText(reference.id());
+                text = escape(referenceText != null ? referenceText : '[' + reference.id() + ']');
+            }
+            builder.append(" <a href=\"").append(target).append("\">").append(text).append("</a>\n");
         }
     }
 
@@ -2150,7 +2156,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     /**
-     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}, see
+     * @deprecated the texts of cross reference links come from {@link VisitorState#referenceText(String)}, see
      * {@link io.yupiik.asciidoc.renderer.VisitorSibling#plainText(Element, ConditionalBlock.Context)}; kept for subclasses,
      * not called anymore.
      */
@@ -2179,7 +2185,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     /**
-     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * @deprecated the texts of cross reference links come from {@link VisitorState#referenceText(String)}; kept for subclasses,
      * not called anymore.
      */
     @Deprecated
@@ -2216,7 +2222,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     /**
-     * @deprecated the section titles of links come from {@link VisitorState#sectionTitle(String)}; kept for subclasses,
+     * @deprecated the texts of cross reference links come from {@link VisitorState#referenceText(String)}; kept for subclasses,
      * not called anymore.
      */
     @Deprecated

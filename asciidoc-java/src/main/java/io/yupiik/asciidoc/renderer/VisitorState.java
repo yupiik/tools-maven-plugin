@@ -55,7 +55,7 @@ public class VisitorState implements Visitor<Void> {
     protected final VisitorSibling sibling;
     protected final ConditionalBlock.Context attributes; // document attributes first, then the fallback ones
     protected Document document = EMPTY_DOCUMENT;
-    protected final Map<String, String> sectionTitles = new HashMap<>();
+    protected final Map<String, String> referenceTexts = new HashMap<>(); // by id, see referenceText(String)
     protected final Set<String> referencedIds = new HashSet<>();
     protected final List<TocSection> tocSections = new ArrayList<>(); // in document order, following the rendered conditional branches
     protected List<String> asciidocExtensions; // read from the attributes on first use, see asciidocExtensions()
@@ -84,7 +84,7 @@ public class VisitorState implements Visitor<Void> {
     @Override
     public void visit(final Document document) {
         this.document = document;
-        sectionTitles.clear();
+        referenceTexts.clear();
         referencedIds.clear();
         tocSections.clear();
         asciidocExtensions = null;
@@ -103,12 +103,13 @@ public class VisitorState implements Visitor<Void> {
 
     /**
      * Indexes the body in one walk, following only the conditional branches that are rendered: the ids the document
-     * links to, with {@code <<id>>} or {@code xref:id[]}, the title of each section and floating title by id, and the
-     * sections a table of contents lists. The sections the table of contents lists count as linked, since it links them.
+     * links to, with {@code <<id>>} or {@code xref:id[]}, the text of a cross reference to each id, see
+     * {@link #referenceText(String)}, and the sections a table of contents lists. The sections the table of contents
+     * lists count as linked, since it links them.
      */
     @Override
     public void visitBody(final Body body) {
-        sectionTitles.clear();
+        referenceTexts.clear();
         referencedIds.clear();
         tocSections.clear();
         final var index = new Index();
@@ -157,10 +158,13 @@ public class VisitorState implements Visitor<Void> {
     }
 
     /**
-     * @return the title of the section or floating title with this id, on one line, {@code null} when there is none.
+     * @return the text of a cross reference to this id that gives no text of its own, on one line: the
+     * {@code reftext} of the element, else the title of a section or of a floating title, else the title of the block;
+     * {@code null} when the element has none of them, the renderer then writing the id between square brackets as
+     * asciidoctor does.
      */
-    public String sectionTitle(final String id) {
-        return sectionTitles.get(id);
+    public String referenceText(final String id) {
+        return referenceTexts.get(id);
     }
 
     /**
@@ -304,6 +308,18 @@ public class VisitorState implements Visitor<Void> {
         }
 
         @Override
+        public void visitElement(final Element element) {
+            final var id = sibling.id(sibling.blockOptions(element));
+            if (id != null) {
+                final var text = sibling.referenceText(element, context());
+                if (text != null && !text.isBlank()) {
+                    referenceTexts.putIfAbsent(id, text);
+                }
+            }
+            Visitor.super.visitElement(element);
+        }
+
+        @Override
         public void visitAnchor(final Anchor element) {
             if (element.value() != null && !element.value().isBlank()) {
                 referencedIds.add(element.value().strip());
@@ -326,7 +342,7 @@ public class VisitorState implements Visitor<Void> {
         public void visitSection(final Section element) {
             final var id = sibling.sectionId(element.options(), element.title(), context());
             final var title = sibling.titleText(element.title(), context());
-            sectionTitles.putIfAbsent(id, title);
+            referenceTexts.putIfAbsent(id, title);
             tocSections.add(new TocSection(element.level() - 1, id, title));
             visitElement(element.title());
             Visitor.super.visitSection(element);
@@ -334,7 +350,7 @@ public class VisitorState implements Visitor<Void> {
 
         @Override
         public void visitFloatingTitle(final FloatingTitle element) {
-            sectionTitles.putIfAbsent(sibling.sectionId(element.options(), element.title(), context()), sibling.titleText(element.title(), context()));
+            referenceTexts.putIfAbsent(sibling.sectionId(element.options(), element.title(), context()), sibling.titleText(element.title(), context()));
             visitElement(element.title());
         }
 
