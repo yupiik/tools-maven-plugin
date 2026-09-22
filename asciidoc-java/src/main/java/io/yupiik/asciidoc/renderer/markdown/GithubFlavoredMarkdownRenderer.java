@@ -841,7 +841,9 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     protected String link(final Link link) {
-        final var url = sibling.substitute(link.url(), context()).strip();
+        // the parser already substituted the url of a link and dropped the backslash of an escaped reference,
+        // so substituting again would replace a \{name} the author asked to keep, as the HTML renderer does not
+        final var url = link.url() == null ? "" : link.url().strip();
         if (link.options() != null && "inline-code".equals(link.options().get("role"))) {
             // written in backticks: a bare URL stays code (Markdown cannot link inside a code span),
             // a labelled link keeps its target and shows the label as code

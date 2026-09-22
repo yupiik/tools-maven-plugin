@@ -788,6 +788,17 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void escapedAttributeReferenceInALinkTarget() { // the parser substitutes a link url, so the renderer must not do it again
+        assertEquals("[label]({name})\n", md(":name: value\n\nlink:\\{name}[label]\n"));
+        assertEquals("[label](value)\n", md(":name: value\n\nlink:{name}[label]\n"));
+        assertEquals("[label](https://x.org/{name})\n", md(":name: value\n\nhttps://x.org/\\{name}[label]\n"));
+        assertEquals("[label](https://x.org/value)\n", md(":name: value\n\nhttps://x.org/{name}[label]\n"));
+        // an image target and a link= option are still raw in the model, so they are substituted here
+        assertEquals("![{name}]({name}.png)\n", md(":name: value\n\nimage::\\{name}.png[]\n"));
+        assertEquals("[![a](a.png)]({name})\n", md(":name: value\n\nimage::a.png[link=\\{name}]\n"));
+    }
+
+    @Test
     void tableWithoutHeaderRowAmongOtherOptions() { // the parser reads [%autowidth%noheader] as one option key
         final var table = """
                 |===
