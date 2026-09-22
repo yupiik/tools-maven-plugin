@@ -2483,6 +2483,30 @@ class ParserTest {
     }
 
     @Test
+    void escapedAttributeReferenceInAMacroTarget() { // as for a link, the target keeps its braces and loses its backslash
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :name: value
+
+                image::\\{name}.png[]
+
+                See xref:\\{name}[] and image:\\{name}.png[inline].
+                """.split("\n"))), null);
+        assertEquals("{name}.png", ((Macro) body.children().get(0)).label());
+        final var inline = ((Paragraph) body.children().get(1)).children().stream()
+                .filter(Macro.class::isInstance)
+                .map(Macro.class::cast)
+                .map(Macro::label)
+                .toList();
+        assertEquals(List.of("{name}", "{name}.png"), inline);
+    }
+
+    @Test
+    void stemKeepsItsBackslash() { // a stem macro keeps what is written, the target unescaping must not touch it
+        final var body = new Parser().parseBody(new Reader(List.of(":name: value\n\nstem:[\\{name}]\n".split("\n"))), null);
+        assertEquals("\\{name}", ((Macro) body.children().get(0)).label());
+    }
+
+    @Test
     void escapedAttributeReferences() { // as asciidoctor, \\{name} is written {name} and {name} is substituted
         final var body = new Parser().parseBody(new Reader(List.of("""
                 :name: value
