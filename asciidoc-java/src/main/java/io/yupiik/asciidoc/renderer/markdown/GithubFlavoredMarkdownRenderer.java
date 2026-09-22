@@ -617,7 +617,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             alert(level, options, block.children());
             return;
         }
-        if (sibling.hasOption(options, "collapsible")) {
+        if ("example".equals(sibling.styleName(options)) && sibling.hasOption(options, "collapsible")) {
             blockAnchor(options);
             final var title = options.getOrDefault("title", "Details");
             builder.append(sibling.hasOption(options, "open") ? "<details open>" : "<details>")
