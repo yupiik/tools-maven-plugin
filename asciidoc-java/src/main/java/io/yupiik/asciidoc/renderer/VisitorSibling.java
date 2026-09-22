@@ -20,11 +20,23 @@ import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
+import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.FloatingTitle;
+import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.Link;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
+import io.yupiik.asciidoc.model.OpenBlock;
+import io.yupiik.asciidoc.model.OrderedList;
+import io.yupiik.asciidoc.model.PageBreak;
 import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.PassthroughBlock;
+import io.yupiik.asciidoc.model.Quote;
+import io.yupiik.asciidoc.model.Section;
+import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
+import io.yupiik.asciidoc.model.UnOrderedList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +53,38 @@ import static java.util.stream.Collectors.joining;
  */
 public class VisitorSibling {
     // ------------------------------------------------------------------------------------------------------- options
+
+    /**
+     * @return the options of an element whatever its type, empty when the type has none.
+     */
+    public Map<String, String> blockOptions(final Element element) {
+        if (element == null) {
+            return Map.of();
+        }
+        final var options = switch (element.type()) {
+            case ADMONITION -> ((Admonition) element).options();
+            case CODE -> ((Code) element).options();
+            case CONDITIONAL_BLOCK -> ((ConditionalBlock) element).options();
+            case DESCRIPTION_LIST -> ((DescriptionList) element).options();
+            case FLOATING_TITLE -> ((FloatingTitle) element).options();
+            case HORIZONTAL_RULE -> ((HorizontalRule) element).options();
+            case LINK -> ((Link) element).options();
+            case LISTING -> ((Listing) element).options();
+            case MACRO -> ((Macro) element).options();
+            case OPEN_BLOCK -> ((OpenBlock) element).options();
+            case ORDERED_LIST -> ((OrderedList) element).options();
+            case PAGE_BREAK -> ((PageBreak) element).options();
+            case PARAGRAPH -> ((Paragraph) element).options();
+            case PASS_BLOCK -> ((PassthroughBlock) element).options();
+            case QUOTE -> ((Quote) element).options();
+            case SECTION -> ((Section) element).options();
+            case TABLE -> ((Table) element).options();
+            case TEXT -> ((Text) element).options();
+            case UNORDERED_LIST -> ((UnOrderedList) element).options();
+            case ANCHOR, ATTRIBUTE, LINE_BREAK -> null;
+        };
+        return options == null ? Map.of() : options;
+    }
 
     /**
      * @return the explicit id of a block, given as {@code [#id]}, as a {@code [[id]]} line above the block, or in a
@@ -283,6 +327,25 @@ public class VisitorSibling {
     public String sectionId(final Map<String, String> options, final Element title, final ConditionalBlock.Context context) {
         final var explicit = id(options);
         return explicit != null ? explicit : generatedId(title, context);
+    }
+
+    /**
+     * @return the text asciidoctor writes for a cross reference to this element when the reference gives none: its
+     * {@code reftext}, else its title; {@code null} when it has neither, asciidoctor then writing the id between
+     * square brackets. The title of a section comes from the section itself, see
+     * {@link VisitorState#referenceText(String)}.
+     */
+    public String referenceText(final Element element, final ConditionalBlock.Context context) {
+        final var options = blockOptions(element);
+        final var reftext = options.get("reftext");
+        if (reftext != null && !reftext.isBlank()) {
+            return substitute(reftext, context).strip();
+        }
+        final var title = options.get("title");
+        if (title != null && !title.isBlank()) {
+            return substitute(title, context).strip();
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------------------------------------------- attributes

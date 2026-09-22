@@ -418,6 +418,41 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void crossReferenceTextComesFromTheTarget() { // its reftext, else its title, else the id between escaped brackets
+        assertEquals("""
+                        <a id="intro"></a>
+                        Some **bold** text.
+
+                        <a id="ports"></a>
+
+                        **Ports of the service**
+
+                        | a | b |
+                        | --- | --- |
+
+                        <a id="plain"></a>
+                        Some **other** text.
+
+                        See [The introduction](#intro), [Ports of the service](#ports), [\\[plain\\]](#plain) and [\\[plain\\]](#plain).
+                        """,
+                md("""
+                        [[intro,The introduction]]
+                        Some *bold* text.
+
+                        .Ports of the service
+                        [[ports]]
+                        |===
+                        | a | b
+                        |===
+
+                        [[plain]]
+                        Some *other* text.
+
+                        See <<intro>>, <<ports>>, <<plain>> and xref:plain[].
+                        """));
+    }
+
+    @Test
     void paragraphsOfADelimitedAdmonitionStayApart() {
         assertEquals("""
                         > [!NOTE]
@@ -490,7 +525,8 @@ class GithubFlavoredMarkdownRendererTest {
 
     @Test
     void blockAnchorIsNotAFenceLanguage() {
-        assertEquals("<a id=\"snippet\"></a>\n\n```\nplain text\n```\n\nSee [snippet](#snippet).\n", md("""
+        // the literal block carries no title, so the reference shows the id between brackets as asciidoctor does
+        assertEquals("<a id=\"snippet\"></a>\n\n```\nplain text\n```\n\nSee [\\[snippet\\]](#snippet).\n", md("""
                 [[snippet]]
                 ....
                 plain text

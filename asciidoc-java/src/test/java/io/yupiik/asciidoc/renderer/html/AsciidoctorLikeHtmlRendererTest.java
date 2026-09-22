@@ -3289,6 +3289,53 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void crossReferenceTextComesFromTheTarget() { // its reftext, else its title, else the id between brackets
+        assertRenderingContent("""
+                        [[intro,The introduction]]
+                        Some *bold* text.
+
+                        .Ports of the service
+                        [[ports]]
+                        |===
+                        | a | b
+                        |===
+
+                        [[plain]]
+                        Some *other* text.
+
+                        See <<intro>>, <<ports>>, <<plain>> and xref:plain[].
+                        """,
+                """
+                         <div class="paragraph" id="intro">
+                         <p>Some <strong>bold</strong> text.</p>
+                         </div>
+                         <table class="tableblock frame-all grid-all stretch" id="ports">
+                          <caption class="title">Ports of the service</caption>
+                          <colgroup>
+                          </colgroup>
+                          <thead>
+                           <tr>
+                            <th class="tableblock halign-left">
+                        a    </th>
+                            <th class="tableblock halign-left">
+                        b    </th>
+                           </tr>
+                          </thead>
+                         </table>
+                         <div class="paragraph" id="plain">
+                         <p>Some <strong>other</strong> text.</p>
+                         </div>
+                         <div class="paragraph">
+                         <p>See  <a href="#intro">The introduction</a>
+                        ,  <a href="#ports">Ports of the service</a>
+                        ,  <a href="#plain">[plain]</a>
+                         and  <a href="#plain">[plain]</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
     void imageUriTarget() { // imagesdir is not added to a URI or to an absolute path
         assertRenderingContent("""
                         :imagesdir: /assets

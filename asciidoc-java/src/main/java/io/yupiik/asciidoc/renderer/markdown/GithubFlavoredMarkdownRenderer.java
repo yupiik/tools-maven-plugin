@@ -923,17 +923,18 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         final var id = anchor.value() == null ? "" : anchor.value().strip();
         var label = anchor.label();
         if (label == null || label.isBlank()) {
-            label = sectionLinkText(id);
+            label = referenceLinkText(id);
         }
         return "[" + label.strip() + "](#" + id + ")";
     }
 
     /**
-     * @return the text of a link to the section with this id: its title with its brackets escaped, else the id.
+     * @return the text of a link to the element with this id, its brackets escaped: the text
+     * {@link VisitorState#referenceText(String)} gives, else the id between square brackets as asciidoctor writes it.
      */
-    protected String sectionLinkText(final String id) {
-        final var title = state.sectionTitle(id);
-        return title == null ? id : escape(title, "[]");
+    protected String referenceLinkText(final String id) {
+        final var referenceText = state.referenceText(id);
+        return escape(referenceText != null ? referenceText : "[" + id + "]", "[]");
     }
 
     private String attributeText(final Attribute attribute) {
@@ -1009,7 +1010,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     /**
      * Writes a cross reference, its target read by {@link VisitorSibling#crossReference(String, List)}: an id of the
-     * same page links it, with the section title as text when the macro has none; a document links the rendered page,
+     * same page links it, with the text of the target when the macro has none; a document links the rendered page,
      * {@code relfileprefix} + document + {@code relfilesuffix}, the suffix defaulting to {@code outfilesuffix} then
      * {@code .md}; any other file keeps its name.
      */
@@ -1018,7 +1019,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         var text = options.get("");
         if (reference.id() != null) {
             if (text == null || text.isBlank()) {
-                text = sectionLinkText(reference.id());
+                text = referenceLinkText(reference.id());
             }
             return "[" + text.strip() + "](" + destination("#" + reference.id()) + ")";
         }
