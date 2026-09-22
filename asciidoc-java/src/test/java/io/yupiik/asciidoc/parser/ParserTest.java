@@ -47,6 +47,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1395,18 +1396,17 @@ class ParserTest {
     }
 
     @Test
-    void missingIncludeBecomesAnUnresolvedDirective(@TempDir final Path work) {
-        final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
-        assertEquals( // as asciidoctor: the document is not stopped, the directive is reported in the text
-                List.of(
-                        new Text(List.of(), "Before.", Map.of()),
-                        new Text(List.of(), "Unresolved directive in <stdin> - include::missing-file.adoc[]", Map.of()),
-                        new Text(List.of(), "After.", Map.of())),
-                body.children());
+    void missingIncludeFails(@TempDir final Path work) { // a broken document is a failure, not a warning
+        final var parser = new Parser();
+        final var reader = new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After."));
+        final var resolver = ContentResolver.of(work);
+        assertEquals(
+                "Missing include: 'missing-file.adoc'",
+                assertThrows(IllegalArgumentException.class, () -> parser.parseBody(reader, resolver)).getMessage());
     }
 
     @Test
-    void escapedIncludeIsNotAnUnresolvedDirective(@TempDir final Path work) {
+    void escapedIncludeStaysText(@TempDir final Path work) {
         final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "\\include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
         assertEquals( // the backslash is dropped and the line stays text, as it already did
                 List.of(
@@ -1420,6 +1420,63 @@ class ParserTest {
     void missingOptionalIncludeIsDropped(@TempDir final Path work) {
         final var body = new Parser().parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[opts=optional]", "", "After.")), ContentResolver.of(work));
         assertEquals( // as asciidoctor, an optional include that is missing leaves no text at all
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void missingOptionalIncludeIsReportedToTheWarningCallback(@TempDir final Path work) {
+        final var messages = new ArrayList<String>();
+        new Parser(Map.of(), messages::add)
+                .parseBody(new Reader(List.of("include::missing-file.adoc[opts=optional]")), ContentResolver.of(work));
+        assertEquals(List.of("Missing include dropped: 'missing-file.adoc'"), messages);
+    }
+
+    @Test
+    void optionalIncludeSpellings(@TempDir final Path work) { // the spellings asciidoctor 2.0.26 reads, and the ones it does not
+        final var parser = new Parser();
+        final var resolver = ContentResolver.of(work);
+        for (final var optional : List.of("opts=optional", "options=optional", "opts=\"optional,novalidate\"", "leveloffset=+1,opts=optional")) {
+            assertEquals(
+                    List.of(),
+                    parser.parseBody(new Reader(List.of("include::missing-file.adoc[" + optional + "]")), resolver).children(),
+                    optional);
+        }
+        for (final var notOptional : List.of("optional", "optional=true")) {
+            final var reader = new Reader(List.of("include::missing-file.adoc[" + notOptional + "]"));
+            assertThrows(IllegalArgumentException.class, () -> parser.parseBody(reader, resolver), notOptional);
+        }
+    }
+
+    @Test
+    void missingIncludeToleratedByAGlobalAttribute(@TempDir final Path work) {
+        final var messages = new ArrayList<String>();
+        final var body = new Parser(Map.of("missing-include", "ignore"), messages::add)
+                .parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
+        assertEquals( // as :callout-mismatch: ignore does, the document is kept and the caller is told
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
+        assertEquals(List.of("Missing include dropped: 'missing-file.adoc'"), messages);
+    }
+
+    @Test
+    void missingIncludeToleratedByADocumentAttribute(@TempDir final Path work) {
+        final var document = """
+                = Title
+                :missing-include: ignore
+
+                Before.
+
+                include::missing-file.adoc[]
+
+                After.
+                """;
+        final var body = new Parser().parse(document, new Parser.ParserContext(ContentResolver.of(work))).body();
+        assertEquals( // the attribute is read from the document too, as long as it is set above the include
                 List.of(
                         new Text(List.of(), "Before.", Map.of()),
                         new Text(List.of(), "After.", Map.of())),

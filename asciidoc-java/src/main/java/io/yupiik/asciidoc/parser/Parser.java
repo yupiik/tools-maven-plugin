@@ -68,11 +68,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -100,8 +100,6 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
  * It also enables to add a phase to manipulate the model before the rendering by not merging model loading and rendering phases.
  */
 public class Parser {
-    private static final Logger LOGGER = Logger.getLogger(Parser.class.getName());
-
     private static final List<Author> NO_AUTHORS = List.of();
     private static final Revision NO_REVISION = new Revision("", "", "");
     private static final Header NO_HEADER = new Header("", List.of(), NO_REVISION, Map.of("authorcount", "0"));
@@ -147,16 +145,29 @@ public class Parser {
             "specialchars", List.of("specialcharacters"));
 
     private final Map<String, String> globalAttributes;
+    private final Consumer<String> warning;
+
+    /**
+     * @param globalAttributes attributes, mainly used for include paths for now.
+     * @param warning          where the parser reports what it tolerated, as {@code AsciidoctorConfiguration.warn()} does;
+     *                         {@code null} drops the messages. It never replaces a failure, only reports a case the
+     *                         document opted into, such as a missing include marked {@code opts=optional}.
+     */
+    public Parser(final Map<String, String> globalAttributes, final Consumer<String> warning) {
+        this.globalAttributes = globalAttributes;
+        this.warning = warning == null ? m -> {
+        } : warning;
+    }
 
     /**
      * @param globalAttributes attributes, mainly used for include paths for now.
      */
     public Parser(final Map<String, String> globalAttributes) {
-        this.globalAttributes = globalAttributes;
+        this(globalAttributes, null);
     }
 
     public Parser() {
-        this(Map.of());
+        this(Map.of(), null);
     }
 
     public Document parse(final String content, final ParserContext context) {
@@ -2372,16 +2383,26 @@ public class Parser {
         return branches;
     }
 
-    // 'optional' is written as opts=optional, which parseOptions stores under the key "opts", or as the %optional shorthand
+    // asciidoctor marks an include optional with opts=optional or options=optional, and with nothing else: it reads
+    // neither %optional nor optional=true nor a bare optional on an include (measured with asciidoctor 2.0.26).
+    // parseOptions() stores opts=optional under the key "opts" and options=optional as the key "optional-option".
     private boolean isOptionalInclude(final Map<String, String> options) {
-        if (options.containsKey("optional") || options.containsKey("optional-option")) {
+        // %optional lands on this key too, which asciidoctor would not accept, but the two cannot be told apart here
+        if (options.containsKey("optional-option")) {
             return true;
         }
         final var opts = options.get("opts");
         return opts != null && Stream.of(opts.split(",")).map(String::strip).anyMatch("optional"::equals);
     }
 
+    // as :callout-mismatch: ignore does for a callout that has no marker, this lets a document keep going when an
+    // include is missing, which is the way back to asciidoctor, since asciidoctor reports such an include and carries on
+    private boolean toleratesMissingIncludes(final Map<String, String> currentAttributes) {
+        return "ignore".equals(currentAttributes.getOrDefault("missing-include", globalAttributes.get("missing-include")));
+    }
+
     // include::target[leveloffset=offset,lines=ranges,tag(s)=name(s),indent=depth,encoding=encoding,opts=optional]
+    // a missing target fails, unless the include is optional or the document sets :missing-include: ignore
     protected List<Element> doInclude(final Path enclosingDocument,
                                       final Macro macro,
                                       final ContentResolver resolver,
@@ -2395,15 +2416,13 @@ public class Parser {
                 resolver.resolve(macro.label(), encoding).map(it -> new RelativeContentResolver.Resolved(enclosingDocument, it)))
                 .orElse(null);
         if (resolved == null) {
-            if (isOptionalInclude(macro.options())) { // as asciidoctor, an optional include that is missing is dropped silently
+            if (isOptionalInclude(macro.options()) || toleratesMissingIncludes(currentAttributes)) {
+                // as asciidoctor, a dropped include leaves no text at all, so the caller hears about it instead
+                warning.accept("Missing include dropped: '" + macro.label() + "'" +
+                        (enclosingDocument == null ? "" : " in " + enclosingDocument.getFileName()));
                 return List.of();
             }
-            // as asciidoctor, a missing include does not stop the document: it is logged and the line becomes this text
-            final var unresolved = "Unresolved directive in " +
-                    (enclosingDocument == null ? "<stdin>" : enclosingDocument.getFileName()) +
-                    " - include::" + macro.label() + "[]";
-            LOGGER.warning(unresolved);
-            return List.of(new Text(List.of(), unresolved, Map.of()));
+            throw new IllegalArgumentException("Missing include: '" + macro.label() + "'");
         }
 
         var content = resolved.content();
