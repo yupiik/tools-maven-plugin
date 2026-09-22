@@ -15,6 +15,7 @@
  */
 package io.yupiik.asciidoc.renderer.html;
 
+import io.yupiik.asciidoc.renderer.IdGenerator;
 import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;

@@ -15,6 +15,7 @@
  */
 package io.yupiik.asciidoc.renderer.html;
 
+import io.yupiik.asciidoc.renderer.IdGenerator;
 import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Section;

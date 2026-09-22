@@ -25,7 +25,6 @@ import io.yupiik.asciidoc.model.Link;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Text;
-import io.yupiik.asciidoc.renderer.html.IdGenerator;
 
 import java.util.ArrayList;
 import java.util.List;

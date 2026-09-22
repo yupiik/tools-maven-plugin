@@ -13,22 +13,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.yupiik.asciidoc.renderer.html;
+package io.yupiik.asciidoc.renderer;
 
-/**
- * @deprecated the section id rule is not specific to HTML, use {@link io.yupiik.asciidoc.renderer.IdGenerator}.
- */
-@Deprecated
+import java.util.regex.Pattern;
+
+import static java.util.Locale.ROOT;
+
 public final class IdGenerator {
+    private static final Pattern TAGS = Pattern.compile("<[^>]+>");
+    private static final Pattern FORBIDDEN_CHARS = Pattern.compile("[^\\w]+");
+
     private IdGenerator() {
         // no-op
     }
 
     public static String forTitle(final String title) {
-        return io.yupiik.asciidoc.renderer.IdGenerator.forTitle(title);
+        return forTitle(title, null, null);
     }
 
     public static String forTitle(final String title, final String idprefix, final String idseparator) {
-        return io.yupiik.asciidoc.renderer.IdGenerator.forTitle(title, idprefix, idseparator);
+        final var prefix = idprefix != null ? idprefix : "_";
+        final var separator = idseparator != null ? idseparator : "_";
+        return prefix + FORBIDDEN_CHARS.matcher(TAGS.matcher(title).replaceAll("").toLowerCase(ROOT)
+                .replace(" ", separator)
+                .replace("\n", ""))
+                .replaceAll("");
     }
 }
