@@ -58,7 +58,7 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
                 code
                 ----
                 """)).options();
-        assertEquals("snippet", sibling.id(anchored)); // the parser keeps [[snippet]] as the style [snippet]
+        assertEquals("snippet", sibling.id(anchored)); // #138 made the parser write the anchor into the id option
         assertEquals("", sibling.styleName(anchored));
 
         final var details = ((OpenBlock) parse("""
