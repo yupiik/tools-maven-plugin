@@ -56,7 +56,7 @@ The Markdown renderer writes each construct as follows:
 |Admonition|GitHub alert (`> [!NOTE]`).
 |Callouts|Numbered list after the code block, the `<1>` markers staying in the code.
 |Description list|Bold term followed by its description.
-|Collapsible block (`[%collapsible]` or `opts=collapsible`)|`<details>` element.
+|Collapsible example block (`[%collapsible]` or `opts=collapsible` on a `====` block)|`<details>` element, `<details open>` with `%open`. As in asciidoctor, the option collapses an example block only, not an open block or a sidebar.
 |Footnote|`[^1]` reference, with its definition at the end of the document.
 |Id of a section or of a block|Empty `<a id="...">` anchor, so `<<id>>` links work. A section without an explicit id gets the id the HTML renderer would give it when the document links to it.
 |Cross reference (`<<id>>` or `xref:id[]`) without its own text|Link to the anchor, its text being the `reftext` of the target, else the title of the target, else the id between square brackets, as asciidoctor writes it.

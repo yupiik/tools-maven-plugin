@@ -1213,6 +1213,22 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void collapsibleOnlyOnAnExampleBlock() { // asciidoctor collapses an example block, not an open block or a sidebar
+        assertEquals("Hidden.\n", md("""
+                        [%collapsible]
+                        --
+                        Hidden.
+                        --
+                        """));
+        assertEquals("Hidden.\n", md("""
+                        [sidebar%collapsible]
+                        ****
+                        Hidden.
+                        ****
+                        """));
+    }
+
+    @Test
     void includesAreRenderedInPlace(@TempDir final Path srcPath) throws IOException {
         final var partials = Files.createDirectories(srcPath.resolve("_partials"));
         Files.writeString(partials.resolve("attributes.adoc"), """
