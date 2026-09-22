@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -94,7 +93,7 @@ public final class Main {
         }
 
         final var logger = Logger.getLogger(Main.class.getName());
-        final var parser = new Parser(Map.of(), logger::warning);
+        final var parser = new Parser(new Parser.Configuration().setWarning(logger::warning));
         configuration.setAttributes(attributes).setAssetsBase(input.getParent());
         if (watch <= 0) {
             doRender(input, parser, resolver, configuration, output, logger);
