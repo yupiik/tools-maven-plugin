@@ -15,6 +15,7 @@
  */
 package io.yupiik.asciidoc.renderer;
 
+import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.Element;
@@ -42,15 +43,23 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
 
     @Test
     void idAndStyleShorthands() {
-        final var note = ((OpenBlock) parse("""
-                [NOTE#note.important%collapsible]
+        // the same note, written four ways: the shorthand in either order, and the long form with the option first
+        // or last. All four give a NOTE admonition with the id note and the collapsible option.
+        assertNoteShorthand("[NOTE#note.important%collapsible]");
+        assertNoteShorthand("[NOTE.important#note%collapsible]");
+        assertNoteShorthand("[NOTE%collapsible,id=note,role=important]");
+        assertNoteShorthand("[NOTE,id=note,role=important,%collapsible]");
+
+        // a %option written against a key=value attribute is part of that value, not an option: as asciidoctor,
+        // the shorthand is read on the style, never on a named attribute
+        final var glued = ((Admonition) parse("""
+                [NOTE,id=note,role=important%collapsible]
                 ====
                 Text.
                 ====
                 """)).options();
-        assertEquals("note", sibling.id(note));
-        assertEquals("NOTE", sibling.styleName(note));
-        assertTrue(sibling.hasOption(note, "collapsible"));
+        assertEquals("important%collapsible", glued.get("role"));
+        assertFalse(sibling.hasOption(glued, "collapsible"));
 
         final var anchored = ((Code) parse("""
                 [[snippet]]
@@ -119,6 +128,17 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
         assertEquals(new VisitorSibling.CrossReference(null, "notes.txt", null, ""), sibling.crossReference("notes.txt", extensions));
         assertEquals("../guide/index.md", sibling.documentPath("guide", Map.of("relfileprefix", "../", "relfilesuffix", "/index.md")::get, ".html"));
         assertEquals("guide.html", sibling.documentPath("guide", key -> null, ".html"));
+    }
+
+    private void assertNoteShorthand(final String attributeLine) {
+        final var element = parse(attributeLine + "\n====\nText.\n====\n");
+        final var options = element instanceof Admonition admonition ? admonition.options() : ((OpenBlock) element).options();
+        // the parser makes the admonition itself when the style is a bare NOTE, else the style still names the level
+        final var level = element instanceof Admonition admonition ?
+                admonition.level() : sibling.admonitionLevel(sibling.styleName(options));
+        assertEquals(Admonition.Level.NOTE, level, attributeLine);
+        assertEquals("note", sibling.id(options), attributeLine);
+        assertTrue(sibling.hasOption(options, "collapsible"), attributeLine);
     }
 
     private Element parse(final String asciidoc) {
