@@ -2704,6 +2704,60 @@ class ParserTest {
     }
 
     @Test
+    void styleShorthands() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [NOTE#note.important%collapsible]
+                ====
+                Read it.
+                ====
+
+                [source#main,java]
+                ----
+                run();
+                ----
+
+                [source.myrole,java]
+                ----
+                run();
+                ----
+
+                [%collapsible%open]
+                ====
+                Shown.
+                ====
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Admonition(NOTE, new Text(List.of(), "Read it.", Map.of()),
+                                Map.of("id", "note", "role", "important", "collapsible-option", "")),
+                        new Code("run();\n", Map.of("id", "main", "language", "java"), false, List.of()),
+                        new Code("run();\n", Map.of("role", "myrole", "language", "java"), false, List.of()),
+                        new OpenBlock(List.of(new Text(List.of(), "Shown.", Map.of())),
+                                Map.of("", "example", "collapsible-option", "", "open-option", ""))),
+                body.children());
+    }
+
+    @Test
+    void styleShorthandsNeedAStyle() { // minisite-core writes [#io.yupiik.test.MyObject], so a bare #id keeps its dots
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [#io.yupiik.test.MyObject]
+                First.
+
+                [.a.b]
+                Second.
+
+                [source%nowrap,java]
+                ----
+                run();
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "First.", Map.of("id", "io.yupiik.test.MyObject")),
+                        new Text(List.of(), "Second.", Map.of("role", "a b")),
+                        new Code("run();\n", Map.of("nowrap-option", "", "language", "java"), false, List.of())),
+                body.children());
+    }
+
+    @Test
     void include() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
