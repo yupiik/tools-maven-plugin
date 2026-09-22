@@ -169,7 +169,7 @@ public class AsciidocMojo extends AbstractMojo {
         }
 
         try {
-            final var parser = new Parser();
+            final var parser = new Parser(Map.of(), getLog()::warn);
             doRender(input, parser, resolver, output, configuration);
 
             if (watch < 0) {
