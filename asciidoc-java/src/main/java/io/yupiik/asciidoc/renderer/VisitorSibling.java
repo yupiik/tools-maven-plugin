@@ -60,9 +60,6 @@ public class VisitorSibling {
             return null;
         }
         final var value = style.strip();
-        if (value.length() > 2 && value.startsWith("[") && value.endsWith("]")) { // the parser stores [[id]] as [id]
-            return value.substring(1, value.length() - 1);
-        }
         final int hash = value.indexOf('#');
         if (hash >= 0 && hash < value.length() - 1) {
             final var shorthand = value.substring(hash + 1);
@@ -74,11 +71,11 @@ public class VisitorSibling {
 
     /**
      * @return the style name of a block, without the {@code #id}, {@code .role} or {@code %option} shorthands; empty
-     * when the block has no style, the parser also storing a {@code [[id]]} block anchor there, as {@code [id]}.
+     * when the block has no style.
      */
     public String styleName(final Map<String, String> options) {
         final var style = options == null ? null : options.get("");
-        if (style == null || style.isBlank() || style.strip().startsWith("[")) {
+        if (style == null || style.isBlank()) {
             return "";
         }
         final var value = style.strip();
