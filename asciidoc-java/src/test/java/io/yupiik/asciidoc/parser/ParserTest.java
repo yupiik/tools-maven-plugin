@@ -1429,7 +1429,7 @@ class ParserTest {
     @Test
     void missingOptionalIncludeIsReportedToTheWarningCallback(@TempDir final Path work) {
         final var messages = new ArrayList<String>();
-        new Parser(Map.of(), messages::add)
+        new Parser(new Parser.Configuration().setWarning(messages::add))
                 .parseBody(new Reader(List.of("include::missing-file.adoc[opts=optional]")), ContentResolver.of(work));
         assertEquals(List.of("Missing include dropped: 'missing-file.adoc'"), messages);
     }
@@ -1453,7 +1453,9 @@ class ParserTest {
     @Test
     void missingIncludeToleratedByAGlobalAttribute(@TempDir final Path work) {
         final var messages = new ArrayList<String>();
-        final var body = new Parser(Map.of("missing-include", "ignore"), messages::add)
+        final var body = new Parser(new Parser.Configuration()
+                .setGlobalAttributes(Map.of("missing-include", "ignore"))
+                .setWarning(messages::add))
                 .parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After.")), ContentResolver.of(work));
         assertEquals( // as :callout-mismatch: ignore does, the document is kept and the caller is told
                 List.of(
@@ -1461,6 +1463,17 @@ class ParserTest {
                         new Text(List.of(), "After.", Map.of())),
                 body.children());
         assertEquals(List.of("Missing include dropped: 'missing-file.adoc'"), messages);
+    }
+
+    @Test
+    void configurationToleratesNulls(@TempDir final Path work) { // the setters fall back to the defaults
+        final var body = new Parser(new Parser.Configuration().setGlobalAttributes(null).setWarning(null))
+                .parseBody(new Reader(List.of("Before.", "", "include::missing-file.adoc[opts=optional]", "", "After.")), ContentResolver.of(work));
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "Before.", Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                body.children());
     }
 
     @Test

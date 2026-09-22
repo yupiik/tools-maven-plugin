@@ -47,6 +47,7 @@ import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.parser.resolver.RelativeContentResolver;
+import lombok.Getter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -147,27 +148,20 @@ public class Parser {
     private final Map<String, String> globalAttributes;
     private final Consumer<String> warning;
 
-    /**
-     * @param globalAttributes attributes, mainly used for include paths for now.
-     * @param warning          where the parser reports what it tolerated, as {@code AsciidoctorConfiguration.warn()} does;
-     *                         {@code null} drops the messages. It never replaces a failure, only reports a case the
-     *                         document opted into, such as a missing include marked {@code opts=optional}.
-     */
-    public Parser(final Map<String, String> globalAttributes, final Consumer<String> warning) {
-        this.globalAttributes = globalAttributes;
-        this.warning = warning == null ? m -> {
-        } : warning;
+    public Parser(final Configuration configuration) {
+        this.globalAttributes = configuration.getGlobalAttributes();
+        this.warning = configuration.getWarning();
     }
 
     /**
      * @param globalAttributes attributes, mainly used for include paths for now.
      */
     public Parser(final Map<String, String> globalAttributes) {
-        this(globalAttributes, null);
+        this(new Configuration().setGlobalAttributes(globalAttributes));
     }
 
     public Parser() {
-        this(Map.of(), null);
+        this(new Configuration());
     }
 
     public Document parse(final String content, final ParserContext context) {
@@ -3530,6 +3524,34 @@ public class Parser {
                     filters.add(Map.entry(defaultInclude, stripped));
                 }
             }
+        }
+    }
+
+    @Getter
+    public static class Configuration {
+        private Map<String, String> globalAttributes = Map.of();
+        private Consumer<String> warning = m -> {
+        };
+
+        /**
+         * @param globalAttributes attributes, mainly used for include paths for now.
+         * @return this.
+         */
+        public Configuration setGlobalAttributes(final Map<String, String> globalAttributes) {
+            this.globalAttributes = globalAttributes == null ? Map.of() : globalAttributes;
+            return this;
+        }
+
+        /**
+         * @param warning where the parser reports what it tolerated, as {@code AsciidoctorConfiguration.warn()} does.
+         *                It never replaces a failure, it only reports a case the document opted into, such as a
+         *                missing include marked {@code opts=optional}. {@code null} drops the messages.
+         * @return this.
+         */
+        public Configuration setWarning(final Consumer<String> warning) {
+            this.warning = warning == null ? m -> {
+            } : warning;
+            return this;
         }
     }
 
