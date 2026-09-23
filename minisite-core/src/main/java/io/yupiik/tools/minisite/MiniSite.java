@@ -363,6 +363,7 @@ public class MiniSite implements Runnable {
                 .map(p -> {
                     final Map<String, Object> itemModel = buildInterpolationModel(p.getKey(), null, null, k -> null);
                     itemModel.put("href", configuration.getSiteBase() + '/' + output.relativize(p.getValue()));
+                    itemModel.put("title", getTitle(p.getKey()));
                     return handlebars.render(itemTemplate, itemModel);
                 })
                 .collect(joining(""));
