@@ -2493,6 +2493,29 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void aCellWithoutAColumnStyleShowsItsMarkup() { // a table with no cols still parses its cell text
+        assertRenderingContent("""
+                        |===
+                        |name |`code` and *bold*
+                        |===
+                        """,
+                """
+                         <table class="tableblock frame-all grid-all stretch">
+                          <colgroup>
+                          </colgroup>
+                          <thead>
+                           <tr>
+                            <th class="tableblock halign-left">
+                        name    </th>
+                            <th class="tableblock halign-left">
+                        <code>code</code> and <strong>bold</strong>    </th>
+                           </tr>
+                          </thead>
+                         </table>
+                        """);
+    }
+
+    @Test
     void tableColspan() {
         assertRenderingContent("|===\n|2+| Spans two | Last\n|===\n",
                 " <table class=\"tableblock frame-all grid-all stretch\">\n" +
