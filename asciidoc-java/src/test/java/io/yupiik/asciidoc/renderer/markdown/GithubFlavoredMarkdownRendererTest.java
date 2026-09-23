@@ -453,6 +453,19 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void aCrossReferenceTextIsNotSubstitutedASecondTime() { // the parser already resolved it, escape included
+        assertEquals("<a id=\"t\"></a>Some text.\n\nSee [My {name} title](#t).\n", md("""
+                :name: value
+
+                .My \\{name} title
+                [[t]]
+                Some text.
+
+                See <<t>>.
+                """));
+    }
+
+    @Test
     void paragraphsOfADelimitedAdmonitionStayApart() {
         assertEquals("""
                         > [!NOTE]

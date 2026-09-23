@@ -3289,6 +3289,30 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void aCrossReferenceTextIsNotSubstitutedASecondTime() { // the parser already resolved it, escape included
+        assertRenderingContent("""
+                        :name: value
+
+                        .My \\{name} title
+                        [[t]]
+                        Some text.
+
+                        See <<t>>.
+                        """,
+                """
+                         <div class="paragraph">
+                         <p id="t">
+                        Some text.
+                         </p>
+                         </div>
+                         <div class="paragraph">
+                         <p>See  <a href="#t">My {name} title</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
     void crossReferenceTextComesFromTheTarget() { // its reftext, else its title, else the id between brackets
         assertRenderingContent("""
                         [[intro,The introduction]]

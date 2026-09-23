@@ -330,20 +330,23 @@ public class VisitorSibling {
     }
 
     /**
+     * The parser substitutes an attribute reference in both values, so they are read as they are; substituting them a
+     * second time would drop the escape of a {@code \{name}} the parser already resolved.
+     *
      * @return the text asciidoctor writes for a cross reference to this element when the reference gives none: its
      * {@code reftext}, else its title; {@code null} when it has neither, asciidoctor then writing the id between
      * square brackets. The title of a section comes from the section itself, see
      * {@link VisitorState#referenceText(String)}.
      */
-    public String referenceText(final Element element, final ConditionalBlock.Context context) {
+    public String referenceText(final Element element) {
         final var options = blockOptions(element);
         final var reftext = options.get("reftext");
         if (reftext != null && !reftext.isBlank()) {
-            return substitute(reftext, context).strip();
+            return reftext.strip();
         }
         final var title = options.get("title");
         if (title != null && !title.isBlank()) {
-            return substitute(title, context).strip();
+            return title.strip();
         }
         return null;
     }

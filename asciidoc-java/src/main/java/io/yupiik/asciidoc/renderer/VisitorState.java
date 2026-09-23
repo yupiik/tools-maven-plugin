@@ -311,7 +311,7 @@ public class VisitorState implements Visitor<Void> {
         public void visitElement(final Element element) {
             final var id = sibling.id(sibling.blockOptions(element));
             if (id != null) {
-                final var text = sibling.referenceText(element, context());
+                final var text = sibling.referenceText(element);
                 if (text != null && !text.isBlank()) {
                     referenceTexts.putIfAbsent(id, text);
                 }
