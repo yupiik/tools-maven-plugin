@@ -524,6 +524,25 @@
 	border-left-color: var(--y-green)
 }
 
+/* list markers on colored/dark backgrounds: keep them readable */
+.bespoke-slide.y-blue ol li::before,
+.bespoke-slide.y-blue ul li::before,
+.bespoke-slide.y-violet ol li::before,
+.bespoke-slide.y-violet ul li::before,
+.bespoke-slide.y-navy ol li::before,
+.bespoke-slide.y-navy ul li::before,
+.bespoke-slide.y-dark ol li::before,
+.bespoke-slide.y-dark ul li::before,
+.bespoke-slide.dark ol li::before,
+.bespoke-slide.dark ul li::before {
+	color: #fff
+}
+
+.bespoke-slide.y-green ol li::before,
+.bespoke-slide.y-green ul li::before {
+	color: var(--y-dark)
+}
+
 .bespoke-slide.y-navy {
 	background-color: var(--y-navy);
 	color: var(--y-text-invert)

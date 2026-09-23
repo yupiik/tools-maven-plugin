@@ -55,7 +55,7 @@ class SlidesCommandTest {
                 "<meta name=\"mobile-web-app-capable\" content=\"yes\">" +
                 "<link rel=\"stylesheet\" href=\"//cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css\" integrity=\"sha256-l85OmPOjvil/SOvVt3HnSSjzF1TUMyT9eV0c2BzEGzU=\" crossorigin=\"anonymous\" />\n" +
                 "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css\" integrity=\"sha512-jxbAYisMjIOokHq0YnYxWqTUfJRe8s1U2F1lp+se3vv0CS8floaFL3Mc3GEpG3HCG2s6lxHb3QvQdmUOT1ZzKw==\" crossorigin=\"anonymous\" />\n" +
-                "<link rel=\"stylesheet\" href=\"css/slides.generated.251041418.css\">\n" +
+                "<link rel=\"stylesheet\" href=\"css/slides.generated.951044842.css\">\n" +
                 "</head><body><article class=\"deck\"><section class=\"title\" data-title=\"\"><h1>My Awesome Presentation</h1><p>Additional content for the title slide.</p><footer><p class=\"author\"><span class=\"personname\"><span class=\"firstname\">Yupiik</span> <span class=\"surname\"></span></span><span class=\"affiliation\"><span class=\"position\">Company</span> <span class=\"organization\">Yupiik</span></span><span class=\"contact\"><span class=\"twitter\">@yupiik</span> <span class=\"url\">yupiik.com</span></span></p></footer></section>\n" +
                 "<section><h2>First Topic</h2><p>Content of the first topic.</p></section>\n" +
                 "<section class=\"dark\"><h2>A dark moment</h2><p>This slide uses the dark background variant.</p>\n<p>Keep it simple, keep it impactful: white text, violet highlights and fluo green accents.</p></section>\n" +
