@@ -1493,7 +1493,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 text = element.label();
             } else {
                 final var referenceText = state.referenceText(reference.id());
-                text = escape(referenceText != null ? referenceText : '[' + reference.id() + ']');
+                text = referenceText != null ? escape(referenceText) : '[' + reference.id() + ']'; // an id holds nothing to escape
             }
             builder.append(" <a href=\"").append(target).append("\">").append(text).append("</a>\n");
         }
