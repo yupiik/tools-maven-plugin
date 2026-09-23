@@ -26,7 +26,7 @@ span.icon.fab>i.fa {
  */
 
 .bespoke-slide {
-    color: #00366f;
+    color: var(--y-text, #212121);
 }
 
 .lh-15, .lh-15 figure.quote > blockquote > p {
@@ -167,7 +167,7 @@ li code {
 .code-badge {
     line-height: 1rem;
     font-size: 12px;
-    background-color: #00366f !important;
+    background-color: var(--y-dark, #212121) !important;
 }
 .code-badge-language {
     color: white !important;
@@ -309,8 +309,8 @@ table.social-badges tr>td img {
 			          		-moz-linear-gradient(280deg, transparent 58%, #4DB849 33%, #4DB849),
 			          		-moz-linear-gradient(150deg, transparent 54%, #D01D21 33%, #D01D21);
 	box-shadow: inset 0px 0px 160px rgba(0,0,0,0.05),
-							0px 0px 100px rgba(0,0,0,0.05),
-							0px 0px 10px rgba(255,255,255, 1.0);
+						0px 0px 100px rgba(0,0,0,0.05),
+						0px 0px 10px rgba(255,255,255, 1.0);
 	-webkit-transition: all 1s ease-in-out;
 	-moz-transition: all 1s ease-in-out;
 }
@@ -351,20 +351,61 @@ section > *:not(h2):first-child {
   padding-top: 1rem !important;
 }
 
+/* enriched slides: header block instead of absolutely positioned title */
 section:not(.title) {
-    padding-top: 6rem !important;
+    padding-top: 4.6rem !important;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     flex-direction: column;
 }
+
+/* kicker-style header: small label above the h2 */
 section:not(.title) > h2 {
-    position: absolute;
-    top: 4.5rem;
+    position: static;
+    top: auto;
+    font-family: "Orbitron", "Montserrat", sans-serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--y-navy, #056EBB);
+    margin: 0 0 1.1rem !important;
+    line-height: 1.4;
+}
+
+/* h2 content sized as real heading: put it in the block, kicker via sibling */
+section:not(.title) > h2::after {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 5px;
+    margin-top: .55rem;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--y-blue, #02ABEA), var(--y-violet, #D858FF));
+}
+
+/* content slides: dark/colored bg variants keep the header readable */
+section:not(.title).y-dark > h2,
+section:not(.title).dark > h2,
+section:not(.title).y-navy > h2,
+section:not(.title).y-blue > h2,
+section:not(.title).y-violet > h2,
+section:not(.title).y-green > h2 {
+    color: #fff;
+}
+
+section:not(.title).y-dark > h2::after,
+section:not(.title).dark > h2::after,
+section:not(.title).y-navy > h2::after,
+section:not(.title).y-blue > h2::after,
+section:not(.title).y-violet > h2::after,
+section:not(.title).y-green > h2::after {
+    background: linear-gradient(90deg, var(--y-green, #46F72F), var(--y-blue, #02ABEA));
 }
 
 .bespoke-progress-bar {
     position: absolute;
     bottom: 0px;
-    min-height: 4px;
-    background-color: #00b2ef;
+    min-height: 5px;
+    background: linear-gradient(90deg, var(--y-blue, #02ABEA), var(--y-violet, #D858FF));
 }

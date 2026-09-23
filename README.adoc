@@ -219,7 +219,7 @@ mvn \
 
 === Slides
 
-Render an asciidoctor reveal.js slide deck in HTML.
+Render an asciidoctor reveal.js or bespoke.js slide deck in HTML.
 
 Simplest setup is to define the plugin and create a file `src/main/slides/index.adoc`, then simply render it with:
 
@@ -236,6 +236,49 @@ mvn yupiik-tools:serve-slides
 ----
 
 TIP: to convert slides to PDF, you can use decktape. Launch the slides HTTP server and then run `docker run --rm -t --net=host -v $PWD:/slides astefanutti/decktape http://localhost:4200 slides.pdf`.
+
+==== Theme
+
+The default slider (`BESPOKE_ENRICHED`) ships a brand theme (`yupiik.bespoke.css` + `yupiik.bespoke.extended.css`) based on the Yupiik brand book:
+
+* fonts are loaded from Google Fonts: Montserrat for the text, Orbitron for the logotype-style kicker and JetBrains Mono for code;
+* the brand palette is exposed as CSS variables (`--y-blue: #02ABEA`, `--y-violet: #D858FF`, `--y-green: #46F72F`, `--y-dark: #212121`, `--y-light: #F4F4F4`, `--y-navy: #056EBB`);
+* blue is a structural color (rules, markers, gradients) and is never used for body text, violet and fluo green are used to emphasize text, text defaults to black on light backgrounds and white on dark ones.
+
+Slides can opt in to the brand backgrounds with a role on the section:
+
+[source,asciidoc]
+----
+[.dark]
+--
+Dark #212121 background, white text.
+--
+
+[.y-navy]
+--
+Navy gradient background (#056EBB to #04365f), white text.
+--
+
+[.y-blue]
+--
+#02ABEA background, white text.
+--
+----
+
+The other roles are `.y-violet`, `.y-green`, `.y-light` and `.y-dark`. A `shout` role renders a centered navy gradient slide with a large heading:
+
+[source,asciidoc]
+----
+[.shout]
+--
+= Make it *count*
+----
+
+TIP: inside a `shout` slide, wrap the words to highlight with `[.accent]#...#`, and use a small `kicker` label above any slide heading with `[.kicker]#...#'.
+
+The title slide uses the navy gradient with the Yupiik symbol watermark, a white title, a colored subtitle and the author block (name, position, organization, twitter handle) themed to match. The Yupiik symbol is also rendered as a discreet watermark at the bottom-left of every content slide (from `background.bespoke.svg`).
+
+To extend the theme, pass a custom css with `customCss` - it is appended to the built-in one for bespoke (and replaces it for revealjs).
 
 ==== Configuration
 
