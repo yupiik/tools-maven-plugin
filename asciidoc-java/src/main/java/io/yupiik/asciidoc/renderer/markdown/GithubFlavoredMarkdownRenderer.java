@@ -929,12 +929,13 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
-     * @return the text of a link to the element with this id, its brackets escaped: the text
-     * {@link VisitorState#referenceText(String)} gives, else the id between square brackets as asciidoctor writes it.
+     * @return the text of a link to the element with this id: the text {@link VisitorState#referenceText(String)}
+     * gives with its brackets escaped, else the id between escaped square brackets as asciidoctor writes it; an id
+     * holds nothing to escape.
      */
     protected String referenceLinkText(final String id) {
         final var referenceText = state.referenceText(id);
-        return escape(referenceText != null ? referenceText : "[" + id + "]", "[]");
+        return referenceText != null ? escape(referenceText, "[]") : "\\[" + id + "\\]";
     }
 
     private String attributeText(final Attribute attribute) {
