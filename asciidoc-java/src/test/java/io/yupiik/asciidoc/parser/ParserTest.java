@@ -2844,6 +2844,27 @@ class ParserTest {
     }
 
     @Test
+    void tableWithoutColsParsesTheCellMarkup() { // a cell with no style of its own gets the default one, as in asciidoctor
+        final var body = new Parser().parseBody(
+                new Reader(List.of("""
+                        |===
+                        |name |`code` and *bold*
+                        |===
+                        """.split("\n"))),
+                null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "name", Map.of()),
+                                new Paragraph(List.of(
+                                        new Code("code", Map.of(), true, List.of()),
+                                        new Text(List.of(), " and ", Map.of()),
+                                        new Text(List.of(Text.Style.BOLD), "bold", Map.of())), Map.of()))
+                ), Map.of())),
+                body.children());
+    }
+
+    @Test
     void tableCellSpecifierStyles() { // the style of the cell specifier wins over the column style, as in asciidoctor
         final var body = new Parser().parseBody(new Reader(List.of("""
                 [cols="3*"]

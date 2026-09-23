@@ -1120,9 +1120,9 @@ public class Parser {
             } else {
                 content = text.strip();
             }
-            final var element = style == null ?
-                    new Text(List.of(), content, Map.of()) :
-                    parseCell(enclosingDocument, style, List.of(content.split("\n", -1)), resolver, currentAttributes);
+            // a cell with no style of its own gets the default one, "d", which parses the inline markup as asciidoctor does
+            final var element = parseCell(enclosingDocument, style == null ? "d" : style,
+                    List.of(content.split("\n", -1)), resolver, currentAttributes);
 
             final var cellOptions = new HashMap<String, String>();
             if (spec.colspan() > 1) {
