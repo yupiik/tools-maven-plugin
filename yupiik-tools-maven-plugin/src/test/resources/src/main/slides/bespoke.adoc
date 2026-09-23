@@ -28,20 +28,16 @@ Additional content for the title slide.
 
 Content of the first topic.
 
+[.dark]
 == A dark moment
 
-[.dark]
---
 This slide uses the dark background variant.
 
 Keep it simple, keep it impactful: white text, violet highlights and fluo green accents.
---
-
-== A touch of blue
 
 [.y-blue]
---
+== A touch of blue
+
 One of the six brand background roles.
 
 TIP: use `mark` and `link:https://yupiik.com[Yupiik]` to highlight key words.
---
