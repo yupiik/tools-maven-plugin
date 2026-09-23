@@ -25,3 +25,23 @@ Yupiik <http://yupiik.com>
 Additional content for the title slide.
 
 == First Topic
+
+Content of the first topic.
+
+== A dark moment
+
+[.dark]
+--
+This slide uses the dark background variant.
+
+Keep it simple, keep it impactful: white text, violet highlights and fluo green accents.
+--
+
+== A touch of blue
+
+[.y-blue]
+--
+One of the six brand background roles.
+
+TIP: use `mark` and `link:https://yupiik.com[Yupiik]` to highlight key words.
+--
