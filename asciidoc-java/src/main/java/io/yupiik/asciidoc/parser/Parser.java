@@ -474,7 +474,7 @@ public class Parser {
         Map<String, String> options = null;
         Matcher attributeMatcher;
         while ((next = reader.skipCommentsAndEmptyLines()) != null) {
-            if (!continueTest.test(next)) {
+            if (!continueTest.test(next) && !(next.startsWith("=") && isFloatingTitle(options))) {
                 reader.rewind();
                 if (lastOptions == reader.getLineNumber()) {
                     reader.rewind();
@@ -537,8 +537,7 @@ public class Parser {
                 }
             } else if (stripped.startsWith("=")) {
                 reader.rewind();
-                final var style = options == null ? null : options.get("");
-                if ("discrete".equals(style) || "float".equals(style) || options != null && (options.containsKey("discrete-option") || options.containsKey("float-option"))) {
+                if (isFloatingTitle(options)) {
                     elements.add(parseFloatingTitle(enclosingDocument, reader, options, resolver, attributes));
                 } else {
                     elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
@@ -2942,50 +2941,55 @@ public class Parser {
 
     private Element parseSection(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
-        final var title = reader.skipCommentsAndEmptyLines();
-        int i = 0;
-        while (i < title.length() && title.charAt(i) == '=') {
-            i++;
-        }
-
-        final var offset = currentAttributes.get("leveloffset");
-        if (offset != null) {
-            i += Integer.parseInt(offset);
-        }
+        final var heading = parseHeading(enclosingDocument, reader, resolver, currentAttributes);
 
         // implicit attribute
-        currentAttributes.put("sectnumlevels", Integer.toString(i));
+        currentAttributes.put("sectnumlevels", Integer.toString(heading.level()));
 
-        final var prefix = IntStream.rangeClosed(0, i).mapToObj(idx -> "=").collect(joining());
-        final var lineContent = title.substring(i).strip();
-        final var titleElement = parseLine(enclosingDocument, new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
+        final var prefix = "=".repeat(heading.level() + 1);
         return new Section(
-                i,
-                titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
+                heading.level(),
+                heading.title(),
                 doParse(enclosingDocument, reader, line -> !line.startsWith("=") || line.startsWith(prefix), resolver, currentAttributes, true, false),
                 options == null ? Map.of() : options);
     }
 
     private Element parseFloatingTitle(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                        final ContentResolver resolver, final Map<String, String> currentAttributes) {
-        final var title = reader.skipCommentsAndEmptyLines();
-        int i = 0;
-        while (i < title.length() && (title.charAt(i) == '=' || title.charAt(i) == '#')) {
-            i++;
-        }
-        final var offset = currentAttributes.get("leveloffset");
-        if (offset != null) {
-            i += Integer.parseInt(offset);
-        }
-        final var lineContent = title.substring(i).strip();
-        final var titleElement = parseLine(enclosingDocument, new Reader(List.of(lineContent)), lineContent, resolver, currentAttributes, false);
+        final var heading = parseHeading(enclosingDocument, reader, resolver, currentAttributes);
         final var cleanOptions = options == null ? Map.<String, String>of() : options.entrySet().stream()
                 .filter(e -> !"discrete-option".equals(e.getKey()) && !"float-option".equals(e.getKey()))
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-        return new FloatingTitle(
-                i,
-                titleElement.size() == 1 ? titleElement.get(0) : new Paragraph(titleElement, Map.of("nowrap", "true")),
-                cleanOptions);
+        return new FloatingTitle(heading.level(), heading.title(), cleanOptions);
+    }
+
+    // a discrete (or float) heading is a title block: it opens no section and ends none
+    private boolean isFloatingTitle(final Map<String, String> options) {
+        if (options == null) {
+            return false;
+        }
+        final var style = options.get("");
+        return "discrete".equals(style) || "float".equals(style) ||
+                options.get("discrete-option") != null || options.get("float-option") != null;
+    }
+
+    // the heading line of a section or a floating title, a '#' heading having been rewritten with '=' by doParse
+    private Heading parseHeading(final Path enclosingDocument, final Reader reader,
+                                 final ContentResolver resolver, final Map<String, String> currentAttributes) {
+        final var line = reader.skipCommentsAndEmptyLines();
+        int level = 0;
+        while (level < line.length() && line.charAt(level) == '=') {
+            level++;
+        }
+
+        final var offset = currentAttributes.get("leveloffset");
+        if (offset != null) {
+            level += Integer.parseInt(offset);
+        }
+
+        final var content = line.substring(level).strip();
+        final var elements = parseLine(enclosingDocument, new Reader(List.of(content)), content, resolver, currentAttributes, false);
+        return new Heading(level, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of("nowrap", "true")));
     }
 
     // firstname middlename lastname <mail>[; firstname2 ... <mail2>]*, the semicolon separating the authors is looked
@@ -3565,6 +3569,9 @@ public class Parser {
 
     private enum AuthorSource {
         AUTHOR_LINE, AUTHOR_ATTRIBUTE, AUTHORS_ATTRIBUTE, INDEXED_ATTRIBUTES
+    }
+
+    private record Heading(int level, Element title) {
     }
 
     private record ResolvedAuthors(List<Author> authors, AuthorSource source) {

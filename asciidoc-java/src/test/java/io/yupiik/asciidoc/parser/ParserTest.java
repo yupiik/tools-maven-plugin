@@ -24,6 +24,7 @@ import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.FloatingTitle;
 import io.yupiik.asciidoc.model.HorizontalRule;
 import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Link;
@@ -1251,6 +1252,83 @@ class ParserTest {
                                                 3,
                                                 new Text(List.of(), "Even without content", Map.of()),
                                                 List.of(new Text(List.of(), "yes", Map.of())), Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void parseDiscreteHeadingInsideItsSection() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                == Section A
+
+                para A
+
+                [discrete]
+                == Same level as the section
+
+                para B
+
+                [discrete]
+                ### Markdown style, one level below
+
+                para C
+
+                == Section D
+
+                para D
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Section(
+                                2,
+                                new Text(List.of(), "Section A", Map.of()),
+                                List.of(
+                                        new Text(List.of(), "para A", Map.of()),
+                                        new FloatingTitle(2, new Text(List.of(), "Same level as the section", Map.of()), Map.of("", "discrete")),
+                                        new Text(List.of(), "para B", Map.of()),
+                                        new FloatingTitle(3, new Text(List.of(), "Markdown style, one level below", Map.of()), Map.of("", "discrete")),
+                                        new Text(List.of(), "para C", Map.of())), Map.of()),
+                        new Section(
+                                2,
+                                new Text(List.of(), "Section D", Map.of()),
+                                List.of(new Text(List.of(), "para D", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void parseFloatHeadingAboveItsSectionLevel() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                == Section A
+
+                === Section B
+
+                para B
+
+                [float]
+                == Above the level of B
+
+                para C
+
+                === Section E
+
+                para E
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Section(
+                                2,
+                                new Text(List.of(), "Section A", Map.of()),
+                                List.of(
+                                        new Section(
+                                                3,
+                                                new Text(List.of(), "Section B", Map.of()),
+                                                List.of(
+                                                        new Text(List.of(), "para B", Map.of()),
+                                                        new FloatingTitle(2, new Text(List.of(), "Above the level of B", Map.of()), Map.of("", "float")),
+                                                        new Text(List.of(), "para C", Map.of())), Map.of()),
+                                        new Section(
+                                                3,
+                                                new Text(List.of(), "Section E", Map.of()),
+                                                List.of(new Text(List.of(), "para E", Map.of())), Map.of())), Map.of())),
                 body.children());
     }
 

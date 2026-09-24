@@ -99,6 +99,7 @@ A custom visitor can read the model as the HTML and Markdown renderers do, with 
 The parser supports standard Asciidoc syntax including:
 
 * Headings (e.g. `= Document Title`, `== Section`)
+* Discrete headings (`[discrete]` or `[float]` above a heading): a title block that opens no section, ends none and stays out of the table of contents
 * Paragraphs and text formatting (`*bold*`, `_italic_`, `+monospace+`)
 * Unordered lists (`*`) and ordered lists (`.`)
 * Links (`link:url[text]`) and images (`image:path[alt]`)

@@ -2274,6 +2274,37 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void discreteHeadingStaysInItsSection() {
+        assertRenderingContent("== Section A\n\npara A\n\n[discrete]\n== Same level as the section\n\npara B\n\n== Section D\n\npara D",
+                " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"_section_a\">Section A</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "para A\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " <h2 class=\"discrete\">Same level as the section</h2>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "para B\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"_section_d\">Section D</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "para D\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void openBlock() {
         assertRenderingContent("--\ncontent\n--",
                 " <div class=\"openblock\">\n" +
