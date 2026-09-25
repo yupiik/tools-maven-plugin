@@ -1474,7 +1474,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitXref(final Macro element) {
-        final var reference = sibling.crossReference(sibling.substitute(element.label(), context()).strip(), state.asciidocExtensions());
+        final var reference = sibling.crossReference((element.label() == null ? "" : element.label()).strip(), state.asciidocExtensions());
         final String target;
         if (reference.id() != null) {
             target = "#" + reference.id();
