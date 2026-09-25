@@ -3132,15 +3132,25 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void escapedAttributeReferenceInAMacroTarget() { // the backslash reached the target and the alt text before
+    void escapedAttributeReferenceInAMacroTarget() { // the parser drops the backslash, the renderer substitutes nothing
         assertRenderingContent(":name: value\n\nimage::\\{name}.png[]\n\nSee xref:\\{name}[].\n",
                 " <div class=\"imageblock\">\n" +
                         " <div class=\"content\">\n" +
-                        " <img src=\"{name}.png\" alt=\"{name}.png\">\n" +
+                        " <img src=\"{name}.png\" alt=\"{name}\">\n" +
                         " </div>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p>See  <a href=\"{name}\">{name}</a>\n" +
+                        " <p>See  <a href=\"#{name}\">[{name}]</a>\n" +
+                        ".</p>\n" +
+                        " </div>\n");
+        assertRenderingContent(":name: value\n\nimage::{name}.png[]\n\nSee xref:{name}[].\n",
+                " <div class=\"imageblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <img src=\"value.png\" alt=\"value\">\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>See  <a href=\"#value\">[value]</a>\n" +
                         ".</p>\n" +
                         " </div>\n");
     }
