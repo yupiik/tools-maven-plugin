@@ -18,6 +18,7 @@ package io.yupiik.maven.mojo;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 import io.yupiik.asciidoc.renderer.html.ShowerRenderer;
@@ -107,6 +108,15 @@ public class AsciidocMojo extends AbstractMojo {
     private boolean skipGlobalContentWrapper;
 
     /**
+     * What the renderer does with a macro it has no method for, such as {@code tooltip:foo[a hint]}, which is most often
+     * a mistake in the document: {@code FAIL} fails the rendering naming the macro, {@code IGNORE} writes nothing,
+     * {@code TEXT} writes the macro as text, as asciidoctor writes a macro no extension registers.
+     * The attribute {@code yupiik-renderer-asciidoctorlikehtml-unknownMacro}, in the document or in {@code attributes}, wins over it.
+     */
+    @Parameter(property = "yupiik.asciidoc.unknownMacro", defaultValue = "FAIL")
+    private UnknownMacro unknownMacro;
+
+    /**
      * attributes.
      */
     @Parameter(property = "yupiik.asciidoc.attributes")
@@ -154,6 +164,7 @@ public class AsciidocMojo extends AbstractMojo {
                 .setSectionTag(sectionTag)
                 .setSectionIdOnTitle(sectionIdOnTitle)
                 .setDataUriForAscii2Svg(dataUriForAscii2Svg)
+                .setUnknownMacro(unknownMacro)
                 .setAttributes(attributes == null ? Map.of() : attributes);
         final var input = Path.of(this.input);
         final var output = Path.of(this.output);
@@ -268,6 +279,7 @@ public class AsciidocMojo extends AbstractMojo {
                     .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                     .setSectionTag(configuration.getSectionTag())
                     .setSectionIdOnTitle(configuration.isSectionIdOnTitle())
+                    .setUnknownMacro(configuration.getUnknownMacro())
                     .setAttributes(rendererAttributes(document)));
         }
         if ("io.yupiik.asciidoc.renderer.html.ShowerRenderer".equals(renderer) || "shower".equals(renderer)) {
