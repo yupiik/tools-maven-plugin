@@ -23,8 +23,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainTest {
+    @Test
+    void unknownMacroFlag(@TempDir final Path work) throws IOException {
+        final var src = Files.writeString(work.resolve("src.adoc"), "Set tooltip:foo[a hint] here.");
+        final var out = work.resolve("src.html");
+        final var error = assertThrows(IllegalArgumentException.class, () -> Main.main("-i", src.toString(), "-o", out.toString()));
+        assertTrue(error.getMessage().startsWith("Unknown macro 'tooltip'"), error.getMessage());
+
+        Main.main("-i", src.toString(), "-o", out.toString(), "--unknown-macro", "text");
+        assertTrue(Files.readString(out).contains("<p>Set tooltip:foo[a hint] here.</p>"), Files.readString(out));
+    }
+
     @Test
     void simpleRender(@TempDir final Path work) throws IOException {
         final var src = Files.writeString(work.resolve("src.adoc"), "= Test");

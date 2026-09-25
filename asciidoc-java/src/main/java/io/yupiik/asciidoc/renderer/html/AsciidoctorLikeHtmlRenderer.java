@@ -47,6 +47,7 @@ import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.internal.LocalContextResolver;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
 import io.yupiik.asciidoc.renderer.VisitorState;
@@ -65,6 +66,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -1376,6 +1378,26 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             visitToc(state.document().body());
             return;
         }
+        final Consumer<Macro> rendering = switch (element.name()) {
+            case "kbd" -> this::visitKbd;
+            case "btn" -> this::visitBtn;
+            case "menu" -> this::visitMenu;
+            case "stem", "latexmath", "asciimath" -> this::visitStem;
+            case "pass" -> this::visitPassthroughInline;
+            case "icon" -> this::visitIcon;
+            case "image" -> this::visitImage;
+            case "audio" -> this::visitAudio;
+            case "video" -> this::visitVideo;
+            case "xref" -> this::visitXref;
+            case "footnote", "footnoteref", "doublefootnote" -> this::visitFootnote;
+            case "link" -> this::visitLinkMacro;
+            case "ifdef", "ifndef", "ifeval", "endif", "include" -> this::visitPreprocessorDirective;
+            default -> null;
+        };
+        if (rendering == null) { // no block wrapper either: asciidoctor writes an unregistered macro as text in both forms
+            onMissingMacro(element);
+            return;
+        }
         if (!element.inline()) {
             final var opts = element.options();
             builder.append(" <div");
@@ -1390,43 +1412,41 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             writeBlockTitle(opts);
             builder.append(" <div class=\"content\">\n");
         }
-        switch (element.name()) {
-            case "kbd" -> visitKbd(element);
-            case "btn" -> visitBtn(element);
-            case "menu" -> visitMenu(element);
-            case "stem", "latexmath", "asciimath" -> visitStem(element);
-            case "pass" -> visitPassthroughInline(element);
-            case "icon" -> visitIcon(element);
-            case "image" -> visitImage(element);
-            case "audio" -> visitAudio(element);
-            case "video" -> visitVideo(element);
-            case "xref" -> visitXref(element);
-            case "footnote" -> visitFootnote(element);
-            case "footnoteref" -> visitFootnote(element);
-            case "doublefootnote" -> visitFootnote(element);
-            case "link" -> {
-                final var label = element.options().getOrDefault("", element.label());
-                if (label.contains("image:")) { // FIXME: ...we don't want options to be parsed but this looks required
-                    try {
-                        final var body = subParser.parseBody(new Reader(List.of(label)), subResolver);
-                        if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
-                            visitLink(new Link(element.label(), new Text(List.of(), t.value(), Map.of()), element.options()));
-                        } else {
-                            final var html = render(body).result();
-                            visitLink(new Link(element.label(), new Text(List.of(), html, Map.of()), Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
-                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
-                        }
-                    } catch (final RuntimeException re) {
-                        visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
-                    }
-                } else {
-                    visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
-                }
-            }
-            default -> onMissingMacro(element); // for future extension point
-        }
+        rendering.accept(element);
         if (!element.inline()) {
             builder.append(" </div>\n </div>\n");
+        }
+    }
+
+    /**
+     * A preprocessor directive the parser did not consume, such as an {@code endif::[]} line right after a list item:
+     * asciidoctor removes the line before it parses the document, so the directive has no output. The empty block
+     * written around it is what the previous versions wrote.
+     */
+    protected void visitPreprocessorDirective(final Macro element) {
+        // no output, see the javadoc
+    }
+
+    /**
+     * Renders a {@code link:} macro as a link, its text parsed again when it holds an image macro.
+     */
+    protected void visitLinkMacro(final Macro element) {
+        final var label = element.options().getOrDefault("", element.label());
+        if (label.contains("image:")) { // FIXME: ...we don't want options to be parsed but this looks required
+            try {
+                final var body = subParser.parseBody(new Reader(List.of(label)), subResolver);
+                if (body.children().size() == 1 && body.children().get(0) instanceof Text t && t.style().isEmpty()) {
+                    visitLink(new Link(element.label(), new Text(List.of(), t.value(), Map.of()), element.options()));
+                } else {
+                    final var html = render(body).result();
+                    visitLink(new Link(element.label(), new Text(List.of(), html, Map.of()), Stream.concat(element.options().entrySet().stream(), Stream.of(entry("unsafeHtml", "true")))
+                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b))));
+                }
+            } catch (final RuntimeException re) {
+                visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
+            }
+        } else {
+            visitLink(new Link(element.label(), new Text(List.of(), label, Map.of()), element.options()));
         }
     }
 
@@ -2079,8 +2099,35 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         };
     }
 
+    /**
+     * Renders a macro the renderer has no {@code visitX} method for, as {@link #unknownMacro()} says: fails, writes
+     * nothing, or writes the macro as text (escaped, in a paragraph for the block form) as asciidoctor writes a macro no
+     * extension registers. A subclass overrides it to render its own macros.
+     */
     protected void onMissingMacro(final Macro element) {
-        Visitor.super.visitMacro(element);
+        switch (unknownMacro()) {
+            case FAIL -> throw new IllegalArgumentException(
+                    "Unknown macro '" + element.name() + "' in '" + sibling.macroSource(element) + "', set the attribute " +
+                            UNKNOWN_MACRO_ATTRIBUTE + " or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it");
+            case IGNORE -> {
+                // nothing to write, see UnknownMacro.IGNORE
+            }
+            case TEXT -> {
+                if (element.inline()) {
+                    builder.append(escape(sibling.macroSource(element)));
+                } else {
+                    visitText(new Text(List.of(), sibling.macroSource(element), Map.of()));
+                }
+            }
+        }
+    }
+
+    /**
+     * @return what to do with a macro the renderer has no method for: the value of {@link #UNKNOWN_MACRO_ATTRIBUTE}
+     * in the document, else in the attributes of the configuration, else {@link Configuration#setUnknownMacro(UnknownMacro)}.
+     */
+    protected UnknownMacro unknownMacro() {
+        return sibling.unknownMacro(UNKNOWN_MACRO_ATTRIBUTE, context(), configuration.getUnknownMacro());
     }
 
     /**
@@ -2284,6 +2331,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 options));
     }
 
+    /**
+     * The attribute holding an {@link UnknownMacro} value, in any case: {@code :yupiik-renderer-asciidoctorlikehtml-unknownMacro: text}.
+     */
+    public static final String UNKNOWN_MACRO_ATTRIBUTE = "yupiik-renderer-asciidoctorlikehtml-unknownMacro";
+
     @Getter
     public static class Configuration {
         private String sectionTag = "div";
@@ -2295,6 +2347,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+        private UnknownMacro unknownMacro = UnknownMacro.FAIL;
+
+        /**
+         * @param unknownMacro what the renderer does with a macro it has no method for, {@link UnknownMacro#FAIL} by
+         *                     default; the attribute {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
+         * @return this.
+         */
+        public Configuration setUnknownMacro(final UnknownMacro unknownMacro) {
+            this.unknownMacro = unknownMacro;
+            return this;
+        }
 
         public Configuration setDataUriForAscii2Svg(final boolean dataUriForAscii2Svg) {
             this.dataUriForAscii2Svg = dataUriForAscii2Svg;

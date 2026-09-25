@@ -64,7 +64,7 @@ The Markdown renderer writes each construct as follows:
 |Icon (`icon:lock[]`)|`[lock]`, as asciidoctor writes an icon without an icon font.
 |====
 
-When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An `include` macro reaching the renderer fails, since the parser resolves includes before rendering.
+When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An `include` macro reaching the renderer fails, since the parser resolves includes before rendering. A macro the renderer has no case for, such as `tooltip:foo[a hint]`, fails by default, as in the HTML renderer: `Configuration.setUnknownMacro(UnknownMacro.IGNORE)` writes nothing, `UnknownMacro.TEXT` writes the macro as text, and the attribute `yupiik-renderer-githubflavoredmarkdown-unknownMacro`, in the document or in the attributes of the configuration, wins over the option. A subclass renders its own macros in `onMissingMacro`.
 
 One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
 
@@ -79,6 +79,7 @@ The Markdown renderer reads these attributes:
 |`relfileprefix`, `relfilesuffix`|Build the target of an `xref:page.adoc[]` link, `relfilesuffix` defaulting to `outfilesuffix` and then to `.md`.
 |`asciidoc-extensions`|Extensions of the documents an `xref:` link points at, `adoc,asciidoc` by default. A link to a file with another extension keeps the file name, and a file without extension before a `#` is a document, as in asciidoctor.
 |`toc`, `toc-placement`, `toc-title`, `toclevels`|Write the table of contents, as in asciidoctor.
+|`yupiik-renderer-githubflavoredmarkdown-unknownMacro`|What the renderer does with a macro it has no case for: `fail` (the default), `ignore` or `text`, in any case. It wins over `Configuration.setUnknownMacro`.
 |====
 
 == Reading the model in a visitor
@@ -88,7 +89,7 @@ A custom visitor can read the model as the HTML and Markdown renderers do, with 
 [options="header",cols="1,3"]
 |====
 |Class|Use
-|`VisitorSibling`|Reads the values the parser keeps as raw text: the id, the style and the options of a block, attribute references in titles, cross reference and image targets, macro labels such as the keys of `kbd:[]`, and where paragraphs end when the parser gives them as sibling elements. It has no state, so any visitor can create one.
+|`VisitorSibling`|Reads the values the parser keeps as raw text: the id, the style and the options of a block, attribute references in titles, cross reference and image targets, macro labels such as the keys of `kbd:[]`, the AsciiDoc text of a macro, the `unknownMacro` attribute of a renderer, and where paragraphs end when the parser gives them as sibling elements. It has no state, so any visitor can create one.
 |`VisitorState`|Keeps the state of a rendering: the attributes of the document then the fallback ones, the text of a cross reference to each id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its `visit` and `visitBody` methods, then queries it while it writes; the state of the HTML renderer extends it with the flags of that output. Before any `visit` it reads the fallback attributes only, so a visitor can render a body alone.
 |====
 
@@ -109,6 +110,7 @@ The parser supports standard Asciidoc syntax including:
 * Open/closed blocks, quote blocks, listing blocks, example blocks
 * Block ids, written `[#id]`, `[id=name]` or as an anchor line `[[id]]` (`[[id, reftext]]` with a reference text) above a block or the document title
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
+* A macro with another name, such as `tooltip:foo[a hint]`, is kept in the model as a `Macro` element; both renderers fail on it by default, or ignore it or write it as text as asciidoctor does with a macro no extension registers (the `unknownMacro` option of each renderer, see below and the Markdown output section), and a subclass of `AsciidoctorLikeHtmlRenderer` or of `GithubFlavoredMarkdownRenderer` renders it in `onMissingMacro`
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
 * Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
 * Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
@@ -151,7 +153,7 @@ These syntaxes are recognized alongside native Asciidoc syntax and can be mixed 
 == HTML renderer configuration
 
 `AsciidoctorLikeHtmlRenderer.Configuration` changes the HTML that `AsciidoctorLikeHtmlRenderer` writes.
-The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc.` properties, such as `yupiik.asciidoc.sectionIdOnTitle`, and the `asciidoc-java` launcher sets `sectionTag`, `sectionIdOnTitle`, `skipSectionBody`, `skipGlobalContentWrapper` and `supportDataAttributes` with `--section-tag`, `--section-id-on-title`, `--skip-section-body`, `--skip-global-content-wrapper` and `--data-attribute`.
+The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc.` properties, such as `yupiik.asciidoc.sectionIdOnTitle`, and the `asciidoc-java` launcher sets `sectionTag`, `sectionIdOnTitle`, `skipSectionBody`, `skipGlobalContentWrapper`, `supportDataAttributes` and `unknownMacro` with `--section-tag`, `--section-id-on-title`, `--skip-section-body`, `--skip-global-content-wrapper`, `--data-attribute` and `--unknown-macro`.
 
 [cols="2,1,4",options="header"]
 |===
@@ -180,6 +182,10 @@ The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc
 |`dataUriForAscii2Svg`
 |`true`
 |`true` writes an `ascii2svg` diagram as an image with a data URI, `false` writes it as an inline `svg` tag.
+
+|`unknownMacro`
+|`FAIL`
+|What the renderer does with a macro it has no method for, such as `tooltip:foo[a hint]`, which is most often a mistake in the document: `FAIL` throws an `IllegalArgumentException` naming the macro, `IGNORE` writes nothing, `TEXT` writes the macro as text, as asciidoctor writes a macro no extension registers. The attribute `yupiik-renderer-asciidoctorlikehtml-unknownMacro`, set in the document or in the attributes of the configuration (`:yupiik-renderer-asciidoctorlikehtml-unknownMacro: text`), wins over the option. The `asciidoc` goal sets the option with `yupiik.asciidoc.unknownMacro`, the launcher with `--unknown-macro`, and minisite reads the attribute.
 |===
 
 The `:sectanchors:` attribute writes an anchor link before the title of each section (`:sectanchors: after` writes it after the title), and the `:sectlinks:` attribute turns the title into a link to the section.
