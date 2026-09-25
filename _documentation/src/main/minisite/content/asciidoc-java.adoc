@@ -108,6 +108,7 @@ The parser supports standard Asciidoc syntax including:
 * Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
 * Open/closed blocks, quote blocks, listing blocks, example blocks
 * Block ids, written `[#id]`, `[id=name]` or as an anchor line `[[id]]` (`[[id, reftext]]` with a reference text) above a block or the document title
+* Shorthands on a block style, `[NOTE#note.important%collapsible]` giving the style `NOTE`, the id `note`, the role `important` and the option `collapsible`, and chained options, `[%collapsible%open]`. A line without a style keeps the whole shorthand as one value, so `[#io.yupiik.test.MyObject]` is that id
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
 * Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)

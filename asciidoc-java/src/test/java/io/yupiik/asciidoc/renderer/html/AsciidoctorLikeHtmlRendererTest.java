@@ -3146,6 +3146,37 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void styleShorthands() { // [NOTE#id.role] is an admonition, [source#id,java] keeps its language, %a%b is two options
+        assertRenderingContent("[NOTE#note.important%collapsible]\n====\nRead it.\n====\n\n" +
+                        "[source#main,java]\n----\nrun();\n----\n\n" +
+                        "[%collapsible%open]\n.Details\n====\nShown.\n====\n",
+                        " <div id=\"note\" class=\"admonitionblock note important\">\n" +
+                        "  <table>\n" +
+                        "    <tbody>\n" +
+                        "     <tr>\n" +
+                        "      <td class=\"icon\">\n" +
+                        "     <div class=\"title\">NOTE</div>\n" +
+                        "       </td>\n" +
+                        "      <td class=\"content\">\n" +
+                        "Read it.    </td>\n" +
+                        "   </tr>\n" +
+                        "      </tbody>\n" +
+                        "  </table>\n" +
+                        " </div>\n" +
+                        " <div class=\"listingblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <pre class=\"highlightjs highlight\"><code class=\"language-java hljs\" id=\"main\" data-lang=\"java\">run();\n" +
+                        "</code></pre>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <details open>\n" +
+                        "  <summary class=\"title\">Details</summary>\n" +
+                        "  <div class=\"content\">\n" +
+                        "Shown.  </div>\n" +
+                        " </details>\n");
+    }
+
+    @Test
     void authorAttributes() {
         assertRendering("= My Title\n:author: Dave Grohl\n:email: grohl@foofighter.com\n\nSome content here.",
                 "<!DOCTYPE html>\n" +

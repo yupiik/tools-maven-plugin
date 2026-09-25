@@ -291,7 +291,68 @@ public class Parser {
                 return reftext.isEmpty() ? Map.of("id", id) : Map.of("id", id, "reftext", reftext);
             }
         }
-        return parseOptions(stripped.substring(1, stripped.length() - 1));
+        return parseStyleShorthands(stripped.substring(1, stripped.length() - 1));
+    }
+
+    // as asciidoctor, the style of a block attribute line carries the #id, .role and %option shorthands,
+    // as in [NOTE#note.important%collapsible]. The % ones stay in the string, parseOptions already reads them.
+    // A line without a style, such as [#id] or [.role], is left to doParseOptions: minisite-core writes
+    // [#io.yupiik.test.MyObject], so splitting a bare #id at its dots would break the generated schema pages.
+    private Map<String, String> parseStyleShorthands(final String options) {
+        final int end = firstIndexOf(options, ",=\"");
+        if (end >= 0 && options.charAt(end) != ',') { // a '=' or a '"' means the first attribute is not a style
+            return parseOptions(options);
+        }
+        final var first = end < 0 ? options : options.substring(0, end);
+        if (first.indexOf('#') < 0 && first.indexOf('.') < 0) {
+            return parseOptions(options);
+        }
+        final int style = firstIndexOf(first, "#.%");
+        if (style <= 0) { // no style before the shorthand, so nothing changes
+            return parseOptions(options);
+        }
+        final var shorthands = new HashMap<String, String>();
+        final var kept = new StringBuilder(first.substring(0, style));
+        int i = style;
+        while (i < first.length()) {
+            final char marker = first.charAt(i);
+            int next = i + 1;
+            while (next < first.length() && "#.%".indexOf(first.charAt(next)) < 0) {
+                next++;
+            }
+            final var name = first.substring(i + 1, next);
+            if (!name.isEmpty()) {
+                switch (marker) {
+                    case '#' -> shorthands.put("id", name);
+                    case '.' -> addRole(shorthands, name);
+                    default -> kept.append('%').append(name);
+                }
+            }
+            i = next;
+        }
+        final var rest = end < 0 ? "" : options.substring(end); // starts with the ',' that ended the first attribute
+        final var rebuilt = kept.isEmpty() && !rest.isEmpty() ? rest.substring(1) : kept + rest;
+        if (rebuilt.isEmpty()) {
+            return shorthands;
+        }
+        final var result = new HashMap<>(parseOptions(rebuilt));
+        shorthands.forEach((key, value) -> {
+            if ("role".equals(key)) {
+                addRole(result, value);
+            } else {
+                result.put(key, value);
+            }
+        });
+        return result;
+    }
+
+    private int firstIndexOf(final String value, final String characters) {
+        for (int i = 0; i < value.length(); i++) {
+            if (characters.indexOf(value.charAt(i)) >= 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // an anchor id starts with a letter, '_' or ':' and goes on with letters, digits, '_', '-', ':' or '.'
@@ -2857,12 +2918,13 @@ public class Parser {
         if (options.startsWith("verse,")) {
             return parseQuoteLikeOptions(options, "verse,", "verseblock");
         }
-        // handle inline % within positional args: source%linenums,java → source,java + linenums-option
+        // handle inline % within positional args: source%linenums,java → source,java + linenums-option,
+        // and the chained form %collapsible%open → collapsible-option + open-option
         if (options.contains("%")) {
             final var tokens = List.of(options.split(","));
             final var extraOptions = new java.util.LinkedHashMap<String, String>();
             final var cleaned = tokens.stream().map(t -> {
-                if (t.contains("%") && !t.startsWith("%") && !t.contains("=")) {
+                if (t.contains("%") && !t.contains("=")) {
                     final var parts = t.split("%", -1);
                     for (int i = 1; i < parts.length; i++) {
                         if (!parts[i].isEmpty()) {
