@@ -3132,15 +3132,25 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void escapedAttributeReferenceInAMacroTarget() { // the backslash reached the target and the alt text before
+    void escapedAttributeReferenceInAMacroTarget() { // the parser drops the backslash, the renderer substitutes nothing
         assertRenderingContent(":name: value\n\nimage::\\{name}.png[]\n\nSee xref:\\{name}[].\n",
                 " <div class=\"imageblock\">\n" +
                         " <div class=\"content\">\n" +
-                        " <img src=\"{name}.png\" alt=\"{name}.png\">\n" +
+                        " <img src=\"{name}.png\" alt=\"{name}\">\n" +
                         " </div>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p>See  <a href=\"{name}\">{name}</a>\n" +
+                        " <p>See  <a href=\"#{name}\">[{name}]</a>\n" +
+                        ".</p>\n" +
+                        " </div>\n");
+        assertRenderingContent(":name: value\n\nimage::{name}.png[]\n\nSee xref:{name}[].\n",
+                " <div class=\"imageblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <img src=\"value.png\" alt=\"value\">\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>See  <a href=\"#value\">[value]</a>\n" +
                         ".</p>\n" +
                         " </div>\n");
     }
@@ -3352,6 +3362,51 @@ class AsciidoctorLikeHtmlRendererTest {
                          </div>
                          </div>
                          </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void shorthandCrossReferencesReadAsAsciidoctorReadsThem() { // a # ends a document name, a target without # is an id
+        assertRenderingContent("""
+                        = Guide
+
+                        [#openshift]
+                        == OpenShift
+
+                        See <<cdi-reference.adoc#remove_unused_beans,unused beans>>, <<config-reference#property-expressions>>, <<#openshift,the section>>, <<#openshift>>, <<guide.adoc>> and xref:cdi-reference.adoc#bean_discovery[].
+                        """,
+                """
+                         <div class="sect0">
+                          <h1 id="_guide">Guide</h1>
+                         <div class="sectionbody">
+                         <div class="sect1">
+                          <h2 id="openshift">OpenShift</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>See  <a href="cdi-reference.html#remove_unused_beans">unused beans</a>
+                        ,  <a href="config-reference.html#property-expressions">config-reference.html</a>
+                        ,  <a href="#openshift">the section</a>
+                        ,  <a href="#openshift">OpenShift</a>
+                        ,  <a href="#guide.adoc">[guide.adoc]</a>
+                         and  <a href="cdi-reference.html#bean_discovery">cdi-reference.html</a>
+                        .</p>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        :relfileprefix: ../
+                        :relfilesuffix: /
+
+                        See <<cdi-reference.adoc#remove_unused_beans,unused beans>>.
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="../cdi-reference/#remove_unused_beans">unused beans</a>
+                        .</p>
                          </div>
                         """);
     }

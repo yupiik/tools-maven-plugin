@@ -1212,13 +1212,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitAnchor(final Anchor element) {
-        final var id = element.value();
-        var text = element.label();
-        if (text == null || text.isBlank()) {
-            final var referenceText = state.referenceText(id);
-            text = referenceText != null ? referenceText : '[' + id + ']';
-        }
-        visitLink(new Link("#" + id, new Text(List.of(), text, Map.of()), Map.of()));
+        final var reference = sibling.shorthandCrossReference((element.value() == null ? "" : element.value()).strip(), state.asciidocExtensions());
+        final var target = crossReferenceTarget(reference);
+        final var label = element.label();
+        final var text = label == null || label.isBlank() ? crossReferenceText(reference, target) : label;
+        visitLink(new Link(target, new Text(List.of(), text, Map.of()), Map.of()));
     }
 
     @Override
@@ -1473,30 +1471,43 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         builder.append(" </div>\n");
     }
 
-    protected void visitXref(final Macro element) {
-        final var reference = sibling.crossReference(sibling.substitute(element.label(), context()).strip(), state.asciidocExtensions());
-        final String target;
+    /**
+     * @return where a cross reference points: {@code #id} in the same page; else the rendered document,
+     * {@code relfileprefix} + document + {@code relfilesuffix}, the suffix defaulting to {@code outfilesuffix} then to
+     * {@code .html}, or any other file as it is, followed by {@code #} and the fragment when there is one.
+     */
+    protected String crossReferenceTarget(final VisitorSibling.CrossReference reference) {
         if (reference.id() != null) {
-            target = "#" + reference.id();
-        } else {
-            final var path = reference.document() != null ?
-                    sibling.documentPath(reference.document(), context(), ".html") :
-                    sibling.relativeFile(reference.file(), context());
-            target = reference.fragment().isEmpty() ? path : path + '#' + reference.fragment();
+            return "#" + reference.id();
         }
+        final var path = reference.document() != null ?
+                sibling.documentPath(reference.document(), context(), ".html") :
+                sibling.relativeFile(reference.file(), context());
+        return reference.fragment().isEmpty() ? path : path + '#' + reference.fragment();
+    }
+
+    protected void visitXref(final Macro element) {
+        final var reference = sibling.crossReference((element.label() == null ? "" : element.label()).strip(), state.asciidocExtensions());
+        final var target = crossReferenceTarget(reference);
         final var label = element.options().get("");
         if (label != null) {
             builder.append(" <a href=\"").append(target).append("\">").append(parseLabel(label)).append("</a>\n");
         } else {
-            final String text;
-            if (reference.id() == null) {
-                text = element.label();
-            } else {
-                final var referenceText = state.referenceText(reference.id());
-                text = referenceText != null ? escape(referenceText) : '[' + reference.id() + ']'; // an id holds nothing to escape
-            }
-            builder.append(" <a href=\"").append(target).append("\">").append(text).append("</a>\n");
+            builder.append(" <a href=\"").append(target).append("\">").append(escape(crossReferenceText(reference, target))).append("</a>\n");
         }
+    }
+
+    /**
+     * @return what a cross reference without a text of its own shows, as asciidoctor writes it: in the same page, the
+     * reference text of the target, else its id between square brackets; for another page or file, the target without
+     * its fragment.
+     */
+    protected String crossReferenceText(final VisitorSibling.CrossReference reference, final String target) {
+        if (reference.id() != null) {
+            final var referenceText = state.referenceText(reference.id());
+            return referenceText != null ? referenceText : '[' + reference.id() + ']';
+        }
+        return reference.fragment().isEmpty() ? target : target.substring(0, target.length() - reference.fragment().length() - 1);
     }
 
     // FIXME: should it be done in Parser? but macro label isn't supposed to be interpreted in parser....

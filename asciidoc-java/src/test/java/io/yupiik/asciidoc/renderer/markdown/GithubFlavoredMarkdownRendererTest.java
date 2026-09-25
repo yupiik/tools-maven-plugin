@@ -108,6 +108,15 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void shorthandCrossReferencesToADocument() { // as asciidoctor reads <<target>>: a # ends a document name, a target without # is an id
+        assertEquals("See [unused beans](cdi-reference.md#remove_unused_beans), [property-expressions](config-reference.md#property-expressions) " +
+                        "and [\\[guide.adoc\\]](#guide.adoc).\n",
+                md("See <<cdi-reference.adoc#remove_unused_beans,unused beans>>, <<config-reference#property-expressions>> and <<guide.adoc>>."));
+        assertEquals("See [unused beans](../cdi-reference/index.md#remove_unused_beans).\n",
+                md("See <<cdi-reference.adoc#remove_unused_beans,unused beans>>.", Map.of("relfileprefix", "../", "relfilesuffix", "/index.md")));
+    }
+
+    @Test
     void crossReferencesUseRelFileAttributes() {
         final var md = md("See xref:advanced.adoc#editor[the editor].",
                 Map.of("relfileprefix", "../", "relfilesuffix", "/index.md"));
@@ -842,9 +851,17 @@ class GithubFlavoredMarkdownRendererTest {
         assertEquals("[label](value)\n", md(":name: value\n\nlink:{name}[label]\n"));
         assertEquals("[label](https://x.org/{name})\n", md(":name: value\n\nhttps://x.org/\\{name}[label]\n"));
         assertEquals("[label](https://x.org/value)\n", md(":name: value\n\nhttps://x.org/{name}[label]\n"));
-        // an image target and a link= option are still raw in the model, so they are substituted here
+        // the parser substitutes an image target too; a link= option is still raw in the model, so it is substituted here
         assertEquals("![{name}]({name}.png)\n", md(":name: value\n\nimage::\\{name}.png[]\n"));
+        assertEquals("![value](value.png)\n", md(":name: value\n\nimage::{name}.png[]\n"));
         assertEquals("[![a](a.png)]({name})\n", md(":name: value\n\nimage::a.png[link=\\{name}]\n"));
+    }
+
+    @Test
+    void escapedAttributeReferenceInAMacroTarget() { // the parser substitutes a cross reference or video target, so the renderer must not do it again
+        assertEquals("See [\\[{name}\\]](#{name}) and [\\[value\\]](#value).\n", md(":name: value\n\nSee xref:\\{name}[] and xref:{name}[].\n"));
+        assertEquals("[{name}.mp4]({name}.mp4)\n", md(":name: value\n\nvideo::\\{name}.mp4[]\n"));
+        assertEquals("[value.mp4](value.mp4)\n", md(":name: value\n\nvideo::{name}.mp4[]\n"));
     }
 
     @Test
