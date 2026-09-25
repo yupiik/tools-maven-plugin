@@ -746,7 +746,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             }
             case "include" -> throw unresolvedInclude(macro);
             case "video", "audio" -> {
-                final var target = sibling.substitute(macro.label(), context()).strip();
+                final var target = (macro.label() == null ? "" : macro.label()).strip();
                 builder.append('[').append(target).append("](").append(destination(target)).append(")\n\n");
             }
             default -> {
@@ -1016,7 +1016,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * {@code .md}; any other file keeps its name.
      */
     protected String xref(final Macro macro, final Map<String, String> options) {
-        final var reference = sibling.crossReference(sibling.substitute(macro.label(), context()).strip(), state.asciidocExtensions());
+        final var reference = sibling.crossReference((macro.label() == null ? "" : macro.label()).strip(), state.asciidocExtensions());
         var text = options.get("");
         if (reference.id() != null) {
             if (text == null || text.isBlank()) {

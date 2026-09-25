@@ -354,7 +354,8 @@ public class VisitorSibling {
     // ---------------------------------------------------------------------------------------------------- attributes
 
     /**
-     * Replaces {@code {name}} references in a string the parser did not evaluate (block titles, image targets, ...), as
+     * Replaces {@code {name}} references in a string the parser did not evaluate (block titles, the {@code link}
+     * option of an image, ...), as
      * asciidoctor reads them: a reference to an attribute the context does not define stays as written, and an escaped
      * reference, {@code \{name}} or {@code {name\}}, stays literal without its backslash.
      */
@@ -524,7 +525,7 @@ public class VisitorSibling {
      * {@code #id}, or an id without {@code #} and without extension, points at the same document; a file with one of
      * the AsciiDoc extensions or without extension before the {@code #} is a document; any other file keeps its name.
      *
-     * @param target             the target, its attribute references already substituted.
+     * @param target             the target, its attribute references already substituted by the parser.
      * @param asciidocExtensions the extensions of the AsciiDoc documents, see {@link #asciidocExtensions(ConditionalBlock.Context)}.
      * @return the parts of the target.
      */
@@ -599,11 +600,11 @@ public class VisitorSibling {
     }
 
     /**
-     * @return the target of an image, its attribute references substituted and prefixed with {@code imagesdir} unless
-     * it is absolute or a URI.
+     * @return the target of an image, its attribute references already substituted by the parser as for a link,
+     * prefixed with {@code imagesdir} unless it is absolute or a URI.
      */
     public String imageTarget(final Macro macro, final ConditionalBlock.Context context) {
-        var target = substitute(macro.label() == null ? "" : macro.label(), context).strip();
+        var target = (macro.label() == null ? "" : macro.label()).strip();
         if (!target.isEmpty() && !target.startsWith("/") && !isUri(target)) {
             final var imagesDir = context.attribute("imagesdir");
             if (imagesDir != null && !imagesDir.isBlank()) {

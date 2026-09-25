@@ -842,9 +842,17 @@ class GithubFlavoredMarkdownRendererTest {
         assertEquals("[label](value)\n", md(":name: value\n\nlink:{name}[label]\n"));
         assertEquals("[label](https://x.org/{name})\n", md(":name: value\n\nhttps://x.org/\\{name}[label]\n"));
         assertEquals("[label](https://x.org/value)\n", md(":name: value\n\nhttps://x.org/{name}[label]\n"));
-        // an image target and a link= option are still raw in the model, so they are substituted here
+        // the parser substitutes an image target too; a link= option is still raw in the model, so it is substituted here
         assertEquals("![{name}]({name}.png)\n", md(":name: value\n\nimage::\\{name}.png[]\n"));
+        assertEquals("![value](value.png)\n", md(":name: value\n\nimage::{name}.png[]\n"));
         assertEquals("[![a](a.png)]({name})\n", md(":name: value\n\nimage::a.png[link=\\{name}]\n"));
+    }
+
+    @Test
+    void escapedAttributeReferenceInAMacroTarget() { // the parser substitutes a cross reference or video target, so the renderer must not do it again
+        assertEquals("See [\\[{name}\\]](#{name}) and [\\[value\\]](#value).\n", md(":name: value\n\nSee xref:\\{name}[] and xref:{name}[].\n"));
+        assertEquals("[{name}.mp4]({name}.mp4)\n", md(":name: value\n\nvideo::\\{name}.mp4[]\n"));
+        assertEquals("[value.mp4](value.mp4)\n", md(":name: value\n\nvideo::{name}.mp4[]\n"));
     }
 
     @Test
