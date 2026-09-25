@@ -24,6 +24,7 @@ import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1286,6 +1287,106 @@ class GithubFlavoredMarkdownRendererTest {
                         1. The pages.
                         """,
                 renderer.result());
+    }
+
+    @Test
+    void unknownMacroFailsByDefault() { // most often a mistake in the document, so the default does not hide it
+        final var error = assertThrows(IllegalArgumentException.class, () -> md("Set tooltip:foo[a hint] here.\n"));
+        assertEquals("Unknown macro 'tooltip' in 'tooltip:foo[a hint]', set the attribute " +
+                "yupiik-renderer-githubflavoredmarkdown-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
+                error.getMessage());
+    }
+
+    @Test
+    void unknownMacroIgnored() {
+        assertEquals("Set  here.\n", md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: ignore\n\nSet tooltip:foo[a hint] here.\n"));
+    }
+
+    @Test
+    void unknownInlineMacroIsWrittenAsText() { // as asciidoctor writes a macro no extension registers
+        assertEquals("Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n",
+                md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: text\n\n" +
+                        "Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n"));
+    }
+
+    @Test
+    void unknownInlineMacroKeepsItsAttributesAsPlainText() { // not escaped, as any text of the document
+        assertEquals("See tooltip:foo[a <b> & c,role=x].\n",
+                md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: TEXT\n\nSee tooltip:foo[a <b> & c,role=x].\n"));
+    }
+
+    @Test
+    void unknownBlockMacroIsAParagraph() { // asciidoctor reads foo::bar[baz] as a paragraph, not as a block
+        assertEquals("before\n\nfoo::bar[baz]\n\nafter\n",
+                md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: text\n\nbefore\n\nfoo::bar[baz]\n\nafter\n"));
+    }
+
+    @Test
+    void unknownBlockMacroIgnored() {
+        assertEquals("before\n\nafter\n",
+                md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: ignore\n\nbefore\n\nfoo::bar[baz]\n\nafter\n"));
+    }
+
+    @Test
+    void unknownMacroModeFromTheConfiguration() { // the setter, when no attribute is set
+        final var body = new Parser().parseBody("Set tooltip:foo[a hint] here.\n",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT));
+        renderer.visitBody(body);
+        assertEquals("Set tooltip:foo[a hint] here.\n", renderer.result());
+    }
+
+    @Test
+    void unknownMacroAttributeFromTheConfigurationAttributes() { // the attribute can come with the configuration, not only the document
+        final var body = new Parser().parseBody("Set tooltip:foo[a hint] here.\n",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setAttributes(Map.of(GithubFlavoredMarkdownRenderer.UNKNOWN_MACRO_ATTRIBUTE, "text")));
+        renderer.visitBody(body);
+        assertEquals("Set tooltip:foo[a hint] here.\n", renderer.result());
+    }
+
+    @Test
+    void unknownMacroAttributeWinsOverTheConfigurationOption() { // a document sets the attribute, the application the option
+        final var document = new Parser().parse(
+                ":yupiik-renderer-githubflavoredmarkdown-unknownMacro: ignore\n\nSet tooltip:foo[a hint] here.\n",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT));
+        renderer.visit(document);
+        assertEquals("Set  here.\n", renderer.result());
+    }
+
+    @Test
+    void unknownMacroAttributeValueMustBeKnown() {
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: foo\n\nSet tooltip:foo[a hint] here.\n"));
+        assertEquals("Unknown value 'foo' for the attribute yupiik-renderer-githubflavoredmarkdown-unknownMacro, expected fail, ignore or text",
+                error.getMessage());
+    }
+
+    @Test
+    void preprocessorDirectiveLeftByTheParserWritesNothing() { // an endif::[] after a list item, a parser gap; not an unknown macro
+        assertEquals("- item\n", md("* item\nendif::[]\n"));
+    }
+
+    @Test
+    void onMissingMacroRendersTheMacrosOfASubclass() { // the extension point for the macros an application defines
+        final var body = new Parser().parseBody("Set tooltip:foo[a hint] and other:x[] here.\n",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT)) {
+            @Override
+            protected String onMissingMacro(final Macro macro) {
+                if ("tooltip".equals(macro.name())) {
+                    return "<span title=\"" + macro.options().get("") + "\">" + macro.label() + "</span>";
+                }
+                return super.onMissingMacro(macro);
+            }
+        };
+        renderer.visitBody(body);
+        assertEquals("Set <span title=\"a hint\">foo</span> and other:x[] here.\n", renderer.result());
     }
 
     private static String md(final String asciidoc) {

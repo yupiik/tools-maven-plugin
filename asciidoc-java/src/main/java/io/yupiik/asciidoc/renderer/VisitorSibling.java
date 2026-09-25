@@ -41,6 +41,7 @@ import io.yupiik.asciidoc.model.UnOrderedList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static java.util.stream.Collectors.joining;
 
@@ -462,6 +463,52 @@ public class VisitorSibling {
     public String content(final Macro macro) {
         final var label = macro.label() == null ? "" : macro.label();
         return label.isBlank() ? options(macro.options()).getOrDefault("", "") : label;
+    }
+
+    /**
+     * Writes a macro back in AsciiDoc syntax, so a renderer can show a macro it does not know as asciidoctor shows a
+     * macro no extension registers: the name, {@code :} ({@code ::} for the block form), the target, then the attribute
+     * list between brackets, its positional value first and the named attributes as {@code name=value} in alphabetical
+     * order. The parser reads the list into a map, so the quotes and the spaces written in the list are not kept.
+     *
+     * @return the macro in AsciiDoc syntax, as {@code tooltip:foo[a hint,role=x]}.
+     */
+    public String macroSource(final Macro macro) {
+        final var source = new StringBuilder(macro.name()).append(macro.inline() ? ":" : "::");
+        if (macro.label() != null) {
+            source.append(macro.label());
+        }
+        source.append('[');
+        final var attributes = new TreeMap<>(options(macro.options()));
+        final var positional = attributes.remove("");
+        if (positional != null) {
+            source.append(positional);
+        }
+        for (final var attribute : attributes.entrySet()) {
+            if (source.charAt(source.length() - 1) != '[') {
+                source.append(',');
+            }
+            source.append(attribute.getKey()).append('=').append(attribute.getValue());
+        }
+        return source.append(']').toString();
+    }
+
+    /**
+     * @return what a renderer does with a macro it has no method for: the value of the attribute in the context, in
+     * any case, else the fallback, the option of the renderer configuration.
+     * @throws IllegalArgumentException when the attribute is set to something else than an {@link UnknownMacro} name.
+     */
+    public UnknownMacro unknownMacro(final String attribute, final ConditionalBlock.Context context, final UnknownMacro fallback) {
+        final var value = context.attribute(attribute);
+        if (value == null) {
+            return fallback;
+        }
+        for (final var mode : UnknownMacro.values()) {
+            if (mode.name().equalsIgnoreCase(value.strip())) {
+                return mode;
+            }
+        }
+        throw new IllegalArgumentException("Unknown value '" + value + "' for the attribute " + attribute + ", expected fail, ignore or text");
     }
 
     /**

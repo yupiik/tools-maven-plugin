@@ -40,6 +40,7 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
 import io.yupiik.asciidoc.renderer.VisitorState;
@@ -59,8 +60,9 @@ import static java.util.stream.Collectors.joining;
  * Every block appends its Markdown followed by a blank line. Nested content (admonitions, quotes, list items,
  * table cells) is rendered by the same renderer into a temporary buffer, so a subclass's overrides apply at any
  * depth. When neither the document nor the configuration defines an attribute, its reference stays literal, as
- * asciidoctor does with {@code attribute-missing=skip}. An unknown construct never throws, the renderer falls back to
- * the element text; only an {@code include} macro fails, since the parser resolves includes before any rendering.
+ * asciidoctor does with {@code attribute-missing=skip}. A macro the renderer has no case for fails by default, or is
+ * ignored or written as text, see {@link Configuration#setUnknownMacro(UnknownMacro)}; an {@code include} macro always
+ * fails, since the parser resolves includes before any rendering.
  * <p>
  * The renderer writes the Markdown. It reads the values of the model that need parsing (ids, styles, options,
  * targets, macro labels) with a {@link VisitorSibling}, and keeps the document, the section index and the footnotes in a
@@ -966,7 +968,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case "indexterm2" -> options.getOrDefault("", label); // indexterm2:[term] shows the term
             case "footnote", "footnoteref", "doublefootnote" -> footnote(macro);
             case "stem", "latexmath", "asciimath" -> "$" + sibling.content(macro).strip() + "$";
-            default -> options.getOrDefault("", label);
+            case "ifdef", "ifndef", "ifeval", "endif" -> preprocessorDirective(macro);
+            default -> onMissingMacro(macro);
         };
     }
 
@@ -986,6 +989,37 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      */
     protected IllegalArgumentException unresolvedInclude(final Macro macro) {
         return new IllegalArgumentException("Unresolved include: '" + macro.label() + "', the parser resolves includes before rendering");
+    }
+
+    /**
+     * A preprocessor directive the parser did not consume, such as an {@code endif::[]} line right after a list item:
+     * asciidoctor removes the line before it parses the document, so the directive has no output.
+     */
+    protected String preprocessorDirective(final Macro macro) {
+        return "";
+    }
+
+    /**
+     * Renders a macro the renderer has no case for, as {@link #unknownMacro()} says: fails, writes nothing, or writes
+     * the macro as text, as asciidoctor writes a macro no extension registers, the block form becoming a paragraph.
+     * A subclass overrides it to render its own macros.
+     */
+    protected String onMissingMacro(final Macro macro) {
+        return switch (unknownMacro()) {
+            case FAIL -> throw new IllegalArgumentException(
+                    "Unknown macro '" + macro.name() + "' in '" + sibling.macroSource(macro) + "', set the attribute " +
+                            UNKNOWN_MACRO_ATTRIBUTE + " or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it");
+            case IGNORE -> "";
+            case TEXT -> sibling.macroSource(macro);
+        };
+    }
+
+    /**
+     * @return what to do with a macro the renderer has no case for: the value of {@link #UNKNOWN_MACRO_ATTRIBUTE}
+     * in the document, else in the attributes of the configuration, else {@link Configuration#setUnknownMacro(UnknownMacro)}.
+     */
+    protected UnknownMacro unknownMacro() {
+        return sibling.unknownMacro(UNKNOWN_MACRO_ATTRIBUTE, context(), configuration.getUnknownMacro());
     }
 
     /**
@@ -1070,9 +1104,25 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return options == null ? Map.of() : options;
     }
 
+    /**
+     * The attribute holding an {@link UnknownMacro} value, in any case: {@code :yupiik-renderer-githubflavoredmarkdown-unknownMacro: text}.
+     */
+    public static final String UNKNOWN_MACRO_ATTRIBUTE = "yupiik-renderer-githubflavoredmarkdown-unknownMacro";
+
     @Getter
     public static class Configuration {
         private Map<String, String> attributes = Map.of();
+        private UnknownMacro unknownMacro = UnknownMacro.FAIL;
+
+        /**
+         * @param unknownMacro what the renderer does with a macro it has no case for, {@link UnknownMacro#FAIL} by
+         *                     default; the attribute {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
+         * @return this.
+         */
+        public Configuration setUnknownMacro(final UnknownMacro unknownMacro) {
+            this.unknownMacro = unknownMacro;
+            return this;
+        }
 
         /**
          * @param attributes attributes resolved when the document does not define them
