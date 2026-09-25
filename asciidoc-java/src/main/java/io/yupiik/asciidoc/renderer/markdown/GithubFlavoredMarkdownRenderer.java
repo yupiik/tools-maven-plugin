@@ -70,6 +70,9 @@ import static java.util.stream.Collectors.joining;
  * Like {@link io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer} it is not thread safe.
  */
 public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
+    // the characters commonmark reads as markup wherever they sit in a line; '_' is added by escapeText() outside a word
+    protected static final String MARKUP_CHARACTERS = "\\\\`*[]<~";
+
     protected final Configuration configuration;
     protected final VisitorSibling sibling;
     protected final VisitorState state; // this is why we are not thread safe
@@ -173,7 +176,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         for (final var section : state.tocSections()) {
             if (section.level() <= levels) {
                 builder.append("  ".repeat(section.level() - top))
-                        .append("- [").append(escape(section.title(), "[]")).append("](#").append(section.id()).append(")\n");
+                        .append("- [").append(escapeText(section.title())).append("](#").append(section.id()).append(")\n");
             }
         }
         builder.append('\n');
@@ -282,13 +285,13 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return value == null || value.isEmpty() || Character.isWhitespace(value.charAt(0)) || ".,;:!?)]}".indexOf(value.charAt(0)) >= 0;
     }
 
-    private void paragraph(final String text) {
+    protected void paragraph(final String text) {
         var value = text.strip();
         if (value.endsWith("\\")) { // a line break ending the paragraph
             value = value.substring(0, value.length() - 1).strip();
         }
         if (!value.isEmpty()) {
-            builder.append(value).append("\n\n");
+            builder.append(escapeLineStarts(value)).append("\n\n");
         }
     }
 
@@ -543,11 +546,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             segments.set(0, wrapped.children());
         }
         final var first = segments.isEmpty() || !sibling.isInline(segments.get(0).get(0)) ? List.<Element>of() : segments.remove(0);
-        builder.append(marker).append(checkbox(item)).append(inlineChildren(first).strip()).append('\n');
+        builder.append(marker).append(checkbox(item)).append(escapeLineStarts(inlineChildren(first).strip())).append('\n');
         final var indent = " ".repeat(marker.length());
         // the rest of the item, in source order: continuation paragraphs, code blocks, nested lists
         for (final var segment : segments) {
-            final var rendered = segment.size() == 1 && !sibling.isInline(segment.get(0)) ? block(segment) : inlineChildren(segment).strip();
+            final var rendered = segment.size() == 1 && !sibling.isInline(segment.get(0)) ?
+                    block(segment) : escapeLineStarts(inlineChildren(segment).strip());
             if (rendered.isEmpty()) {
                 continue;
             }
@@ -584,7 +588,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             } else if (sibling.isInline(description) || description instanceof Paragraph paragraph
                     && paragraph.children().stream().allMatch(sibling::isInline)
                     && segments(paragraph.children(), true).size() == 1) {
-                builder.append("\\\n").append(inline(description).strip()).append("\n\n");
+                builder.append("\\\n").append(escapeLineStarts(inline(description).strip())).append("\n\n");
             } else {
                 builder.append("\n\n").append(indent(block(List.of(description)), "  ")).append("\n\n");
             }
@@ -800,7 +804,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         final var id = options.get("id");
         final var prefix = id != null && !id.isBlank() ? "<a id=\"" + id.strip() + "\"></a>" : "";
         if (text.style() == null || text.style().isEmpty() || value.isBlank()) {
-            return prefix + value;
+            return prefix + escapeText(value);
         }
         // GFM emphasis cannot start or end with a space: keep surrounding whitespace outside the markup
         int start = 0;
@@ -811,7 +815,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         while (end > start && Character.isWhitespace(value.charAt(end - 1))) {
             end--;
         }
-        var styled = value.substring(start, end);
+        var styled = escapeText(value.substring(start, end));
         for (final var style : text.style()) {
             styled = switch (style) {
                 case BOLD -> "**" + styled + "**";
@@ -863,35 +867,110 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             // escaped so a <name> placeholder in it is not read as an HTML tag
             return (sibling.isUri(target) && target.equals(destination(target)) ?
                     "<" + target + ">" :
-                    "[" + escapeLinkText(target) + "](" + destination(target) + ")") + closing;
+                    "[" + escapeText(target) + "](" + destination(target) + ")") + closing;
         }
         return "[" + label + "](" + destination(url) + ")";
     }
 
     /**
-     * @return the text of a link with its brackets escaped, so they do not end the text, and its angle brackets
-     * escaped, so a {@code <name>} placeholder is not read as an HTML tag.
+     * Writes a text the author wrote as text, so a Markdown parser shows it as written: a backslash goes before each
+     * character commonmark reads as markup. A {@code &} stays as written, since a character reference resolves the
+     * same way in both outputs, and a {@code >} stays too, since it opens nothing inside a line; the {@code >} of a
+     * block quote is escaped by {@link #escapeBlockStart(String)}. A subclass that wants the text as is overrides
+     * this method.
+     *
+     * @return the text with a backslash before each character a Markdown parser would read as markup.
      */
-    protected String escapeLinkText(final String text) {
-        return escape(text, "[]<>");
-    }
-
-    /**
-     * @return the text with a backslash before each of the characters.
-     */
-    protected String escape(final String text, final String characters) {
+    protected String escapeText(final String text) {
         StringBuilder escaped = null; // most texts have nothing to escape, then the text is returned as is
         int copied = 0;
         for (int i = 0; i < text.length(); i++) {
-            if (characters.indexOf(text.charAt(i)) >= 0) {
-                if (escaped == null) {
-                    escaped = new StringBuilder(text.length() + 8);
-                }
-                escaped.append(text, copied, i).append('\\');
-                copied = i;
+            final char c = text.charAt(i);
+            if (MARKUP_CHARACTERS.indexOf(c) < 0 && !(c == '_' && isEmphasisUnderscore(text, i))) {
+                continue;
             }
+            if (escaped == null) {
+                escaped = new StringBuilder(text.length() + 8);
+            }
+            escaped.append(text, copied, i).append('\\');
+            copied = i;
         }
         return escaped == null ? text : escaped.append(text, copied, text.length()).toString();
+    }
+
+    /**
+     * @return true for an underscore commonmark can read as emphasis, which it does not do inside a word, so
+     * {@code snake_case} stays as written while {@code key:_value_} is escaped.
+     */
+    protected boolean isEmphasisUnderscore(final String text, final int index) {
+        return index == 0 || index + 1 == text.length()
+                || !sibling.isWordCharacter(text.charAt(index - 1))
+                || !sibling.isWordCharacter(text.charAt(index + 1));
+    }
+
+    /**
+     * @return the value with the first character of each line escaped when a Markdown parser would read it as the
+     * start of a block, at the value and after each hard line break.
+     */
+    protected String escapeLineStarts(final String value) {
+        var escaped = escapeBlockStart(value);
+        for (int i = escaped.indexOf("\\\n"); i >= 0; i = escaped.indexOf("\\\n", i + 2)) {
+            escaped = escaped.substring(0, i + 2) + escapeBlockStart(escaped.substring(i + 2));
+        }
+        return escaped;
+    }
+
+    /**
+     * @return the line with a backslash before the character that would start a heading, a list item, a block quote,
+     * a thematic break or a setext underline; the line as it is when it starts none of them.
+     */
+    protected String escapeBlockStart(final String line) {
+        if (line.isEmpty()) {
+            return line;
+        }
+        final char first = line.charAt(0);
+        if (first == '>') {
+            return "\\" + line;
+        }
+        if (first == '#') {
+            int run = 1;
+            while (run < line.length() && line.charAt(run) == '#') {
+                run++;
+            }
+            return run <= 6 && (run == line.length() || line.charAt(run) == ' ' || line.charAt(run) == '\t') ?
+                    "\\" + line : line;
+        }
+        if ((first == '-' || first == '+') && (line.length() == 1 || line.charAt(1) == ' ' || line.charAt(1) == '\t')) {
+            return "\\" + line;
+        }
+        if ((first == '-' || first == '=') && isRepeated(line, first)) {
+            return "\\" + line;
+        }
+        if (Character.isDigit(first)) {
+            int digits = 1;
+            while (digits < line.length() && digits < 9 && Character.isDigit(line.charAt(digits))) {
+                digits++;
+            }
+            if (digits < line.length() && (line.charAt(digits) == '.' || line.charAt(digits) == ')')
+                    && (digits + 1 == line.length() || line.charAt(digits + 1) == ' ' || line.charAt(digits + 1) == '\t')) {
+                return line.substring(0, digits) + '\\' + line.substring(digits);
+            }
+        }
+        return line;
+    }
+
+    /**
+     * @return true when the line holds nothing but this character, spaces and tabs, which is a thematic break or a
+     * setext underline.
+     */
+    protected boolean isRepeated(final String line, final char c) {
+        for (int i = 1; i < line.length(); i++) {
+            final char other = line.charAt(i);
+            if (other != c && other != ' ' && other != '\t') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -935,7 +1014,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      */
     protected String referenceLinkText(final String id) {
         final var referenceText = state.referenceText(id);
-        return referenceText != null ? escape(referenceText, "[]") : "\\[" + id + "\\]";
+        return referenceText != null ? escapeText(referenceText) : "\\[" + id + "\\]";
     }
 
     private String attributeText(final Attribute attribute) {

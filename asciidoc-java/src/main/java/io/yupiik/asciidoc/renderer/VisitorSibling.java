@@ -398,7 +398,11 @@ public class VisitorSibling {
         return out == null ? text : out.append(text, copied, text.length()).toString();
     }
 
-    private boolean isWordCharacter(final char c) {
+    /**
+     * @return true for a character asciidoctor and commonmark both treat as part of a word, which is what decides
+     * whether a constrained pair of {@code *} or {@code _} opens.
+     */
+    public boolean isWordCharacter(final char c) {
         return Character.isLetterOrDigit(c) || c == '_';
     }
 

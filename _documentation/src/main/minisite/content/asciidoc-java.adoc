@@ -50,6 +50,7 @@ The Markdown renderer writes each construct as follows:
 [options="header",cols="1,2"]
 |====
 |AsciiDoc|Markdown
+|Plain text|Written with a backslash before each character a Markdown parser reads as markup: `\`, `` ` ``, `*`, `[`, `]`, `<`, `~`, and `_` outside a word. A `&` stays as written, since a character reference resolves the same way in both outputs. At the start of a line a `#`, `-`, `+`, `>`, `=` or ordered list marker is escaped too, so text does not become a block. Code, passthroughs, link targets and the HTML the renderer writes stay as they are.
 |Section (`== Title`)|ATX heading (`## Title`).
 |Source block|Fenced code block with the language. A diagram style such as `[mermaid]` is kept as the language.
 |Table|Pipe table.
@@ -66,7 +67,7 @@ The Markdown renderer writes each construct as follows:
 
 When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An `include` macro reaching the renderer fails, since the parser resolves includes before rendering.
 
-One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
+A subclass that wants a text run written as it is overrides `escapeText`. One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
 
 The Markdown renderer reads these attributes:
 

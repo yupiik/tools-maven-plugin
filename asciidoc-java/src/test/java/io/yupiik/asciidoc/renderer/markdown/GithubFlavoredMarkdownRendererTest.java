@@ -1170,7 +1170,8 @@ class GithubFlavoredMarkdownRendererTest {
 
     @Test
     void urlInAngleBracketsKeepsTheClosingBracketOutOfTheLink() { // from the Quarkus guide building-native-image.adoc
-        assertEquals("- Download from <<https://github.com/graalvm/mandrel/releases>>, and unpack it.\n",
+        // the first < is text the author wrote, so it is escaped; the second one opens the autolink
+        assertEquals("- Download from \\<<https://github.com/graalvm/mandrel/releases>>, and unpack it.\n",
                 md("* Download from <https://github.com/graalvm/mandrel/releases>, and unpack it."));
     }
 
@@ -1239,6 +1240,78 @@ class GithubFlavoredMarkdownRendererTest {
                         Hidden.
                         ****
                         """));
+    }
+
+    @Test
+    void plainTextEscapesTheMarkupCharacters() { // commonmark reads them as markup where asciidoc does not
+        assertEquals("Use a\\*b\\*c here.\n", md("Use a*b*c here."));
+        assertEquals("A lone \\` backtick.\n", md("A lone ` backtick."));
+        assertEquals("Compare a \\<b> c here.\n", md("Compare a <b> c here."));
+        assertEquals("A \\[bracketed\\] word.\n", md("A [bracketed] word."));
+    }
+
+    @Test
+    void anUnderscoreIsEscapedOnlyOutsideAWord() { // commonmark does not open emphasis with _ inside a word
+        assertEquals("Use snake_case_here today.\n", md("Use snake_case_here today."));
+        assertEquals("Set key:\\_value\\_ here.\n", md("Set key:_value_ here."));
+    }
+
+    @Test
+    void anAmpersandStaysAsWritten() { // a character reference resolves the same way in both outputs
+        assertEquals("R&D and &amp; stay.\n", md("R&D and &amp; stay."));
+    }
+
+    @Test
+    void aStyledRunEscapesItsTextInsideTheMarkers() {
+        assertEquals("**bold with a \\< in it**\n", md("*bold with a < in it*"));
+    }
+
+    @Test
+    void aBlockMarkerAtTheStartOfALineIsEscaped() {
+        assertEquals("\\# not a heading\n", md("""
+                :h: #
+
+                {h} not a heading
+                """));
+        assertEquals("first\\\n\\> not a quote\n", md("""
+                :g: >
+
+                first +
+                {g} not a quote
+                """));
+    }
+
+    @Test
+    void verbatimContentIsNotEscaped() {
+        assertEquals("Use `a*b*c` and `x_y_z` here.\n", md("Use `a*b*c` and `x_y_z` here."));
+        assertEquals("```text\na*b*c and <div>\n```\n", md("""
+                [source,text]
+                ----
+                a*b*c and <div>
+                ----
+                """));
+        assertEquals("<b>a*b*c</b>\n", md("""
+                ++++
+                <b>a*b*c</b>
+                ++++
+                """));
+    }
+
+    @Test
+    void aLinkEscapesItsTextAndNotItsDestination() {
+        assertEquals("See [the page](https://x.org/a_b*c).\n", md("See https://x.org/a_b*c[the page]."));
+        assertEquals("See [a\\*b\\*c](https://x.org).\n", md("See https://x.org[a*b*c]."));
+    }
+
+    @Test
+    void aTableCellEscapesTheMarkupAndKeepsOnePipe() {
+        assertEquals("| name | value |\n| --- | --- |\n| a\\*b\\*c | 1 \\| one |\n", md("""
+                |===
+                |name |value
+
+                |a*b*c |1 \\| one
+                |===
+                """));
     }
 
     @Test
