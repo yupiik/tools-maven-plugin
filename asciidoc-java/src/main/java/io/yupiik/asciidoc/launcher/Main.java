@@ -18,6 +18,7 @@ package io.yupiik.asciidoc.launcher;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.html.AsciidoctorLikeHtmlRenderer;
 
 import java.io.IOException;
@@ -25,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -76,6 +78,9 @@ public final class Main {
                 i++;
             } else if ("--skip-global-content-wrapper".equals(args[i])) {
                 configuration.setSkipGlobalContentWrapper(Boolean.parseBoolean(args[i + 1]));
+                i++;
+            } else if ("--unknown-macro".equals(args[i])) { // fail (default), ignore or text
+                configuration.setUnknownMacro(UnknownMacro.valueOf(args[i + 1].strip().toUpperCase(Locale.ROOT)));
                 i++;
             } else if ("--watch".equals(args[i])) {
                 watch = Long.parseLong(args[i + 1]);

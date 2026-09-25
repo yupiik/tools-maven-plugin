@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VisitorSiblingTest { // the options come from the parser, so a change of the parser shows here
@@ -89,6 +90,28 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
                 """)).options();
         assertTrue(sibling.hasOption(table, "footer"));
         assertFalse(sibling.hasOption(table, "autowidth"));
+    }
+
+    @Test
+    void macroSource() { // what the HTML renderer writes for a macro it does not know
+        assertEquals("tooltip:foo[a hint,role=x]",
+                sibling.macroSource(new Macro("tooltip", "foo", Map.of("", "a hint", "role", "x"), true)));
+        assertEquals("config_property_copy_button:quarkus.http.port[]",
+                sibling.macroSource(new Macro("config_property_copy_button", "quarkus.http.port", Map.of(), true)));
+        assertEquals("foo::bar[baz]", sibling.macroSource(new Macro("foo", "bar", Map.of("", "baz"), false)));
+        assertEquals("foo::[id=a,role=b]", sibling.macroSource(new Macro("foo", "", Map.of("role", "b", "id", "a"), false)));
+        assertEquals("foo:[]", sibling.macroSource(new Macro("foo", null, null, true)));
+    }
+
+    @Test
+    void unknownMacro() { // the attribute of a renderer, in any case, else the option of its configuration
+        final ConditionalBlock.Context none = key -> null;
+        assertSame(UnknownMacro.FAIL, sibling.unknownMacro("x-unknownMacro", none, UnknownMacro.FAIL));
+        assertSame(UnknownMacro.TEXT, sibling.unknownMacro("x-unknownMacro", none, UnknownMacro.TEXT));
+        assertSame(UnknownMacro.IGNORE, sibling.unknownMacro("x-unknownMacro", key -> "x-unknownMacro".equals(key) ? " Ignore " : null, UnknownMacro.FAIL));
+        assertSame(UnknownMacro.TEXT, sibling.unknownMacro("x-unknownMacro", key -> "text", UnknownMacro.IGNORE));
+        assertEquals("Unknown value 'foo' for the attribute x-unknownMacro, expected fail, ignore or text",
+                assertThrows(IllegalArgumentException.class, () -> sibling.unknownMacro("x-unknownMacro", key -> "foo", UnknownMacro.FAIL)).getMessage());
     }
 
     @Test

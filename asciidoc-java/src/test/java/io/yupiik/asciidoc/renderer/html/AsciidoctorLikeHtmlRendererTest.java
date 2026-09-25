@@ -16,10 +16,12 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.Document;
+import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
@@ -36,6 +38,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AsciidoctorLikeHtmlRendererTest {
@@ -2425,6 +2428,124 @@ class AsciidoctorLikeHtmlRendererTest {
                 " <div class=\"paragraph\">\n" +
                         " <p>Press <kbd>Ctrl</kbd> + <kbd>F5</kbd>\n to refresh.</p>\n" +
                         " </div>\n");
+    }
+
+    @Test
+    void unknownMacroFailsByDefault() { // most often a mistake in the document, so the default does not hide it
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> assertRenderingContent("Set tooltip:foo[a hint] here.", ""));
+        assertEquals("Unknown macro 'tooltip' in 'tooltip:foo[a hint]', set the attribute " +
+                "yupiik-renderer-asciidoctorlikehtml-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
+                error.getMessage());
+    }
+
+    @Test
+    void unknownMacroIgnored() {
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: ignore\n\nSet tooltip:foo[a hint] here.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Set  here.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void unknownInlineMacroIsWrittenAsText() { // as asciidoctor writes a macro no extension registers
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\n" +
+                        "Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void unknownInlineMacroKeepsItsAttributesAndEscapesItsText() {
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: TEXT\n\nSee tooltip:foo[a <b> & c,role=x].",
+                " <div class=\"paragraph\">\n" +
+                        " <p>See tooltip:foo[a &lt;b&gt; &amp; c,role=x].</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void unknownBlockMacroIsAParagraph() { // asciidoctor reads foo::bar[baz] as a paragraph, not as a block
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\nbefore\n\nfoo::bar[baz]\n\nafter\n",
+                " <div class=\"paragraph\">\n <p>\nbefore\n </p>\n </div>\n" +
+                        " <div class=\"paragraph\">\n <p>\nfoo::bar[baz]\n </p>\n </div>\n" +
+                        " <div class=\"paragraph\">\n <p>\nafter\n </p>\n </div>\n");
+    }
+
+    @Test
+    void unknownMacroModeFromTheConfiguration() { // the setter, when no attribute is set
+        final var doc = new Parser().parseBody("Set tooltip:foo[a hint] here.",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT)
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals(" <div class=\"paragraph\">\n <p>Set tooltip:foo[a hint] here.</p>\n </div>\n", renderer.result());
+    }
+
+    @Test
+    void unknownMacroAttributeValueMustBeKnown() {
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: foo\n\nSet tooltip:foo[a hint] here.", ""));
+        assertEquals("Unknown value 'foo' for the attribute yupiik-renderer-asciidoctorlikehtml-unknownMacro, expected fail, ignore or text",
+                error.getMessage());
+    }
+
+    @Test
+    void unknownBlockMacroIgnored() { // nothing, not even the empty block the renderer wrote before
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: ignore\n\nbefore\n\nfoo::bar[baz]\n\nafter\n",
+                " <div class=\"paragraph\">\n <p>\nbefore\n </p>\n </div>\n" +
+                        " <div class=\"paragraph\">\n <p>\nafter\n </p>\n </div>\n");
+    }
+
+    @Test
+    void unknownMacroAttributeFromTheConfigurationAttributes() { // the attribute can come with the configuration, not only the document
+        final var doc = new Parser().parseBody("Set tooltip:foo[a hint] here.",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", AsciidoctorLikeHtmlRenderer.UNKNOWN_MACRO_ATTRIBUTE, "text")));
+        renderer.visitBody(doc);
+        assertEquals(" <div class=\"paragraph\">\n <p>Set tooltip:foo[a hint] here.</p>\n </div>\n", renderer.result());
+    }
+
+    @Test
+    void unknownMacroAttributeWinsOverTheConfigurationOption() { // a document sets the attribute, the application the option
+        final var doc = new Parser().parse(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: ignore\n\nSet tooltip:foo[a hint] here.\n",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT)
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertTrue(renderer.result().contains(" <p>Set  here.</p>\n"), renderer.result());
+    }
+
+    @Test
+    void preprocessorDirectiveLeftByTheParserKeepsItsEmptyBlock() { // an endif::[] after a list item, a parser gap; not an unknown macro
+        assertRenderingContent("* item\nendif::[]\n",
+                " <div class=\"ulist\">\n <ul>\n  <li>\n <div class=\"paragraph\">\nitem <div class=\"endifblock\">\n" +
+                        " <div class=\"content\">\n </div>\n </div>\n </div>\n  </li>\n </ul>\n </div>\n");
+    }
+
+    @Test
+    void onMissingMacroRendersTheMacrosOfASubclass() { // the extension point for the macros an application defines
+        final var doc = new Parser().parseBody("Set tooltip:foo[a hint] and other:x[] here.",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setUnknownMacro(UnknownMacro.TEXT)
+                .setAttributes(Map.of("noheader", "true"))) {
+            @Override
+            protected void onMissingMacro(final Macro element) {
+                if ("tooltip".equals(element.name())) {
+                    builder.append("<span title=\"").append(escape(element.options().get(""))).append("\">")
+                            .append(escape(element.label())).append("</span>");
+                    return;
+                }
+                super.onMissingMacro(element);
+            }
+        };
+        renderer.visitBody(doc);
+        assertEquals(" <div class=\"paragraph\">\n <p>Set <span title=\"a hint\">foo</span> and other:x[] here.</p>\n </div>\n",
+                renderer.result());
     }
 
     @Test
