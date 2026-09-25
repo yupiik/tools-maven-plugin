@@ -93,11 +93,11 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
 
     @Test
     void kbdKeys() {
-        final var macros = ((Paragraph) parse("Press kbd:[Ctrl+Shift+T], kbd:[Ctrl++] or kbd:[Ctrl,Shift].")).children().stream()
+        final var macros = ((Paragraph) parse("Press kbd:[Ctrl+Shift+T], kbd:[Ctrl++], kbd:[Ctrl,Shift] or kbd:[Ctrl + ,].")).children().stream()
                 .filter(Macro.class::isInstance)
                 .map(Macro.class::cast)
                 .toList();
-        assertEquals(List.of(List.of("Ctrl", "Shift", "T"), List.of("Ctrl", "+"), List.of("Ctrl", "Shift")),
+        assertEquals(List.of(List.of("Ctrl", "Shift", "T"), List.of("Ctrl", "+"), List.of("Ctrl", "Shift"), List.of("Ctrl", ",")),
                 macros.stream().map(sibling::kbdKeys).toList());
     }
 

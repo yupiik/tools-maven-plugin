@@ -1700,18 +1700,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitKbd(final Macro element) {
-        final var label = sibling.content(element);
-        final var keys = label.split("\\+");
-        if (keys.length > 1) {
-            for (int i = 0; i < keys.length; i++) {
+        final var keys = sibling.kbdKeys(element);
+        if (keys.size() > 1) {
+            for (int i = 0; i < keys.size(); i++) {
                 if (i > 0) {
                     builder.append(" + ");
                 }
-                builder.append("<kbd>").append(escape(keys[i].strip())).append("</kbd>");
+                builder.append("<kbd>").append(escape(keys.get(i))).append("</kbd>");
             }
             builder.append('\n');
         } else {
-            builder.append(" <kbd>").append(escape(label)).append("</kbd>\n");
+            builder.append(" <kbd>").append(escape(keys.isEmpty() ? "" : keys.get(0))).append("</kbd>\n");
         }
     }
 

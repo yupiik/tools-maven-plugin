@@ -2428,6 +2428,34 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void kbdMacroKeys() { // as asciidoctor, the keys are split on the first , or + after the first character
+        assertRenderingContent("Press kbd:[Ctrl,Shift] to select.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd>\n to select.</p>\n" +
+                        " </div>\n");
+        assertRenderingContent("Press kbd:[Ctrl+Shift+T] to reopen.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd>\n to reopen.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void kbdMacroTrailingDelimiterIsAKey() { // kbd:[Ctrl++] is Ctrl and +, kbd:[Ctrl + ,] is Ctrl and ,
+        assertRenderingContent("Press kbd:[Ctrl++] to zoom.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press <kbd>Ctrl</kbd> + <kbd>+</kbd>\n to zoom.</p>\n" +
+                        " </div>\n");
+        assertRenderingContent("Press kbd:[Ctrl + ,] to open the settings.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press <kbd>Ctrl</kbd> + <kbd>,</kbd>\n to open the settings.</p>\n" +
+                        " </div>\n");
+        assertRenderingContent("Press kbd:[+] to add.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Press  <kbd>+</kbd>\n to add.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void qAndADescriptionList() {
         assertRenderingContent("[qanda]\nQ1:: A1\nQ2:: A2\n",
                 " <div class=\"qlist qanda\">\n" +
