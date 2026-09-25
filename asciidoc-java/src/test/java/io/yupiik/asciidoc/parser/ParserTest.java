@@ -2704,6 +2704,16 @@ class ParserTest {
     }
 
     @Test
+    void kbdKeepsItsBrackets() { // as stem, kbd keeps what is between its brackets, the renderer splits the keys
+        final var body = new Parser().parseBody(new Reader(List.of("Press kbd:[Ctrl,Shift] or kbd:[Ctrl + ,].".split("\n"))), null);
+        assertEquals(
+                List.of(new Macro("kbd", "Ctrl,Shift", Map.of(), true), new Macro("kbd", "Ctrl + ,", Map.of(), true)),
+                ((Paragraph) body.children().get(0)).children().stream()
+                        .filter(Macro.class::isInstance)
+                        .toList());
+    }
+
+    @Test
     void include() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""

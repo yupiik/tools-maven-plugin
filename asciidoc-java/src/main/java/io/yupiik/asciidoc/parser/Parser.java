@@ -1909,10 +1909,12 @@ public class Parser {
                             if (macroMarker > 0 && !isLink(optionsPrefix)) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
-                                final var isStemLike = "stem".equals(type) || "latexmath".equals(type) || "asciimath".equals(type);
+                                // as asciidoctor, these macros keep the brackets as written, the renderer reads them
+                                final var rawContent = "stem".equals(type) || "latexmath".equals(type) ||
+                                        "asciimath".equals(type) || "kbd".equals(type);
                                 // as for a link, an escaped reference in the target keeps its braces and loses its
-                                // backslash; a stem macro keeps what is written, so it is not touched
-                                final var label = isStemLike ?
+                                // backslash; a stem or kbd macro keeps what is written, so it is not touched
+                                final var label = rawContent ?
                                         line.substring(i + 1, end) :
                                         unescapeAttributeReferences(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)));
 
@@ -1926,7 +1928,7 @@ public class Parser {
                                     }
                                 }
 
-                                final var macro = new Macro(type, label, isStemLike ? Map.of() : options, inlined);
+                                final var macro = new Macro(type, label, rawContent ? Map.of() : options, inlined);
                                 switch (macro.name()) {
                                     case "ifdef", "ifndef" -> {
                                         // ifdef::attr[content] is the inline form: the content sits in the brackets

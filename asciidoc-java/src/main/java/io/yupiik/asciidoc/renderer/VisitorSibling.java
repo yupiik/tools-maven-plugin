@@ -456,8 +456,8 @@ public class VisitorSibling {
     // -------------------------------------------------------------------------------------------------------- macros
 
     /**
-     * @return what a macro writes: its label, else its first positional attribute, as for {@code kbd:[Ctrl+C]} or
-     * {@code btn:[Save]}, which carry their content in the brackets.
+     * @return what a macro writes: its label, as for {@code kbd:[Ctrl+C]}, else its first positional attribute, as
+     * for {@code btn:[Save]}.
      */
     public String content(final Macro macro) {
         final var label = macro.label() == null ? "" : macro.label();
@@ -471,8 +471,7 @@ public class VisitorSibling {
      * @return the keys, in order, without the empty ones.
      */
     public List<String> kbdKeys(final Macro macro) {
-        final var opts = options(macro.options()).get("opts"); // the parser splits kbd:[Ctrl,Shift] at the comma
-        final var value = (opts == null ? content(macro) : content(macro) + "," + opts).strip();
+        final var value = content(macro).strip();
         final int comma = value.indexOf(',', 1);
         final int plus = value.indexOf('+', 1);
         final int delimiter = comma < 0 ? plus : plus < 0 ? comma : Math.min(comma, plus);
