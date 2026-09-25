@@ -1001,6 +1001,159 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void groupParagraphsKeptByDefault() { // with keep-paragraphs false, both list items give one paragraph
+        final var adoc = """
+                [WARNING]
+                ====
+                **First**
+
+                Second
+                ====
+
+                * **First**
+                +
+                Second
+                * **First**Second
+                """;
+        assertRenderingContent(":keep-paragraphs: false\n\n" + adoc, """
+                 <div class="admonitionblock warning">
+                  <table>
+                    <tbody>
+                     <tr>
+                      <td class="icon">
+                     <div class="title">WARNING</div>
+                       </td>
+                      <td class="content">
+                 <div class="paragraph">
+                <strong>First</strong>Second </div>
+                    </td>
+                   </tr>
+                      </tbody>
+                  </table>
+                 </div>
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <div class="paragraph">
+                <strong>First</strong>Second </div>
+                  </li>
+                  <li>
+                 <div class="paragraph">
+                <strong>First</strong>Second </div>
+                  </li>
+                 </ul>
+                 </div>
+                """);
+        assertRenderingContent(adoc, """
+                 <div class="admonitionblock warning">
+                  <table>
+                    <tbody>
+                     <tr>
+                      <td class="icon">
+                     <div class="title">WARNING</div>
+                       </td>
+                      <td class="content">
+                 <div class="paragraph">
+                 <div class="paragraph">
+                <strong>First</strong> </div>
+                 <div class="paragraph">
+                Second </div>
+                 </div>
+                    </td>
+                   </tr>
+                      </tbody>
+                  </table>
+                 </div>
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <div class="paragraph">
+                 <div class="paragraph">
+                <strong>First</strong> </div>
+                 <div class="paragraph">
+                Second </div>
+                 </div>
+                  </li>
+                  <li>
+                 <div class="paragraph">
+                <strong>First</strong>Second </div>
+                  </li>
+                 </ul>
+                 </div>
+                """);
+    }
+
+    @Test
+    void checklistItemParagraphsKept() { // the item texts stay in the <p> of the checkbox, with the parser attribute false too
+        final var html = """
+                 <div class="ulist checklist">
+                 <ul class="checklist">
+                  <li>
+                   <p>&#10003; DoneMore</p>
+                  </li>
+                 </ul>
+                 </div>
+                """;
+        assertRenderingContent("* [x] Done\n+\nMore", html);
+        assertRenderingContent(":keep-paragraphs: false\n\n* [x] Done\n+\nMore", html);
+
+        final var link = """
+                 <div class="ulist checklist">
+                 <ul class="checklist">
+                  <li>
+                   <p>&#10063; Read <p> <a href="https://yupiik.io">the site</a>
+                </p></p>
+                  </li>
+                 </ul>
+                 </div>
+                """;
+        assertRenderingContent("* [ ] Read\n+\nhttps://yupiik.io[the site]", link);
+        assertRenderingContent(":keep-paragraphs: false\n\n* [ ] Read\n+\nhttps://yupiik.io[the site]", link);
+
+        final var xref = """
+                 <div class="ulist checklist">
+                 <ul class="checklist">
+                  <li>
+                   <p>&#10003; Done <div class="paragraph">
+                 <a href="#sec">Section</a>
+                 </div>
+                </p>
+                  </li>
+                 </ul>
+                 </div>
+                """;
+        assertRenderingContent("* [x] Done\n+\n<<sec,Section>>", xref);
+        assertRenderingContent(":keep-paragraphs: false\n\n* [x] Done\n+\n<<sec,Section>>", xref);
+    }
+
+    @Test
+    void calloutItemParagraphsKept() { // the callout texts keep their role, with the parser attribute false too
+        final var adoc = "[source,java]\n----\na(); <1>\n----\n<1> First\n+\n[.extra]\nSecond";
+        final var html = """
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">a(); <b class="conum">(1)</b>
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <ol>
+                   <li>
+                 <span>
+                First
+                 </span>
+                 <span class="extra">
+                Second
+                 </span>
+                   </li>
+                  </ol>
+                 </div>
+                """;
+        assertRenderingContent(adoc, html);
+        assertRenderingContent(":keep-paragraphs: false\n\n" + adoc, html);
+    }
+
+    @Test
     void indexterm() {
         assertRenderingContent("indexterm::[term]\n\nhello", """
                  <a id="indexterm-1"></a>
