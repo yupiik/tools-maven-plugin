@@ -60,6 +60,7 @@ The Markdown renderer writes each construct as follows:
 |Footnote|`[^1]` reference, with its definition at the end of the document.
 |Id of a section or of a block|Empty `<a id="...">` anchor, so `<<id>>` links work. A section without an explicit id gets the id the HTML renderer would give it when the document links to it.
 |Cross reference (`<<id>>` or `xref:id[]`) without its own text|Link to the anchor, its text being the `reftext` of the target, else the title of the target, else the id between square brackets, as asciidoctor writes it.
+|Cross reference to another page (`<<page.adoc#id>>`, `<<page#id>>` or `xref:page.adoc#id[]`)|Link to the rendered page, `relfileprefix` + page + `relfilesuffix`, then `#id`. As asciidoctor reads the `<<...>>` form, the part before the `#` is always a page and a target without `#` is always an id, so `<<page.adoc>>` links the id `page.adoc` where `xref:page.adoc[]` links the page.
 |Table of contents (`:toc:`)|List of links to the sections, where asciidoctor places it: at the top, after the preamble (`:toc: preamble`) or at the `toc::[]` macro (`:toc: macro`).
 |Icon (`icon:lock[]`)|`[lock]`, as asciidoctor writes an icon without an icon font.
 |====
@@ -109,6 +110,7 @@ The parser supports standard Asciidoc syntax including:
 * Open/closed blocks, quote blocks, listing blocks, example blocks
 * Block ids, written `[#id]`, `[id=name]` or as an anchor line `[[id]]` (`[[id, reftext]]` with a reference text) above a block or the document title
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote)
+* Cross references (`<<id>>`, `<<id,text>>`, `<<page.adoc#id,text>>`, `xref:page.adoc#id[text]`), the `<<...>>` form reading the part before a `#` as a page whatever its extension, as asciidoctor does
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
 * Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
 * Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
