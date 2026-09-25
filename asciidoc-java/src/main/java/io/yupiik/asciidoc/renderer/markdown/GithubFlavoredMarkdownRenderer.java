@@ -919,13 +919,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return "<" + url.replace("<", "%3C").replace(">", "%3E") + ">";
     }
 
+    /**
+     * Writes a {@code <<target>>} cross reference, its target read by
+     * {@link VisitorSibling#shorthandCrossReference(String, List)}.
+     */
     protected String anchorLink(final Anchor anchor) {
-        final var id = anchor.value() == null ? "" : anchor.value().strip();
-        var label = anchor.label();
-        if (label == null || label.isBlank()) {
-            label = referenceLinkText(id);
-        }
-        return "[" + label.strip() + "](#" + id + ")";
+        return crossReferenceLink(sibling.shorthandCrossReference((anchor.value() == null ? "" : anchor.value()).strip(), state.asciidocExtensions()), anchor.label());
     }
 
     /**
@@ -1010,14 +1009,20 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     /**
-     * Writes a cross reference, its target read by {@link VisitorSibling#crossReference(String, List)}: an id of the
-     * same page links it, with the text of the target when the macro has none; a document links the rendered page,
-     * {@code relfileprefix} + document + {@code relfilesuffix}, the suffix defaulting to {@code outfilesuffix} then
-     * {@code .md}; any other file keeps its name.
+     * Writes an {@code xref} macro, its target read by {@link VisitorSibling#crossReference(String, List)}.
      */
     protected String xref(final Macro macro, final Map<String, String> options) {
-        final var reference = sibling.crossReference((macro.label() == null ? "" : macro.label()).strip(), state.asciidocExtensions());
-        var text = options.get("");
+        return crossReferenceLink(sibling.crossReference((macro.label() == null ? "" : macro.label()).strip(), state.asciidocExtensions()), options.get(""));
+    }
+
+    /**
+     * Writes a cross reference: an id of the same page links it, with the text of the target when the reference has
+     * none; a document links the rendered page, {@code relfileprefix} + document + {@code relfilesuffix}, the suffix
+     * defaulting to {@code outfilesuffix} then {@code .md}, with the fragment as text when the reference has none;
+     * any other file keeps its name.
+     */
+    protected String crossReferenceLink(final VisitorSibling.CrossReference reference, final String label) {
+        var text = label;
         if (reference.id() != null) {
             if (text == null || text.isBlank()) {
                 text = referenceLinkText(reference.id());

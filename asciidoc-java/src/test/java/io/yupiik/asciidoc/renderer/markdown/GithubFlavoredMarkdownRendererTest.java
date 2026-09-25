@@ -108,6 +108,15 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void shorthandCrossReferencesToADocument() { // as asciidoctor reads <<target>>: a # ends a document name, a target without # is an id
+        assertEquals("See [unused beans](cdi-reference.md#remove_unused_beans), [property-expressions](config-reference.md#property-expressions) " +
+                        "and [\\[guide.adoc\\]](#guide.adoc).\n",
+                md("See <<cdi-reference.adoc#remove_unused_beans,unused beans>>, <<config-reference#property-expressions>> and <<guide.adoc>>."));
+        assertEquals("See [unused beans](../cdi-reference/index.md#remove_unused_beans).\n",
+                md("See <<cdi-reference.adoc#remove_unused_beans,unused beans>>.", Map.of("relfileprefix", "../", "relfilesuffix", "/index.md")));
+    }
+
+    @Test
     void crossReferencesUseRelFileAttributes() {
         final var md = md("See xref:advanced.adoc#editor[the editor].",
                 Map.of("relfileprefix", "../", "relfilesuffix", "/index.md"));

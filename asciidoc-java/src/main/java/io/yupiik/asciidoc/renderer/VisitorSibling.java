@@ -540,6 +540,29 @@ public class VisitorSibling {
     }
 
     /**
+     * Reads the target of a {@code <<target>>} cross reference as asciidoctor reads that form, which differs from the
+     * {@code xref} macro: a {@code #} after the first character ends a document name, whatever its extension, and a
+     * target without {@code #} is an id, whatever it looks like, so {@code <<page.adoc>>} points at the id
+     * {@code page.adoc} where {@code xref:page.adoc[]} points at the page.
+     *
+     * @param target             the target, its attribute references already substituted by the parser.
+     * @param asciidocExtensions the extensions of the AsciiDoc documents, see {@link #asciidocExtensions(ConditionalBlock.Context)}.
+     * @return the parts of the target.
+     */
+    public CrossReference shorthandCrossReference(final String target, final List<String> asciidocExtensions) {
+        if (target.startsWith("#")) {
+            return new CrossReference(target.substring(1), null, null, "");
+        }
+        final int hash = target.indexOf('#');
+        if (hash < 0) {
+            return new CrossReference(target, null, null, "");
+        }
+        final var file = target.substring(0, hash);
+        final var document = documentName(file, asciidocExtensions);
+        return new CrossReference(null, file, document != null ? document : file, target.substring(hash + 1));
+    }
+
+    /**
      * @return the id a cross reference target points at in the same document, {@code null} when it points at a file:
      * as in asciidoctor, a target starting with {@code #}, or without {@code #} and without extension, is an id.
      */

@@ -118,6 +118,18 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
     }
 
     @Test
+    void shorthandCrossReferences() { // as asciidoctor reads <<target>>: a # ends a document name, else the target is an id
+        final var extensions = List.of(".adoc", ".asciidoc");
+        assertEquals(new VisitorSibling.CrossReference("install", null, null, ""), sibling.shorthandCrossReference("#install", extensions));
+        assertEquals(new VisitorSibling.CrossReference("install", null, null, ""), sibling.shorthandCrossReference("install", extensions));
+        assertEquals(new VisitorSibling.CrossReference("guide.adoc", null, null, ""), sibling.shorthandCrossReference("guide.adoc", extensions));
+        assertEquals(new VisitorSibling.CrossReference(null, "guide.adoc", "guide", "part"), sibling.shorthandCrossReference("guide.adoc#part", extensions));
+        assertEquals(new VisitorSibling.CrossReference(null, "cli-tooling", "cli-tooling", "dev"), sibling.shorthandCrossReference("cli-tooling#dev", extensions));
+        assertEquals(new VisitorSibling.CrossReference(null, "guide.adoc", "guide", ""), sibling.shorthandCrossReference("guide.adoc#", extensions));
+        assertEquals(new VisitorSibling.CrossReference(null, "a.adoc", "a", "s1#s2"), sibling.shorthandCrossReference("a.adoc#s1#s2", extensions));
+    }
+
+    @Test
     void crossReferences() { // as asciidoctor reads the xref macro
         final var extensions = sibling.asciidocExtensions(key -> null);
         assertEquals(List.of(".adoc", ".asciidoc"), extensions);
