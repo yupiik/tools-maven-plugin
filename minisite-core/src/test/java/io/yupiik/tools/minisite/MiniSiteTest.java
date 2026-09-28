@@ -76,6 +76,21 @@ class MiniSiteTest {
     }
 
     @Test
+    void customHeadBasePlaceholder(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                   final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .customHead("<link rel=\"stylesheet\" href=\"{{base}}/css/site.css\">")
+                .customMenu("<li id=\"custom-menu\"><a href=\"{{base}}/custom\">Custom</a></li>")
+                .customScripts("<script src=\"{{base}}/js/site.js\"></script>")
+                .build())
+                .run();
+        asserts.assertContains("page.html", "<link rel=\"stylesheet\" href=\"/css/site.css\">");
+        asserts.assertContains("page.html", "<a href=\"/custom\">Custom</a>");
+        asserts.assertContains("page.html", "<script src=\"/js/site.js\"></script>");
+        asserts.assertNotContains("page.html", "{{base}}");
+    }
+
+    @Test
     void notIndexedPages(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                          final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         // ignore blog pages and keep index.html only

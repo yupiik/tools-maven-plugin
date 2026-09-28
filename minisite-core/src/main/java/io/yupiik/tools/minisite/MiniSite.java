@@ -1312,14 +1312,15 @@ public class MiniSite implements Runnable {
         globalModel.put("llmModelId", configuration.getLlmModelId());
         globalModel.put("addCodeCopyButton", configuration.isAddCodeCopyButton());
         globalModel.put("addLeftMenu", configuration.isTemplateAddLeftMenu());
-        globalModel.put("customHead", ofNullable(configuration.getCustomHead()).orElse(""));
-        globalModel.put("customMenu", ofNullable(configuration.getCustomMenu()).orElse(""));
+        final String siteBase = configuration.getSiteBase();
+        // values coming from the mojo defaults or the user configuration can embed the {{base}} placeholder
+        // (e.g. "{{base}}/images/logo.svg" or a customHead stylesheet link): resolve it against the real
+        // siteBase since handlebars would otherwise leave it raw
+        globalModel.put("customHead", withBase(ofNullable(configuration.getCustomHead()).orElse(""), siteBase));
+        globalModel.put("customMenu", withBase(ofNullable(configuration.getCustomMenu()).orElse(""), siteBase));
         globalModel.put("projectVersion", configuration.getProjectVersion()); // enables to invalidate browser cache
         globalModel.put("logoText", getLogoText());
         globalModel.put("logoSideText", getLogoSideText());
-        final String siteBase = configuration.getSiteBase();
-        // values coming from the mojo defaults can embed the {{base}} placeholder (e.g. "{{base}}/images/logo.svg"):
-        // resolve it against the real siteBase since handlebars would otherwise leave it raw
         globalModel.put("logo", withBase(ofNullable(configuration.getLogo())
                 .orElse(siteBase + "/images/logo.svg"), siteBase));
         globalModel.put("favicon", withBase(ofNullable(configuration.getFavicon())
@@ -1328,7 +1329,7 @@ public class MiniSite implements Runnable {
         globalModel.put("siteBase", siteBase);
         globalModel.put("linkedInCompany", ofNullable(configuration.getLinkedInCompany()).orElse("yupiik"));
         globalModel.put("copyright", ofNullable(configuration.getCopyright()).orElse("Yupiik &copy;"));
-        globalModel.put("customScripts", ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n");
+        globalModel.put("customScripts", withBase(ofNullable(configuration.getCustomScripts()).orElse("").trim() + "\n", siteBase));
 
         return page -> {
             final Map<String, Object> model = new HashMap<>(globalModel);
