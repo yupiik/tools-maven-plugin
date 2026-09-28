@@ -181,7 +181,7 @@ public class Parser {
     }
 
     public Document parse(final Path document, final List<String> input, final ParserContext context) {
-        final var reader = new Reader(input);
+        final var reader = new Reader(input, document, context.sourceListener());
         try {
             final var header = parseHeader(document, reader, context);
             return new Document(header, parseBody(reader, context.resolver(), new HashMap<>(header.attributes())));
@@ -374,7 +374,7 @@ public class Parser {
     }
 
     public Body parseBody(final String reader, final ParserContext context) {
-        return parseBody(new Reader(List.of(reader.split("\n"))), context.resolver());
+        return parseBody(new Reader(List.of(reader.split("\n")), null, context.sourceListener()), context.resolver());
     }
 
     private Header buildHeader(final String title, final List<Author> authorLineAuthors, final Revision revision,
@@ -504,7 +504,7 @@ public class Parser {
     }
 
     public Body parseBody(final BufferedReader reader, final ParserContext context) {
-        return parseBody(new Reader(reader.lines().toList()), context.resolver());
+        return parseBody(new Reader(reader.lines().toList(), null, context.sourceListener()), context.resolver());
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
@@ -543,7 +543,17 @@ public class Parser {
         int lastOptions = -1;
         Map<String, String> options = null;
         Matcher attributeMatcher;
-        while ((next = reader.skipCommentsAndEmptyLines()) != null) {
+        int spanStart = -1; // first line of the element(s) being parsed, 1-based, for the source listener
+        int spanFrom = elements.size(); // elements already reported to the source listener
+        while (true) {
+            // report what the previous iteration added before the blank lines after it are skipped
+            reportSource(reader, elements, spanFrom, spanStart, reader.getLineNumber() - 1);
+            spanFrom = elements.size();
+            next = reader.skipCommentsAndEmptyLines();
+            if (next == null) {
+                break;
+            }
+            spanStart = reader.getLineNumber() - 1;
             if (!continueTest.test(next) && !(next.startsWith("=") && isFloatingTitle(options))) {
                 reader.rewind();
                 if (lastOptions == reader.getLineNumber()) {
@@ -658,7 +668,7 @@ public class Parser {
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
-                elements.add(new Quote(doParse(enclosingDocument, new Reader(buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
+                elements.add(new Quote(doParse(enclosingDocument, subReader(reader, null, buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
                 options = null;
             } else if (isHorizontalRule(stripped)) {
                 elements.add(new HorizontalRule(options == null ? Map.of() : options));
@@ -815,7 +825,7 @@ public class Parser {
         if (next != null && !next.startsWith(end)) {
             reader.rewind();
         }
-        return new OpenBlock(doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+        return new OpenBlock(doParse(enclosingDocument, subReader(reader, null, content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
     private Admonition parseAdmonitionBlock(final Path enclosingDocument,
@@ -832,7 +842,7 @@ public class Parser {
         if (next != null && !next.startsWith("====")) {
             reader.rewind();
         }
-        final var elements = doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
+        final var elements = doParse(enclosingDocument, subReader(reader, null, content), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
         final var filteredOpts = options == null ? Map.<String, String>of() : options.entrySet().stream()
                 .filter(e -> !"".equals(e.getKey()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -852,7 +862,7 @@ public class Parser {
         if (next != null && !next.startsWith("> ")) {
             reader.rewind();
         }
-        return new Quote(doParse(enclosingDocument, new Reader(content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+        return new Quote(doParse(enclosingDocument, subReader(reader, null, content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
     }
 
     private Table parseTable(final Path enclosingDocument, final Reader reader,
@@ -885,7 +895,7 @@ public class Parser {
             }
         }
 
-        final var cells = new TableCells(enclosingDocument, columnStyles, resolver, currentAttributes);
+        final var cells = new TableCells(enclosingDocument, columnStyles, reader, resolver, currentAttributes);
         int firstLine = 0;
         while (firstLine < lines.size() && lines.get(firstLine).isEmpty()) {
             firstLine++;
@@ -1014,22 +1024,22 @@ public class Parser {
         return "d";
     }
 
-    private Element parseCell(final Path enclosingDocument, final String style, final List<String> lines,
+    private Element parseCell(final Path enclosingDocument, final String style, final List<String> lines, final Reader parent,
                               final ContentResolver resolver, final Map<String, String> currentAttributes) {
         return switch (style) {
             case "a" -> {
-                final var content = doParse(enclosingDocument, new Reader(lines), line -> true, resolver, currentAttributes, true, false);
+                final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, true, false);
                 yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
             }
-            case "e" -> withTextStyle(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), EMPHASIS);
-            case "s" -> withTextStyle(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), BOLD);
+            case "e" -> withTextStyle(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), EMPHASIS);
+            case "s" -> withTextStyle(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), BOLD);
             case "l", "m" -> new Code(handleIncludes(enclosingDocument, String.join("\n", lines), resolver, currentAttributes, true)
                     .stream()
                     .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
                     .collect(joining()), Map.of(), true, List.of());
-            case "h" -> withCellOptions(parseCell(enclosingDocument, "d", lines, resolver, currentAttributes), Map.of("role", "header"));
+            case "h" -> withCellOptions(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), Map.of("role", "header"));
             default -> { // "d", all inline markup
-                final var content = doParse(enclosingDocument, new Reader(lines), line -> true, resolver, currentAttributes, false, false);
+                final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, false, false);
                 yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
             }
         };
@@ -1148,8 +1158,11 @@ public class Parser {
         private int lineNumber = -1;
         private boolean cellOpen;
 
-        private TableCells(final Path enclosingDocument, final List<String> columnStyles,
+        private final Reader parent;
+
+        private TableCells(final Path enclosingDocument, final List<String> columnStyles, final Reader parent,
                            final ContentResolver resolver, final Map<String, String> currentAttributes) {
+            this.parent = parent;
             this.enclosingDocument = enclosingDocument;
             this.columnStyles = columnStyles;
             this.resolver = resolver;
@@ -1212,7 +1225,7 @@ public class Parser {
             }
             // a cell with no style of its own gets the default one, "d", which parses the inline markup as asciidoctor does
             final var element = parseCell(enclosingDocument, style == null ? "d" : style,
-                    List.of(content.split("\n", -1)), resolver, currentAttributes);
+                    List.of(content.split("\n", -1)), parent, resolver, currentAttributes);
 
             final var cellOptions = new HashMap<String, String>();
             if (spec.colspan() > 1) {
@@ -1970,7 +1983,7 @@ public class Parser {
                                     if (escaped) {
                                         flushText(elements, line.substring(1).stripTrailing());
                                     } else {
-                                        elements.addAll(doInclude(enclosingDocument, include, resolver, currentAttributes, true));
+                                        elements.addAll(doInclude(enclosingDocument, include, resolver, currentAttributes, true, reader));
                                     }
                                     end = line.length() - 1; // the directive runs to the end of the line, its options can hold a ']'
                                 }
@@ -2028,13 +2041,13 @@ public class Parser {
                                                 new IfBlock(List.of(enclosed), List.of(List.of(enclosed)), List.of()) :
                                                 readIfBlock(reader, macro.label());
                                         elements.add(parseConditionalBlock(
-                                                macro.name(), macro.label(), ifBlock, enclosingDocument, resolver, currentAttributes,
+                                                macro.name(), macro.label(), ifBlock, enclosingDocument, reader, resolver, currentAttributes,
                                                 inline ? Map.of() : macro.options()));
                                     }
                                     case "ifeval" -> {
                                         final var condition = macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip();
                                         final var ifBlock = readIfBlock(reader, macro.label());
-                                        elements.add(parseConditionalBlock("ifeval", condition, ifBlock, enclosingDocument, resolver, currentAttributes, macro.options()));
+                                        elements.add(parseConditionalBlock("ifeval", condition, ifBlock, enclosingDocument, reader, resolver, currentAttributes, macro.options()));
                                     }
                                     default -> {
                                         var linkLabel = unwrapElementIfPossible(parseParagraph(
@@ -2437,7 +2450,7 @@ public class Parser {
     private record IfBlock(List<String> mainContent, List<List<String>> branches, List<String> branchConditions) {}
 
     private ConditionalBlock parseConditionalBlock(final String type, final String label, final IfBlock ifBlock,
-                                                    final Path enclosingDocument, final ContentResolver resolver,
+                                                    final Path enclosingDocument, final Reader parent, final ContentResolver resolver,
                                                     final Map<String, String> currentAttributes, final Map<String, String> options) {
         final Predicate<ConditionalBlock.Context> evaluator = switch (type) {
             case "ifdef" -> new ConditionalBlock.Ifdef(label);
@@ -2445,12 +2458,12 @@ public class Parser {
             case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(label, currentAttributes));
             default -> throw new IllegalArgumentException("Unknown conditional type: " + type);
         };
-        final var children = doParse(enclosingDocument, new Reader(ifBlock.mainContent), l -> true, resolver, currentAttributes, false, false);
-        final var elseBranches = buildElseBranches(ifBlock, enclosingDocument, resolver, currentAttributes);
+        final var children = doParse(enclosingDocument, subReader(parent, null, ifBlock.mainContent), l -> true, resolver, currentAttributes, false, false);
+        final var elseBranches = buildElseBranches(ifBlock, enclosingDocument, parent, resolver, currentAttributes);
         return new ConditionalBlock(evaluator, children, elseBranches, options);
     }
 
-    private List<ConditionalBlock> buildElseBranches(final IfBlock ifBlock, final Path enclosingDocument,
+    private List<ConditionalBlock> buildElseBranches(final IfBlock ifBlock, final Path enclosingDocument, final Reader parent,
                                                       final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var branches = new ArrayList<ConditionalBlock>();
         for (int i = 1; i < ifBlock.branches.size(); i++) {
@@ -2463,7 +2476,7 @@ public class Parser {
                 final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
                 branchEval = new ConditionalBlock.Ifdef(elsifLabel);
             }
-            final var branchChildren = doParse(enclosingDocument, new Reader(branchContent), l -> true, resolver, currentAttributes, false, false);
+            final var branchChildren = doParse(enclosingDocument, subReader(parent, null, branchContent), l -> true, resolver, currentAttributes, false, false);
             branches.add(new ConditionalBlock(branchEval, branchChildren, List.of(), Map.of()));
         }
         return branches;
@@ -2494,6 +2507,18 @@ public class Parser {
                                       final ContentResolver resolver,
                                       final Map<String, String> currentAttributes,
                                       final boolean parse) {
+        return doInclude(enclosingDocument, macro, resolver, currentAttributes, parse, null);
+    }
+
+    /**
+     * @param parent the reader of the including document, so the included elements are reported to its source listener, or {@code null}.
+     */
+    protected List<Element> doInclude(final Path enclosingDocument,
+                                      final Macro macro,
+                                      final ContentResolver resolver,
+                                      final Map<String, String> currentAttributes,
+                                      final boolean parse,
+                                      final Reader parent) {
         final var encoding = ofNullable(macro.options().get("encoding"))
                 .map(Charset::forName)
                 .orElse(UTF_8);
@@ -2644,7 +2669,7 @@ public class Parser {
         }
 
         if (parse) {
-            return doParse(resolved.path(), new Reader(content), l -> true, resolver, currentAttributes, true, false);
+            return doParse(resolved.path(), subReader(parent, resolved.path(), content), l -> true, resolver, currentAttributes, true, false);
         }
         // as for a parsed include, the includes of the included content are relative to it
         return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
@@ -2722,7 +2747,7 @@ public class Parser {
                 if (next != null) {
                     reader.rewind();
                 }
-                final var element = doParse(enclosingDocument, new Reader(buffer), s -> true, resolver, currentAttributes, true, false);
+                final var element = doParse(enclosingDocument, subReader(reader, null, buffer), s -> true, resolver, currentAttributes, true, false);
                 final var unwrapped = unwrapElementIfPossible(element.size() == 1 && element.get(0) instanceof Paragraph p ? p : new Paragraph(element, Map.of()));
                 final var key = doParse(enclosingDocument, new Reader(List.of(matcher.group("name"))), l -> true, resolver, currentAttributes, false, false);
                 children.put(key.size() == 1 ? key.get(0) : new Paragraph(key, Map.of("nowrap", "true")), unwrapped);
@@ -2827,7 +2852,7 @@ public class Parser {
                     isChecked = false;
                 }
 
-                final var elements = doParse(enclosingDocument, new Reader(List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true, keepsParagraphs(currentAttributes));
+                final var elements = doParse(enclosingDocument, subReader(reader, null, List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true, keepsParagraphs(currentAttributes));
                 if (isCheckItem) {
                     children.add(new Paragraph(elements, isChecked ? Map.of("checkbox", "true", "checked", "true") : Map.of("checkbox", "true")));
                 } else {
@@ -3653,7 +3678,49 @@ public class Parser {
         }
     }
 
-    public record ParserContext(ContentResolver resolver) {
+    /**
+     * @param parent the reader of the enclosing content, {@code null} when there is none, as for an include parsed on its own.
+     * @param file   the file the lines come from, {@code null} for nested content read from the parent's file.
+     * @return a reader over the lines, reporting to the source listener of the parent, if any.
+     */
+    protected Reader subReader(final Reader parent, final Path file, final List<String> lines) {
+        if (parent == null) {
+            return new Reader(lines, file, null);
+        }
+        return new Reader(lines, file == null ? parent.getFile() : file, parent.getSourceListener());
+    }
+
+    /**
+     * Reports the elements added since {@code from} to the source listener of the reader, if any, with the lines
+     * {@code startLine} to {@code endLine} (1-based, inclusive) as they were read, trailing blank lines excluded.
+     */
+    protected void reportSource(final Reader reader, final List<Element> elements, final int from, final int startLine, final int endLine) {
+        final var listener = reader.getSourceListener();
+        if (listener == null || from >= elements.size() || startLine < 1) {
+            return;
+        }
+        final var lines = reader.getOriginalLines();
+        int end = Math.min(endLine, lines.size());
+        while (end > startLine && lines.get(end - 1).isBlank()) {
+            end--;
+        }
+        if (end < startLine) {
+            return;
+        }
+        final var span = new SourceSpan(reader.getFile(), startLine, end, String.join("\n", lines.subList(startLine - 1, end)));
+        for (final var element : elements.subList(from, elements.size())) {
+            listener.onElement(element, span);
+        }
+    }
+
+    /**
+     * @param resolver       resolves the includes.
+     * @param sourceListener called for each block-level element with the source it was read from, {@code null} to not track sources.
+     */
+    public record ParserContext(ContentResolver resolver, SourceListener sourceListener) {
+        public ParserContext(final ContentResolver resolver) {
+            this(resolver, null);
+        }
     }
 
     private record ContentWithCalloutIndices(String content, List<List<Integer>> lineReferences) {

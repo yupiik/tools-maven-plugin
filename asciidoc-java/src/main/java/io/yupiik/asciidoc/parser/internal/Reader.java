@@ -15,6 +15,9 @@
  */
 package io.yupiik.asciidoc.parser.internal;
 
+import io.yupiik.asciidoc.parser.SourceListener;
+
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,10 +26,43 @@ import java.util.List;
  */
 public class Reader {
     private final List<String> lines;
+    // the lines as read, kept only when a listener is set: setPreviousValue() rewrites a line with its attribute
+    // references substituted, and the parser reports the text before that substitution, see Parser#reportSource
+    private final List<String> original;
+    private final Path file;
+    private final SourceListener listener;
     private int lineOffset = 0;
 
     public Reader(final List<String> lines) {
+        this(lines, null, null);
+    }
+
+    public Reader(final List<String> lines, final Path file, final SourceListener listener) {
         this.lines = new ArrayList<>(lines);
+        this.original = listener == null ? null : new ArrayList<>(lines);
+        this.file = file;
+        this.listener = listener;
+    }
+
+    /**
+     * @return the file the lines were read from, {@code null} for a string or for content without a path.
+     */
+    public Path getFile() {
+        return file;
+    }
+
+    /**
+     * @return the listener the parser reports the source of each block to, {@code null} when none is set.
+     */
+    public SourceListener getSourceListener() {
+        return listener;
+    }
+
+    /**
+     * @return the lines as read, before {@link #setPreviousValue(String)} rewrote any of them, {@code null} when no listener is set.
+     */
+    public List<String> getOriginalLines() {
+        return original;
     }
 
     // human indexed
@@ -40,6 +76,9 @@ public class Reader {
 
     public void insert(final List<String> lines) {
         this.lines.addAll(lineOffset, lines);
+        if (original != null) {
+            original.addAll(lineOffset, lines); // inserted in both lists so a line number means the same line in each
+        }
     }
 
     public void rewind() {

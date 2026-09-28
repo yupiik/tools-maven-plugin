@@ -50,6 +50,21 @@ Set them in the document (`:keep-paragraphs: false`), or pass them to the `Parse
 |Each paragraph of the blocks of an admonition block, a list item or a callout item stays a `Paragraph`, also when it holds one text. `false` gives the model of the versions before this attribute: the parser replaces such a paragraph with its text, so `* **First**` followed by a `+` continuation paragraph `Second` gives the same model as `* **First**Second`.
 |===
 
+== Source positions
+
+The model does not keep the source text of the elements.
+To get it, for example to look each paragraph up in a translation file before rendering, register a `SourceListener` in the `ParserContext`.
+The parser calls it for each block-level element with a `SourceSpan`: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it.
+List items and table cells are read from their own reader, so their line numbers are relative to the item or cell.
+
+[source,java]
+----
+final var spans = new IdentityHashMap<Element, SourceSpan>(); <1>
+final var doc = parser.parse(myDocContent, new Parser.ParserContext(resolver, spans::put)); <2>
+----
+<.> Elements are records and compare by value, so key the map by identity,
+<.> The listener is the second constructor argument; the one-argument constructor keeps working and tracks nothing.
+
 == Markdown output
 
 `GithubFlavoredMarkdownRenderer` renders the same model as GitHub-Flavored Markdown, for example to publish a Markdown copy of a page for AI agents or to feed a text pipeline:

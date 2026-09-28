@@ -48,6 +48,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.IdentityHashMap;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -4210,5 +4211,77 @@ class ParserTest {
                 ":a: ${a}", ":b: x{c}y", "", "content")));
         assertEquals("${a}", header.attributes().get("a"));
         assertEquals("x{c}y", header.attributes().get("b"));
+    }
+
+    @Test
+    void sourceListener() {
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        new Parser().parseBody("""
+                :v: value
+
+                first {v}
+                paragraph
+
+                [role=x]
+                .Title
+                second
+
+                == Section
+
+                third
+
+                * item one
+                * item two
+
+                |===
+                |cell
+                |===
+                """, new Parser.ParserContext(null, spans::put));
+        assertSpan(spans, "first {v}\nparagraph", 3, 4); // raw text, before {v} is replaced
+        assertSpan(spans, "second", 8, 8); // the attribute list and the title lines are not part of the element
+        assertSpan(spans, "third", 12, 12);
+        assertSpan(spans, "* item one\n* item two", 14, 15);
+        assertSpan(spans, "item one", 1, 1); // list items are read from their own reader
+        assertSpan(spans, "item two", 1, 1);
+        assertSpan(spans, "|===\n|cell\n|===", 17, 19);
+        final var section = spans.values().stream().filter(it -> it.source().startsWith("== Section")).findFirst().orElseThrow();
+        assertEquals(10, section.startLine());
+        assertEquals(19, section.endLine());
+        assertTrue(spans.values().stream().allMatch(it -> it.file() == null));
+    }
+
+    @Test
+    void sourceListenerFollowsIncludes(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("inc.adoc"), "included {v}\n");
+        final var main = work.resolve("main.adoc");
+        Files.writeString(main, """
+                = Title
+                :v: value
+
+                before
+
+                include::inc.adoc[]
+
+                after
+                """);
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        try (final var reader = Files.newBufferedReader(main)) {
+            new Parser().parse(main, reader, new Parser.ParserContext(ContentResolver.of(work), spans::put));
+        }
+        final var included = spans.values().stream()
+                .filter(it -> "included {v}".equals(it.source()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(spans.values().toString()));
+        assertEquals("inc.adoc", included.file().getFileName().toString());
+        assertEquals(1, included.startLine());
+        final var after = spans.values().stream().filter(it -> "after".equals(it.source())).findFirst().orElseThrow();
+        assertEquals(main, after.file());
+        assertEquals(8, after.startLine());
+    }
+
+    private void assertSpan(final Map<Element, SourceSpan> spans, final String source, final int start, final int end) {
+        assertTrue(
+                spans.values().stream().anyMatch(it -> source.equals(it.source()) && it.startLine() == start && it.endLine() == end),
+                () -> "missing " + source + " [" + start + "-" + end + "] in " + spans.values());
     }
 }
