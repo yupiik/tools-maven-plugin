@@ -1131,11 +1131,19 @@ img { max-width: 100%; height: auto; }
     margin: 0 0 16px;
 }
 
-.tableblock {
+table.tableblock {
     border-collapse: collapse;
     width: 100%;
     margin: 0 0 16px;
     font-size: 0.92rem;
+}
+
+table.tableblock.fit-content {
+    width: auto;
+}
+
+p.tableblock {
+    margin: 0;
 }
 
 .tableblock thead th {
