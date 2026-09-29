@@ -24,10 +24,27 @@ import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
 class MiniSiteTest {
+    @Test
+    void indexCardGridCss(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder,
+                          final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog fixture for the assets
+                .build())
+                .run();
+        asserts.assertThat(files -> {
+            final String css = files.get("css/theme.css");
+            assertTrue(css.contains("nth-last-child(2):nth-child(3n + 1)"), css);
+            assertFalse(css.contains(".justify-content-center"), css);
+            assertFalse(css.contains(".row > .col-lg-4 {\n    flex: none;"), css);
+            assertFalse(css.contains("max-width: none"), css);
+        });
+    }
+
     @Test
     void pageNotFound404(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                          final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {

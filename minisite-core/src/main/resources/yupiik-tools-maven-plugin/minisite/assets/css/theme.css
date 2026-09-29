@@ -735,14 +735,25 @@ img { max-width: 100%; height: auto; }
     gap: 12px;
 }
 
-.justify-content-center { justify-content: center; }
-
 .row > .col-12,
 .row > .col-lg-4 {
-    flex: none;
-    max-width: none;
     padding: 0;
     display: flex;
+}
+
+/* Center the last, partial row of the index card grid (3-column layout). */
+@media (min-width: 993px) {
+    .row > .col-12:nth-last-child(1):nth-child(3n + 1),
+    .row > .col-lg-4:nth-last-child(1):nth-child(3n + 1),
+    .row > .col-12:nth-last-child(2):nth-child(3n + 1),
+    .row > .col-lg-4:nth-last-child(2):nth-child(3n + 1) {
+        grid-column: 2;
+    }
+
+    .row > .col-12:nth-last-child(1):nth-child(3n + 2),
+    .row > .col-lg-4:nth-last-child(1):nth-child(3n + 2) {
+        grid-column: 3;
+    }
 }
 
 .py-3 { padding-top: 12px; padding-bottom: 12px; }
