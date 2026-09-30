@@ -730,6 +730,225 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void conditionalBlockParagraph() { // the content of a conditional block is a paragraph as if the directives were not there
+        final var last = """
+                 <div class="paragraph">
+                 <p>
+                last
+                 </p>
+                 </div>
+                """;
+        assertRenderingContent("""
+                        :foo:
+
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+
+                        last
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>
+                        conditional line
+                         </p>
+                         </div>
+                        """ + last);
+        assertRenderingContent("""
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+
+                        last
+                        """,
+                last);
+        assertRenderingContent("""
+                        :version: 2
+
+                        ifeval::[{version} > 1]
+                        conditional line
+                        endif::[]
+
+                        last
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>
+                        conditional line
+                         </p>
+                         </div>
+                        """ + last);
+        assertRenderingContent("""
+                        :version: 1
+
+                        ifeval::[{version} > 1]
+                        conditional line
+                        endif::[]
+
+                        last
+                        """,
+                last);
+    }
+
+    @Test
+    void conditionalBlockInAParagraph() { // the directive lines were line feeds around the content, they stay whatever the neighbours
+        assertRenderingContent("""
+                        :foo:
+
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+                        following line
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>
+                        conditional line
+                        following line</p>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+                        following line
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>following line</p>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        :foo:
+
+                        first line
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>first line
+                        conditional line
+                        </p>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        first line
+                        ifdef::foo[]
+                        conditional line
+                        endif::[]
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>first line</p>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        :foo:
+
+                        ifdef::foo[Only with foo.]
+                        Always there.
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>
+                        Only with foo.
+                        Always there.</p>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        ifdef::foo[Only with foo.]
+                        Always there.
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>Always there.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void conditionalLinesOfSeveralInlineElementsInAParagraph() { // the parser wraps such a line in a Paragraph, the enclosing paragraph stays the only one
+        assertRenderingContent("""
+                        == Key
+
+                        [source,bash]
+                        ----
+                        quarkus ext add security
+                        ----
+
+                        The framework provides mechanisms.
+                        ifndef::no-webauthn[]
+                        You can also use xref:other.adoc#x[mechanisms], such as WebAuthn.
+                        endif::no-webauthn[]
+                        ifdef::no-webauthn[]
+                        You can also use xref:other.adoc#x[mechanisms], such as OIDC.
+                        endif::no-webauthn[]
+                        Mechanisms depend on xref:idp.adoc[providers].
+                        """,
+                """
+                         <div class="sect1">
+                          <h2 id="_key">Key</h2>
+                         <div class="sectionbody">
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">quarkus ext add security
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="paragraph">
+                         <p>The framework provides mechanisms.
+                        You can also use  <a href="other.html#x">mechanisms</a>
+                        , such as WebAuthn.
+                        Mechanisms depend on  <a href="idp.html">providers</a>
+                        .</p>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+        assertRenderingContent("""
+                        :no-webauthn:
+
+                        == Key
+
+                        [source,bash]
+                        ----
+                        quarkus ext add security
+                        ----
+
+                        The framework provides mechanisms.
+                        ifndef::no-webauthn[]
+                        You can also use xref:other.adoc#x[mechanisms], such as WebAuthn.
+                        endif::no-webauthn[]
+                        ifdef::no-webauthn[]
+                        You can also use xref:other.adoc#x[mechanisms], such as OIDC.
+                        endif::no-webauthn[]
+                        Mechanisms depend on xref:idp.adoc[providers].
+                        """,
+                """
+                         <div class="sect1">
+                          <h2 id="_key">Key</h2>
+                         <div class="sectionbody">
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">quarkus ext add security
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="paragraph">
+                         <p>The framework provides mechanisms.
+                        You can also use  <a href="other.html#x">mechanisms</a>
+                        , such as OIDC.
+                        Mechanisms depend on  <a href="idp.html">providers</a>
+                        .</p>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
     void severalCalloutMarkersOnTheSameLine() { // `a=b <1><2>` in the source
         final var one = new CallOut(1, new Text(List.of(), "one,", Map.of()));
         final var two = new CallOut(2, new Text(List.of(), "two.", Map.of()));
@@ -2218,12 +2437,13 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void trailingSpacesHardBreak() {
+    void trailingSpacesHardBreak() { // a paragraph with a hard line break is still a paragraph, so it gets its <p> as in asciidoctor
         assertRenderingContent(
                 "First line  \nSecond line",
                 " <div class=\"paragraph\">\n" +
-                        "First line<br>\n" +
-                        "Second line </div>\n");
+                        " <p>First line<br>\n" +
+                        "Second line</p>\n" +
+                        " </div>\n");
     }
 
     @Test

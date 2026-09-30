@@ -190,7 +190,19 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitConditionalBlock(final ConditionalBlock element) {
         final var children = sibling.renderedChildren(element, context());
-        state.stackChain(children, () -> children.forEach(this::visitElement));
+        if (children.isEmpty()) {
+            return;
+        }
+        // asciidoctor's preprocessor drops the directives and parses the content where it is written, so the children
+        // render in place of the block, and in a paragraph the directive lines were line feeds around the content
+        final boolean inParagraph = state.lastElement.size() > 1 && state.lastElement.get(state.lastElement.size() - 2).type() == PARAGRAPH;
+        if (inParagraph) {
+            builder.append('\n');
+        }
+        state.stackChainInPlaceOf(element, children, () -> children.forEach(this::visitElement));
+        if (inParagraph) {
+            builder.append('\n');
+        }
     }
 
     @Override
@@ -426,13 +438,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append(">\n");
                 }
 
-                final boolean addP = !state.nowrap && !nowrap && !preambleWasHandled && state.sawPreamble && element.children().stream()
-                        .allMatch(e -> e.type() == TEXT ||
-                                e.type() == ATTRIBUTE ||
-                                e.type() == LINK ||
-                                e.type() == ANCHOR ||
-                                (e instanceof Macro m && m.inline()) ||
-                                (e instanceof Code c && c.inline()));
+                final boolean addP = !state.nowrap && !nowrap && !preambleWasHandled && state.sawPreamble &&
+                        element.children().stream().allMatch(this::isInline);
                 if (addP) {
                     builder.append(" <p>");
                 }
@@ -2029,14 +2036,16 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                         (child instanceof Paragraph p && p.options().isEmpty() && p.children().stream().allMatch(this::isInline)));
     }
 
-    private boolean isInline(final Element element) {
+    // a paragraph or a cell made of inline elements only gets a <p>; a conditional block is transparent so its rendered children decide
+    protected boolean isInline(final Element element) {
         return element.type() == TEXT ||
                 element.type() == ATTRIBUTE ||
                 element.type() == LINK ||
                 element.type() == ANCHOR ||
                 element.type() == LINE_BREAK ||
                 (element instanceof Macro m && m.inline()) ||
-                (element instanceof Code c && c.inline());
+                (element instanceof Code c && c.inline()) ||
+                (element instanceof ConditionalBlock cb && sibling.renderedChildren(cb, context()).stream().allMatch(this::isInline));
     }
 
     // a paragraph with an id or a role of its own, set on an a| cell with a block attribute line, is a block
@@ -2510,6 +2519,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 run.run();
             } finally {
                 currentChain = current;
+            }
+        }
+
+        // the children of an element which writes nothing of its own render in its place: it leaves the element stack
+        // while they are visited, so they see its parent as theirs
+        private void stackChainInPlaceOf(final Element element, final List<Element> children, final Runnable run) {
+            final int top = lastElement.size() - 1;
+            final boolean stacked = top >= 0 && lastElement.get(top) == element;
+            if (stacked) {
+                lastElement.remove(top);
+            }
+            try {
+                stackChain(children, run);
+            } finally {
+                if (stacked) {
+                    lastElement.add(element);
+                }
             }
         }
     }
