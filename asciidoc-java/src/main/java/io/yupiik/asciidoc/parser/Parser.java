@@ -125,6 +125,9 @@ public class Parser {
     private static final Pattern MAN_PAGE_TITLE = Pattern.compile("^(\\S[^()\\s]*)\\((\\d+)\\)$");
     private static final Pattern PIPE_TABLE_SEPARATOR = Pattern.compile("^\\|(?:[ :-]+\\|)+$");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
+    // the default of the blank-target-macros attribute: asciidoctor's image, icon, menu and xref regexes take blanks in
+    // the target, as image:my file.png[alt]; link does not for asciidoctor but existing documents relied on it
+    private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref,link";
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
     private static final Pattern AUTHOR_DELIMITER = Pattern.compile(";(?: |$)");
     private static final Pattern AUTHOR_INFO = Pattern.compile(
@@ -1681,8 +1684,8 @@ public class Parser {
             }
 
             switch (c) {
-                case ':' ->
-                        inMacro = line.length() > i + 1 && line.charAt(i + 1) != ' ' && i > 0 && line.charAt(i - 1) != ' ' && line.indexOf('[', i + 1) > i;
+                case ':' -> // a macro colon has a name character before it and a target without any blank up to a '['
+                        inMacro = i > 0 && isMacroNameChar(line.charAt(i - 1)) && isMacroTarget(line, i + 1);
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
@@ -1966,44 +1969,18 @@ public class Parser {
                     }
 
                     if (end > 0 && (end == (line.length() - 1) || !isInlineOptionContentMarker(line.charAt(end + 1)))) { // check it is maybe a link
-                        final var subLine = line.substring(start).strip();
-                        final var canBeLink = isLink(subLine) || subLine.startsWith("link:");
-
-                        final int backward;
-                        final int previousSemicolon = line.lastIndexOf(':', i);
-                        if (previousSemicolon > 0 || canBeLink) {
-                            final int antepenultimateSemicolon = line.indexOf(':', start);
-                            var from = (antepenultimateSemicolon > 0 ? antepenultimateSemicolon : previousSemicolon) - 1;
-                            if (from >= 0 && line.charAt(from) == ':') {
-                                from--;
-                            }
-                            while (from > -1) {
-                                final var previousChar = line.charAt(from);
-
-                                // we should do that but we want to tolerate way more for links cases
-                                //if (!Character.isDigit(previousChar) && !Character.isAlphabetic(previousChar)) { // space, parenthesis, comma, ...
-                                // so we just whitelist some chars for now
-                                if (previousChar == '(' || previousChar == ' ' ||
-                                        previousChar == ',' || previousChar == ';') {
-                                    break;
-                                }
-                                from--;
-                            }
-                            backward = from + 1;
-                        } else {
-                            backward = -1;
-                        }
-
+                        final int backward = macroStart(line, start, i, currentAttributes);
                         var offset = 0;
-                        if (backward >= 0 && backward < i) { // start by assuming it a link then fallback on a macro
+                        if (backward >= 0) { // start by assuming it a link then fallback on a macro
                             var optionsPrefix = line.substring(backward, i);
-                            final boolean escaped = optionsPrefix.startsWith("\\");
-                            if (optionsPrefix.startsWith("include:", escaped ? 1 : 0)) {
+                            final boolean escaped = backward > 0 && line.charAt(backward - 1) == '\\';
+                            if (optionsPrefix.startsWith("include:")) {
                                 // not an inline macro but a directive, as in asciidoctor: only a whole line is one,
                                 // anywhere else it stays text with its backslash, which only goes for an escaped whole line
-                                final var include = backward == 0 ? includeDirective(line.substring(escaped ? 1 : 0), currentAttributes) : null;
+                                final int lineStart = escaped ? 1 : 0;
+                                final var include = backward == lineStart ? includeDirective(line.substring(lineStart), currentAttributes) : null;
                                 if (include == null) { // text, with the backslash the escaping case skipped put back
-                                    flushText(elements, line.substring(escaped && start == backward + 1 ? backward : start, end + 1));
+                                    flushText(elements, line.substring(escaped && start == backward ? backward - 1 : start, end + 1));
                                 } else {
                                     if (escaped) {
                                         flushText(elements, line.substring(1).stripTrailing());
@@ -2023,7 +2000,7 @@ public class Parser {
                             }
 
                             if (escaped) { // escaped macro, asciidoctor drops the backslash and keeps the text
-                                flushText(elements, line.substring(backward + 1, end + 1));
+                                flushText(elements, line.substring(backward, end + 1));
                                 i = end;
                                 start = end + 1;
                                 continue;
@@ -3497,6 +3474,78 @@ public class Parser {
 
     private boolean isLink(final String link) {
         return LINK_PREFIXES.stream().anyMatch(link::startsWith);
+    }
+
+    private boolean isMacroNameChar(final char c) { // asciidoctor's MacroNameRx: word characters and hyphens
+        return c == '_' || c == '-' || Character.isLetterOrDigit(c);
+    }
+
+    // the target of an inline macro runs from its colon to a '[' without any blank, as in asciidoctor's macro regexes
+    private boolean isMacroTarget(final String line, final int from) {
+        for (int i = from; i < line.length(); i++) {
+            final char c = line.charAt(i);
+            if (c == '[') {
+                return true;
+            }
+            if (Character.isWhitespace(c)) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Finds where the inline macro closed by the {@code [} at {@code bracket} starts, or -1 when the text before the
+     * bracket is not {@code name:target}: the target is the blank free run before the bracket up to its first colon
+     * and the name the word run before that colon, so {@code word:link:x[y]} is a macro named {@code word}. The parser
+     * has no registry of names, so every name is read the same way and {@code hyperlink:x[y]} is a macro named
+     * {@code hyperlink}, where asciidoctor reads {@code hyper} then a link. When the run gives no macro, the macros of
+     * the {@code blank-target-macros} attribute are looked up before it, their target holding blanks as in
+     * {@code image:my file.png[alt]}. Nothing before {@code start} is read, so the result is either -1 or an index in
+     * {@code [start, bracket)} and callers need no other bound check.
+     */
+    private int macroStart(final String line, final int start, final int bracket, final Map<String, String> currentAttributes) {
+        int runStart = bracket;
+        while (runStart > start && !Character.isWhitespace(line.charAt(runStart - 1)) && line.charAt(runStart - 1) != '[') {
+            runStart--;
+        }
+        for (int colon = line.indexOf(':', runStart); colon >= 0 && colon < bracket; colon = line.indexOf(':', colon + 1)) {
+            int name = colon;
+            while (name > runStart && isMacroNameChar(line.charAt(name - 1))) {
+                name--;
+            }
+            while (name < colon && line.charAt(name) == '-') { // a name starts with a word character
+                name++;
+            }
+            if (name < colon) {
+                return name;
+            }
+        }
+        final int firstColon = line.indexOf(':', start);
+        if (firstColon < 0 || firstColon >= runStart) { // a target holding blanks needs a colon before the run
+            return -1;
+        }
+        final var macros = currentAttributes.getOrDefault("blank-target-macros",
+                globalAttributes.getOrDefault("blank-target-macros", BLANK_TARGET_MACROS));
+        for (final var name : macros.split(",")) {
+            final var macro = name.strip();
+            if (macro.isEmpty()) {
+                continue;
+            }
+            for (int from = line.indexOf(macro, start); from >= 0 && from < runStart; from = line.indexOf(macro, from + 1)) {
+                final int colon = from + macro.length();
+                if (colon < runStart && line.charAt(colon) == ':' && isBlankTarget(line, colon + 1, bracket)) {
+                    return from;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // as asciidoctor, such a target starts with a character which is neither a blank nor a colon and ends with a non blank
+    private boolean isBlankTarget(final String line, final int from, final int bracket) {
+        return from < bracket && line.charAt(from) != ':' && !Character.isWhitespace(line.charAt(from)) &&
+                !Character.isWhitespace(line.charAt(bracket - 1)) && line.indexOf('[', from) == bracket;
     }
 
     private boolean isHorizontalRule(final String stripped) {

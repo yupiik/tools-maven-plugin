@@ -4272,6 +4272,17 @@ class AsciidoctorLikeHtmlRendererTest {
                         """);
     }
 
+    @Test
+    void linksAfterATextWithAColon() { // 'Path' used to be read as the macro name, so the default mode failed on the line
+        assertRenderingContent("Path: link:https://example.com[a], Type: link:https://example.org[b]",
+                " <div class=\"paragraph\">\n <p>Path:  <a href=\"https://example.com\">a</a>\n, Type:  <a href=\"https://example.org\">b</a>\n</p>\n </div>\n");
+    }
+
+    @Test
+    void textWithAColonAndBracketsIsNotAMacro() { // 'Time' used to be read as a macro name, so the default mode failed on the line
+        assertRenderingContent("Time: 10:00 [foo] bar", " <div class=\"paragraph\">\n <p>\nTime: 10:00 [foo] bar\n </p>\n </div>\n");
+    }
+
     private void assertRenderingContent(final String adoc, final String html) {
         assertRenderingContent(adoc, html, null);
     }
