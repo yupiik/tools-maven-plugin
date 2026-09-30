@@ -41,6 +41,10 @@ Set them in the document (`:keep-paragraphs: false`), or pass them to the `Parse
 |===
 |Name |Default |Description
 
+|`blank-target-macros`
+|`image,icon,menu,xref,link`
+|The inline macros whose target can hold blanks, as `image:my file.png[alt]`; every other target stops at a blank. asciidoctor takes blanks for `image`, `icon`, `menu` and `xref`; `link` stays in the list for the documents which relied on it. An empty value stops every target at a blank.
+
 |`callout-mismatch`
 |unset
 |`ignore` keeps a code block whose callout markers do not match the callout list after it, without the unmatched markers and items. By default the parser fails on such a block.
@@ -147,6 +151,7 @@ The parser supports standard Asciidoc syntax including:
 * Block ids, written `[#id]`, `[id=name]` or as an anchor line `[[id]]` (`[[id, reftext]]` with a reference text) above a block or the document title
 * Shorthands on a block style, `[NOTE#note.important%collapsible]` giving the style `NOTE`, the id `note`, the role `important` and the option `collapsible`, and chained options, `[%collapsible%open]`. A line without a style keeps the whole shorthand as one value, so `[#io.yupiik.test.MyObject]` is that id
 * Macros (`image:`, `video:`, `audio:`, `icon:`, `btn:`, `kbd:`, `menu:`, `xref:`, footnote), the keys of `kbd:` being split on the first `,` or `+` after the first character, so `kbd:[Ctrl,Shift]` and `kbd:[Ctrl+Shift]` are both two keys and `kbd:[Ctrl++]` is `Ctrl` and `+`
+* An inline macro starts where its name stands, as in asciidoctor: the target is the run without blanks before the `[`, up to its first colon, and the name is the run of word characters and hyphens before that colon, so `Environment variable: env_var:X[]` keeps `Environment variable: ` as text, `name.footnote:[..]` is a footnote and `Time: 10:00 [foo]` holds no macro. The parser has no registry of names, so every name is read the same way: `hyperlink:x[y]` is a macro named `hyperlink`, where asciidoctor reads `hyper` then a link. The macros of the `blank-target-macros` attribute also take a target holding blanks, as `image:my file.png[alt]`.
 * A macro with another name, such as `tooltip:foo[a hint]`, is kept in the model as a `Macro` element; both renderers fail on it by default, or ignore it or write it as text as asciidoctor does with a macro no extension registers (the `unknownMacro` option of each renderer, see below and the Markdown output section), and a subclass of `AsciidoctorLikeHtmlRenderer` or of `GithubFlavoredMarkdownRenderer` renders it in `onMissingMacro`
 * Cross references (`<<id>>`, `<<id,text>>`, `<<page.adoc#id,text>>`, `xref:page.adoc#id[text]`), the `<<...>>` form reading the part before a `#` as a page whatever its extension, as asciidoctor does
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering

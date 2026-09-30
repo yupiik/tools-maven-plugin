@@ -4493,4 +4493,142 @@ class ParserTest {
                 spans.values().stream().anyMatch(it -> source.equals(it.source()) && it.startLine() == start && it.endLine() == end),
                 () -> "missing " + source + " [" + start + "-" + end + "] in " + spans.values());
     }
+
+    @Test
+    void macroAfterATextWithAColon() { // the name is the word before the macro colon, not the text before the first colon of the line
+        final var body = new Parser().parseBody(new Reader(List.of("Environment variable: env_var_with_copy_button:QUARKUS_HTTP_PORT[]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Environment variable: ", Map.of()),
+                new Macro("env_var_with_copy_button", "QUARKUS_HTTP_PORT", Map.of(), true)), Map.of())), body.children());
+    }
+
+    @Test
+    void linksAfterTextsWithAColon() {
+        final var body = new Parser().parseBody(new Reader(List.of("Path: link:https://example.com[a], Type: link:https://example.org[b]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Path: ", Map.of()),
+                new Link("https://example.com", new Text(List.of(), "a", Map.of("nowrap", "true", "", "a")), Map.of("", "a", "nowrap", "true")),
+                new Text(List.of(), ", Type: ", Map.of()),
+                new Link("https://example.org", new Text(List.of(), "b", Map.of("nowrap", "true", "", "b")), Map.of("", "b", "nowrap", "true"))), Map.of())), body.children());
+    }
+
+    @Test
+    void markupBetweenAColonAndAMacroIsParsed() { // "10:" used to open the macro, hiding the bold run
+        final var body = new Parser().parseBody(new Reader(List.of("At 10:30 we do *this* and link:https://example.com[that].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "At 10:30 we do ", Map.of()),
+                new Text(List.of(BOLD), "this", Map.of()),
+                new Text(List.of(), " and ", Map.of()),
+                new Link("https://example.com", new Text(List.of(), "that", Map.of("nowrap", "true", "", "that")), Map.of("", "that", "nowrap", "true")),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void macroNameGluedToAWord() { // the name is the whole word run: footnote:[] after a dot is a footnote, hyperlink:[] a macro named hyperlink
+        final var body = new Parser().parseBody(new Reader(List.of("name.footnote:[A note.] and hyperlink:https://example.com[x] and doublefootnote:[Twice.]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "name.", Map.of()),
+                new Macro("footnote", "", Map.of("", "A note."), true),
+                new Text(List.of(), " and ", Map.of()),
+                new Macro("hyperlink", "https://example.com", Map.of("", "x"), true),
+                new Text(List.of(), " and ", Map.of()),
+                new Macro("doublefootnote", "", Map.of("", "Twice."), true)), Map.of())), body.children());
+    }
+
+    @Test
+    void macroNameBeforeTheFirstColonOfTheRun() { // the name stands before the first colon, the target holds the next ones
+        final var body = new Parser().parseBody(new Reader(List.of("word:link:https://example.com[x]")), null);
+        assertEquals(List.of(new Macro("word", "link:https://example.com", Map.of("", "x"), true)), body.children());
+    }
+
+    @Test
+    void blankTargetMacrosAttributeAddsAName() { // the document lists the macros taking blanks in their target, the others stop at a blank
+        final var body = new Parser().parseBody(new Reader(List.of(":blank-target-macros: tooltip", "", "See tooltip:a hint[x] and image:my file.png[alt].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Macro("tooltip", "a hint", Map.of("", "x"), true),
+                new Text(List.of(), " and image:my file.png[alt].", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void blankTargetMacrosAttributeEmptied() { // from the parser configuration, an empty list stops every target at a blank
+        final var body = new Parser(Map.of("blank-target-macros", "")).parseBody(new Reader(List.of("Note: see image:my file.png[alt] here.")), null);
+        assertEquals(List.of(new Text(List.of(), "Note: see image:my file.png[alt] here.", Map.of())), body.children());
+    }
+
+    @Test
+    void attributeHoldingAMacroAfterAWord() { // the attribute is substituted first, then the glued name is one name; asciidoctor's registry reads footnote
+        final var body = new Parser().parseBody(new Reader(List.of(":fn: footnote:[Diataxis.]", "", "The framework{fn} is used.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "The ", Map.of()),
+                new Macro("frameworkfootnote", "", Map.of("", "Diataxis."), true),
+                new Text(List.of(), " is used.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void nonBreakingSpaceBeforeAMacro() { // not a name character, so it stays in the text
+        final var body = new Parser().parseBody(new Reader(List.of("MemorySize link:#memory-size-note[x]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "MemorySize ", Map.of()),
+                new Link("#memory-size-note", new Text(List.of(), "x", Map.of("nowrap", "true", "", "x")), Map.of("", "x", "nowrap", "true"))), Map.of())), body.children());
+    }
+
+    @Test
+    void macroAfterABoldRun() {
+        final var body = new Parser().parseBody(new Reader(List.of("**bold**env_var_with_copy_button:X[]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Macro("env_var_with_copy_button", "X", Map.of(), true)), Map.of())), body.children());
+    }
+
+    @Test
+    void emphasizedWordBeforeAMacro() { // the word used to be written twice, as text and again in the macro name
+        final var body = new Parser().parseBody(new Reader(List.of("_Warning_: link:https://example.com[x]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(ITALIC), "Warning", Map.of()),
+                new Text(List.of(), ": ", Map.of()),
+                new Link("https://example.com", new Text(List.of(), "x", Map.of("nowrap", "true", "", "x")), Map.of("", "x", "nowrap", "true"))), Map.of())), body.children());
+    }
+
+    @Test
+    void textWithAColonAndBracketsIsNotAMacro() { // a blank between the colon and the bracket, or no name before the colon
+        assertEquals(List.of(new Text(List.of(), "Time: 10:00 [foo] bar", Map.of())),
+                new Parser().parseBody(new Reader(List.of("Time: 10:00 [foo] bar")), null).children());
+        assertEquals(List.of(new Text(List.of(), "a :b[c] and .:d[e]", Map.of())),
+                new Parser().parseBody(new Reader(List.of("a :b[c] and .:d[e]")), null).children());
+    }
+
+    @Test
+    void hyphensBeforeAMacroNameStayText() { // a name starts with a word character but can hold hyphens and digits
+        final var body = new Parser().parseBody(new Reader(List.of("-link:https://example.com[x] and my-macro2:y[z]")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "-", Map.of()),
+                new Link("https://example.com", new Text(List.of(), "x", Map.of("nowrap", "true", "", "x")), Map.of("", "x", "nowrap", "true")),
+                new Text(List.of(), " and ", Map.of()),
+                new Macro("my-macro2", "y", Map.of("", "z"), true)), Map.of())), body.children());
+    }
+
+    @Test
+    void imageTargetWithABlank() { // image:, icon:, menu: and xref: take blanks in their target, as asciidoctor
+        final var body = new Parser().parseBody(new Reader(List.of("Note: see image:my file.png[alt] here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "Note: see ", Map.of()),
+                new Macro("image", "my file.png", Map.of("", "alt"), true),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void escapedMacroAfterAText() { // the backslash before the name still escapes the macro
+        assertEquals(List.of(new Text(List.of(), "see env_var_with_copy_button:Z[] and footnote:[y] here", Map.of())),
+                new Parser().parseBody(new Reader(List.of("see \\env_var_with_copy_button:Z[] and \\footnote:[y] here")), null).children());
+    }
+
+    @Test
+    void linkTargetWithABlankIsKept() { // asciidoctor stops a link target at a blank, but existing documents relied on it
+        final var body = new Parser().parseBody(new Reader(List.of("See link:my file.pdf[the file].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Link("my file.pdf", new Text(List.of(), "the file", Map.of("nowrap", "true", "", "the file")), Map.of("", "the file", "nowrap", "true")),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
 }
