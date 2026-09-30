@@ -3977,6 +3977,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         """,
                 """
                          <div class="paragraph">
+                          <div class="title">My {name} title</div>
                          <p id="t">
                         Some text.
                          </p>
@@ -4122,6 +4123,138 @@ class AsciidoctorLikeHtmlRendererTest {
                          <pre class="highlightjs highlight linenums"><code class="language-properties hljs" data-lang="properties" data-linenums="true"><span class="linenums">1</span>a=b
                         </code></pre>
                          </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void blockTitles() { // as asciidoctor, the title of a paragraph, an admonition or a list is the first child of its wrapper
+        assertRenderingContent("""
+                        .Read this first
+                        A paragraph with a title.
+
+                        .Mind the gap
+                        NOTE: Mind the gap.
+
+                        .Two paragraphs
+                        [WARNING]
+                        ====
+                        First.
+
+                        Second.
+                        ====
+
+                        .Steps
+                        . Build.
+                        . Run.
+
+                        .Tools & <parts>
+                        * Maven
+                        * Java
+                        """,
+                """
+                         <div class="paragraph">
+                          <div class="title">Read this first</div>
+                         <p>
+                        A paragraph with a title.
+                         </p>
+                         </div>
+                         <div class="admonitionblock note">
+                          <table>
+                            <tbody>
+                             <tr>
+                              <td class="icon">
+                             <div class="title">NOTE</div>
+                               </td>
+                              <td class="content">
+                          <div class="title">Mind the gap</div>
+                        Mind the gap.    </td>
+                           </tr>
+                              </tbody>
+                          </table>
+                         </div>
+                         <div class="admonitionblock warning">
+                          <table>
+                            <tbody>
+                             <tr>
+                              <td class="icon">
+                             <div class="title">WARNING</div>
+                               </td>
+                              <td class="content">
+                          <div class="title">Two paragraphs</div>
+                         <div class="paragraph">
+                         <div class="paragraph">
+                         <p>First.</p>
+                         </div>
+                         <div class="paragraph">
+                         <p>Second.</p>
+                         </div>
+                         </div>
+                            </td>
+                           </tr>
+                              </tbody>
+                          </table>
+                         </div>
+                         <div class="olist">
+                          <div class="title">Steps</div>
+                         <ol>
+                          <li>
+                         <p>
+                        Build.
+                         </p>
+                          </li>
+                          <li>
+                         <p>
+                        Run.
+                         </p>
+                          </li>
+                         </ol>
+                         </div>
+                         <div class="ulist">
+                          <div class="title">Tools &amp; &lt;parts&gt;</div>
+                         <ul>
+                          <li>
+                         <p>
+                        Maven
+                         </p>
+                          </li>
+                          <li>
+                         <p>
+                        Java
+                         </p>
+                          </li>
+                         </ul>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void abstractTitle() { // an abstract paragraph becomes a quote block, and its title goes with it
+        assertRenderingContent("""
+                        .Abstract title
+                        [abstract]
+                        An abstract paragraph.
+                        """,
+                """
+                         <div class="quoteblock abstract">
+                          <div class="title">Abstract title</div>
+                          <blockquote>
+                        An abstract paragraph.  </blockquote>
+                         </div>""");
+    }
+
+    @Test
+    void linkTitleIsNotABlockTitle() { // the title attribute of a link or an inline image is not the title of the paragraph
+        assertRenderingContent("""
+                        .Read this first
+                        See link:https://x.org[the site,title="Site tooltip"] and image:a.png[Alt,title="Image tooltip"] here.
+                        """,
+                """
+                         <div class="paragraph">
+                          <div class="title">Read this first</div>
+                         <p>See  <a href="https://x.org">the site</a>
+                         and  <span class="image"><img src="a.png" alt="Alt"></span>
+                         here.</p>
                          </div>
                         """);
     }

@@ -418,6 +418,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
         builder.append("       </td>\n")
                 .append("      <td class=\"content\">\n");
+        writeBlockTitle(opts);
         visitElement(element.content());
         builder.append("    </td>\n")
                 .append("   </tr>\n")
@@ -436,6 +437,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append(" <div");
                     writeCommonAttributes(element.options(), c -> "paragraph" + (c != null ? ' ' + c : ""));
                     builder.append(">\n");
+                    writeBlockTitle(element.options());
                 }
 
                 final boolean addP = !state.nowrap && !nowrap && !preambleWasHandled && state.sawPreamble &&
@@ -819,6 +821,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             writeCommonAttributes(element.options(), c ->
                     isChecklist ? "ulist checklist" + (c != null ? ' ' + c : "") : "ulist" + (c != null ? ' ' + c : ""));
             builder.append(">\n");
+            writeBlockTitle(element.options());
             builder.append(isChecklist ? " <ul class=\"checklist\">\n" : " <ul>\n");
             visitListElements(element.children(), element.options());
             builder.append(" </ul>\n");
@@ -841,6 +844,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 return style != null ? "olist " + style + (c != null ? " " + c : "") : base;
             });
             builder.append(">\n");
+            writeBlockTitle(element.options());
             builder.append(" <ol");
             if (style != null) {
                 final var role = element.options().get("role");
@@ -920,7 +924,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append(" <div class=\"sect1\">\n");
                 }
                 // not 100% sure of why asciidoctor does it sometimes (open blocks) but trying to behave the same to keep existing theme
-                visitQuote(new Quote(List.of(new Text(element.style(), element.value(), Map.of())), Map.of("role", "quoteblock abstract")));
+                final var title = element.options().get("title");
+                visitQuote(new Quote(
+                        List.of(new Text(element.style(), element.value(), Map.of())),
+                        title == null ? Map.of("role", "quoteblock abstract") : Map.of("role", "quoteblock abstract", "title", title)));
                 if (preambleSaw) {
                     builder.append(" </div>\n");
                 }
@@ -937,6 +944,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append(' ').append(customRole);
                 }
                 builder.append("\">\n");
+            }
+            if (useWrappers && !state.nowrap) { // a block title has no place in a title, a label or a cell written inline
+                writeBlockTitle(element.options());
             }
 
             final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());

@@ -2853,6 +2853,23 @@ class ParserTest {
     }
 
     @Test
+    void inlineAdmonitionKeepsTheBlockOptions() { // as for a list, the title, id and role above NOTE: belong to the admonition
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [[gap]]
+                .Mind the gap
+                [role=important]
+                NOTE: Mind the gap.
+
+                NOTE: Alone.
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Admonition(NOTE, new Text(List.of(), "Mind the gap.", Map.of()),
+                                Map.of("id", "gap", "title", "Mind the gap", "role", "important")),
+                        new Admonition(NOTE, new Text(List.of(), "Alone.", Map.of()), Map.of())),
+                body.children());
+    }
+
+    @Test
     void include() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
