@@ -287,6 +287,14 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void inlineAdmonitionTitle() { // the title above NOTE: is the title of the alert, not of a paragraph around it
+        assertContains("> [!NOTE]\n> **Mind the gap**\n>\n> Mind the gap.\n", md("""
+                .Mind the gap
+                NOTE: Mind the gap.
+                """));
+    }
+
+    @Test
     void table() {
         assertEquals("""
                         **Options**

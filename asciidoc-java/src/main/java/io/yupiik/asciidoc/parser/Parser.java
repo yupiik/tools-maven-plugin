@@ -3400,8 +3400,8 @@ public class Parser {
         if (first instanceof ConditionalBlock c) {
             return new ConditionalBlock(c.evaluator(), c.children(), merge(c.options(), element.options()));
         }
-        if (first instanceof Admonition a && element.options().isEmpty()) {
-            return a;
+        if (first instanceof Admonition a) {
+            return new Admonition(a.level(), a.content(), merge(a.options(), element.options()));
         }
 
         return element;
