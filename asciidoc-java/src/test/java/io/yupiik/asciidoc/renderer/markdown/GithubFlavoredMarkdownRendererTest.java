@@ -1160,6 +1160,15 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void passthroughsInACodeSpan() { // the parser drops the signs, so the code span holds the text as written
+        assertEquals("A `{name}` B `quarkus.log.level` C `quarkus.tls.<name>.*` D value E `` `x` y ``.\n", md("""
+                :name: value
+
+                A `+{name}+` B `+++quarkus.log.level+++` C `quarkus.tls.<name>.++*++` D {name} E `+++`x` y+++`.
+                """));
+    }
+
+    @Test
     void inlineCodeDelimiterIsLongerThanTheBackticksInTheCode() {
         final var renderer = new GithubFlavoredMarkdownRenderer();
         renderer.visitBody(new Body(List.of(new Paragraph(List.of(

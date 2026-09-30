@@ -2611,7 +2611,7 @@ class ParserTest {
                                 new Text(List.of(), "Text {name} and value, ", Map.of()),
                                 new Code("{name}/file", Map.of(), true, List.of()),
                                 new Text(List.of(), " and ", Map.of()),
-                                new Code("+\\{name}+", Map.of(), true, List.of()),
+                                new Code("\\{name}", Map.of(), true, List.of()), // the passthrough keeps the backslash, as asciidoctor
                                 new Text(List.of(), ".", Map.of())), Map.of()),
                         new UnOrderedList(List.of(new Paragraph(List.of(
                                 new Text(List.of(), "item {name} {name} {name} value ", Map.of()),
@@ -2621,6 +2621,72 @@ class ParserTest {
                         new Link("https://yupiik.io/{name}", new Text(List.of(), "a {name}", Map.of("", "a \\{name}", "nowrap", "true")), Map.of("", "a \\{name}", "nowrap", "true")),
                         new Code("{name} value\n", Map.of("title", "Title with {name} and value", "language", "text", "subs", "attributes+"), false, List.of()),
                         new Text(List.of(), "Role.", Map.of("role", "{name}"))),
+                body.children());
+    }
+
+    @Test
+    void passthroughsInACodeSpan() { // as asciidoctor, the signs go and the text between them stays as written, attribute references included
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :name: value
+
+                A `+{name}+` B `+++{name}+++` C `++{name}++` D {name} `{name}` E `+\\{name}+` F `\\{name}`.
+
+                * `quarkus.tls.<name>.++*++` and `$++{++quarkus.http.port++}++` and `+quarkus.tls.*+`
+                * `+ {name}+` and `a + b`
+
+                Plus `C++` signs.
+
+                Trailing `+{name} +` sign.
+
+                Escaped `+++`true` if enabled; `false` otherwise+++` text.
+
+                Default: `+++10S+++`, `+++%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p+++`.
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "A ", Map.of()),
+                                new Code("{name}", Map.of(), true, List.of()),
+                                new Text(List.of(), " B ", Map.of()),
+                                new Code("{name}", Map.of(), true, List.of()),
+                                new Text(List.of(), " C ", Map.of()),
+                                new Code("{name}", Map.of(), true, List.of()),
+                                new Text(List.of(), " D value ", Map.of()),
+                                new Code("value", Map.of(), true, List.of()),
+                                new Text(List.of(), " E ", Map.of()),
+                                new Code("\\{name}", Map.of(), true, List.of()),
+                                new Text(List.of(), " F ", Map.of()),
+                                new Code("{name}", Map.of(), true, List.of()),
+                                new Text(List.of(), ".", Map.of())), Map.of()),
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Code("quarkus.tls.<name>.*", Map.of(), true, List.of()),
+                                        new Text(List.of(), " and ", Map.of()),
+                                        new Code("${quarkus.http.port}", Map.of(), true, List.of()),
+                                        new Text(List.of(), " and ", Map.of()),
+                                        new Code("quarkus.tls.*", Map.of(), true, List.of())), Map.of()),
+                                new Paragraph(List.of(
+                                        new Code("+ value+", Map.of(), true, List.of()),
+                                        new Text(List.of(), " and ", Map.of()),
+                                        new Code("a + b", Map.of(), true, List.of())), Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Plus ", Map.of()),
+                                new Code("C++", Map.of(), true, List.of()),
+                                new Text(List.of(), " signs.", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Trailing ", Map.of()),
+                                new Code("+value +", Map.of(), true, List.of()),
+                                new Text(List.of(), " sign.", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Escaped ", Map.of()),
+                                new Code("`true` if enabled; `false` otherwise", Map.of(), true, List.of()),
+                                new Text(List.of(), " text.", Map.of())), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Default: ", Map.of()),
+                                new Code("10S", Map.of(), true, List.of()),
+                                new Text(List.of(), ", ", Map.of()),
+                                new Code("%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p", Map.of(), true, List.of()),
+                                new Text(List.of(), ".", Map.of())), Map.of())),
                 body.children());
     }
 
