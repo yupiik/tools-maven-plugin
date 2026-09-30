@@ -15,11 +15,32 @@
  */
 package io.yupiik.asciidoc.model;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.LISTING;
 
-public record Listing(String value, Map<String, String> options) implements Element {
+/**
+ * A literal block, {@code ....}.
+ *
+ * @param children the text of the block as parts, as {@link Code#children()} holds the code: a {@link Text} for the
+ *                 lines between two directives and a {@link ConditionalBlock} of such parts for the lines under a
+ *                 conditional directive.
+ * @param options  the block options.
+ */
+public record Listing(List<Element> children, Map<String, String> options) implements Element {
+    public Listing(final String value, final Map<String, String> options) {
+        this(VerbatimText.parts(value), options);
+    }
+
+    /**
+     * @return the text of the block, the lines of every conditional branch included. Computed from
+     * {@link #children()} on each call.
+     */
+    public String value() {
+        return VerbatimText.text(children);
+    }
+
     @Override
     public ElementType type() {
         return LISTING;

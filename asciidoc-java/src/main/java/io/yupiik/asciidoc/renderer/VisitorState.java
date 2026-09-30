@@ -363,7 +363,7 @@ public class VisitorState implements Visitor<Void> {
 
         @Override
         public void visitCode(final Code element) {
-            element.callOuts().forEach(callOut -> visitElement(callOut.text()));
+            sibling.renderedCode(element, context()).callOuts().forEach(callOut -> visitElement(callOut.text()));
         }
 
         @Override

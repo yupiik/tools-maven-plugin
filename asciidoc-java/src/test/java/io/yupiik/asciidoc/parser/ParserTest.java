@@ -39,6 +39,7 @@ import io.yupiik.asciidoc.model.Revision;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
+import io.yupiik.asciidoc.renderer.VisitorSibling;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
@@ -50,9 +51,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.IdentityHashMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -74,6 +77,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -1427,7 +1431,7 @@ class ParserTest {
         final var doc = new Parser().parse("= Title\n:partialsdir: " + work + "\n\n++++\ninclude::{partialsdir}/content.html[]\n++++\n",
                 new Parser.ParserContext(ContentResolver.of(work)));
         assertEquals(
-                List.of(new PassthroughBlock("<b>included</b>\n", Map.of())), // an include keeps its trailing line break, as in codeInclude()
+                List.of(new PassthroughBlock("<b>included</b>", Map.of())), // as asciidoctor, the included lines land in place, with no line break after them
                 doc.body().children());
     }
 
@@ -1623,6 +1627,394 @@ class ParserTest {
         assertEquals(
                 List.of(new Code("before\none\nmiddle\ntwo\nafter\n", Map.of("language", "text"), false, List.of())),
                 body.children());
+    }
+
+    @Test
+    void conditionalsInCodeBlock() { // as asciidoctor's preprocessor reads the directives of a listing block; the lines of every branch stay, with their condition
+        final var code = (Code) new Parser().parseBody("""
+                [source,text]
+                ----
+                ifdef::flag[]
+                shown
+                endif::[]
+                ifndef::flag[]
+                hidden
+                endif::[]
+                after
+                ----
+                """, new Parser.ParserContext(null)).children().get(0);
+        assertEquals(new Code(List.of(
+                conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n")),
+                conditional(new ConditionalBlock.Ifndef("flag"), part("hidden\n")),
+                part("after\n")), Map.of("language", "text"), false, List.of()), code);
+        assertEquals("shown\nhidden\nafter\n", code.value()); // the lines of every branch
+    }
+
+    @Test
+    void conditionalInCodeBlockReadsTheAttributesDefinedBeforeIt() { // as asciidoctor, the entries the body defined before the block decide; the renderer's attributes answer for the others
+        final var codes = new Parser(Map.of("global", "")).parseBody("""
+                ----
+                ifdef::later[]
+                hidden
+                endif::[]
+                ifdef::global[]
+                shown
+                endif::[]
+                ----
+
+                :later:
+
+                ----
+                ifdef::later[]
+                shown
+                endif::[]
+                ----
+
+                :!later:
+
+                ----
+                ifdef::later[]
+                hidden
+                endif::[]
+                ----
+                """, new Parser.ParserContext(null)).children().stream().filter(Code.class::isInstance).map(Code.class::cast).toList();
+        final var sibling = new VisitorSibling();
+        assertEquals(Map.of(), ((ConditionalBlock) codes.get(0).children().get(0)).attributes()); // nothing defined yet, the parser's own attribute is not carried
+        assertEquals("", sibling.renderedCode(codes.get(0), key -> null).value());
+        assertEquals("hidden\nshown\n", sibling.renderedCode(codes.get(0), key -> "").value()); // the renderer defines them
+        assertEquals(Map.of("later", ""), ((ConditionalBlock) codes.get(1).children().get(0)).attributes());
+        assertEquals("shown\n", sibling.renderedCode(codes.get(1), key -> null).value());
+        assertEquals(Map.of("!later", ""), ((ConditionalBlock) codes.get(2).children().get(0)).attributes()); // unset, as asciidoctor writes it
+        assertEquals("", sibling.renderedCode(codes.get(2), key -> "").value()); // even when the renderer defines it
+    }
+
+    @Test
+    void nestedConditionalsInCodeBlock() { // a line sits under every directive open above it
+        final var code = (Code) new Parser().parseBody("""
+                ----
+                ifdef::a[]
+                ifdef::b[]
+                both
+                endif::[]
+                only a
+                endif::[]
+                ifndef::a[]
+                ifndef::b[]
+                neither
+                endif::[]
+                endif::[]
+                tail
+                ----
+                """, new Parser.ParserContext(null)).children().get(0);
+        assertEquals("both\nonly a\nneither\ntail\n", code.value());
+        assertEquals(
+                List.of(
+                        conditional(new ConditionalBlock.Ifdef("a"), conditional(new ConditionalBlock.Ifdef("b"), part("both\n")), part("only a\n")),
+                        conditional(new ConditionalBlock.Ifndef("a"), conditional(new ConditionalBlock.Ifndef("b"), part("neither\n"))),
+                        part("tail\n")),
+                code.children());
+    }
+
+    @Test
+    void singleLineConditionalInCodeBlock() { // ifdef::flag[text] has no endif::[], the text is the line
+        final var code = (Code) new Parser().parseBody("""
+                ----
+                ifdef::flag[one line]
+                ifndef::flag[hidden line]
+                after
+                ----
+                """, new Parser.ParserContext(null)).children().get(0);
+        assertEquals("one line\nhidden line\nafter\n", code.value());
+        assertEquals(
+                List.of(
+                        conditional(new ConditionalBlock.Ifdef("flag"), part("one line\n")),
+                        conditional(new ConditionalBlock.Ifndef("flag"), part("hidden line\n")),
+                        part("after\n")),
+                code.children());
+    }
+
+    @Test
+    void directivesKeptAsCode() { // as asciidoctor: escaped, the backslash goes; indented or followed by text, the line is code
+        final var body = new Parser(Map.of("flag", "")).parseBody("""
+                ----
+                \\ifdef::flag[]
+                  ifdef::flag[]
+                ifdef::flag[] trailing
+                \\endif::[]
+                ifdef::a b[]
+                ifdef::flag]
+                ::flag[]
+                image::x.png[]
+                \\image::x.png[]
+                ----
+                """, new Parser.ParserContext(null));
+        assertEquals( // a blank in the target, no bracket, no name or another name: code too, and the backslash of a macro stays
+                List.of(new Code(
+                        "ifdef::flag[]\n  ifdef::flag[]\nifdef::flag[] trailing\nendif::[]\n" +
+                                "ifdef::a b[]\nifdef::flag]\n::flag[]\nimage::x.png[]\n\\image::x.png[]\n",
+                        Map.of(), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void ifevalInCodeBlock() { // the renderer's attributes decide, after the entry the body defined before the block
+        final var codes = new Parser().parseBody("""
+                ----
+                ifeval::["{flag}" == "yes"]
+                shown
+                endif::[]
+                ifeval::["{flag}" == "no"]
+                hidden
+                endif::[]
+                ----
+
+                :flag: yes
+
+                ----
+                ifeval::["{flag}" == "yes"]
+                shown
+                endif::[]
+                ----
+                """, new Parser.ParserContext(null)).children().stream().filter(Code.class::isInstance).map(Code.class::cast).toList();
+        final var sibling = new VisitorSibling();
+        assertEquals("shown\nhidden\n", codes.get(0).value());
+        assertEquals("shown\n", sibling.renderedCode(codes.get(0), key -> "flag".equals(key) ? "yes" : null).value());
+        assertEquals("hidden\n", sibling.renderedCode(codes.get(0), key -> "flag".equals(key) ? "no" : null).value());
+        assertEquals("shown\n", sibling.renderedCode(codes.get(1), key -> "no").value()); // the value the body defined comes first
+    }
+
+    @Test
+    void namedEndifAndTrailingBlanksInCodeBlock() { // asciidoctor reads a directive whatever the blanks after it
+        final var code = (Code) new Parser().parseBody(
+                new Reader(List.of("----", "ifdef::flag[]", "shown", "endif::flag[]  ", "after", "----")), null).children().get(0);
+        assertEquals("shown\nafter\n", code.value());
+        assertEquals(List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n")), part("after\n")), code.children());
+    }
+
+    @Test
+    void unmatchedEndifInCodeBlockFails() { // asciidoctor logs an error and drops the line, this parser has no logger
+        final var error = assertThrows(IllegalArgumentException.class, () ->
+                new Parser().parseBody("----\nendif::[]\ncode\n----\n", new Parser.ParserContext(null)));
+        assertEquals("Unmatched preprocessor directive: 'endif::[]'", error.getMessage());
+    }
+
+    @Test
+    void mismatchedEndifInCodeBlockFails() { // as asciidoctor, a named endif closes the directive of that name
+        final var error = assertThrows(IllegalArgumentException.class, () ->
+                new Parser().parseBody("----\nifdef::flag[]\ncode\nendif::other[]\n----\n", new Parser.ParserContext(null)));
+        assertEquals("Mismatched preprocessor directive: 'endif::other[]', expected 'endif::flag[]'", error.getMessage());
+    }
+
+    @Test
+    void malformedDirectivesInCodeBlockFail() { // as asciidoctor: an endif takes no text, an ifeval no target
+        assertEquals(
+                "Malformed preprocessor directive, text not permitted: 'endif::[text]'",
+                assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(
+                        "----\nifdef::flag[]\ncode\nendif::[text]\n----\n", new Parser.ParserContext(null))).getMessage());
+        assertEquals(
+                "Malformed preprocessor directive, target not permitted: 'ifeval::{flag}[]'",
+                assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(
+                        "----\nifeval::{flag}[]\ncode\nendif::[]\n----\n", new Parser.ParserContext(null))).getMessage());
+    }
+
+    @Test
+    void blankLastLineUnderAConditionInCodeBlock() { // the blank line keeps its condition; with a callout, the code loses it
+        final var code = (Code) new Parser().parseBody("----\nifdef::flag[]\nshown\n\nendif::[]\n----\n", new Parser.ParserContext(null)).children().get(0);
+        assertEquals("shown\n\n", code.value());
+        assertEquals(List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n\n"))), code.children());
+        final var withCallOut = (Code) new Parser().parseBody(
+                "----\nifdef::flag[]\nshown <1>\n\nendif::[]\n----\n<1> Shown.\n", new Parser.ParserContext(null)).children().get(0);
+        assertEquals("shown\n", withCallOut.value());
+        assertEquals(List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n"))), withCallOut.children());
+    }
+
+    @Test
+    void unterminatedDirectiveInCodeBlockFails() { // the block ends before the endif::[]; asciidoctor would read on past the closing marker
+        final var error = assertThrows(IllegalArgumentException.class, () ->
+                new Parser().parseBody("----\nifdef::flag[]\ncode\n----\n", new Parser.ParserContext(null)));
+        assertEquals("Unterminated preprocessor directive: 'ifdef::flag[]'", error.getMessage());
+    }
+
+    @Test
+    void calloutsAroundConditionalsInCodeBlock() {
+        final var code = (Code) new Parser().parseBody("""
+                [source,java]
+                ----
+                ifdef::flag[]
+                int a; <1>
+                endif::[]
+                int b; <2>
+                ----
+                <1> first
+                <2> second
+                """, new Parser.ParserContext(null)).children().get(0);
+        assertEquals("int a;\nint b;\n", code.value());
+        assertEquals(
+                List.of(
+                        List.of(new CallOut(1, new Text(List.of(), "first", Map.of()))),
+                        List.of(new CallOut(2, new Text(List.of(), "second", Map.of())))),
+                code.lineCallOuts());
+        assertEquals(List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("int a;\n")), part("int b;\n")), code.children());
+    }
+
+    @Test
+    void conditionalsInIncludedCodeLines(@TempDir final Path work) throws IOException { // the included lines are read as the block they land in
+        Files.writeString(work.resolve("cond.txt"), "ifdef::flag[]\nincluded shown\nendif::[]\nincluded after\n");
+        final var code = (Code) new Parser().parseBody(new Reader(List.of("""
+                ----
+                ifndef::outer[]
+                include::cond.txt[]
+                endif::[]
+                after
+                ----
+                """.split("\n"))), ContentResolver.of(work)).children().get(0);
+        assertEquals("included shown\nincluded after\nafter\n", code.value());
+        assertEquals(
+                List.of(
+                        conditional(new ConditionalBlock.Ifndef("outer"),
+                                conditional(new ConditionalBlock.Ifdef("flag"), part("included shown\n")),
+                                part("included after\n")),
+                        part("after\n")),
+                code.children());
+    }
+
+    @Test
+    void conditionalsInLiteralAndPassthroughBlocks() { // asciidoctor's preprocessor reads the lines of every block but a comment the same way
+        final var body = new Parser(Map.of("flag", "")).parseBody("""
+                ....
+                ifdef::flag[]
+                shown
+                endif::[]
+                \\ifdef::flag[]
+                ....
+
+                ++++
+                ifndef::flag[]
+                <b>hidden</b>
+                endif::[]
+                <b>always</b>
+                ++++
+                """, new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Listing(List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n")), part("ifdef::flag[]")), null),
+                        new PassthroughBlock(List.of(conditional(new ConditionalBlock.Ifndef("flag"), part("<b>hidden</b>\n")), part("<b>always</b>")), Map.of())),
+                body.children());
+        assertEquals("shown\nifdef::flag[]", ((Listing) body.children().get(0)).value()); // no line feed after the last line, as before
+    }
+
+    @Test
+    void passthroughBlockWithoutClosingMarker() { // the document ends the block
+        assertEquals(
+                List.of(new PassthroughBlock("<b>x</b>", Map.of())),
+                new Parser().parseBody("++++\n<b>x</b>\n", new Parser.ParserContext(null)).children());
+    }
+
+    @Test
+    void includesInLiteralAndPassthroughBlocks(@TempDir final Path work) throws IOException { // a missing include stays as text there, as in 1.2.16
+        Files.writeString(work.resolve("a.txt"), "one\ninclude::nested.txt[]\ntwo\n");
+        Files.writeString(work.resolve("nested.txt"), "nested\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ....
+                include::a.txt[]
+                include::missing.txt[]
+                \\include::a.txt[]
+                ....
+
+                ++++
+                include::a.txt[]
+                include::missing.txt[]
+                ++++
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(
+                        new Listing("one\nnested\ntwo\ninclude::missing.txt[]\ninclude::a.txt[]", null),
+                        new PassthroughBlock("one\nnested\ntwo\ninclude::missing.txt[]", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void missingIncludeInCodeBlockOrLiteralCellFails(@TempDir final Path work) { // as before, only literal and passthrough blocks keep it
+        final var parser = new Parser();
+        final var resolver = ContentResolver.of(work);
+        assertEquals(
+                "Missing include: 'missing.txt'",
+                assertThrows(IllegalArgumentException.class, () -> parser.parseBody(
+                        new Reader(List.of("----", "include::missing.txt[]", "----")), resolver)).getMessage());
+        assertEquals(
+                "Missing include: 'missing.txt'",
+                assertThrows(IllegalArgumentException.class, () -> parser.parseBody(
+                        new Reader(List.of("|===", "l|", "include::missing.txt[]", "|===")), resolver)).getMessage());
+    }
+
+    @Test
+    void doIncludeWithoutParsingGivesTheLinesAsTheyAre(@TempDir final Path work) throws IOException { // as in 1.2.16, for a subclass
+        Files.writeString(work.resolve("a.txt"), "one\ninclude::nested.txt[]\ntwo\n");
+        final var parser = new Parser();
+        final var resolver = ContentResolver.of(work);
+        assertEquals(
+                List.of(new Text(List.of(), "one\ninclude::nested.txt[]\ntwo\n", Map.of())),
+                parser.doInclude(work.resolve("doc.adoc"), new Macro("include", "a.txt", Map.of(), false), resolver, new HashMap<>(), false));
+        assertEquals( // a dropped include brings nothing
+                List.of(),
+                parser.doInclude(work.resolve("doc.adoc"), new Macro("include", "missing.txt", Map.of("opts", "optional"), false), resolver, new HashMap<>(), false));
+    }
+
+    @Test
+    void conditionalsInAnIncludedLiteralCell(@TempDir final Path work) throws IOException { // a literal cell is verbatim too
+        Files.writeString(work.resolve("cond.txt"), "ifdef::flag[]\nshown\nendif::[]\nafter\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                |===
+                l|
+                include::cond.txt[]
+                |===
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(new Table(List.of(List.of(new Code(
+                        List.of(conditional(new ConditionalBlock.Ifdef("flag"), part("shown\n")), part("after")),
+                        Map.of(), true, List.of()))), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalsInAnIncludedCodeBlock(@TempDir final Path work) throws IOException { // the quarkus.io build snippets: the attribute is set in the body, before the include
+        Files.writeString(work.resolve("build-native.adoc"), """
+                [source,bash,subs=attributes+]
+                ----
+                ifdef::build-additional-parameters[]
+                quarkus build --native {build-additional-parameters}
+                endif::[]
+                ifndef::build-additional-parameters[]
+                quarkus build --native
+                endif::[]
+                ----
+                """);
+        final var code = (Code) new Parser().parseBody("""
+                :build-additional-parameters: -Dquarkus.native.container-build=true
+
+                include::build-native.adoc[]
+                """, new Parser.ParserContext(ContentResolver.of(work))).children().get(0);
+        assertEquals("quarkus build --native -Dquarkus.native.container-build=true\nquarkus build --native\n", code.value());
+        assertEquals(Map.of("language", "bash", "subs", "attributes+"), code.options());
+        final var defined = Map.of("build-additional-parameters", "-Dquarkus.native.container-build=true");
+        assertEquals(
+                List.of(
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("build-additional-parameters"),
+                                List.of(part("quarkus build --native -Dquarkus.native.container-build=true\n")), List.of(), Map.of(), defined),
+                        new ConditionalBlock(new ConditionalBlock.Ifndef("build-additional-parameters"),
+                                List.of(part("quarkus build --native\n")), List.of(), Map.of(), defined)),
+                code.children());
+        // the entry defined before the include decides, whatever the renderer knows
+        assertEquals("quarkus build --native -Dquarkus.native.container-build=true\n", new VisitorSibling().renderedCode(code, key -> null).value());
+    }
+
+    private static Text part(final String text) {
+        return new Text(List.of(), text, Map.of());
+    }
+
+    // the parts under a conditional directive of a verbatim block, where the body defined no attribute before it
+    private static ConditionalBlock conditional(final Predicate<ConditionalBlock.Context> condition, final Element... parts) {
+        return new ConditionalBlock(condition, List.of(parts), List.of(), Map.of(), Map.of());
     }
 
     @Test

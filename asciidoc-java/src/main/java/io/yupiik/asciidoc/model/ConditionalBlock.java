@@ -23,17 +23,35 @@ import java.util.stream.Stream;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.CONDITIONAL_BLOCK;
 
+/**
+ * @param evaluator    the condition of the block, an {@link Ifdef}, an {@link Ifndef} or an {@link Ifeval}.
+ * @param children     the elements under the directive.
+ * @param elseBranches the {@code elsif::[]} and {@code else::[]} branches, in order.
+ * @param options      the block options.
+ * @param attributes   the attribute entries the document body defined before the directive: a name to its value, and
+ *                     {@code !name} to an empty value for an unset one. Empty when the body defined none. A renderer
+ *                     reads them before its own attributes when it evaluates the condition, as asciidoctor's
+ *                     preprocessor sees them, see {@code VisitorSibling.renderedChildren}.
+ */
 public record ConditionalBlock(Predicate<Context> evaluator,
                                List<Element> children,
                                List<ConditionalBlock> elseBranches,
-                               Map<String, String> options) implements Element {
+                               Map<String, String> options,
+                               Map<String, String> attributes) implements Element {
     private static final Pattern OR_SEPARATOR = Pattern.compile(",");
     private static final Pattern AND_SEPARATOR = Pattern.compile("\\+");
 
     public ConditionalBlock(final Predicate<Context> evaluator,
                             final List<Element> children,
                             final Map<String, String> options) {
-        this(evaluator, children, List.of(), options);
+        this(evaluator, children, List.of(), options, Map.of());
+    }
+
+    public ConditionalBlock(final Predicate<Context> evaluator,
+                            final List<Element> children,
+                            final List<ConditionalBlock> elseBranches,
+                            final Map<String, String> options) {
+        this(evaluator, children, elseBranches, options, Map.of());
     }
 
     @Override

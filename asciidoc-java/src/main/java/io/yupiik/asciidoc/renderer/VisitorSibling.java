@@ -18,6 +18,7 @@ package io.yupiik.asciidoc.renderer;
 import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
+import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.IntConsumer;
 
 import static java.util.stream.Collectors.joining;
 
@@ -230,17 +232,135 @@ public class VisitorSibling {
      * {@code elsif} or {@code else} branch that holds; empty when none does.
      */
     public List<Element> renderedChildren(final ConditionalBlock block, final ConditionalBlock.Context context) {
-        if (block.evaluator().test(context)) {
+        if (block.evaluator().test(withAttributes(block.attributes(), context))) {
             return block.children();
         }
         if (block.elseBranches() != null) {
             for (final var branch : block.elseBranches()) {
-                if (branch.evaluator().test(context)) {
+                if (branch.evaluator().test(withAttributes(branch.attributes(), context))) {
                     return branch.children();
                 }
             }
         }
         return List.of();
+    }
+
+    /**
+     * @return the context a condition is evaluated with: the attribute entries its block carries first, as
+     * asciidoctor's preprocessor sees the entries the body defined before the directive ({@code !name} hiding the
+     * attribute), then the ones of the given context. The context itself when the block carries none.
+     */
+    public ConditionalBlock.Context withAttributes(final Map<String, String> attributes, final ConditionalBlock.Context context) {
+        if (attributes == null || attributes.isEmpty()) {
+            return context;
+        }
+        return key -> {
+            if (attributes.get('!' + key) != null) {
+                return null;
+            }
+            final var value = attributes.get(key);
+            return value != null ? value : context.attribute(key);
+        };
+    }
+
+    /**
+     * @return the code a visitor writes: the element itself when none of its parts is a conditional block, else a copy
+     * holding the parts whose conditions hold in the context as one text, with the callouts of those lines. The parser
+     * keeps the parts of every branch, see {@link Code#children()}.
+     */
+    public Code renderedCode(final Code code, final ConditionalBlock.Context context) {
+        if (!hasConditional(code.children())) {
+            return code;
+        }
+        final var lineCallOuts = code.lineCallOuts();
+        final var callOuts = new ArrayList<List<CallOut>>();
+        final var out = new StringBuilder();
+        keptParts(code.children(), context, out, line -> callOuts.add(line < lineCallOuts.size() ? lineCallOuts.get(line) : List.of()), 0, true);
+        final boolean hasCallOut = callOuts.stream().anyMatch(it -> !it.isEmpty());
+        return new Code(out.toString(), code.options(), code.inline(), hasCallOut ? callOuts : List.of());
+    }
+
+    /**
+     * @return the literal block a visitor writes, as {@link #renderedCode(Code, ConditionalBlock.Context)} does for code.
+     */
+    public Listing renderedListing(final Listing listing, final ConditionalBlock.Context context) {
+        if (!hasConditional(listing.children())) {
+            return listing;
+        }
+        return new Listing(keptText(listing.children(), listing.value(), context), listing.options());
+    }
+
+    /**
+     * @return the passthrough block a visitor writes, as {@link #renderedCode(Code, ConditionalBlock.Context)} does for code.
+     */
+    public PassthroughBlock renderedPassthroughBlock(final PassthroughBlock block, final ConditionalBlock.Context context) {
+        if (!hasConditional(block.children())) {
+            return block;
+        }
+        return new PassthroughBlock(keptText(block.children(), block.value(), context), block.options());
+    }
+
+    private boolean hasConditional(final List<Element> parts) {
+        if (parts == null) {
+            return false;
+        }
+        for (final var part : parts) {
+            if (part instanceof ConditionalBlock) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // the kept parts as one text; a literal or passthrough block has no line feed after its last line, so the one a
+    // kept part carries, when it was not the last part, goes
+    private String keptText(final List<Element> parts, final String value, final ConditionalBlock.Context context) {
+        final var out = new StringBuilder();
+        keptParts(parts, context, out, line -> {
+        }, 0, true);
+        if (!value.endsWith("\n") && out.length() > 0 && out.charAt(out.length() - 1) == '\n') {
+            out.setLength(out.length() - 1);
+        }
+        return out.toString();
+    }
+
+    // appends the text parts whose conditions hold, in order; every line of the block is counted, the kept ones
+    // reported to onKept, so the callouts of a code block keep their line. Returns the index of the next line.
+    private int keptParts(final List<Element> parts, final ConditionalBlock.Context context, final StringBuilder out,
+                          final IntConsumer onKept, final int firstLine, final boolean kept) {
+        int line = firstLine;
+        for (final var part : parts) {
+            if (part instanceof Text text) {
+                final int lines = lines(text.value());
+                if (kept) {
+                    out.append(text.value());
+                    for (int i = 0; i < lines; i++) {
+                        onKept.accept(line + i);
+                    }
+                }
+                line += lines;
+            } else if (part instanceof ConditionalBlock block) {
+                final var rendered = kept ? renderedChildren(block, context) : List.<Element>of();
+                line = keptParts(block.children(), context, out, onKept, line, kept && rendered == block.children());
+                for (final var branch : block.elseBranches()) {
+                    line = keptParts(branch.children(), context, out, onKept, line, kept && rendered == branch.children());
+                }
+            } else {
+                throw new IllegalArgumentException("Not a part of a verbatim block: " + part);
+            }
+        }
+        return line;
+    }
+
+    // a part holds whole lines, each ended by its line feed but the last line of a literal or passthrough block
+    private int lines(final String part) {
+        int lines = 0;
+        for (int i = 0; i < part.length(); i++) {
+            if (part.charAt(i) == '\n') {
+                lines++;
+            }
+        }
+        return part.isEmpty() || part.endsWith("\n") ? lines : lines + 1;
     }
 
     /**

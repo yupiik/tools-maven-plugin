@@ -117,9 +117,7 @@ public interface Visitor<R> {
     }
 
     default void visitConditionalBlock(final ConditionalBlock element) {
-        if (element.evaluator().test(context())) {
-            element.children().forEach(this::visitElement);
-        }
+        new VisitorSibling().renderedChildren(element, context()).forEach(this::visitElement);
     }
 
     default ConditionalBlock.Context context() {

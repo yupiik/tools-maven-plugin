@@ -16,14 +16,18 @@
 package io.yupiik.asciidoc.renderer;
 
 import io.yupiik.asciidoc.model.Admonition;
+import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.PassthroughBlock;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
+import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
@@ -31,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -186,6 +191,68 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
         assertEquals(Admonition.Level.NOTE, level, attributeLine);
         assertEquals("note", sibling.id(options), attributeLine);
         assertTrue(sibling.hasOption(options, "collapsible"), attributeLine);
+    }
+
+    @Test
+    void renderedCode() { // the parts whose conditional directives hold, as one text, with their callouts
+        final var one = new CallOut(1, new Text(List.of(), "one", Map.of()));
+        final var two = new CallOut(2, new Text(List.of(), "two", Map.of()));
+        final var plain = new Code("a\nb\n", Map.of(), false, List.of());
+        assertSame(plain, sibling.renderedCode(plain, key -> null));
+
+        final var code = new Code(
+                List.of(under(new ConditionalBlock.Ifdef("x"), part("a\n")), under(new ConditionalBlock.Ifndef("x"), part("b\n")), part("c\n")),
+                Map.of("language", "text"), false, List.of(List.of(one), List.of(two), List.of()));
+        assertEquals("a\nb\nc\n", code.value()); // every branch
+        assertEquals(
+                new Code("a\nc\n", Map.of("language", "text"), false, List.of(List.of(one), List.of())),
+                sibling.renderedCode(code, key -> "x".equals(key) ? "" : null));
+        assertEquals(
+                new Code("b\nc\n", Map.of("language", "text"), false, List.of(List.of(two), List.of())),
+                sibling.renderedCode(code, key -> null));
+
+        // nested directives must all hold; a cell has no trailing line feed; without callout the list stays empty
+        final var nested = new Code(
+                List.of(under(new ConditionalBlock.Ifdef("x"), under(new ConditionalBlock.Ifdef("y"), part("a\n"))), part("b")),
+                Map.of(), true, List.of());
+        assertEquals(new Code("b", Map.of(), true, List.of()), sibling.renderedCode(nested, key -> "x".equals(key) ? "" : null));
+        assertEquals(new Code("a\nb", Map.of(), true, List.of()), sibling.renderedCode(nested, key -> ""));
+
+        // the entries the body defined before the block come first, a "!name" one hides the renderer's value
+        final var defined = new Code(List.of(
+                new ConditionalBlock(new ConditionalBlock.Ifndef("x"), List.of(part("a\n")), List.of(), Map.of(), Map.of("x", "")),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("y"), List.of(part("b\n")), List.of(), Map.of(), Map.of("x", "")),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("z"), List.of(part("c\n")), List.of(), Map.of(), Map.of("!z", ""))),
+                Map.of(), false, List.of());
+        assertEquals("", sibling.renderedCode(defined, key -> null).value());
+        assertEquals("b\n", sibling.renderedCode(defined, key -> "").value());
+    }
+
+    @Test
+    void renderedListingAndPassthroughBlock() { // the same for the parts of a literal and a passthrough block
+        final var plain = new Listing("a\nb", Map.of());
+        assertSame(plain, sibling.renderedListing(plain, key -> null));
+        final var listing = new Listing(List.of(under(new ConditionalBlock.Ifdef("x"), part("a\n")), part("b")), Map.of());
+        assertEquals("a\nb", listing.value());
+        assertEquals(new Listing("b", Map.of()), sibling.renderedListing(listing, key -> null));
+        assertEquals(new Listing("a\nb", Map.of()), sibling.renderedListing(listing, key -> ""));
+        // the last line of a literal block has no line feed, so a kept part before a dropped last part loses its own
+        final var tail = new Listing(List.of(part("a\n"), under(new ConditionalBlock.Ifdef("x"), part("b"))), Map.of());
+        assertEquals(new Listing("a", Map.of()), sibling.renderedListing(tail, key -> null));
+
+        final var block = new PassthroughBlock(List.of(under(new ConditionalBlock.Ifdef("x"), part("<a/>\n")), part("<b/>")), Map.of());
+        assertEquals(new PassthroughBlock("<b/>", Map.of()), sibling.renderedPassthroughBlock(block, key -> null));
+        assertEquals(new PassthroughBlock("<a/>\n<b/>", Map.of()), sibling.renderedPassthroughBlock(block, key -> ""));
+        final var raw = new PassthroughBlock("<a/>", Map.of());
+        assertSame(raw, sibling.renderedPassthroughBlock(raw, key -> null));
+    }
+
+    private static Text part(final String text) {
+        return new Text(List.of(), text, Map.of());
+    }
+
+    private static ConditionalBlock under(final Predicate<ConditionalBlock.Context> condition, final Element... parts) {
+        return new ConditionalBlock(condition, List.of(parts), List.of(), Map.of(), Map.of());
     }
 
     private Element parse(final String asciidoc) {

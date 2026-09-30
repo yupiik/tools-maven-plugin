@@ -358,6 +358,49 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void conditionalsInCodeBlock() { // the parser keeps the lines of every branch, the renderer writes the ones whose directives hold with its attributes
+        final var adoc = """
+                [source,text]
+                ----
+                ifdef::foo[]
+                with foo
+                endif::[]
+                ifndef::foo[]
+                without foo
+                endif::[]
+                always
+                ----
+                """;
+        assertEquals("```text\nwithout foo\nalways\n```\n", md(adoc));
+        assertEquals("```text\nwith foo\nalways\n```\n", md(adoc, Map.of("foo", "")));
+    }
+
+    @Test
+    void conditionalsInLiteralAndPassthroughBlocks() { // the same for the lines of a literal and a passthrough block
+        final var adoc = """
+                [literal]
+                ....
+                ifdef::foo[]
+                with foo
+                endif::[]
+                ifndef::foo[]
+                without foo
+                endif::[]
+                always
+                ....
+
+                ++++
+                ifdef::foo[]
+                <b>with foo</b>
+                endif::[]
+                <i>always</i>
+                ++++
+                """;
+        assertEquals("```\nwithout foo\nalways\n```\n\n<i>always</i>\n", md(adoc));
+        assertEquals("```\nwith foo\nalways\n```\n\n<b>with foo</b>\n<i>always</i>\n", md(adoc, Map.of("foo", "")));
+    }
+
+    @Test
     void passthroughHorizontalRuleAndKbd() {
         assertEquals("<b>raw html</b>\n\n---\n\nPress <kbd>Ctrl</kbd>+<kbd>C</kbd> now.\n", md("""
                 ++++

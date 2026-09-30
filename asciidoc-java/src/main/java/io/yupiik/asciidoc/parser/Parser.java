@@ -132,6 +132,7 @@ public class Parser {
     private static final Pattern REVISION_INFO = Pattern.compile("^(?:[^\\d{]*(.*?),)? *(?!:)(.*?)(?: *(?!^),?: *(.*))?$");
     private static final Pattern XML_TAG = Pattern.compile("<[^>]+>");
     private static final List<String> PREPROCESSOR_MACROS = List.of("ifdef", "ifndef", "ifeval", "endif", "include");
+    private static final Set<String> CONDITIONAL_DIRECTIVES = Set.of("ifdef", "ifndef", "ifeval", "endif");
     // substitutions as asciidoctor names them, a block selects them in its subs option (see resolveSubs()).
     // the parser acts on two of them only: callouts (parseCodeBlock()) and attributes (subs()).
     // specialcharacters, quotes, replacements, macros and post_replacements are resolved so that the +/- modifiers
@@ -184,7 +185,7 @@ public class Parser {
         final var reader = new Reader(input, document, context.sourceListener());
         try {
             final var header = parseHeader(document, reader, context);
-            return new Document(header, parseBody(reader, context.resolver(), new HashMap<>(header.attributes())));
+            return new Document(header, parseBody(reader, context.resolver(), new BodyAttributes(header.attributes())));
         } catch (final RuntimeException re) {
             throw new IllegalStateException("Invalid state at line #" + reader.getLineNumber(), re);
         }
@@ -508,7 +509,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver) {
-        return parseBody(reader, resolver, new HashMap<>());
+        return parseBody(reader, resolver, new BodyAttributes(Map.of()));
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
@@ -581,7 +582,8 @@ public class Parser {
                     lastOptions = reader.getLineNumber();
                 }
             } else if (Objects.equals("....", stripped)) {
-                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
+                final var literal = parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes);
+                elements.add(new Listing(literal.children(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", unescapeAttributeReferences(newValue.strip().substring(1).strip())));
@@ -691,6 +693,9 @@ public class Parser {
                 } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
                     attributes.put(rawName, earlyAttributeReplacement(value, attributes));
                 }
+                if (attributes instanceof BodyAttributes bodyAttributes) { // the entries a conditional block carries
+                    bodyAttributes.defined(rawName, attributes.get(rawName));
+                }
             } else {
                 reader.rewind();
                 elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
@@ -726,40 +731,19 @@ public class Parser {
     private PassthroughBlock parsePassthrough(final Path enclosingDocument,
                                               final Reader reader, final Map<String, String> options, final String marker,
                                               final ContentResolver resolver, final Map<String, String> currentAttributes) {
-        final var content = new StringBuilder();
-        String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            if (!content.isEmpty()) {
-                content.append('\n');
-            }
-            content.append(next);
-        }
+        final var verbatim = readVerbatim(enclosingDocument, reader, marker, resolver, currentAttributes, true);
+        final var next = reader.nextLine();
         if (next != null && !next.startsWith(marker)) {
             reader.rewind();
         }
 
-        final var text = content.toString();
         final var actualOpts = options == null ? Map.<String, String>of() : options;
         // a literal block ("....") is verbatim, a passthrough block ("++++") has no substitution by default
         final var substitutions = resolveSubs(actualOpts.get("subs"), "....".equals(marker) ? VERBATIM_SUBS : NO_SUBS);
-        if (!text.contains("include::")) {
-            return new PassthroughBlock(subs(text, currentAttributes, substitutions), actualOpts);
-        }
-
-        final var filtered = Stream.of(text.split("\n"))
-                .map(it -> {
-                    try {
-                        return it.startsWith("include::") || it.startsWith("\\include::") ?
-                                handleIncludes(enclosingDocument, it, resolver, currentAttributes, false).stream()
-                                        .map(e -> e instanceof Text t ? t.value() : "")
-                                        .collect(joining("")) :
-                                it;
-                    } catch (final RuntimeException re) {
-                        return it;
-                    }
-                })
-                .collect(joining("\n"));
-        return new PassthroughBlock(subs(filtered, currentAttributes, substitutions), actualOpts);
+        final var text = subs(String.join("\n", verbatim.lines()), currentAttributes, substitutions);
+        return verbatim.hasDirectives() ?
+                new PassthroughBlock(verbatim.children(text), actualOpts) :
+                new PassthroughBlock(text, actualOpts);
     }
 
     /**
@@ -1033,10 +1017,13 @@ public class Parser {
             }
             case "e" -> withTextStyle(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), EMPHASIS);
             case "s" -> withTextStyle(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), BOLD);
-            case "l", "m" -> new Code(handleIncludes(enclosingDocument, String.join("\n", lines), resolver, currentAttributes, true)
-                    .stream()
-                    .map(e -> e instanceof Text t ? t.value() : e.toString() /* FIXME */)
-                    .collect(joining()), Map.of(), true, List.of());
+            case "l", "m" -> {
+                final var verbatim = readVerbatim(enclosingDocument, new Reader(lines), null, resolver, currentAttributes, false);
+                final var text = String.join("\n", verbatim.lines());
+                yield verbatim.hasDirectives() ?
+                        new Code(verbatim.children(text), Map.of(), true, List.of()) :
+                        new Code(text, Map.of(), true, List.of());
+            }
             case "h" -> withCellOptions(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), Map.of("role", "header"));
             default -> { // "d", all inline markup
                 final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, false, false);
@@ -1352,27 +1339,23 @@ public class Parser {
                                 final Reader reader, final Map<String, String> options,
                                 final ContentResolver resolver, final Map<String, String> currentAttributes,
                                 final String marker) {
-        final var builder = new StringBuilder();
-        String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            builder.append(next).append('\n');
-        }
+        final var verbatim = readVerbatim(enclosingDocument, reader, marker, resolver, currentAttributes, false);
+        reader.nextLine(); // the closing marker, when the block has one
 
         // todo: better support of the code features/syntax config
-        final var content = builder.toString();
-        final var snippet = handleIncludes(enclosingDocument, content, resolver, currentAttributes, false);
-        final var code = snippet.stream().filter(Text.class::isInstance).map(Text.class::cast).map(Text::value).collect(joining());
+        final var lines = verbatim.lines();
+        final var code = lines.isEmpty() ? "" : String.join("\n", lines) + '\n';
         final var codeOptions = options == null ? Map.<String, String>of() : options;
 
         final var substitutions = resolveSubs(codeOptions.get("subs"), VERBATIM_SUBS);
         if (!substitutions.contains("callouts")) {
             // the block dropped the callout substitution so `<1>` is code text and the `<1> ...` lines after it are content
-            return new Code(subs(code, currentAttributes, substitutions), codeOptions, false, List.of());
+            return code(subs(code, currentAttributes, substitutions), codeOptions, List.of(), verbatim);
         }
 
         final var contentWithCallouts = parseWithCallouts(code);
         if (contentWithCallouts.lineReferences().isEmpty()) {
-            return new Code(subs(code, currentAttributes, substitutions), codeOptions, false, List.of());
+            return code(subs(code, currentAttributes, substitutions), codeOptions, List.of(), verbatim);
         }
 
         final var callOuts = parseCallOuts(enclosingDocument, reader, resolver, currentAttributes);
@@ -1385,7 +1368,7 @@ public class Parser {
         // which keeps the document without the unmatched markers and items
         if ((!numbers.containsAll(references) || !references.containsAll(numbers)) &&
                 !"ignore".equals(currentAttributes.getOrDefault("callout-mismatch", globalAttributes.get("callout-mismatch")))) {
-            throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + snippet);
+            throw new IllegalArgumentException("Invalid callout references (code markers don't match post-code callouts) in snippet:\n" + code);
         }
 
         // the markers are gone from the code, the model says which callouts ended each line
@@ -1394,7 +1377,14 @@ public class Parser {
         final var lineCallOuts = contentWithCallouts.lineReferences().stream()
                 .map(refs -> refs.stream().map(byNumber::get).filter(Objects::nonNull).toList())
                 .toList();
-        return new Code(subs(contentWithCallouts.content(), currentAttributes, substitutions), codeOptions, false, lineCallOuts);
+        return code(subs(contentWithCallouts.content(), currentAttributes, substitutions), codeOptions, lineCallOuts, verbatim);
+    }
+
+    private Code code(final String value, final Map<String, String> options, final List<List<CallOut>> lineCallOuts,
+                      final Verbatim verbatim) {
+        return verbatim.hasDirectives() ?
+                new Code(verbatim.children(value), options, false, lineCallOuts) :
+                new Code(value, options, false, lineCallOuts);
     }
 
     private List<CallOut> parseCallOuts(final Path enclosingDocument, final Reader reader,
@@ -1456,44 +1446,256 @@ public class Parser {
                 new ContentWithCalloutIndices(snippet.stripTrailing(), List.of());
     }
 
-    private List<Element> handleIncludes(final Path enclosingDocument,
-                                         final String content,
-                                         final ContentResolver resolver,
-                                         final Map<String, String> currentAttributes,
-                                         final boolean parse) {
-        if (!content.contains("include::")) {
-            return List.of(new Text(List.of(), content, Map.of()));
+    // the lines of a verbatim block - a listing, a literal or a passthrough block, or a literal cell - up to its closing
+    // marker, which stays in the reader, or up to the end when the marker is null. as asciidoctor's preprocessor, which
+    // reads the lines of every block but a comment the same way, an include directive is replaced by the lines of its
+    // file, read the same way, an escaped directive loses its backslash and a conditional directive opens or closes a
+    // condition the lines after it sit under (see Verbatim): the lines of every branch stay and a renderer picks the
+    // ones whose conditions hold. any other line is content, an indented directive or one followed by text included
+    private Verbatim readVerbatim(final Path enclosingDocument, final Reader reader, final String marker,
+                                  final ContentResolver resolver, final Map<String, String> currentAttributes,
+                                  final boolean keepsUnresolvedIncludes) {
+        final var verbatim = new Verbatim(keepsUnresolvedIncludes);
+        readVerbatim(enclosingDocument, reader, marker, resolver, currentAttributes, verbatim);
+        final var unterminated = verbatim.unterminated();
+        if (unterminated != null) {
+            throw new IllegalArgumentException("Unterminated preprocessor directive: '" + unterminated.line() + "'");
         }
-        // line by line, as asciidoctor's preprocessor: a line is expanded only when it is an include directive as a whole,
-        // and the lines after an include are kept
-        final var elements = new ArrayList<Element>();
-        final var literal = new StringBuilder();
-        int from = 0;
-        while (from < content.length()) {
-            final int newLine = content.indexOf('\n', from);
-            final int lineEnd = newLine < 0 ? content.length() : newLine;
-            final int next = newLine < 0 ? content.length() : newLine + 1;
-            final boolean escaped = content.startsWith("\\include::", from);
-            final var include = escaped || content.startsWith("include::", from) ?
-                    includeDirective(content.substring(escaped ? from + 1 : from, lineEnd), currentAttributes) :
-                    null;
-            if (include == null) {
-                literal.append(content, from, next);
-            } else if (escaped) { // documenting the directive: asciidoctor drops the backslash
-                literal.append(content, from + 1, next);
-            } else {
-                if (!literal.isEmpty()) {
-                    elements.add(new Text(List.of(), literal.toString(), Map.of()));
-                    literal.setLength(0);
-                }
-                elements.addAll(doInclude(enclosingDocument, include, resolver, currentAttributes, parse));
+        return verbatim;
+    }
+
+    private void readVerbatim(final Path enclosingDocument, final Reader reader, final String marker,
+                              final ContentResolver resolver, final Map<String, String> currentAttributes,
+                              final Verbatim verbatim) {
+        String next;
+        while ((next = reader.nextLine()) != null) {
+            if (marker != null && marker.equals(next.strip())) {
+                reader.rewind();
+                break;
             }
-            from = next;
+            final var stripped = next.stripTrailing();
+            if (!stripped.endsWith("]") || !stripped.contains("::")) { // most lines are content, the checks stop here
+                verbatim.add(next);
+                continue;
+            }
+            if (stripped.startsWith("\\")) { // documenting a directive: asciidoctor drops the backslash
+                final var unescaped = stripped.substring(1);
+                verbatim.add(conditionalDirective(unescaped) != null || includeDirective(unescaped, currentAttributes) != null ?
+                        next.substring(1) :
+                        next);
+                continue;
+            }
+            final var include = includeDirective(next, currentAttributes);
+            if (include != null) {
+                readInclude(enclosingDocument, next, include, resolver, currentAttributes, verbatim);
+                continue;
+            }
+            final var directive = conditionalDirective(next);
+            if (directive == null) {
+                verbatim.add(next);
+            } else if ("endif".equals(directive.name())) {
+                verbatim.close(directive);
+            } else {
+                verbatim.open(directive, condition(directive), currentAttributes);
+            }
         }
-        if (!literal.isEmpty() || elements.isEmpty()) {
-            elements.add(new Text(List.of(), literal.toString(), Map.of()));
+    }
+
+    // the included lines are read as the block they land in, their own includes relative to the included file
+    private void readInclude(final Path enclosingDocument, final String line, final Macro include, final ContentResolver resolver,
+                             final Map<String, String> currentAttributes, final Verbatim verbatim) {
+        final Optional<RelativeContentResolver.Resolved> included;
+        try {
+            included = includedContent(enclosingDocument, include, resolver, currentAttributes);
+        } catch (final RuntimeException unresolved) {
+            if (!verbatim.keepsUnresolvedIncludes) {
+                throw unresolved;
+            }
+            verbatim.add(line); // as before, a literal or a passthrough block keeps the directive as text
+            return;
         }
-        return elements;
+        included.ifPresent(it -> readVerbatim(it.path(), new Reader(it.content()), null, resolver, currentAttributes, verbatim));
+    }
+
+    // the condition a directive opens; the renderer evaluates it, with the attributes its conditional block carries first
+    private Predicate<ConditionalBlock.Context> condition(final ConditionalDirective directive) {
+        return switch (directive.name()) {
+            case "ifdef" -> new ConditionalBlock.Ifdef(directive.target());
+            case "ifndef" -> new ConditionalBlock.Ifndef(directive.target());
+            default -> { // ifeval: as asciidoctor, the condition sits in the brackets and a target is an error
+                if (!directive.target().isEmpty()) {
+                    throw new IllegalArgumentException("Malformed preprocessor directive, target not permitted: '" + directive.line() + "'");
+                }
+                yield new ConditionalBlock.Ifeval(parseCondition(directive.text().strip(), Map.of()));
+            }
+        };
+    }
+
+    // the attribute entries the body defined so far, for a conditional block (ConditionalBlock.attributes())
+    private static Map<String, String> definedAttributes(final Map<String, String> currentAttributes) {
+        return currentAttributes instanceof BodyAttributes bodyAttributes ? Map.copyOf(bodyAttributes.defined) : Map.of();
+    }
+
+    // the attributes of a document being parsed: the header ones, then the entries the body defines as the parser goes.
+    // a HashMap, since the parser passes its attributes around as a Map, holding the body entries apart as well: a
+    // conditional block carries them for the renderer, which never sees a body entry otherwise
+    private static final class BodyAttributes extends HashMap<String, String> {
+        private final Map<String, String> defined = new LinkedHashMap<>();
+
+        private BodyAttributes(final Map<String, String> header) {
+            super(header);
+        }
+
+        // :name: value sets the entry, :!name: unsets it and is kept as "!name", as asciidoctor writes it
+        private void defined(final String rawName, final String value) {
+            if (rawName.startsWith("!")) {
+                defined.remove(rawName.substring(1));
+                defined.put(rawName, "");
+            } else {
+                defined.remove('!' + rawName);
+                defined.put(rawName, value);
+            }
+        }
+    }
+
+    // as asciidoctor's ConditionalDirectiveRx: the whole line is name::target[text] with ifdef, ifndef, ifeval or endif
+    // at the first column, a target free of blanks and nothing but blanks after the closing bracket; null for any other line
+    private ConditionalDirective conditionalDirective(final String line) {
+        final var directive = line.stripTrailing();
+        final int separator = directive.indexOf("::");
+        if (separator <= 0 || !directive.endsWith("]") || !CONDITIONAL_DIRECTIVES.contains(directive.substring(0, separator))) {
+            return null;
+        }
+        final int bracket = directive.indexOf('[', separator);
+        if (bracket < 0) {
+            return null;
+        }
+        final var target = directive.substring(separator + "::".length(), bracket);
+        for (int i = 0; i < target.length(); i++) {
+            if (Character.isWhitespace(target.charAt(i))) {
+                return null;
+            }
+        }
+        return new ConditionalDirective(directive, directive.substring(0, separator), target, directive.substring(bracket + 1, directive.length() - 1));
+    }
+
+    private record ConditionalDirective(String line, String name, String target, String text) {
+    }
+
+    // a directive open while a verbatim block is read, with the parts read under it so far
+    private record OpenDirective(ConditionalDirective directive, Predicate<ConditionalBlock.Context> condition, List<Part> children) {
+    }
+
+    // a part of a verbatim block over its lines: the lines from (inclusive) to to (exclusive) for a text part, or the
+    // parts under a conditional directive
+    private record Part(int from, int to, Predicate<ConditionalBlock.Context> condition, List<Part> children) {
+        private Part(final int from, final int to) {
+            this(from, to, null, null);
+        }
+
+        private Part(final Predicate<ConditionalBlock.Context> condition, final List<Part> children) {
+            this(-1, -1, condition, children);
+        }
+    }
+
+    // one verbatim block being read: its lines and, as parts over them, the conditional directives they sit under
+    private static final class Verbatim {
+        private final boolean keepsUnresolvedIncludes; // a literal or a passthrough block, as before
+        private final List<String> lines = new ArrayList<>();
+        private final List<Part> parts = new ArrayList<>(); // the parts of the block, a directive's parts nested in its own
+        private final List<OpenDirective> open = new ArrayList<>(); // the outermost first
+        private int textStart = 0; // the first line of the text part being read
+        private Map<String, String> attributes; // the entries the body defined before the block, read at its first directive
+
+        private Verbatim(final boolean keepsUnresolvedIncludes) {
+            this.keepsUnresolvedIncludes = keepsUnresolvedIncludes;
+        }
+
+        private List<String> lines() {
+            return lines;
+        }
+
+        private boolean hasDirectives() {
+            return attributes != null;
+        }
+
+        // the last directive still open, null when every directive was closed
+        private ConditionalDirective unterminated() {
+            return open.isEmpty() ? null : open.get(open.size() - 1).directive();
+        }
+
+        private void add(final String line) {
+            lines.add(line);
+        }
+
+        private void open(final ConditionalDirective directive, final Predicate<ConditionalBlock.Context> condition,
+                          final Map<String, String> currentAttributes) {
+            if (attributes == null) {
+                attributes = definedAttributes(currentAttributes);
+            }
+            flushText();
+            if (!directive.text().isBlank() && !"ifeval".equals(directive.name())) { // ifdef::name[text]: the text is the line, there is no endif
+                lines.add(directive.text().stripTrailing());
+                current().add(new Part(condition, List.of(new Part(lines.size() - 1, lines.size()))));
+                textStart = lines.size();
+                return;
+            }
+            open.add(new OpenDirective(directive, condition, new ArrayList<>()));
+        }
+
+        private void close(final ConditionalDirective directive) {
+            if (!directive.text().isEmpty()) {
+                throw new IllegalArgumentException("Malformed preprocessor directive, text not permitted: '" + directive.line() + "'");
+            }
+            if (open.isEmpty()) {
+                throw new IllegalArgumentException("Unmatched preprocessor directive: '" + directive.line() + "'");
+            }
+            flushText();
+            final var closed = open.remove(open.size() - 1); // as asciidoctor, an endif closes the last directive opened
+            if (!directive.target().isEmpty() && !directive.target().equalsIgnoreCase(closed.directive().target())) {
+                throw new IllegalArgumentException("Mismatched preprocessor directive: '" + directive.line() + "', expected 'endif::" + closed.directive().target() + "[]'");
+            }
+            current().add(new Part(closed.condition(), closed.children()));
+        }
+
+        // the parts being read: the ones of the innermost open directive, else the block's
+        private List<Part> current() {
+            return open.isEmpty() ? parts : open.get(open.size() - 1).children();
+        }
+
+        // the lines read since the last directive are one text part
+        private void flushText() {
+            if (textStart < lines.size()) {
+                current().add(new Part(textStart, lines.size()));
+                textStart = lines.size();
+            }
+        }
+
+        // the children of the block, its final text sliced by the parts: a Text per text part, with the line feed of
+        // each line, and a ConditionalBlock per directive. The text may have lost trailing blank lines since the lines
+        // were read (callouts), so a part stops at its last line
+        private List<Element> children(final String text) {
+            flushText();
+            final var segments = List.of(text.split("\n", -1));
+            // the text of a code block ends with a line feed, which gives an empty last segment, a literal block's does not
+            final int last = text.endsWith("\n") ? segments.size() - 1 : segments.size();
+            return elements(parts, segments, last);
+        }
+
+        private List<Element> elements(final List<Part> parts, final List<String> segments, final int last) {
+            final var elements = new ArrayList<Element>(parts.size());
+            for (final var part : parts) {
+                if (part.children() == null) {
+                    final int to = Math.min(part.to(), last);
+                    if (part.from() < to) {
+                        elements.add(new Text(List.of(), String.join("\n", segments.subList(part.from(), to)) + (to < segments.size() ? "\n" : ""), Map.of()));
+                    }
+                } else {
+                    elements.add(new ConditionalBlock(part.condition(), elements(part.children(), segments, last), List.of(), Map.of(), attributes));
+                }
+            }
+            return List.copyOf(elements);
+        }
     }
 
     // the include directive as asciidoctor's preprocessor reads it: `include::target[options]` is the whole line - trailing
@@ -2484,7 +2686,7 @@ public class Parser {
         };
         final var children = doParse(enclosingDocument, subReader(parent, null, ifBlock.mainContent), l -> true, resolver, currentAttributes, false, false);
         final var elseBranches = buildElseBranches(ifBlock, enclosingDocument, parent, resolver, currentAttributes);
-        return new ConditionalBlock(evaluator, children, elseBranches, options);
+        return new ConditionalBlock(evaluator, children, elseBranches, options, definedAttributes(currentAttributes));
     }
 
     private List<ConditionalBlock> buildElseBranches(final IfBlock ifBlock, final Path enclosingDocument, final Reader parent,
@@ -2501,7 +2703,7 @@ public class Parser {
                 branchEval = new ConditionalBlock.Ifdef(elsifLabel);
             }
             final var branchChildren = doParse(enclosingDocument, subReader(parent, null, branchContent), l -> true, resolver, currentAttributes, false, false);
-            branches.add(new ConditionalBlock(branchEval, branchChildren, List.of(), Map.of()));
+            branches.add(new ConditionalBlock(branchEval, branchChildren, List.of(), Map.of(), definedAttributes(currentAttributes)));
         }
         return branches;
     }
@@ -2543,6 +2745,25 @@ public class Parser {
                                       final Map<String, String> currentAttributes,
                                       final boolean parse,
                                       final Reader parent) {
+        // parsed as a part of the document, or the lines as they are (the parser reads the lines of a verbatim block
+        // through readVerbatim(), which resolves their own includes); a dropped include brings nothing
+        return includedContent(enclosingDocument, macro, resolver, currentAttributes)
+                .map(included -> parse ?
+                        doParse(included.path(), subReader(parent, included.path(), included.content()), l -> true, resolver, currentAttributes, true, false) :
+                        List.<Element>of(new Text(List.of(), String.join("\n", included.content()) + '\n', Map.of())))
+                .orElseGet(List::of);
+    }
+
+    /**
+     * Reads the content an include directive brings: the lines of its target, after the {@code lines}, {@code tag(s)},
+     * {@code leveloffset} and {@code indent} options of the directive.
+     *
+     * @return the target and its lines, empty when the target is missing and the include is dropped, which
+     * {@code opts=optional} on the directive or {@code :missing-include: ignore} in the document allows; a missing
+     * target fails otherwise.
+     */
+    protected Optional<RelativeContentResolver.Resolved> includedContent(final Path enclosingDocument, final Macro macro,
+                                                                         final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var encoding = ofNullable(macro.options().get("encoding"))
                 .map(Charset::forName)
                 .orElse(UTF_8);
@@ -2555,7 +2776,7 @@ public class Parser {
                 // as asciidoctor, a dropped include leaves no text at all, so the caller hears about it instead
                 warning.accept("Missing include dropped: '" + macro.label() + "'" +
                         (enclosingDocument == null ? "" : " in " + enclosingDocument.getFileName()));
-                return List.of();
+                return Optional.empty();
             }
             throw new IllegalArgumentException("Missing include: '" + macro.label() + "'");
         }
@@ -2692,11 +2913,7 @@ public class Parser {
             content = List.of((value > 0 ? noIndent.indent(value) : noIndent).split("\n"));
         }
 
-        if (parse) {
-            return doParse(resolved.path(), subReader(parent, resolved.path(), content), l -> true, resolver, currentAttributes, true, false);
-        }
-        // as for a parsed include, the includes of the included content are relative to it
-        return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
+        return Optional.of(new RelativeContentResolver.Resolved(resolved.path(), content));
     }
 
     private int findSectionLevel(final String line) {
@@ -3374,7 +3591,7 @@ public class Parser {
             return new Text(t.style(), t.value(), merge(t.options(), element.options()));
         }
         if (first instanceof Code c) {
-            return new Code(c.value(), merge(c.options(), element.options()), c.inline(), c.lineCallOuts());
+            return new Code(c.children(), merge(c.options(), element.options()), c.inline(), c.lineCallOuts());
         }
         if (first instanceof Link l) {
             return new Link(l.url(), l.label(), merge(l.options(), element.options()));

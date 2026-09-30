@@ -982,7 +982,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitCode(final Code element) {
+    public void visitCode(final Code code) {
+        final var element = sibling.renderedCode(code, context()); // the lines whose conditional directives hold
         if (element.inline()) {
             builder.append("<code>").append(escape(element.value())).append("</code>");
             return;
@@ -1230,7 +1231,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitPassthroughBlock(final PassthroughBlock element) {
+    public void visitPassthroughBlock(final PassthroughBlock block) {
+        final var element = sibling.renderedPassthroughBlock(block, context()); // the lines whose conditional directives hold
         switch (element.options().getOrDefault("", "")) {
             case "stem", "latexmath", "asciimath" -> visitStem(new Macro("stem", element.value(), element.options(), false));
             default -> builder.append("\n").append(element.value()).append("\n");
@@ -1337,7 +1339,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitListing(final Listing element) {
+    public void visitListing(final Listing listing) {
+        final var element = sibling.renderedListing(listing, context()); // the lines whose conditional directives hold
         switch (element.options().getOrDefault("", "")) {
             case "a2s" -> {
                 if (configuration.isDataUriForAscii2Svg()) {
@@ -2061,7 +2064,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return new Link(l.url(), l.label(), withoutCellOptions(l.options()));
         }
         if (element instanceof Code c) {
-            return new Code(c.value(), withoutCellOptions(c.options()), c.inline(), c.lineCallOuts());
+            return new Code(c.children(), withoutCellOptions(c.options()), c.inline(), c.lineCallOuts());
         }
         if (element instanceof Macro m) {
             return new Macro(m.name(), m.label(), withoutCellOptions(m.options()), m.inline());
@@ -2232,7 +2235,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return new Link(l.url(), l.label(), withParagraphOptions(l.options(), kept));
         }
         if (child instanceof Code c && c.inline()) {
-            return new Code(c.value(), withParagraphOptions(c.options(), kept), true, c.lineCallOuts());
+            return new Code(c.children(), withParagraphOptions(c.options(), kept), true, c.lineCallOuts());
         }
         if (child instanceof Macro m && m.inline()) {
             return new Macro(m.name(), m.label(), withParagraphOptions(m.options(), kept), true);

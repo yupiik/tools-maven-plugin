@@ -22,14 +22,31 @@ import java.util.Map;
 /**
  * A code (listing) block or an inline code span.
  *
- * @param value        the code, callout markers removed.
+ * @param children     the code, callout markers removed, as parts: a {@link Text} for the lines between two
+ *                     directives and, for the lines under a conditional directive, a {@link ConditionalBlock} of such
+ *                     parts. A block without a directive is one text, an empty block has no part. The parts
+ *                     concatenate to {@link #value()}, each line ending with its line feed, and a renderer writes the
+ *                     parts whose conditions hold, see {@code VisitorSibling.renderedCode}.
  * @param options      the block options.
  * @param inline       true for an inline code span.
- * @param lineCallOuts one entry per line of {@code value}, listing the callouts whose markers ended that line
- *                     (empty lists for lines without a marker); empty when the block has no callout.
+ * @param lineCallOuts one entry per line of {@link #value()}, the lines of every conditional branch counted, listing
+ *                     the callouts whose markers ended that line (empty lists for lines without a marker); empty when
+ *                     the block has no callout.
  */
-public record Code(String value, Map<String, String> options, boolean inline,
+public record Code(List<Element> children, Map<String, String> options, boolean inline,
                    List<List<CallOut>> lineCallOuts) implements Element {
+    public Code(final String value, final Map<String, String> options, final boolean inline,
+                final List<List<CallOut>> lineCallOuts) {
+        this(VerbatimText.parts(value), options, inline, lineCallOuts);
+    }
+
+    /**
+     * @return the code, the lines of every conditional branch included. Computed from {@link #children()} on each call.
+     */
+    public String value() {
+        return VerbatimText.text(children);
+    }
+
     /**
      * @return the callouts of the block in the order their markers appear in the code, each one once even when its
      * marker sits on several lines. Computed from {@link #lineCallOuts()} on each call.

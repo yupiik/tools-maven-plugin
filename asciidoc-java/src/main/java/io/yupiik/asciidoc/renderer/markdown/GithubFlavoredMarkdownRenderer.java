@@ -404,7 +404,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitCode(final Code code) {
+    public void visitCode(final Code element) {
+        final var code = sibling.renderedCode(element, context()); // the lines whose conditional directives hold
         if (code.inline()) {
             builder.append(inline(code));
             return;
@@ -448,7 +449,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitListing(final Listing listing) {
+    public void visitListing(final Listing element) {
+        final var listing = sibling.renderedListing(element, context()); // the lines whose conditional directives hold
         final var options = options(listing.options());
         blockAnchor(options);
         blockTitle(options);
@@ -707,7 +709,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     @Override
-    public void visitPassthroughBlock(final PassthroughBlock block) {
+    public void visitPassthroughBlock(final PassthroughBlock element) {
+        final var block = sibling.renderedPassthroughBlock(element, context()); // the lines whose conditional directives hold
         if (block.value() != null && !block.value().isBlank()) {
             builder.append(block.value().strip()).append("\n\n");
         }

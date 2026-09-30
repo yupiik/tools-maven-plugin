@@ -113,7 +113,7 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void passthroughIncludeJson(@TempDir final Path work) throws IOException {
+    void passthroughIncludeJson(@TempDir final Path work) throws IOException { // as asciidoctor, no blank line after the included lines
         final var json = "{\n  \"openapi\":\"3.0.1\"\n}\n";
         Files.writeString(work.resolve("openapi.json"), json);
         assertRenderingContent("""
@@ -140,7 +140,6 @@ class AsciidoctorLikeHtmlRendererTest {
                 {
                   "openapi":"3.0.1"
                 }
-                                
                 ,
                     dom_id: '#swagger-ui',
                     deepLinking: true,
@@ -634,6 +633,110 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  </div>
                 """);
+    }
+
+    @Test
+    void conditionalsInCodeBlock() { // the parser keeps the lines of every branch, the renderer writes the ones whose directives hold with its attributes
+        final var body = new Parser().parseBody("""
+                [source,text]
+                ----
+                ifdef::foo[]
+                with foo <1>
+                endif::[]
+                ifndef::foo[]
+                without foo <2>
+                endif::[]
+                always
+                ----
+                <1> With.
+                <2> Without.
+                """, new Parser.ParserContext(null));
+        assertEquals("""
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">without foo <b class="conum">(2)</b>
+                always
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <ol>
+                   <li>
+                 <span>
+                Without.
+                 </span>
+                   </li>
+                  </ol>
+                 </div>
+                """, renderBody(body, Map.of("noheader", "true")));
+        assertEquals("""
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">with foo <b class="conum">(1)</b>
+                always
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="colist arabic">
+                  <ol>
+                   <li>
+                 <span>
+                With.
+                 </span>
+                   </li>
+                  </ol>
+                 </div>
+                """, renderBody(body, Map.of("noheader", "true", "foo", "")));
+    }
+
+    @Test
+    void conditionalsInLiteralAndPassthroughBlocks() { // the same for the lines of a literal and a passthrough block
+        final var body = new Parser().parseBody("""
+                [literal]
+                ....
+                ifdef::foo[]
+                with foo
+                endif::[]
+                ifndef::foo[]
+                without foo
+                endif::[]
+                always
+                ....
+
+                ++++
+                ifdef::foo[]
+                <b>with foo</b>
+                endif::[]
+                <i>always</i>
+                ++++
+                """, new Parser.ParserContext(null));
+        assertEquals("""
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>without foo
+                always</pre>
+                 </div>
+                 </div>
+
+                <i>always</i>
+                """, renderBody(body, Map.of("noheader", "true")));
+        assertEquals("""
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>with foo
+                always</pre>
+                 </div>
+                 </div>
+
+                <b>with foo</b>
+                <i>always</i>
+                """, renderBody(body, Map.of("noheader", "true", "foo", "")));
+    }
+
+    private String renderBody(final Body body, final Map<String, String> attributes) {
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(attributes));
+        renderer.visitBody(body);
+        return renderer.result();
     }
 
     @Test
