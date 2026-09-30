@@ -56,6 +56,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -2132,7 +2133,8 @@ public class Parser {
                     }
                 }
                 case '`' -> {
-                    final int end = line.indexOf('`', i + 1);
+                    final var opening = openingPassthrough(line, i);
+                    final int end = line.indexOf('`', opening == null ? i + 1 : opening.end());
                     if (end > 0) {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
@@ -2151,8 +2153,8 @@ public class Parser {
                                                                 Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
                                                         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
                             }
-                        } else { // a +passthrough+ is kept as written, otherwise an escaped reference loses its backslash as in a text
-                            elements.add(new Code(content.length() > 1 && content.startsWith("+") && content.endsWith("+") ? content : unescapeAttributeReferences(content), Map.of(), true, List.of()));
+                        } else {
+                            elements.add(new Code(codeSpanText(line, i + 1, end, opening), Map.of(), true, List.of()));
                         }
                         i = end;
                         start = end + 1;
@@ -2217,6 +2219,113 @@ public class Parser {
 
     private boolean isWordCharacter(final char c) {
         return c == '_' || Character.isLetterOrDigit(c);
+    }
+
+    // a +text+, ++text++ or +++text+++ passthrough of a code span, its text sitting between start + signs and end - signs
+    private record InlinePassthrough(int start, int signs, int end) {
+    }
+
+    // the text of the code span line[from, to): the signs of its passthroughs go and the text between them stays as written,
+    // `+{name}+` giving {name}, as asciidoctor extracts a passthrough before any other substitution; the rest loses the
+    // backslash of an escaped reference since a code span gets no substitution later
+    private String codeSpanText(final String line, final int from, final int to, final InlinePassthrough opening) {
+        final var passthroughs = passthroughs(line, from, to, opening);
+        if (passthroughs.isEmpty()) {
+            return unescapeAttributeReferences(line.substring(from, to));
+        }
+        final var out = new StringBuilder(to - from);
+        int copied = from;
+        for (final var passthrough : passthroughs) {
+            out.append(unescapeAttributeReferences(line.substring(copied, passthrough.start())))
+                    .append(line, passthrough.start() + passthrough.signs(), passthrough.end() - passthrough.signs());
+            copied = passthrough.end();
+        }
+        return out.append(unescapeAttributeReferences(line.substring(copied, to))).toString();
+    }
+
+    // the indices of the passthroughs of the code spans of a line, whose attribute references stay as written, or null when it has none
+    private BitSet codeSpanPassthroughs(final String line) {
+        if (line.indexOf('+') < 0) {
+            return null;
+        }
+        BitSet indices = null;
+        for (int open = line.indexOf('`'); open >= 0; ) {
+            final var opening = openingPassthrough(line, open);
+            final int close = line.indexOf('`', opening == null ? open + 1 : opening.end());
+            if (close < 0) {
+                break;
+            }
+            for (final var passthrough : passthroughs(line, open + 1, close, opening)) {
+                if (indices == null) {
+                    indices = new BitSet(line.length());
+                }
+                indices.set(passthrough.start(), passthrough.end());
+            }
+            open = line.indexOf('`', close + 1);
+        }
+        return indices;
+    }
+
+    // the passthrough a code span opens with, or null: asciidoctor extracts a passthrough before it pairs the backticks, so the
+    // span ends at the first backtick after it and `+++a`b+++` is one span
+    private InlinePassthrough openingPassthrough(final String line, final int backtick) {
+        return backtick + 1 < line.length() && line.charAt(backtick + 1) == '+' ? passthroughAt(line, backtick + 1, line.length()) : null;
+    }
+
+    // the passthroughs of the code span content line[from, to), in order, opening being the one the span starts with when it does
+    private List<InlinePassthrough> passthroughs(final String line, final int from, final int to, final InlinePassthrough opening) {
+        List<InlinePassthrough> found = null;
+        if (opening != null) {
+            found = new ArrayList<>(2);
+            found.add(opening);
+        }
+        for (int i = line.indexOf('+', opening == null ? from : opening.end()); i >= 0 && i < to; i = line.indexOf('+', i + 1)) {
+            final var passthrough = passthroughAt(line, i, to);
+            if (passthrough == null) {
+                continue;
+            }
+            if (found == null) {
+                found = new ArrayList<>(2);
+            }
+            found.add(passthrough);
+            i = passthrough.end() - 1;
+        }
+        return found == null ? List.of() : found;
+    }
+
+    // the passthrough opening at start and closing before limit, as asciidoctor reads it (InlinePassMacroRx, then InlinePassRx):
+    // ++text++ and +++text+++ close at the next run of the same signs wherever it sits, +++ tried before ++; +text+ opens at the
+    // start of the line or after a character that is not part of a word, a ';' or a ':', has no blank next to its signs and
+    // closes before the end of the line or a character that is not part of a word. A backslash before the signs escapes the
+    // passthrough. null when no passthrough opens there
+    private InlinePassthrough passthroughAt(final String line, final int start, final int limit) {
+        if (start > 0 && line.charAt(start - 1) == '\\') {
+            return null;
+        }
+        int signs = 1;
+        while (signs < 3 && start + signs < limit && line.charAt(start + signs) == '+') {
+            signs++;
+        }
+        for (; signs > 1; signs--) {
+            final int end = line.indexOf(signs == 3 ? "+++" : "++", start + signs);
+            if (end >= 0 && end + signs <= limit) {
+                return new InlinePassthrough(start, signs, end + signs);
+            }
+        }
+        if ((start > 0 && !opensPassthrough(line.charAt(start - 1))) || start + 1 >= limit || Character.isWhitespace(line.charAt(start + 1))) {
+            return null;
+        }
+        for (int end = line.indexOf('+', start + 2); end > 0 && end < limit; end = line.indexOf('+', end + 1)) {
+            if (!Character.isWhitespace(line.charAt(end - 1)) && (end + 1 >= line.length() || !isWordCharacter(line.charAt(end + 1)))) {
+                return new InlinePassthrough(start, 1, end + 1);
+            }
+        }
+        return null;
+    }
+
+    // asciidoctor refuses to open a +passthrough+ after ';' or ':', where a constrained pair is also refused after '}'
+    private boolean opensPassthrough(final char previous) {
+        return !isWordCharacter(previous) && previous != ';' && previous != ':';
     }
 
     private boolean isInlineOptionContentMarker(final char c) {
@@ -2321,9 +2430,13 @@ public class Parser {
             return value;
         }
         final var matcher = ATTRIBUTE_VALUE.matcher(value);
+        final var passthroughs = codeSpanPassthroughs(value);
         StringBuilder out = null;
         int copied = 0;
         while (matcher.find()) {
+            if (passthroughs != null && passthroughs.get(matcher.start())) { // `+{name}+` is kept as written
+                continue;
+            }
             final var escaped = escapedReferenceName(value, matcher);
             if (escaped != null) {
                 if (matcher.group("name").endsWith("\\")) { // {name\\} becomes \\{name}, the form the inline parser reads

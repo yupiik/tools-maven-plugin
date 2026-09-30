@@ -92,6 +92,19 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void passthroughsInACodeSpan() { // as asciidoctor, the signs go and the text stays as written, escaped by the renderer
+        assertRenderingContent("""
+                :name: value
+
+                A `+{name}+` B `+++quarkus.log.level+++` C `quarkus.tls.<name>.++*++` D {name}.
+                """, """
+                 <div class="paragraph">
+                 <p>A <code>{name}</code> B <code>quarkus.log.level</code> C <code>quarkus.tls.&lt;name&gt;.*</code> D value.</p>
+                 </div>
+                """);
+    }
+
+    @Test
     void inlineCodeInDefinitionLst() {
         assertRenderingContent("""
                         `scheduler.tasks` (env: `SCHEDULER_TASKS`)::
