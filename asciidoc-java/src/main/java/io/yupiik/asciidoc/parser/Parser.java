@@ -113,7 +113,8 @@ public class Parser {
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern CHECKBOX = Pattern.compile("^\\[(?<status>[ x*])\\] ");
     private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
-    private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]+\\[.*\\]\\s*$");
+    // as asciidoctor, the target can be empty, as in ifeval::[{version} > 1] and endif::[], an include needs one
+    private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]*\\[.*\\]\\s*$");
     private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final Pattern LOWER_ROMAN = Pattern.compile("[ivx]+");
     private static final Pattern UPPER_ROMAN = Pattern.compile("[IVX]+");
@@ -131,7 +132,7 @@ public class Parser {
     private static final Pattern WHITESPACES = Pattern.compile("\\s+");
     private static final Pattern REVISION_INFO = Pattern.compile("^(?:[^\\d{]*(.*?),)? *(?!:)(.*?)(?: *(?!^),?: *(.*))?$");
     private static final Pattern XML_TAG = Pattern.compile("<[^>]+>");
-    private static final List<String> PREPROCESSOR_MACROS = List.of("ifdef", "ifndef", "ifeval", "endif", "include");
+    private static final List<String> PREPROCESSOR_MACROS = List.of("ifdef::", "ifndef::", "ifeval::", "endif::", "include::");
     // substitutions as asciidoctor names them, a block selects them in its subs option (see resolveSubs()).
     // the parser acts on two of them only: callouts (parseCodeBlock()) and attributes (subs()).
     // specialcharacters, quotes, replacements, macros and post_replacements are resolved so that the +/- modifiers
@@ -521,7 +522,8 @@ public class Parser {
 
     // asciidoctor handles them in its preprocessor so they never reach the author/revision line parsing
     private boolean isPreprocessorMacro(final String line) {
-        return isBlockMacro(line) && PREPROCESSOR_MACROS.stream().anyMatch(it -> line.strip().startsWith(it + "::"));
+        final var stripped = line.strip();
+        return isBlockMacro(line) && !stripped.startsWith("include::[") && PREPROCESSOR_MACROS.stream().anyMatch(stripped::startsWith);
     }
 
     private List<Element> doParse(final Path enclosingDocument, final Reader reader, final Predicate<String> continueTest,
@@ -2056,23 +2058,9 @@ public class Parser {
 
                                 final var macro = new Macro(type, label, rawContent ? Map.of() : options, inlined);
                                 switch (macro.name()) {
-                                    case "ifdef", "ifndef" -> {
-                                        // ifdef::attr[content] is the inline form: the content sits in the brackets
-                                        // and there is no endif::[], so nothing more is read from the document
-                                        final var enclosed = line.substring(i + 1, end);
-                                        final var inline = !enclosed.isBlank();
-                                        final var ifBlock = inline ?
-                                                new IfBlock(List.of(enclosed), List.of(List.of(enclosed)), List.of()) :
-                                                readIfBlock(reader, macro.label());
-                                        elements.add(parseConditionalBlock(
-                                                macro.name(), macro.label(), ifBlock, enclosingDocument, reader, resolver, currentAttributes,
-                                                inline ? Map.of() : macro.options()));
-                                    }
-                                    case "ifeval" -> {
-                                        final var condition = macro.label().isBlank() ? line.substring(i + 1, end).strip() : macro.label().strip();
-                                        final var ifBlock = readIfBlock(reader, macro.label());
-                                        elements.add(parseConditionalBlock("ifeval", condition, ifBlock, enclosingDocument, reader, resolver, currentAttributes, macro.options()));
-                                    }
+                                    case "ifdef", "ifndef", "ifeval" -> elements.add(parseConditionalBlock(
+                                            readConditional(macro, line.substring(i + 1, end), reader, currentAttributes),
+                                            enclosingDocument, reader, resolver, currentAttributes));
                                     default -> {
                                         var linkLabel = unwrapElementIfPossible(parseParagraph(
                                                 enclosingDocument,
@@ -2260,6 +2248,12 @@ public class Parser {
         return c == '#';
     }
 
+    // asciidoctor only accepts ifeval::[{version} > 1], the condition written as the target, ifeval::{version} > 1[], is kept
+    // for the documents written for this parser
+    protected String ifevalCondition(final String target, final String enclosed) {
+        return (target.isBlank() ? enclosed : target).strip();
+    }
+
     private Predicate<ConditionalBlock.Context> parseCondition(final String condition, final Map<String, String> attributeAtParsingTime) {
         final int sep1 = condition.indexOf(' ');
         if (sep1 < 0) {
@@ -2432,13 +2426,31 @@ public class Parser {
         return plainName;
     }
 
-    private IfBlock readIfBlock(final Reader reader, final String name) {
-        final var mainContent = new ArrayList<String>();
-        final var branches = new ArrayList<List<String>>();
-        final var branchConditions = new ArrayList<String>();
+    // a conditional directive as written, with its lines still unparsed: it is read once by readConditional() for the
+    // body, which parses the lines into a ConditionalBlock the renderer evaluates, and for the header, which evaluates
+    // the conditions itself and gives the lines of the first matching branch back to its reader
+    private record Conditional(Predicate<ConditionalBlock.Context> condition, List<String> content,
+                               List<Conditional> elseBranches, Map<String, String> options) {}
+
+    private Conditional readConditional(final Macro macro, final String enclosed, final Reader reader,
+                                        final Map<String, String> currentAttributes) {
+        final Predicate<ConditionalBlock.Context> condition = switch (macro.name()) {
+            case "ifdef" -> new ConditionalBlock.Ifdef(macro.label());
+            case "ifndef" -> new ConditionalBlock.Ifndef(macro.label());
+            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(ifevalCondition(macro.label(), enclosed), currentAttributes));
+            default -> throw new IllegalArgumentException("Unknown conditional type: " + macro.name());
+        };
+        // ifdef::attr[content] is the inline form: the content sits in the brackets and there is no endif::[],
+        // so nothing more is read from the document; ifeval has no inline form, its brackets hold the condition
+        if (!"ifeval".equals(macro.name()) && !enclosed.isBlank()) {
+            return new Conditional(condition, List.of(enclosed), List.of(), Map.of());
+        }
+
+        final var content = new ArrayList<String>();
+        final var elseBranches = new ArrayList<Conditional>();
         final var openNames = new ArrayList<String>(); // as asciidoctor, an endif closes the last block opened
-        openNames.add(name);
-        List<String> current = mainContent;
+        openNames.add(macro.label());
+        var current = content;
         String next;
         while ((next = reader.nextLine()) != null) {
             final var stripped = next.strip();
@@ -2456,9 +2468,8 @@ public class Parser {
                     break;
                 }
             } else if (openNames.size() == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
-                branches.add(current);
-                branchConditions.add(stripped);
-                current = new ArrayList<>();
+                current = new ArrayList<>(); // the lines up to the next branch or to the endif::[]
+                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of()));
                 continue;
             } else if ((next.startsWith("ifdef::") || next.startsWith("ifndef::") || next.startsWith("ifeval::")) && bracket > 0 && stripped.endsWith("]")) {
                 if (next.startsWith("ifeval::") || bracket == stripped.length() - "[]".length()) { // ifdef::name[content] has no endif
@@ -2467,43 +2478,27 @@ public class Parser {
             }
             current.add(next);
         }
-        branches.add(current);
-        return new IfBlock(mainContent, branches, branchConditions);
+        return new Conditional(condition, content, elseBranches, macro.options());
     }
 
-    private record IfBlock(List<String> mainContent, List<List<String>> branches, List<String> branchConditions) {}
-
-    private ConditionalBlock parseConditionalBlock(final String type, final String label, final IfBlock ifBlock,
-                                                    final Path enclosingDocument, final Reader parent, final ContentResolver resolver,
-                                                    final Map<String, String> currentAttributes, final Map<String, String> options) {
-        final Predicate<ConditionalBlock.Context> evaluator = switch (type) {
-            case "ifdef" -> new ConditionalBlock.Ifdef(label);
-            case "ifndef" -> new ConditionalBlock.Ifndef(label);
-            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(label, currentAttributes));
-            default -> throw new IllegalArgumentException("Unknown conditional type: " + type);
-        };
-        final var children = doParse(enclosingDocument, subReader(parent, null, ifBlock.mainContent), l -> true, resolver, currentAttributes, false, false);
-        final var elseBranches = buildElseBranches(ifBlock, enclosingDocument, parent, resolver, currentAttributes);
-        return new ConditionalBlock(evaluator, children, elseBranches, options);
-    }
-
-    private List<ConditionalBlock> buildElseBranches(final IfBlock ifBlock, final Path enclosingDocument, final Reader parent,
-                                                      final ContentResolver resolver, final Map<String, String> currentAttributes) {
-        final var branches = new ArrayList<ConditionalBlock>();
-        for (int i = 1; i < ifBlock.branches.size(); i++) {
-            final var branchContent = ifBlock.branches.get(i);
-            final var branchCond = ifBlock.branchConditions.get(i - 1);
-            final Predicate<ConditionalBlock.Context> branchEval;
-            if ("else::[]".equals(branchCond)) {
-                branchEval = ctx -> true;
-            } else {
-                final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
-                branchEval = new ConditionalBlock.Ifdef(elsifLabel);
-            }
-            final var branchChildren = doParse(enclosingDocument, subReader(parent, null, branchContent), l -> true, resolver, currentAttributes, false, false);
-            branches.add(new ConditionalBlock(branchEval, branchChildren, List.of(), Map.of()));
+    // else::[] always holds, elsif::name[] is an ifdef on its name
+    private Predicate<ConditionalBlock.Context> branchCondition(final String directive, final int bracket) {
+        if ("else::[]".equals(directive)) {
+            return ctx -> true;
         }
-        return branches;
+        return new ConditionalBlock.Ifdef(directive.substring("elsif::".length(), bracket));
+    }
+
+    private ConditionalBlock parseConditionalBlock(final Conditional conditional, final Path enclosingDocument,
+                                                    final Reader parent, final ContentResolver resolver,
+                                                    final Map<String, String> currentAttributes) {
+        return new ConditionalBlock(
+                conditional.condition(),
+                doParse(enclosingDocument, subReader(parent, null, conditional.content()), l -> true, resolver, currentAttributes, false, false),
+                conditional.elseBranches().stream()
+                        .map(it -> parseConditionalBlock(it, enclosingDocument, parent, resolver, currentAttributes))
+                        .toList(),
+                conditional.options());
     }
 
     // asciidoctor marks an include optional with opts=optional or options=optional, and with nothing else: it reads
@@ -3301,45 +3296,25 @@ public class Parser {
                 if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
                     final var ctx = new ConditionalBlock.Context() {
                         @Override
-                        public String attribute(final String key) {
-                            return attributes.getOrDefault(key, globalAttributes.get(key));
+                        public String attribute(final String key) { // the header ones read before the author line count too
+                            return attributes.getOrDefault(key, knownAttributes.getOrDefault(key, globalAttributes.get(key)));
                         }
                     };
-                    final boolean branchMatched = switch (macro.name()) {
-                        case "ifdef" -> new ConditionalBlock.Ifdef(macro.label()).test(ctx);
-                        case "ifndef" -> new ConditionalBlock.Ifndef(macro.label()).test(ctx);
-                        case "ifeval" ->
-                                new ConditionalBlock.Ifeval(parseCondition(macro.label().strip(), attributes)).test(ctx);
-                        default -> false; // not possible
-                    };
-
-                    // ifeval has no inline form so it is always a block, for ifdef/ifndef the brackets tell
-                    if (!enclosed.isBlank() && !"ifeval".equals(macro.name())) {
-                        if (branchMatched) { // give the line back to the loop, it is a header line as any other
-                            reader.insert(List.of(enclosed));
-                        }
-                        continue; // either way the header does not end here
-                    }
-
-                    final var ifBlock = readIfBlock(reader, macro.label());
-                    if (branchMatched) {
-                        reader.insert(ifBlock.mainContent());
+                    // the lines of the first branch whose condition holds go back to the loop, they are header lines
+                    // as any other, and either way the header does not end here
+                    final var conditional = readConditional(macro, enclosed, reader, attributes);
+                    if (conditional.condition().test(ctx)) {
+                        reader.insert(conditional.content());
                     } else {
-                        for (int i = 1; i < ifBlock.branches.size(); i++) {
-                            final var branchCond = ifBlock.branchConditions.get(i - 1);
-                            if ("else::[]".equals(branchCond)) {
-                                reader.insert(ifBlock.branches.get(i));
-                                break;
-                            }
-                            final var elsifLabel = branchCond.substring("elsif::".length(), branchCond.indexOf('['));
-                            if (new ConditionalBlock.Ifdef(elsifLabel).test(ctx)) {
-                                reader.insert(ifBlock.branches.get(i));
+                        for (final var branch : conditional.elseBranches()) {
+                            if (branch.condition().test(ctx)) {
+                                reader.insert(branch.content());
                                 break;
                             }
                         }
                     }
                     continue;
-                } else if ("include".equals(macro.name()) && enclosed.isEmpty()) {
+                } else if ("include".equals(macro.name()) && !macro.label().isEmpty() && enclosed.isEmpty()) {
                     doInclude(enclosingElement, macro, resolver, attributes, true);
                     continue;
                 }

@@ -149,7 +149,7 @@ The parser supports standard Asciidoc syntax including:
 * A macro with another name, such as `tooltip:foo[a hint]`, is kept in the model as a `Macro` element; both renderers fail on it by default, or ignore it or write it as text as asciidoctor does with a macro no extension registers (the `unknownMacro` option of each renderer, see below and the Markdown output section), and a subclass of `AsciidoctorLikeHtmlRenderer` or of `GithubFlavoredMarkdownRenderer` renders it in `onMissingMacro`
 * Cross references (`<<id>>`, `<<id,text>>`, `<<page.adoc#id,text>>`, `xref:page.adoc#id[text]`), the `<<...>>` form reading the part before a `#` as a page whatever its extension, as asciidoctor does
 * Include directives with `tag`/`tags`/`lines`/`leveloffset`/`indent` filtering
-* Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
+* Conditionals (`ifdef::[]`, `ifndef::[]`, `ifeval::[]` with `else::[]`, `elsif::[]`), in the document header as in the body, the condition of `ifeval` written in its brackets as asciidoctor requires (`ifeval::[{version} > 1]`), the inline form `ifdef::name[content]` and multi-attribute conditions (`name1,name2` for an or, `name1+name2` for an and)
 * Attributes and substitutions (`:name: value`, `{name}`, `:!name:` to unset, `\{name}` escaping)
 * Callouts, footnotes, index terms, counters
 * Table features: cell specifiers before `|` (a span `2+`, `.2+` or `2.3+`, a duplication factor `3*`, an alignment `^`, `>` or `.^`, and a style `a`, `d`, `e`, `h`, `l`, `m` or `s`, at the start of a line or after a blank), cells put into rows by column count, header option, autowidth, stripes, column alignment
@@ -168,7 +168,7 @@ The parser supports standard Asciidoc syntax including:
 * Inline role `[.role]#text#`, `%` option prefix
 * TOC placement macro `toc::[]`, Mermaid diagrams
 
-IMPORTANT: as in asciidoctor the document header ends on the first empty line so the line following the title is always the author line, a section or a list not preceded by an empty line becoming an author.
+IMPORTANT: as in asciidoctor the document header ends on the first empty line so the line following the title is always the author line, unless it is an attribute entry or a preprocessor directive such as `ifeval::[{version} > 1]`, a section or a list not preceded by an empty line becoming an author.
 
 === CommonMark syntax
 
