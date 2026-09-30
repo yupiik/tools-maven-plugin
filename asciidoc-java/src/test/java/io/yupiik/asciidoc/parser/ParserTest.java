@@ -370,6 +370,65 @@ class ParserTest {
     }
 
     @Test
+    void parseHeaderWithIfeval() { // as asciidoctor, ifeval::[{version} > 1] has no target, it was read as the author line
+        final var content = """
+                = Release notes
+                :version: %s
+                ifeval::[{version} > 1]
+                :page-layout: post
+                endif::[]
+                ifeval::["{backend-x}" == "html5"]
+                :page-kind: web
+                endif::[]
+
+                Body.
+                """;
+        {
+            final var document = new Parser(Map.of("backend-x", "html5")).parse(content.formatted("2"), new Parser.ParserContext(null));
+            assertEquals(List.of(), document.header().author());
+            assertEquals(Map.of("version", "2", "page-layout", "post", "page-kind", "web", "authorcount", "0"), document.header().attributes());
+            assertEquals(List.of(new Text(List.of(), "Body.", Map.of())), document.body().children()); // no endif::[] left in the body
+        }
+        {
+            final var document = new Parser().parse(content.formatted("0"), new Parser.ParserContext(null));
+            assertEquals(List.of(), document.header().author());
+            assertEquals(Map.of("version", "0", "authorcount", "0"), document.header().attributes());
+            assertEquals(List.of(new Text(List.of(), "Body.", Map.of())), document.body().children());
+        }
+    }
+
+    @Test
+    void parseHeaderConditionalsAfterTheAuthorLine() { // the attributes set before the author line are known to the conditions after it
+        final var content = List.of(
+                "= Title",
+                ":version: %s",
+                "Jane Doe",
+                "ifeval::[{version} > 1]",
+                ":page-layout: post",
+                "endif::[]",
+                "ifdef::version[]",
+                ":page-kind: release",
+                "endif::[]");
+        assertEquals(
+                Map.of("author", "Jane Doe", "authors", "Jane Doe", "firstname", "Jane", "lastname", "Doe",
+                        "authorinitials", "JD", "authorcount", "1",
+                        "version", "2", "page-layout", "post", "page-kind", "release"),
+                new Parser().parseHeader(new Reader(content.stream().map(it -> it.formatted("2")).toList())).attributes());
+        assertEquals(
+                Map.of("author", "Jane Doe", "authors", "Jane Doe", "firstname", "Jane", "lastname", "Doe",
+                        "authorinitials", "JD", "authorcount", "1",
+                        "version", "0", "page-kind", "release"),
+                new Parser().parseHeader(new Reader(content.stream().map(it -> it.formatted("0")).toList())).attributes());
+    }
+
+    @Test
+    void parseHeaderWithAnIncludeWithoutTarget() { // as asciidoctor, include::[] is not a directive, so it is the author line
+        final var header = new Parser().parseHeader(new Reader(List.of("= Title", "include::[]", ":page-layout: post")));
+        assertEquals(List.of(new Author("include::[]", "", "include::[]", null, null, "i")), header.author());
+        assertEquals("post", header.attributes().get("page-layout"));
+    }
+
+    @Test
     void parseHeaderAndContent() {
         final var doc = new Parser().parse(List.of("= Title", "", "++++", "pass", "++++"), new Parser.ParserContext(null));
         assertEquals("Title", doc.header().title());
