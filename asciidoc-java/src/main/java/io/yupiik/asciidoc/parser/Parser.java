@@ -1543,7 +1543,29 @@ public class Parser {
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
             return p;
         }
+        if (elements.size() > 1) { // a conditional block sharing the paragraph with other lines holds inline elements
+            for (int i = 0; i < elements.size(); i++) {
+                if (elements.get(i) instanceof ConditionalBlock block) {
+                    elements.set(i, withInlineChildren(block));
+                }
+            }
+        }
         return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
+    }
+
+    // the content of a conditional block is parsed as blocks, so a line of several inline elements is a Paragraph: when the
+    // block sits in a paragraph, as asciidoctor's preprocessor would have left the line there, that paragraph is the enclosing
+    // one and the block holds its elements directly. a block alone in its paragraph keeps the Paragraph, it is one
+    private ConditionalBlock withInlineChildren(final ConditionalBlock block) {
+        return new ConditionalBlock(
+                block.evaluator(),
+                inlineChildren(block.children()),
+                block.elseBranches() == null ? null : block.elseBranches().stream().map(this::withInlineChildren).toList(),
+                block.options());
+    }
+
+    private List<Element> inlineChildren(final List<Element> children) {
+        return children.size() == 1 && children.get(0) instanceof Paragraph p && p.options().isEmpty() ? p.children() : children;
     }
 
     private List<Element> parseLine(final Path enclosingDocument, final Reader reader, final String line,

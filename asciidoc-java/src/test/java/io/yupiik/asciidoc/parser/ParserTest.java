@@ -3422,6 +3422,63 @@ class ParserTest {
     }
 
     @Test
+    void conditionalBlockInAParagraphHoldsInlineElements() { // the enclosing paragraph is the one its line belongs to
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                first line
+                ifdef::foo[]
+                You can use xref:other.adoc[other], such as W.
+                endif::[]
+                last line
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "first line", Map.of()),
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                                new Text(List.of(), "You can use ", Map.of()),
+                                new Macro("xref", "other.adoc", Map.of("", "other"), true),
+                                new Text(List.of(), ", such as W.", Map.of())), Map.of()),
+                        new Text(List.of(), "last line", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalBlockAloneKeepsItsParagraph() { // the block is the paragraph, so its line of several inline elements stays one
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifdef::foo[]
+                You can use xref:other.adoc[other], such as W.
+                endif::[]
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Paragraph(List.of(
+                        new Text(List.of(), "You can use ", Map.of()),
+                        new Macro("xref", "other.adoc", Map.of("", "other"), true),
+                        new Text(List.of(), ", such as W.", Map.of())), Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalBlockParagraphInAnAdmonitionKeepsItsParagraph() { // a paragraph of a group is a block, not a line of another paragraph
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [NOTE]
+                ====
+                First paragraph.
+
+                ifdef::foo[]
+                You can use xref:other.adoc[other], such as W.
+                endif::[]
+                ====
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Admonition(Admonition.Level.NOTE, new Paragraph(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "First paragraph.", Map.of())), Map.of()),
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Paragraph(List.of(
+                                new Text(List.of(), "You can use ", Map.of()),
+                                new Macro("xref", "other.adoc", Map.of("", "other"), true),
+                                new Text(List.of(), ", such as W.", Map.of())), Map.of())), Map.of())), Map.of()), Map.of())),
+                body.children());
+    }
+
+    @Test
     void ifndef() {
         final var body = new Parser().parseBody(
                 new Reader(List.of("""
