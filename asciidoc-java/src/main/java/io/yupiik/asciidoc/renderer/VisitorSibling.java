@@ -173,14 +173,7 @@ public class VisitorSibling {
      * parser, the style must be written in upper case, {@code [note]} is no admonition.
      */
     public Admonition.Level admonitionLevel(final String style) {
-        if (style == null) {
-            return null;
-        }
-        try {
-            return Admonition.Level.valueOf(style);
-        } catch (final IllegalArgumentException iae) {
-            return null;
-        }
+        return Admonition.Level.byName(style);
     }
 
     /**

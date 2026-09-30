@@ -16,8 +16,11 @@
 package io.yupiik.asciidoc.model;
 
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static io.yupiik.asciidoc.model.Element.ElementType.ADMONITION;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public record Admonition(Level level, Element content, Map<String, String> options) implements Element {
     @Override
@@ -30,6 +33,16 @@ public record Admonition(Level level, Element content, Map<String, String> optio
         TIP,
         IMPORTANT,
         CAUTION,
-        WARNING
+        WARNING;
+
+        private static final Map<String, Level> BY_NAME = Stream.of(values()).collect(toMap(Enum::name, identity()));
+
+        /**
+         * @param name the name of a level, in upper case as in asciidoctor: {@code note} names no level.
+         * @return the level of this name, {@code null} when no level has it, where {@link #valueOf(String)} throws.
+         */
+        public static Level byName(final String name) {
+            return name == null ? null : BY_NAME.get(name);
+        }
     }
 }
