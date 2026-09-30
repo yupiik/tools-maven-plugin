@@ -165,6 +165,18 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
         assertEquals("guide.html", sibling.documentPath("guide", key -> null, ".html"));
     }
 
+    @Test
+    void admonitionLevelByName() {
+        for (final var level : Admonition.Level.values()) {
+            assertSame(level, sibling.admonitionLevel(level.name()), level.name());
+        }
+        // a style that names no level, as the description blocks of a configuration table or a sidebar, is null and costs no exception
+        assertNull(sibling.admonitionLevel(sibling.styleName(((OpenBlock) parse("[.description]\n--\nText.\n--\n")).options())));
+        assertNull(sibling.admonitionLevel(sibling.styleName(((OpenBlock) parse("[sidebar]\n--\nText.\n--\n")).options())));
+        assertNull(sibling.admonitionLevel("note")); // lower case is no admonition, as in asciidoctor
+        assertNull(sibling.admonitionLevel(null));
+    }
+
     private void assertNoteShorthand(final String attributeLine) {
         final var element = parse(attributeLine + "\n====\nText.\n====\n");
         final var options = element instanceof Admonition admonition ? admonition.options() : ((OpenBlock) element).options();
