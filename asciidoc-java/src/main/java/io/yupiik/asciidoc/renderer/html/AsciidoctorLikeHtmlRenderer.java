@@ -100,6 +100,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final boolean dataUri;
     protected final DataResolver resolver;
     protected final State state; // the document, its index, the footnotes and the flags of this output; this is why we are not thread safe
+    private String icons; // per-document caches, see icons()/voidSlash()/booleanAttr()
+    private String voidSlash;
+    private Boolean xmlSyntax;
     protected final Parser subParser;
     protected final ContentResolver subResolver;
     protected boolean usesMermaid;
@@ -226,6 +229,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visit(final Document document) {
         state.visit(document);
+        icons = null; // per-document caches, see icons()/voidSlash()/booleanAttr(): header attributes are constant per document
+        voidSlash = null;
+        xmlSyntax = null;
         final var embeddedAttr = attr("embedded", document.header().attributes());
         final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"))
                 || "true".equals(embeddedAttr) || "".equals(embeddedAttr);
@@ -2193,7 +2199,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected String icons() {
-        return attr("icons", state.document() == null ? Map.<String, String>of() : state.document().header().attributes());
+        // htmlsyntax/icons are header attributes, constant for the whole document render (never mutated mid-render)
+        if (icons == null) {
+            icons = attr("icons", state.document() == null ? Map.<String, String>of() : state.document().header().attributes());
+        }
+        return icons;
     }
 
     protected String escape(final String name) {
@@ -2209,14 +2219,21 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     private String voidSlash() {
-        final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
-        final var htmlsyntax = attr("htmlsyntax", attrs);
-        return "xml".equals(htmlsyntax) ? "/" : "";
+        // htmlsyntax is a header attribute, constant for the whole document render
+        if (voidSlash == null) {
+            final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
+            voidSlash = "xml".equals(attr("htmlsyntax", attrs)) ? "/" : "";
+        }
+        return voidSlash;
     }
 
     private String booleanAttr(final String name) {
-        final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
-        return "xml".equals(attr("htmlsyntax", attrs)) ? " " + name + "=\"" + name + "\"" : " " + name;
+        // htmlsyntax is a header attribute, constant for the whole document render
+        if (xmlSyntax == null) {
+            final var attrs = state.document() == null ? Map.<String, String>of() : state.document().header().attributes();
+            xmlSyntax = "xml".equals(attr("htmlsyntax", attrs));
+        }
+        return xmlSyntax ? " " + name + "=\"" + name + "\"" : " " + name;
     }
 
     protected String attr(final String key, final String defaultValue) {
