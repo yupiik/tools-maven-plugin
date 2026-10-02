@@ -17,7 +17,6 @@ package io.yupiik.asciidoc.renderer.html;
 
 import java.util.Map;
 import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.Map.entry;
@@ -291,17 +290,10 @@ public class HtmlEscaping implements Function<String, String> {
 
     @Override
     public String apply(final String value) {
-        // single pass, as asciidoctor: nothing escapes returns the input unchanged; the matcher (kept for
-        // character references) is created once per call and only when there is an '&'
-        final var result = slowEscape(value, value.indexOf('&') < 0 ? null : CHARACTER_REFERENCE.matcher(value));
-        return result == null ? value : result;
-    }
-
-    private String slowEscape(final String value, final Matcher characterReference) {
         StringBuilder result = null;
         for (int i = 0; i < value.length(); i++) {
             final var c = value.charAt(i);
-            if (c == '&' && characterReference != null && characterReference.region(i, value.length()).lookingAt()) {
+            if (c == '&' && CHARACTER_REFERENCE.matcher(value).region(i, value.length()).lookingAt()) {
                 // as of asciidoctor character references are kept as they are
                 if (result != null) {
                     result.append(c);
@@ -319,6 +311,6 @@ public class HtmlEscaping implements Function<String, String> {
                 result.append(c);
             }
         }
-        return result == null ? null : result.toString();
+        return result == null ? value : result.toString();
     }
 }
