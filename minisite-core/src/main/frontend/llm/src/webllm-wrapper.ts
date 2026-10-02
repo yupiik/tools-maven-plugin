@@ -14,7 +14,11 @@
 /// under the License.
 ///
 
-import { CreateMLCEngine, MLCEngine } from '@mlc-ai/web-llm';
+import { CreateMLCEngine, MLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm';
+
+export function getModelRequirements(modelId: string) {
+  return prebuiltAppConfig.model_list.find((model: { model_id: string }) => model.model_id === modelId);
+}
 
 let engine: MLCEngine | null = null;
 let currentModel: string | null = null;

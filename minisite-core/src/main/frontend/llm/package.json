@@ -3,6 +3,7 @@
   "name": "minisite-llm-chat",
   "scripts": {
     "build": "rsbuild build",
+    "test": "node --test test/*.test.cjs",
     "dev": "rsbuild dev"
   },
   "dependencies": {

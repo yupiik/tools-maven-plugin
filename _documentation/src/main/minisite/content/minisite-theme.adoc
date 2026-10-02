@@ -2,7 +2,7 @@
 :minisite-index-title: Theme
 :minisite-index-description: Customize the minisite look and feel with the default handlebars-based theme.
 
-The minisite default template is a modern, agency-quality theme derived from the link:https://yupiik.com[yupiik.com] brand identity.
+The minisite default template is a documentation theme with a dark header and footer, a neutral background, a spacious reading column and rounded cards derived from the link:https://yupiik.com[yupiik.com] brand identity.
 It ships as a set of link:https://handlebarsjs.com/[handlebars]-like templates (`.hb` files) and a CSS variable-driven stylesheet supporting **light** and **dark** color schemes with a manual toggle.
 
 This page documents how the template engine works, which templates and partials exist, and how to override them for your own website.
@@ -124,5 +124,12 @@ The palette is derived from the yupiik.com brand:
 |`--brand-blue-dark`|`#056EBB`
 |====
 
-When the visitor has not toggled the theme yet, the site follows the operating system preference via `prefers-color-scheme` (defaulting to dark, the ``.io`` look).
-Override `--bg`, `--surface`, `--text`, `--brand`, `--ring` and the other `--*` variables in your own `css/theme.css` (set directly on `:root`) to rebrand the site with one click.
+The bundled template starts in light mode. A saved visitor preference is applied before first paint, and the header toggle switches between light and dark mode.
+Custom templates can omit `data-theme` to follow the operating system preference via `prefers-color-scheme`.
+Override `--bg`, `--surface`, `--text`, `--brand`, `--ring` and the other semantic variables in a stylesheet loaded through `customHead`.
+Set them on `:root[data-theme='light']` and `:root[data-theme='dark']` to customize each mode.
+Alternatively, provide your own `css/theme.css` asset to replace the bundled stylesheet.
+The header and footer use a dark neutral frame with a blue accent in both modes.
+On smaller screens, the left menu becomes a horizontal navigation strip and the right table of contents is hidden.
+The table of contents uses clickable rows without bullets, with indented tree branches connecting child headings to their parents.
+Keyboard focus indicators and reduced-motion preferences are supported.
