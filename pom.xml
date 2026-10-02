@@ -374,6 +374,7 @@
           <mapping>
             <adoc>DOUBLESLASH_STYLE</adoc>
             <rb>SCRIPT_STYLE</rb>
+            <cjs>SCRIPT_STYLE</cjs>
           </mapping>
           <licenseSets>
             <licenseSet>
@@ -405,6 +406,7 @@ under the License.
                 <exclude>**/*.html</exclude>
                 <exclude>**/*.slim</exclude>
                 <exclude>**/*.xslt</exclude>
+                <exclude>.yca/**</exclude>
                 <exclude>**/minisite/**</exclude>
                 <exclude>**/.mvn/jvm.config</exclude>
               </excludes>

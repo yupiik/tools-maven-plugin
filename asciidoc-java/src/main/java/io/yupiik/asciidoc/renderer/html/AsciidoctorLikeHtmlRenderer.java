@@ -2408,11 +2408,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
-        private UnknownMacro unknownMacro = UnknownMacro.FAIL;
+        private UnknownMacro unknownMacro = UnknownMacro.TEXT;
 
         /**
-         * @param unknownMacro what the renderer does with a macro it has no method for, {@link UnknownMacro#FAIL} by
-         *                     default; the attribute {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
+         * @param unknownMacro what the renderer does with a macro it has no method for, {@link UnknownMacro#TEXT} by
+         *                     default, as asciidoctor writes a macro no extension registers; the attribute
+         *                     {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
          * @return this.
          */
         public Configuration setUnknownMacro(final UnknownMacro unknownMacro) {

@@ -110,10 +110,10 @@ public class AsciidocMojo extends AbstractMojo {
     /**
      * What the renderer does with a macro it has no method for, such as {@code tooltip:foo[a hint]}, which is most often
      * a mistake in the document: {@code FAIL} fails the rendering naming the macro, {@code IGNORE} writes nothing,
-     * {@code TEXT} writes the macro as text, as asciidoctor writes a macro no extension registers.
+     * {@code TEXT} writes the macro as text, as asciidoctor writes a macro no extension registers (the default).
      * The attribute {@code yupiik-renderer-asciidoctorlikehtml-unknownMacro}, in the document or in {@code attributes}, wins over it.
      */
-    @Parameter(property = "yupiik.asciidoc.unknownMacro", defaultValue = "FAIL")
+    @Parameter(property = "yupiik.asciidoc.unknownMacro", defaultValue = "TEXT")
     private UnknownMacro unknownMacro;
 
     /**

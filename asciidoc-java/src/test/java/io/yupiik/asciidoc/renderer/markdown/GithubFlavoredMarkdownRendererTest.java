@@ -1397,8 +1397,15 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
-    void unknownMacroFailsByDefault() { // most often a mistake in the document, so the default does not hide it
-        final var error = assertThrows(IllegalArgumentException.class, () -> md("Set tooltip:foo[a hint] here.\n"));
+    void unknownMacroIsWrittenAsTextByDefault() { // as asciidoctor writes a macro no extension registers
+        assertEquals("Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n",
+                md("Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n"));
+    }
+
+    @Test
+    void unknownMacroFailsWhenExplicitlyRequested() { // most often a mistake in the document, so the attribute can fail it
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: fail\n\nSet tooltip:foo[a hint] here.\n"));
         assertEquals("Unknown macro 'tooltip' in 'tooltip:foo[a hint]', set the attribute " +
                 "yupiik-renderer-githubflavoredmarkdown-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
                 error.getMessage());
@@ -1410,7 +1417,7 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
-    void unknownInlineMacroIsWrittenAsText() { // as asciidoctor writes a macro no extension registers
+    void unknownInlineMacroIsWrittenAsTextWhenRequested() { // the attribute is still honored
         assertEquals("Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n",
                 md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: text\n\n" +
                         "Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.\n"));

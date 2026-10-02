@@ -31,11 +31,17 @@ class MainTest {
     void unknownMacroFlag(@TempDir final Path work) throws IOException {
         final var src = Files.writeString(work.resolve("src.adoc"), "Set tooltip:foo[a hint] here.");
         final var out = work.resolve("src.html");
-        final var error = assertThrows(IllegalArgumentException.class, () -> Main.main("-i", src.toString(), "-o", out.toString()));
-        assertTrue(error.getMessage().startsWith("Unknown macro 'tooltip'"), error.getMessage());
+
+        // as asciidoctor, an unknown inline macro is written as text by default
+        Main.main("-i", src.toString(), "-o", out.toString());
+        assertTrue(Files.readString(out).contains("<p>Set tooltip:foo[a hint] here.</p>"), Files.readString(out));
 
         Main.main("-i", src.toString(), "-o", out.toString(), "--unknown-macro", "text");
         assertTrue(Files.readString(out).contains("<p>Set tooltip:foo[a hint] here.</p>"), Files.readString(out));
+
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> Main.main("-i", src.toString(), "-o", out.toString(), "--unknown-macro", "fail"));
+        assertTrue(error.getMessage().startsWith("Unknown macro 'tooltip'"), error.getMessage());
     }
 
     @Test

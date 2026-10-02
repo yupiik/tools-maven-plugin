@@ -60,8 +60,9 @@ import static java.util.stream.Collectors.joining;
  * Every block appends its Markdown followed by a blank line. Nested content (admonitions, quotes, list items,
  * table cells) is rendered by the same renderer into a temporary buffer, so a subclass's overrides apply at any
  * depth. When neither the document nor the configuration defines an attribute, its reference stays literal, as
- * asciidoctor does with {@code attribute-missing=skip}. A macro the renderer has no case for fails by default, or is
- * ignored or written as text, see {@link Configuration#setUnknownMacro(UnknownMacro)}; an {@code include} macro always
+ * asciidoctor does with {@code attribute-missing=skip}. A macro the renderer has no case for is written as text by
+ * default, as asciidoctor writes a macro no extension registers, or is ignored or fails the rendering, see
+ * {@link Configuration#setUnknownMacro(UnknownMacro)}; an {@code include} macro always
  * fails, since the parser resolves includes before any rendering.
  * <p>
  * The renderer writes the Markdown. It reads the values of the model that need parsing (ids, styles, options,
@@ -1196,11 +1197,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     @Getter
     public static class Configuration {
         private Map<String, String> attributes = Map.of();
-        private UnknownMacro unknownMacro = UnknownMacro.FAIL;
+        private UnknownMacro unknownMacro = UnknownMacro.TEXT;
 
         /**
-         * @param unknownMacro what the renderer does with a macro it has no case for, {@link UnknownMacro#FAIL} by
-         *                     default; the attribute {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
+         * @param unknownMacro what the renderer does with a macro it has no case for, {@link UnknownMacro#TEXT} by
+         *                     default, as asciidoctor writes a macro no extension registers; the attribute
+         *                     {@link #UNKNOWN_MACRO_ATTRIBUTE} wins over it when set.
          * @return this.
          */
         public Configuration setUnknownMacro(final UnknownMacro unknownMacro) {
