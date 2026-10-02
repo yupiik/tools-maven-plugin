@@ -42,8 +42,8 @@ Set them in the document (`:keep-paragraphs: false`), or pass them to the `Parse
 |Name |Default |Description
 
 |`blank-target-macros`
-|`image,icon,menu,xref,link`
-|The inline macros whose target can hold blanks, as `image:my file.png[alt]`; every other target stops at a blank. asciidoctor takes blanks for `image`, `icon`, `menu` and `xref`; `link` stays in the list for the documents which relied on it. An empty value stops every target at a blank.
+|`image,icon,menu,xref`
+|The inline macros whose target can hold blanks, as `image:my file.png[alt]`; every other target stops at a blank, as in asciidoctor. Add `link` for a document whose links hold blanks in their target. An empty value stops every target at a blank.
 
 |`callout-mismatch`
 |unset

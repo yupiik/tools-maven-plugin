@@ -126,8 +126,8 @@ public class Parser {
     private static final Pattern PIPE_TABLE_SEPARATOR = Pattern.compile("^\\|(?:[ :-]+\\|)+$");
     private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
     // the default of the blank-target-macros attribute: asciidoctor's image, icon, menu and xref regexes take blanks in
-    // the target, as image:my file.png[alt]; link does not for asciidoctor but existing documents relied on it
-    private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref,link";
+    // the target, as image:my file.png[alt]; the target of a link stops at a blank, as in asciidoctor
+    private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref";
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
     private static final Pattern AUTHOR_DELIMITER = Pattern.compile(";(?: |$)");
     private static final Pattern AUTHOR_INFO = Pattern.compile(

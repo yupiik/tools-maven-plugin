@@ -1663,9 +1663,15 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
-    void linkTargetsWithSpaces() {
-        assertEquals("See [the file](<my file.pdf>) and ![Alt](<my image.png>).\n",
+    void linkTargetsWithSpaces() { // as in asciidoctor, the target of a link stops at a blank and the text stays literal, an image takes it
+        assertEquals("See link:my file.pdf\\[the file\\] and ![Alt](<my image.png>).\n",
                 md("See link:my file.pdf[the file] and image:my image.png[Alt]."));
+    }
+
+    @Test
+    void linkTargetsWithSpacesWhenListed() { // the blank-target-macros attribute restores the link
+        assertEquals("See [the file](<my file.pdf>) and ![Alt](<my image.png>).\n",
+                md("See link:my file.pdf[the file] and image:my image.png[Alt].", Map.of("blank-target-macros", "image,icon,menu,xref,link")));
     }
 
     @Test
