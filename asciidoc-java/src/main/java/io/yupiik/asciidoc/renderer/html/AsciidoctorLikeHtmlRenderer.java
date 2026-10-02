@@ -1035,12 +1035,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             // the parser removed the markers from the code and says which callouts ended each line
             final var highlight = !"false".equalsIgnoreCase(element.options().get("hightlight-callouts"));
             final var icons = icons();
-            final var lines = element.value().split("\n", linenums ? 0 : -1);
+            // escape the whole block once, then split the escaped value: escaping per line would run a full
+            // HtmlEscaping pass (scan + possible Matcher/StringBuilder) for every line, which is 2x slower on
+            // callout-rich or escape-heavy code blocks; splitting after escaping is byte-identical
+            final var lines = escape(element.value()).split("\n", linenums ? 0 : -1);
             for (int i = 0; i < lines.length; i++) {
                 if (linenums) {
                     builder.append("<span class=\"linenums\">").append(i + 1).append("</span>");
                 }
-                builder.append(escape(lines[i]));
+                builder.append(lines[i]);
                 if (i < element.lineCallOuts().size() && !element.lineCallOuts().get(i).isEmpty()) {
                     builder.append(' '); // markers sat at the end of the line, `a=b <1><2>` in the source
                     for (final var callOut : element.lineCallOuts().get(i)) {
