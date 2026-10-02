@@ -94,6 +94,15 @@ import static java.util.stream.Collectors.toMap;
  * Trivial document renderer as HTML.
  */
 public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
+    // the HTML tag of each text style, used by the hot visitText path (no stream per styled text)
+    private static final java.util.Map<Text.Style, String> STYLE_TAGS = java.util.Map.of(
+            Text.Style.BOLD, "strong",
+            Text.Style.ITALIC, "em",
+            Text.Style.EMPHASIS, "em",
+            Text.Style.SUB, "sub",
+            Text.Style.SUP, "sup",
+            Text.Style.MARK, "mark",
+            Text.Style.STRIKETHROUGH, "del");
     protected final StringBuilder builder = new StringBuilder();
     protected final Configuration configuration;
     protected final VisitorSibling sibling; // reads the model as the other renderers do
@@ -964,29 +973,22 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 writeCommonAttributes(element.options(), null);
                 builder.append(">\n");
             }
-                    final var styleTags = element.style().stream()
-                            .map(s -> switch (s) {
-                                case BOLD -> "strong";
-                                case ITALIC -> "em";
-                                case EMPHASIS -> "em";
-                                case SUB -> "sub";
-                                case SUP -> "sup";
-                                case MARK -> "mark";
-                                case STRIKETHROUGH -> "del";
-                            })
-                            .toList();
-            if (!styleTags.isEmpty()) {
-                builder.append('<').append(styleTags.get(0));
+                    // style tags: static map + direct loop, no stream pipelines (this is the hottest per-text path)
+            final var styles = element.style();
+            if (!styles.isEmpty()) {
+                builder.append('<').append(STYLE_TAGS.get(styles.get(0)));
                 if (!wrap) {
                     writeCommonAttributes(element.options(), null);
                 }
                 builder.append('>');
-                if (styleTags.size() > 1) {
-                    builder.append(styleTags.stream().skip(1).map(s -> '<' + s + '>').collect(joining()));
+                for (int si = 1; si < styles.size(); si++) {
+                    builder.append('<').append(STYLE_TAGS.get(styles.get(si))).append('>');
                 }
             }
             builder.append(escape(element.value()));
-            builder.append(styleTags.stream().sorted(Comparator.reverseOrder()).map(s -> "</" + s + '>').collect(joining()));
+            for (int si = styles.size() - 1; si >= 0; si--) {
+                builder.append("</").append(STYLE_TAGS.get(styles.get(si))).append('>');
+            }
             if (wrap) {
                 builder.append("\n </").append(useP ? "p" : "span").append(">\n");
             }
