@@ -573,7 +573,7 @@ public class Parser {
                 reader.setPreviousValue(newValue);
             }
 
-            final var stripped = next.strip();
+            final var stripped = next.trim();
             if (stripped.startsWith("[") && stripped.endsWith("]")) {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
@@ -2927,7 +2927,7 @@ public class Parser {
         Matcher matcher;
         boolean isChecklist = false;
         final int currentLevel = prefix.length() - 1 /*ending space*/;
-        while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped = next.strip()))).matches() && !next.isBlank()) {
+        while ((next = reader.nextLine()) != null && (matcher = regex.matcher((nextStripped = next.trim()))).matches() && !next.isBlank()) {
             final var level = matcher.group(captureName).length();
             if (level < currentLevel) { // go back to parent
                 break;
@@ -2938,7 +2938,7 @@ public class Parser {
                         matcher.group("prefix").length() + matcher.group("dots").length() :
                         prefix.length();
                 buffer.append(nextStripped.substring(markerLen).stripLeading());
-                readContinuation(reader, l -> regex.matcher(l.strip()).matches(), buffer);
+                readContinuation(reader, l -> regex.matcher(l.trim()).matches(), buffer);
 
                 final var rawContent = buffer.toString();
                 final var checkMatcher = CHECKBOX.matcher(rawContent);
