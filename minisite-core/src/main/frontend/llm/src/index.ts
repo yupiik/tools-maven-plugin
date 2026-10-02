@@ -18,7 +18,8 @@ import './styles.css';
 import { pipeline } from '@huggingface/transformers';
 import { renderChatUI, addMessage, updateLastMessage } from './chat-ui';
 import { loadEmbeddings, getAllChunks } from './embeddings';
-import { loadModel, ask, isModelLoaded } from './webllm-wrapper';
+import { loadModel, ask, isModelLoaded, unloadModel, getModelRequirements } from './webllm-wrapper';
+import { supportsChatModel } from './gpu-support';
 import { retrieveRelevantChunks, buildPrompt, renderMarkdown } from './rag';
 
 // Must match the model used to generate the document embeddings server-side
@@ -83,7 +84,7 @@ async function loadStoredEmbeddings(): Promise<Map<string, number[]>> {
 }
 
 function getSiteBase(): string {
-  return '{{base}}';
+  return document.getElementById('llm-chat-root')?.dataset.base || '';
 }
 
 async function initializeEmbeddings(): Promise<void> {
@@ -152,19 +153,19 @@ async function computeQueryEmbedding(text: string): Promise<number[]> {
   return Array.from(out.data as Float32Array);
 }
 
-// Register service worker
-if ('serviceWorker' in navigator) {
-  const base = getSiteBase();
-  const swUrl = base ? `${base}/llm-chat-sw.js` : '/llm-chat-sw.js';
-  navigator.serviceWorker.register(swUrl).catch(() => {
-    // Service worker may not be available on all deployments
-  });
-}
-
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
   const chatContainer = document.getElementById('llm-chat-root');
   if (!chatContainer) return;
+
+  const modelId = chatContainer.dataset.modelId || 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+  if (!await supportsChatModel(getModelRequirements(modelId))) return;
+
+  if ('serviceWorker' in navigator) {
+    const base = getSiteBase();
+    // Keep the worker scoped to this minisite when it is deployed under a subpath.
+    navigator.serviceWorker.register(`${base}/llm-chat-sw.js`).catch(() => {});
+  }
 
   renderChatUI(chatContainer, {
     onSend: (msg) => handleSend(
@@ -178,14 +179,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     onOpen: () => Promise.resolve(),
   });
 
-  chatContainer.style.display = '';
 
   const messagesDiv = document.getElementById('llm-chat-messages') as HTMLDivElement;
   const loadingDiv = document.getElementById('llm-chat-loading') as HTMLDivElement;
   if (loadingDiv) loadingDiv.style.display = '';
 
   try {
-    const modelId = chatContainer.dataset.modelId || 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
     await loadModel(modelId, (progress, text) => {
       const bar = document.getElementById('llm-chat-loading-bar');
       const label = document.getElementById('llm-chat-loading-text');
@@ -197,9 +196,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeEmbeddings();
     if (loadingDiv) loadingDiv.style.display = 'none';
     if (messagesDiv) addMessage(messagesDiv, 'system', 'Model loaded. You can now ask questions.');
+    chatContainer.style.display = '';
   } catch (err: unknown) {
-    if (loadingDiv) loadingDiv.style.display = 'none';
-    const msg = err instanceof Error ? err.message : String(err);
-    if (messagesDiv) addMessage(messagesDiv, 'error', `Failed to load model: ${msg}`);
+    chatContainer.style.display = 'none';
+    chatContainer.replaceChildren();
+    await unloadModel();
+    console.debug('Documentation chat unavailable:', err);
   }
 });

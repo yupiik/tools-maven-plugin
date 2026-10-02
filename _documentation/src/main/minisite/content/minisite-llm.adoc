@@ -38,7 +38,7 @@ A complete example can be found in the Fusion documentation `pom.xml`
 </plugin>
 ----
 <.> Turns the feature on (property: `yupiik.minisite.llmChatEnabled`, default `false`).
-<.> The browser chat model, any https://mlc.ai[WebLLM/MLC] model id is accepted (property: `yupiik.minisite.llmModelId`).
+<.> The browser chat model, a model id from the bundled https://mlc.ai[WebLLM/MLC] catalog is accepted (property: `yupiik.minisite.llmModelId`).
 <.> Provides `all-minilm-l6-v2.onnx` and its tokenizer on the plugin classpath. If `llmChatEnabled` is `true` and this dependency is missing, the build fails fast with a message telling you to add it.
 
 == How it works
@@ -69,7 +69,14 @@ In addition the minisite injects, on every page, the chat assets it built from
 
 === Runtime (in the browser)
 
-Everything happens client-side:
+Everything happens client-side. Before downloading models, the widget checks for a hardware WebGPU adapter,
+the features required by the configured model (including `shader-f16` for half-precision models),
+the runtime buffer and compute limits, and successful GPU device creation.
+The chat stays hidden until the model and documentation embeddings have loaded successfully.
+An unsupported browser, a software fallback adapter, insufficient capabilities or a loading failure leaves the widget hidden.
+Free GPU memory is not exposed by browser APIs, so model loading is the final compatibility check.
+
+On compatible devices:
 
 . https://github.com/mlc-ai/web-llm[WebLLM] downloads the chat model (`llmModelId`) once from its CDN
 and runs it on WebGPU,
