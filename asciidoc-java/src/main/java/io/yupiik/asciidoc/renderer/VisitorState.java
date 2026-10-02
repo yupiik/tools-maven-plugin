@@ -84,6 +84,8 @@ public class VisitorState implements Visitor<Void> {
     @Override
     public void visit(final Document document) {
         this.document = document;
+        indexed = false; // the next read re-indexes the new document
+        indexedBody = null;
         referenceTexts.clear();
         referencedIds.clear();
         tocSections.clear();
@@ -106,9 +108,22 @@ public class VisitorState implements Visitor<Void> {
      * links to, with {@code <<id>>} or {@code xref:id[]}, the text of a cross reference to each id, see
      * {@link #referenceText(String)}, and the sections a table of contents lists. The sections the table of contents
      * lists count as linked, since it links them.
+     *
+     * <p>The walk is lazy: {@link #visitBody(Body)} only records the body, and the first read of
+     * {@link #referenceText(String)}, {@link #isReferenced(String)} or {@link #tocSections()} runs the walk over the
+     * recorded body (once). A document that needs none of them - no cross references, no table of contents - skips
+     * the walk entirely.
      */
-    @Override
-    public void visitBody(final Body body) {
+    protected boolean indexed = false;
+    protected Body indexedBody = null;
+
+    protected void ensureIndexed(final Body body) {
+        // an already-indexed state re-indexes when the body changed (a renderer reuses the state across documents)
+        if (indexed && body == indexedBody) {
+            return;
+        }
+        indexed = true;
+        indexedBody = body;
         referenceTexts.clear();
         referencedIds.clear();
         tocSections.clear();
@@ -123,6 +138,11 @@ public class VisitorState implements Visitor<Void> {
                 }
             }
         }
+    }
+
+    @Override
+    public void visitBody(final Body body) {
+        indexedBody = body; // the walk itself is lazy: it runs on the first read that needs it
     }
 
     /**
@@ -164,6 +184,7 @@ public class VisitorState implements Visitor<Void> {
      * asciidoctor does.
      */
     public String referenceText(final String id) {
+        ensureIndexed(indexedBody);
         return referenceTexts.get(id);
     }
 
@@ -171,6 +192,7 @@ public class VisitorState implements Visitor<Void> {
      * @return true when the document links to this id, or lists it in its table of contents.
      */
     public boolean isReferenced(final String id) {
+        ensureIndexed(indexedBody);
         return referencedIds.contains(id);
     }
 
@@ -178,6 +200,7 @@ public class VisitorState implements Visitor<Void> {
      * @return the sections a table of contents can list, in document order.
      */
     public List<TocSection> tocSections() {
+        ensureIndexed(indexedBody);
         return Collections.unmodifiableList(tocSections);
     }
 

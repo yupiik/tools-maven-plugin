@@ -2505,7 +2505,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         @Override
         public void visitBody(final Body body) { // the footnotes start with the body
             resetFootnotes();
-            super.visitBody(body);
+            indexedBody = body; // the walk itself is lazy: it runs on the first read that needs it
         }
 
         @Override

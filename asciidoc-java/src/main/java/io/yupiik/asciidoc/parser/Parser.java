@@ -1585,6 +1585,80 @@ public class Parser {
                                     final boolean supportComplexStructures,
                                     final Map<String, String> pendingOptions) {
         final var elements = new ArrayList<Element>();
+        // start-anchored block checks: only ever meaningful at the beginning of the line, hoisted out of the
+        // per-character loop below (they used to run at every position, always with the same result)
+        if (supportComplexStructures && reader != null) {
+            final var admonition = parseAdmonition(enclosingDocument, reader, line, resolver, currentAttributes);
+            if (admonition.isPresent()) {
+                elements.add(admonition.orElseThrow());
+                return elements;
+            }
+
+            final int firstSpace = line.indexOf(' '); // an ordered list marker ends with . or ) right before the first space
+            if (firstSpace > 0 && (line.charAt(firstSpace - 1) == '.' || line.charAt(firstSpace - 1) == ')')) {
+                final var matcher = ORDERED_LIST_PREFIX.matcher(line);
+                if (matcher.matches() && matcher.group("dots").length() == 1) {
+                    final var prefix = matcher.group("prefix");
+                    final var delim = matcher.group("dots");
+                    final var style = detectOrderedListStyle(prefix, delim);
+                    final var listOpts = new StringBuilder();
+                    if (style != null) {
+                        listOpts.append("style=").append(style);
+                    }
+                    final var startOpt = pendingOptions.get("start");
+                    if (startOpt != null) {
+                        if (!listOpts.isEmpty()) listOpts.append(',');
+                        listOpts.append("start=").append(startOpt);
+                    }
+                    reader.rewind();
+                    elements.add(parseOrderedList(enclosingDocument, reader, listOpts.isEmpty() ? null : listOpts.toString(), ". ", resolver, currentAttributes));
+                    return elements;
+                }
+            }
+
+            if (line.startsWith("*")) {
+                final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
+                if (matcher.matches() && matcher.group("wildcard").length() == 1) {
+                    reader.rewind();
+                    elements.add(parseUnorderedList(enclosingDocument, reader, null, "* ", resolver, currentAttributes, UNORDERED_LIST_PREFIX));
+                    return elements;
+                }
+            }
+
+            if (line.startsWith("-")) {
+                final var matcher = UNORDERED_LIST2_PREFIX.matcher(line);
+                if (matcher.matches() && matcher.group("wildcard").length() == 1) {
+                    reader.rewind();
+                    elements.add(parseUnorderedList(enclosingDocument, reader, null, "- ", resolver, currentAttributes, UNORDERED_LIST2_PREFIX));
+                    return elements;
+                }
+            }
+
+            int doubleColons = line.indexOf("::");
+            if (doubleColons > 0 &&
+                    // and is not a macro
+                    (line.endsWith("::") || line.substring(doubleColons + "::".length()).startsWith(" "))) {
+                final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
+                if (matcher.matches() && "::".equals(matcher.group("marker"))) {
+                    reader.rewind();
+                    elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver,
+                            currentAttributes, pendingOptions));
+                    return elements;
+                }
+            }
+            int doubleSemicolons = line.indexOf(";;");
+            if (doubleSemicolons > 0 &&
+                    (line.endsWith(";;") || line.substring(doubleSemicolons + ";;".length()).startsWith(" "))) {
+                final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
+                if (matcher.matches() && ";;".equals(matcher.group("marker"))) {
+                    reader.rewind();
+                    elements.add(parseDescriptionList(enclosingDocument, reader, ";; ", resolver,
+                            currentAttributes, pendingOptions));
+                    return elements;
+                }
+            }
+        }
+
         int start = 0;
         boolean inMacro = false;
         for (int i = 0; i < line.length(); i++) {
@@ -1593,88 +1667,6 @@ public class Parser {
                 if (i == line.length() - 2 && line.endsWith(" +")) {
                     elements.add(new LineBreak());
                     break;
-                }
-
-                final var admonition = parseAdmonition(enclosingDocument, reader, line, resolver, currentAttributes);
-                if (admonition.isPresent()) {
-                    elements.add(admonition.orElseThrow());
-                    i = line.length();
-                    start = i;
-                    break;
-                }
-
-                final int firstSpace = line.indexOf(' '); // an ordered list marker ends with . or ) right before the first space
-                if (firstSpace > 0 && (line.charAt(firstSpace - 1) == '.' || line.charAt(firstSpace - 1) == ')')) {
-                    final var matcher = ORDERED_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && matcher.group("dots").length() == 1) {
-                        final var prefix = matcher.group("prefix");
-                        final var delim = matcher.group("dots");
-                        final var style = detectOrderedListStyle(prefix, delim);
-                        final var listOpts = new StringBuilder();
-                        if (style != null) {
-                            listOpts.append("style=").append(style);
-                        }
-                        final var startOpt = pendingOptions.get("start");
-                        if (startOpt != null) {
-                            if (!listOpts.isEmpty()) listOpts.append(',');
-                            listOpts.append("start=").append(startOpt);
-                        }
-                        reader.rewind();
-                        elements.add(parseOrderedList(enclosingDocument, reader, listOpts.isEmpty() ? null : listOpts.toString(), ". ", resolver, currentAttributes));
-                        i = line.length();
-                        start = i;
-                        break;
-                    }
-                }
-
-                if (line.startsWith("*")) {
-                    final var matcher = UNORDERED_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && matcher.group("wildcard").length() == 1) {
-                        reader.rewind();
-                        elements.add(parseUnorderedList(enclosingDocument, reader, null, "* ", resolver, currentAttributes, UNORDERED_LIST_PREFIX));
-                        i = line.length();
-                        start = i;
-                        break;
-                    }
-                }
-
-                if (line.startsWith("-")) {
-                    final var matcher = UNORDERED_LIST2_PREFIX.matcher(line);
-                    if (matcher.matches() && matcher.group("wildcard").length() == 1) {
-                        reader.rewind();
-                        elements.add(parseUnorderedList(enclosingDocument, reader, null, "- ", resolver, currentAttributes, UNORDERED_LIST2_PREFIX));
-                        i = line.length();
-                        start = i;
-                        break;
-                    }
-                }
-
-                int doubleColons = line.indexOf("::");
-                if (doubleColons > 0 &&
-                        // and is not a macro
-                        (line.endsWith("::") || line.substring(doubleColons + "::".length()).startsWith(" "))) {
-                    final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && "::".equals(matcher.group("marker"))) {
-                        reader.rewind();
-                        elements.add(parseDescriptionList(enclosingDocument, reader, ":: ", resolver,
-                                currentAttributes, pendingOptions));
-                        i = line.length();
-                        start = i;
-                        break;
-                    }
-                }
-                int doubleSemicolons = line.indexOf(";;");
-                if (doubleSemicolons > 0 &&
-                        (line.endsWith(";;") || line.substring(doubleSemicolons + ";;".length()).startsWith(" "))) {
-                    final var matcher = DESCRIPTION_LIST_PREFIX.matcher(line);
-                    if (matcher.matches() && ";;".equals(matcher.group("marker"))) {
-                        reader.rewind();
-                        elements.add(parseDescriptionList(enclosingDocument, reader, ";; ", resolver,
-                                currentAttributes, pendingOptions));
-                        i = line.length();
-                        start = i;
-                        break;
-                    }
                 }
             }
 
