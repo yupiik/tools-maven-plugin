@@ -2817,9 +2817,17 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void unknownMacroFailsByDefault() { // most often a mistake in the document, so the default does not hide it
+    void unknownMacroIsWrittenAsTextByDefault() { // as asciidoctor writes a macro no extension registers
+        assertRenderingContent("Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void unknownMacroFailsWhenExplicitlyRequested() { // most often a mistake in the document, so the attribute can fail it
         final var error = assertThrows(IllegalArgumentException.class,
-                () -> assertRenderingContent("Set tooltip:foo[a hint] here.", ""));
+                () -> assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: fail\n\nSet tooltip:foo[a hint] here.", ""));
         assertEquals("Unknown macro 'tooltip' in 'tooltip:foo[a hint]', set the attribute " +
                 "yupiik-renderer-asciidoctorlikehtml-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
                 error.getMessage());
@@ -2834,7 +2842,7 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void unknownInlineMacroIsWrittenAsText() { // as asciidoctor writes a macro no extension registers
+    void unknownInlineMacroIsWrittenAsTextWhenRequested() { // the attribute is still honored
         assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\n" +
                         "Set tooltip:foo[a hint] and config_property_copy_button:quarkus.http.port[] here.",
                 " <div class=\"paragraph\">\n" +

@@ -79,7 +79,7 @@ public final class Main {
             } else if ("--skip-global-content-wrapper".equals(args[i])) {
                 configuration.setSkipGlobalContentWrapper(Boolean.parseBoolean(args[i + 1]));
                 i++;
-            } else if ("--unknown-macro".equals(args[i])) { // fail (default), ignore or text
+            } else if ("--unknown-macro".equals(args[i])) { // text (default), ignore or fail
                 configuration.setUnknownMacro(UnknownMacro.valueOf(args[i + 1].strip().toUpperCase(Locale.ROOT)));
                 i++;
             } else if ("--watch".equals(args[i])) {

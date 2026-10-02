@@ -25,7 +25,7 @@ import io.yupiik.asciidoc.model.Macro;
  */
 public enum UnknownMacro {
     /**
-     * Throws an {@link IllegalArgumentException} naming the macro, the default.
+     * Throws an {@link IllegalArgumentException} naming the macro.
      */
     FAIL,
     /**
@@ -34,7 +34,7 @@ public enum UnknownMacro {
     IGNORE,
     /**
      * Writes the macro as text, as asciidoctor writes a macro no extension registers, see
-     * {@link VisitorSibling#macroSource(Macro)}.
+     * {@link VisitorSibling#macroSource(Macro)}. The default.
      */
     TEXT
 }
