@@ -4624,8 +4624,14 @@ class ParserTest {
     }
 
     @Test
-    void linkTargetWithABlankIsKept() { // asciidoctor stops a link target at a blank, but existing documents relied on it
+    void linkTargetWithABlankIsText() { // as in asciidoctor, a link target stops at a blank, so the text stays literal
         final var body = new Parser().parseBody(new Reader(List.of("See link:my file.pdf[the file].")), null);
+        assertEquals(List.of(new Text(List.of(), "See link:my file.pdf[the file].", Map.of())), body.children());
+    }
+
+    @Test
+    void linkTargetWithABlankIsKeptWhenListed() { // the blank-target-macros attribute restores the link for the documents which relied on it
+        final var body = new Parser().parseBody(new Reader(List.of(":blank-target-macros: image,icon,menu,xref,link", "", "See link:my file.pdf[the file].")), null);
         assertEquals(List.of(new Paragraph(List.of(
                 new Text(List.of(), "See ", Map.of()),
                 new Link("my file.pdf", new Text(List.of(), "the file", Map.of("nowrap", "true", "", "the file")), Map.of("", "the file", "nowrap", "true")),
