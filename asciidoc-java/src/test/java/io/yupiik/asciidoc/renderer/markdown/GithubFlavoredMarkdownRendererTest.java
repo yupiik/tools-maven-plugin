@@ -631,6 +631,30 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void anchorAtTheStartOfALine() { // as asciidoctor, the anchor is written before the elements that follow it
+        assertEquals("""
+                <a id="top"></a> see [the top](#top) now
+
+                | h |
+                | --- |
+                | <a id="cell"></a> [`q.cell`](#cell) |
+                """, md("""
+                [[top]] see link:#top[the top] now
+
+                |===
+                |h
+
+                a| [[cell]] [.property-path]##link:#cell[`+++q.cell+++`]##
+                |===
+                """));
+    }
+
+    @Test
+    void anchorAtTheStartOfALineBeforePlainText() {
+        assertEquals("<a id=\"top\"></a> text after a space.\n", md("[[top]] text after a space.\n"));
+    }
+
+    @Test
     void paragraphsOfADelimitedAdmonitionStayApart() {
         assertEquals("""
                         > [!NOTE]

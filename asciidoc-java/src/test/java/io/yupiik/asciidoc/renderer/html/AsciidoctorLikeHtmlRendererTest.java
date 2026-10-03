@@ -3238,6 +3238,195 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void inlineAnchorAtTheStartOfAParagraph() {
+        assertRenderingContent("[[top]] see link:#top[the top] now",
+                " <div class=\"paragraph\">\n" +
+                        " <p><a id=\"top\"></a>\n" +
+                        " see  <a href=\"#top\">the top</a>\n" +
+                        " now</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfAHeading() { // an explicit section id, so only the anchor is checked
+        assertRenderingContent("[#s]\n== [[a]] Title *b*",
+                " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"s\"><a id=\"a\"></a>\n" +
+                        " Title <strong>b</strong></h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfAListItem() {
+        assertRenderingContent("* [[a]] item *b*",
+                " <div class=\"ulist\">\n" +
+                        " <ul>\n" +
+                        "  <li>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        "<a id=\"a\"></a>\n" +
+                        " item <strong>b</strong> </div>\n" +
+                        "  </li>\n" +
+                        " </ul>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfAStyledRun() { // the anchor is written, with no empty <strong> for it
+        assertRenderingContent("*[[a]] bold `c` text*",
+                " <div class=\"paragraph\">\n" +
+                        " <p><a id=\"a\"></a>\n" +
+                        "<strong> bold </strong><code>c</code><strong> text</strong></p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfAParagraphOfSeveralLines() {
+        assertRenderingContent("[[a]] first\nsecond",
+                " <div class=\"paragraph\">\n" +
+                        " <p><a id=\"a\"></a>\n" +
+                        " first second</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorBeforePlainTextInAHeadingKeepsTheTableOfContentsLink() {
+        assertRendering("= Test\n\ntoc::[]\n\n== [[a]] Title\n\ncontent",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        " <title>Test</title>\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " <h1>Test</h1>\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <div id=\"toc\" class=\"toc\">\n" +
+                        "  <div id=\"toctitle\">Table of Contents</div>\n" +
+                        " <ul class=\"sectlevel1\">\n" +
+                        " <li><a href=\"#__title\">\n" +
+                        " Title</a>\n" +
+                        " </li>\n" +
+                        " </ul>\n" +
+                        " </div>\n" +
+                        " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"__title\"><a id=\"a\"></a>\n" +
+                        " Title</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "content\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
+    }
+
+    @Test
+    void inlineAnchorBeforePlainTextInACell() { // no <p id> inside the cell paragraph
+        assertRenderingContent("|===\n|h\n\n|[[top]] text\n|===",
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "h    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<a id=\"top\"></a>\n" +
+                        " text</p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void bibliographyEntryAloneInAStyledRun() {
+        assertRenderingContent("*[[[ref]]]* text",
+                " <div class=\"paragraph\">\n" +
+                        " <p><a id=\"ref\"></a>\n" +
+                        " text</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void bibliographyEntryInAStyledRun() { // the anchor is written, with no empty <strong> for it
+        assertRenderingContent("*see [[[ref]]] x `c`*",
+                " <div class=\"paragraph\">\n" +
+                        " <p><strong>see </strong><a id=\"ref\"></a>\n" +
+                        "<strong> x </strong><code>c</code></p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfACellParagraph() { // no empty <p id> inside the paragraph, as asciidoctor
+        assertRenderingContent("""
+                == S
+
+                |===
+                |h
+
+                a| [[top]] [.property-path]##link:#top[`+++q.top+++`]##
+
+                [.description]
+                --
+                d
+                --
+                |===
+                """,
+                " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"_s\">S</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "h    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<div class=\"content\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><a id=\"top\"></a>\n" +
+                        "  <a href=\"#top\" class=\"property-path\"><code>q.top</code></a>\n" +
+                        "</p>\n" +
+                        " </div>\n" +
+                        " <div class=\"openblock description\">\n" +
+                        "  <div class=\"content description\">\n" +
+                        "d  </div>\n" +
+                        " </div>\n" +
+                        "</div>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n" +
+                        " </div>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void pipeTable() {
         assertRenderingContent("| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |",
                 " <table class=\"tableblock frame-all grid-all stretch\">\n" +
