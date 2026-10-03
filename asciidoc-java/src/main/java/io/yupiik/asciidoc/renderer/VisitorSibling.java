@@ -243,6 +243,31 @@ public class VisitorSibling {
     }
 
     /**
+     * @return the elements with each conditional block replaced by the children it renders, at any depth of nested
+     * conditional blocks, as asciidoctor's preprocessor leaves the lines of the branch in place of the directives; the
+     * same list when it holds no conditional block.
+     */
+    public List<Element> expandConditionals(final List<Element> elements, final ConditionalBlock.Context context) {
+        int first = 0;
+        while (first < elements.size() && !(elements.get(first) instanceof ConditionalBlock)) {
+            first++;
+        }
+        if (first == elements.size()) {
+            return elements;
+        }
+        final var expanded = new ArrayList<Element>(elements.size() + 2);
+        expanded.addAll(elements.subList(0, first));
+        for (int i = first; i < elements.size(); i++) {
+            if (elements.get(i) instanceof ConditionalBlock block) {
+                expanded.addAll(expandConditionals(renderedChildren(block, context), context));
+            } else {
+                expanded.add(elements.get(i));
+            }
+        }
+        return expanded;
+    }
+
+    /**
      * @return the children a conditional block renders: its own when its condition holds, else those of its first
      * {@code elsif} or {@code else} branch that holds; empty when none does.
      */

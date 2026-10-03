@@ -87,6 +87,7 @@ class ParserTest {
                         new Paragraph(
                                 List.of(
                                         new Macro("xref", "foo", Map.of("", "bar"), true),
+                                        new Text(List.of(), " ", Map.of()), // the line end
                                         new Link("https://foo.bar", new Text(List.of(), "dummy", Map.of("nowrap", "true", "", "dummy")), Map.of("", "dummy", "nowrap", "true"))
                                 ), Map.of())),
                 body.children());
@@ -3557,7 +3558,7 @@ class ParserTest {
                 List.of(new Paragraph(List.of(
                         new ConditionalBlock(
                                 new ConditionalBlock.Ifdef("foo"),
-                                List.of(new Text(List.of(), "This is value.", Map.of())),
+                                List.of(new Text(List.of(), "This is value. ", Map.of())), // the line end, inside the branch since nothing precedes the block
                                 Map.of()),
                         new Text(List.of(), "After.", Map.of())), Map.of())),
                 body.children());
@@ -3576,10 +3577,96 @@ class ParserTest {
                 List.of(new Paragraph(List.of(
                         new Text(List.of(), "first line", Map.of()),
                         new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
-                                new Text(List.of(), "You can use ", Map.of()),
+                                new Text(List.of(), " You can use ", Map.of()),
                                 new Macro("xref", "other.adoc", Map.of("", "other"), true),
                                 new Text(List.of(), ", such as W.", Map.of())), Map.of()),
-                        new Text(List.of(), "last line", Map.of())), Map.of())),
+                        new Text(List.of(), " last line", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void lineEndNextToAnInlineElement() { // asciidoctor joins the lines with a line feed, mergeTexts() only writes it between two plain texts
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                first line
+                second line *bold*
+                third line
+                `code` starts a line
+                see link:https://example.com[the site]
+                and more
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "first line second line ", Map.of()),
+                        new Text(List.of(BOLD), "bold", Map.of()),
+                        new Text(List.of(), " third line ", Map.of()),
+                        new Code("code", Map.of(), true, List.of()),
+                        new Text(List.of(), " starts a line see ", Map.of()),
+                        new Link("https://example.com", new Text(List.of(), "the site", Map.of("", "the site", "nowrap", "true")), Map.of("", "the site", "nowrap", "true")),
+                        new Text(List.of(), " and more", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalBlockHoldingABlockOrALineBreakTakesTheLineEnd() { // a block branch takes no space, a branch ending with a hard line break none at its end, the line end after the block stays outside
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                first line
+                ifdef::foo[]
+                ----
+                code block
+                ----
+                endif::[]
+                ifdef::bar[]
+                cond +
+                endif::[]
+                `code` after
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "first line", Map.of()),
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                                new Code("code block\n", Map.of(), false, List.of())), Map.of()),
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("bar"), List.of(
+                                new Text(List.of(), " cond", Map.of()),
+                                new LineBreak()), Map.of()),
+                        new Text(List.of(), " ", Map.of()),
+                        new Code("code", Map.of(), true, List.of()),
+                        new Text(List.of(), " after", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalBlockOpeningAParagraphTakesTheLineEndAtTheEnd() { // nothing comes before it, so a branch that renders nothing leaves no space
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifdef::foo[]
+                *conditional*
+                endif::[]
+                following line
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                                new Text(List.of(BOLD), "conditional", Map.of()),
+                                new Text(List.of(), " ", Map.of())), Map.of()),
+                        new Text(List.of(), "following line", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void conditionalBlocksOpeningAParagraphTakeTheLineEndAtTheEnd() { // only conditional blocks before it, so each one may render nothing
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ifndef::foo[]
+                A
+                endif::[]
+                ifdef::foo[]
+                B
+                endif::[]
+                c
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new ConditionalBlock(new ConditionalBlock.Ifndef("foo"), List.of(new Text(List.of(), "A ", Map.of())), Map.of()),
+                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Text(List.of(), "B ", Map.of())), Map.of()),
+                        new Text(List.of(), "c", Map.of())), Map.of())),
                 body.children());
     }
 
@@ -3656,9 +3743,9 @@ class ParserTest {
                                 new Text(List.of(), "TLS Registry also provides automatic certificate reloading", Map.of()),
                                 new ConditionalBlock(
                                         new ConditionalBlock.Ifndef("no-lets-encrypt"),
-                                        List.of(new Text(List.of(), ", integration with Let's Encrypt (ACME)", Map.of())),
+                                        List.of(new Text(List.of(), " , integration with Let's Encrypt (ACME)", Map.of())),
                                         Map.of()),
-                                new Text(List.of(), "and compatibility with various keystore formats.", Map.of())), Map.of()),
+                                new Text(List.of(), " and compatibility with various keystore formats.", Map.of())), Map.of()),
                         new Section(2, new Text(List.of(), "Using the TLS registry", Map.of()), List.of(new Text(List.of(), "Content.", Map.of())), Map.of())),
                 body.children());
     }

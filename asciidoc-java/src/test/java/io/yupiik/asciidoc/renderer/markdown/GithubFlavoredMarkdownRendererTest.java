@@ -18,6 +18,7 @@ package io.yupiik.asciidoc.renderer.markdown;
 import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
+import io.yupiik.asciidoc.model.DescriptionList;
 import io.yupiik.asciidoc.model.Element;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Paragraph;
@@ -510,6 +511,299 @@ class GithubFlavoredMarkdownRendererTest {
                         > Second paragraph.
                         """,
                 md(document, Map.of("no-quarkus-elytron-security-oauth2", "")));
+    }
+
+    @Test
+    void conditionalParagraphStaysAParagraph() { // blank lines around the directives keep the paragraphs apart, as asciidoctor
+        final var document = """
+                ifdef::foo[]
+                Para one.
+
+                Para two.
+                endif::[]
+
+                [cols="1"]
+                |===
+                a|Cell para one.
+
+                ifdef::foo[]
+                Cell para two.
+                endif::[]
+
+                Cell para three.
+                |===
+
+                [NOTE]
+                ====
+                First para.
+
+                ifdef::foo[]
+                Second para.
+
+                Third para.
+                endif::[]
+                ====
+
+                First line +
+                *bold* line
+                ifdef::foo[]
+                cond
+                endif::[]
+
+                Next paragraph.
+                """;
+        assertEquals("""
+                        Para one.
+
+                        Para two.
+
+                        | Cell para one.<br><br>Cell para two.<br><br>Cell para three. |
+                        | --- |
+
+                        > [!NOTE]
+                        > First para.
+                        >
+                        > Second para.
+                        >
+                        > Third para.
+
+                        First line\\
+                        **bold** line cond
+
+                        Next paragraph.
+                        """,
+                md(document, Map.of("foo", "")));
+        assertEquals("""
+                        | Cell para one.<br><br>Cell para three. |
+                        | --- |
+
+                        > [!NOTE]
+                        > First para.
+
+                        First line\\
+                        **bold** line
+
+                        Next paragraph.
+                        """,
+                md(document));
+    }
+
+    @Test
+    void lineEndNextToAnInlineElement() { // a line that starts or ends with code, bold text or a link keeps its line end
+        final var document = """
+                The connector converts incoming messages into `Message<T>` instances.
+                `T` depends on the content type.
+                This enables exact assertions with `isEqualTo()`
+                instead of fuzzy matching, and *bold*
+                text, see link:https://example.com[the site]
+                and xref:other.adoc[other]
+                pages.
+
+                * item
+                ifdef::foo[]
+                line a
+                `code`
+                endif::[]
+                after.
+
+                first line
+                ifdef::foo[]
+                conditional line
+                else::[]
+                `other` line
+                endif::[]
+                last line
+                """;
+        final var lines = "The connector converts incoming messages into `Message<T>` instances. `T` depends on the content type." +
+                " This enables exact assertions with `isEqualTo()` instead of fuzzy matching, and **bold** text," +
+                " see [the site](https://example.com) and [other](other.md) pages.\n\n";
+        assertEquals(lines + """
+                        - item line a `code` after.
+
+                        first line conditional line last line
+                        """,
+                md(document, Map.of("foo", "")));
+        assertEquals(lines + """
+                        - item after.
+
+                        first line `other` line last line
+                        """,
+                md(document));
+    }
+
+    @Test
+    void lineEndNextToAConditionalHoldingABlockOrALineBreak() { // the line end does not depend on what the branches hold
+        final var document = """
+                first line
+                ifdef::foo[]
+                image::x.png[]
+                endif::[]
+                last line.
+
+                first line
+                ifdef::foo[]
+                cond line
+                else::[]
+                ----
+                code block
+                ----
+                endif::[]
+                last line.
+
+                first line
+                ifdef::foo[]
+                cond line
+                endif::[]
+                ifdef::bar[]
+                image::x.png[]
+                endif::[]
+                last line.
+
+                first line
+                ifdef::foo[]
+                cond +
+                endif::[]
+                `code` after.
+
+                first `code`
+                ifdef::foo[]
+                cond
+                elsif::bar[]
+                other +
+                line
+                endif::[]
+                last.
+
+                first
+                ifdef::foo[]
+                ifndef::foo[]
+                x
+                endif::[]
+                endif::[]
+                `code`.
+
+                before
+                ifdef::foo[]
+                ifdef::bar[]
+                y
+                endif::[]
+                x
+                endif::[]
+                after.
+
+                foo `x`
+                ifdef::foo[]
+                 bar.
+                endif::[]
+
+                start
+                ifdef::bar[]
+                ifdef::bar[]
+                *x* y
+                endif::[]
+                endif::[]
+                `end`.
+
+                a
+                ifdef::foo[]
+                b
+
+                ----
+                code
+                ----
+                endif::[]
+                c.
+
+                ifdef::foo[]
+                ----
+                code
+                ----
+                d
+                endif::[]
+                e.
+                """;
+        assertEquals("""
+                        first line
+
+                        ![x](x.png)
+
+                        last line.
+
+                        first line cond line last line.
+
+                        first line cond line last line.
+
+                        first line cond\\
+                         `code` after.
+
+                        first `code` cond last.
+
+                        first `code`.
+
+                        before x after.
+
+                        foo `x` bar.
+
+                        start `end`.
+
+                        a b
+
+                        ```
+                        code
+                        ```
+
+                        c.
+
+                        ```
+                        code
+                        ```
+
+                        d e.
+                        """,
+                md(document, Map.of("foo", "")));
+        assertEquals("""
+                        first line last line.
+
+                        first line
+
+                        ```
+                        code block
+                        ```
+
+                        last line.
+
+                        first line last line.
+
+                        first line `code` after.
+
+                        first `code` last.
+
+                        first `code`.
+
+                        before after.
+
+                        foo `x`
+
+                        start `end`.
+
+                        a c.
+
+                        e.
+                        """,
+                md(document));
+    }
+
+    @Test
+    void descriptionMadeOfAConditionalBlock() { // a model built in code: the branch it renders is written after the term, as a paragraph would be
+        final var list = new Body(List.of(new DescriptionList(Map.of(
+                new Text(List.of(), "term", Map.of()),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Text(List.of(), "description", Map.of())), Map.of())), Map.of())));
+        final var set = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration().setAttributes(Map.of("foo", "")));
+        set.visitBody(list);
+        assertEquals("**term**\\\ndescription\n", set.result());
+        final var unset = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration());
+        unset.visitBody(list);
+        assertEquals("**term**\n", unset.result());
     }
 
     @Test

@@ -195,7 +195,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     protected void renderSegments(final List<List<Element>> segments) {
         for (final var segment : segments) {
-            if (segment.size() == 1 && !isInlineInParagraph(segment.get(0))) {
+            if (segment.size() == 1 && !sibling.isInline(segment.get(0))) {
                 visitElement(segment.get(0));
             } else {
                 paragraph(inlineChildren(segment));
@@ -217,8 +217,9 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      *     given as its inline elements: around a line break, elements meeting on whitespace or punctuation are one
      *     paragraph.</li>
      * </ul>
-     * In a {@code Paragraph}, a conditional block whose rendered children are inline is lines of the paragraph, see
-     * {@link #isInlineInParagraph(Element)}, and a paragraph never ends next to it.
+     * In a {@code Paragraph}, a conditional block is replaced by the children it renders before the split, see
+     * {@link VisitorSibling#expandConditionals(List, ConditionalBlock.Context)}: the parser writes the line end at the
+     * start of each branch, so conditional lines stay in their paragraph and a conditional paragraph stays apart.
      *
      * @param children       the sibling elements.
      * @param paragraphLevel true for the children of a {@code Paragraph}, false for the children of a block container.
@@ -227,11 +228,12 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     protected List<List<Element>> segments(final List<Element> children, final boolean paragraphLevel) {
         final var segments = new ArrayList<List<Element>>();
         List<Element> run = null;
-        for (final var child : children) {
-            if (run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph
-                    && paragraph.children().stream().allMatch(this::isInlineInParagraph)) {
-                run.addAll(paragraph.children()); // the parser wraps the line after a line break when it has markup
-            } else if (!(paragraphLevel ? isInlineInParagraph(child) : sibling.isInline(child))) {
+        for (final var child : paragraphLevel ? sibling.expandConditionals(children, context()) : children) {
+            final var wrapped = run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph ?
+                    sibling.expandConditionals(paragraph.children(), context()) : null;
+            if (wrapped != null && allInline(wrapped)) {
+                run.addAll(wrapped); // the parser wraps the line after a line break when it has markup
+            } else if (!sibling.isInline(child)) {
                 if (run != null) {
                     segments.addAll(paragraphLevel ? splitParagraphRun(run) : splitBlockRun(run));
                     run = null;
@@ -250,14 +252,6 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         return segments;
     }
 
-    /**
-     * @return true for an element written in the lines of its paragraph, including a conditional block whose rendered
-     * children are, see {@link VisitorSibling#isInline(Element, ConditionalBlock.Context)}.
-     */
-    protected boolean isInlineInParagraph(final Element element) {
-        return sibling.isInline(element, context());
-    }
-
     // the parser gives the paragraphs of a delimited admonition or of a list item as sibling texts, see segments()
     protected List<List<Element>> splitParagraphRun(final List<Element> run) {
         return split(run, (before, after) -> before instanceof Text b && after instanceof Text a
@@ -270,7 +264,6 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             return run.stream().map(List::of).toList();
         }
         return split(run, (before, after) -> !(before instanceof LineBreak) && !(after instanceof LineBreak)
-                && !(before instanceof ConditionalBlock) && !(after instanceof ConditionalBlock)
                 && !(before instanceof Text b && endsWithWhitespace(b))
                 && !(after instanceof Text a && startsWithWhitespaceOrPunctuation(a)));
     }
@@ -554,17 +547,18 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      */
     protected void listItem(final String marker, final Element item) {
         final var segments = new ArrayList<>(segments(item instanceof Paragraph paragraph ? paragraph.children() : List.of(item), true));
-        if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped
-                && !wrapped.children().isEmpty() && wrapped.children().stream().allMatch(this::isInlineInParagraph)
-                && segments(wrapped.children(), true).size() == 1) { // first paragraph of an item carrying blocks
-            segments.set(0, wrapped.children());
+        if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped) {
+            final var lines = sibling.expandConditionals(wrapped.children(), context());
+            if (isOneParagraph(lines)) { // first paragraph of an item carrying blocks
+                segments.set(0, lines);
+            }
         }
-        final var first = segments.isEmpty() || !isInlineInParagraph(segments.get(0).get(0)) ? List.<Element>of() : segments.remove(0);
+        final var first = segments.isEmpty() || !sibling.isInline(segments.get(0).get(0)) ? List.<Element>of() : segments.remove(0);
         builder.append(marker).append(checkbox(item)).append(escapeLineStarts(inlineChildren(first).strip())).append('\n');
         final var indent = " ".repeat(marker.length());
         // the rest of the item, in source order: continuation paragraphs, code blocks, nested lists
         for (final var segment : segments) {
-            final var rendered = segment.size() == 1 && !isInlineInParagraph(segment.get(0)) ?
+            final var rendered = segment.size() == 1 && !sibling.isInline(segment.get(0)) ?
                     block(segment) : escapeLineStarts(inlineChildren(segment).strip());
             if (rendered.isEmpty()) {
                 continue;
@@ -599,9 +593,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             final var description = entry.getValue();
             if (description == null) {
                 builder.append("\n\n");
-            } else if (isInlineInParagraph(description) || description instanceof Paragraph paragraph
-                    && paragraph.children().stream().allMatch(this::isInlineInParagraph)
-                    && segments(paragraph.children(), true).size() == 1) {
+            } else if (isOneParagraph(sibling.expandConditionals(
+                    description instanceof Paragraph paragraph ? paragraph.children() : List.of(description), context()))) {
                 builder.append("\\\n").append(escapeLineStarts(inline(description).strip())).append("\n\n");
             } else {
                 builder.append("\n\n").append(indent(block(List.of(description)), "  ")).append("\n\n");
@@ -799,38 +792,31 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case ANCHOR -> anchorLink((Anchor) element);
             case ATTRIBUTE -> attributeText((Attribute) element);
             case LINE_BREAK -> "\\\n";
-            case PARAGRAPH -> inlineChildren(((Paragraph) element).children());
+            case PARAGRAPH -> inlineChildren(sibling.expandConditionals(((Paragraph) element).children(), context()));
             default -> block(List.of(element));
         };
+    }
+
+    // the lines of a list item or of a description written after the marker or the term: inline elements, one paragraph
+    private boolean isOneParagraph(final List<Element> lines) {
+        return allInline(lines) && segments(lines, true).size() == 1;
+    }
+
+    private boolean allInline(final List<Element> elements) {
+        for (final var element : elements) {
+            if (!sibling.isInline(element)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String inlineChildren(final List<Element> children) {
         final var text = new StringBuilder();
         for (final var child : children) {
-            if (child instanceof ConditionalBlock block) {
-                inlineConditionalBlock(text, block);
-            } else {
-                text.append(inline(child));
-            }
+            text.append(inline(child));
         }
         return text.toString();
-    }
-
-    /**
-     * Writes the rendered children of a conditional block of a paragraph, see {@link #segments(List, boolean)}. The
-     * directive lines were line ends around them, written as a space since the parser joins the lines of a paragraph
-     * with one, so a block that renders nothing still separates its neighbours.
-     */
-    protected void inlineConditionalBlock(final StringBuilder text, final ConditionalBlock block) {
-        lineEnd(text);
-        text.append(inlineChildren(sibling.renderedChildren(block, context())));
-        lineEnd(text);
-    }
-
-    private void lineEnd(final StringBuilder text) {
-        if (!text.isEmpty() && !Character.isWhitespace(text.charAt(text.length() - 1))) {
-            text.append(' ');
-        }
     }
 
     protected String text(final Text text) {
@@ -1056,7 +1042,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         if (value == null) {
             return "{" + attribute.attribute() + "}";
         }
-        return inlineChildren(attribute.evaluator().apply(value));
+        return inlineChildren(sibling.expandConditionals(attribute.evaluator().apply(value), context()));
     }
 
     protected String inlineMacro(final Macro macro) {
