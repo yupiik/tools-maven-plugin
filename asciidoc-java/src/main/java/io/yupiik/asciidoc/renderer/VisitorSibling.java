@@ -18,6 +18,7 @@ package io.yupiik.asciidoc.renderer;
 import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
+import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
@@ -39,6 +40,8 @@ import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -53,6 +56,18 @@ import static java.util.stream.Collectors.joining;
  * from the {@link ConditionalBlock.Context} the visitor passes, see {@link VisitorState#context()}.
  */
 public class VisitorSibling {
+    // asciidoctor's INTRINSIC_ATTRIBUTES, with its values
+    private static final Map<String, String> INTRINSIC_ATTRIBUTES = Map.ofEntries(
+            Map.entry("startsb", "["), Map.entry("endsb", "]"), Map.entry("vbar", "|"), Map.entry("caret", "^"),
+            Map.entry("asterisk", "*"), Map.entry("tilde", "~"), Map.entry("plus", "&#43;"), Map.entry("backslash", "\\"),
+            Map.entry("backtick", "`"), Map.entry("blank", ""), Map.entry("empty", ""), Map.entry("sp", " "),
+            Map.entry("two-colons", "::"), Map.entry("two-semicolons", ";;"), Map.entry("nbsp", "&#160;"),
+            Map.entry("deg", "&#176;"), Map.entry("zwsp", "&#8203;"), Map.entry("quot", "&#34;"), Map.entry("apos", "&#39;"),
+            Map.entry("lsquo", "&#8216;"), Map.entry("rsquo", "&#8217;"), Map.entry("ldquo", "&#8220;"),
+            Map.entry("rdquo", "&#8221;"), Map.entry("wj", "&#8288;"), Map.entry("brvbar", "&#166;"),
+            Map.entry("pp", "&#43;&#43;"), Map.entry("cpp", "C&#43;&#43;"), Map.entry("amp", "&"), Map.entry("lt", "<"),
+            Map.entry("gt", ">"));
+
     // ------------------------------------------------------------------------------------------------------- options
 
     /**
@@ -351,10 +366,87 @@ public class VisitorSibling {
     }
 
     /**
-     * @return the id asciidoctor gives a section without an explicit one, built as the HTML renderer builds it.
+     * The HTML and Markdown renderers, their tables of contents and {@link VisitorState} all read the id here, so a link
+     * to a section points at the id its heading gets.
+     *
+     * @return the id asciidoctor gives a section without an explicit one, built from {@link #idText(Element, ConditionalBlock.Context)}.
      */
     public String generatedId(final Element title, final ConditionalBlock.Context context) {
-        return IdGenerator.forTitle(plainText(title, context).strip(), context.attribute("idprefix"), context.attribute("idseparator"));
+        return IdGenerator.forTitle(idText(title, context), context.attribute("idprefix"), context.attribute("idseparator"));
+    }
+
+    /**
+     * @return the id asciidoctor gives a section whose generated id the document already uses: the id, the first
+     * character of {@code idseparator} ({@code _} when the attribute is not set, nothing when it is empty), then the
+     * number, such as {@code _same_2} or {@code same-2}.
+     */
+    public String numberedId(final String id, final int number, final ConditionalBlock.Context context) {
+        final var idseparator = context.attribute("idseparator");
+        final var numbered = new StringBuilder(id.length() + 4).append(id);
+        if (idseparator == null) {
+            numbered.append('_');
+        } else if (!idseparator.isEmpty()) {
+            numbered.appendCodePoint(idseparator.codePointAt(0));
+        }
+        return numbered.append(number).toString();
+    }
+
+    /**
+     * @return the text of a title as asciidoctor's converted title gives it to its id rule: the plain text with
+     * {@code <} and {@code >} as character references, so {@code Uni<T>} keeps its {@code T}; the content of a
+     * {@code pass:[]} macro and the value of an attribute as they are, since asciidoctor inserts them without escaping;
+     * and, for an attribute the document does not define, the value asciidoctor gives its built-in attributes such as
+     * {@code {plus}}, see {@link #intrinsicAttribute(String)}.
+     */
+    public String idText(final Element element, final ConditionalBlock.Context context) {
+        if (element == null) {
+            return "";
+        }
+        return switch (element.type()) {
+            case PARAGRAPH -> {
+                final var text = new StringBuilder();
+                for (final var child : ((Paragraph) element).children()) {
+                    text.append(idText(child, context));
+                }
+                yield text.toString();
+            }
+            case ATTRIBUTE -> {
+                final var name = ((Attribute) element).attribute();
+                final var intrinsic = context.attribute(name) != null ? null : intrinsicAttribute(name);
+                yield intrinsic != null ? intrinsic : plainText(element, context);
+            }
+            case MACRO -> "pass".equals(((Macro) element).name()) ?
+                    plainText(element, context) : withCharacterReferences(plainText(element, context));
+            default -> withCharacterReferences(plainText(element, context));
+        };
+    }
+
+    /**
+     * @return the value asciidoctor gives one of its built-in attributes, such as {@code &#43;} for {@code plus}, or
+     * {@code null} for another name; a document that defines the attribute overrides it.
+     */
+    public String intrinsicAttribute(final String name) {
+        return INTRINSIC_ATTRIBUTES.get(name);
+    }
+
+    /**
+     * @return the text with {@code <} and {@code >} written as character references, as asciidoctor escapes them in a
+     * title before it builds the id; one pass over the text, which is copied only when it holds one of them.
+     */
+    protected String withCharacterReferences(final String text) {
+        StringBuilder out = null;
+        int copied = 0;
+        for (int i = 0; i < text.length(); i++) {
+            final char c = text.charAt(i);
+            if (c == '<' || c == '>') {
+                if (out == null) {
+                    out = new StringBuilder(text.length() + 8);
+                }
+                out.append(text, copied, i).append(c == '<' ? "&lt;" : "&gt;");
+                copied = i + 1;
+            }
+        }
+        return out == null ? text : out.append(text, copied, text.length()).toString();
     }
 
     /**
@@ -363,6 +455,117 @@ public class VisitorSibling {
     public String sectionId(final Map<String, String> options, final Element title, final ConditionalBlock.Context context) {
         final var explicit = id(options);
         return explicit != null ? explicit : generatedId(title, context);
+    }
+
+    /**
+     * Gives the sections and the floating titles of the body their ids, in document order, in a walk through the
+     * sections, the rendered conditional branches and the blocks, which costs little next to a full visit: it reads
+     * neither the cells of a table nor the text of a paragraph. The explicit id of a section, a floating title or a
+     * block counts as in use. An anchor in a title or in the text of a paragraph does not, where asciidoctor counts the
+     * {@code [[id]]} ending a title, which it makes the section id, and an anchor in a paragraph; the blocks of a table
+     * cell do not count either.
+     *
+     * @return the id of each section and floating title, by title element: its {@link #sectionId(Map, Element, ConditionalBlock.Context)},
+     * numbered as asciidoctor numbers a generated id that an earlier element already uses ({@code _same}, then
+     * {@code _same_2}), see {@link #numberedId(String, int, ConditionalBlock.Context)}.
+     */
+    public Map<Element, String> sectionIds(final Body body, final ConditionalBlock.Context context) {
+        final var sectionIds = new IdentityHashMap<Element, String>();
+        recordSectionIds(body.children(), context, sectionIds, new HashMap<>());
+        return sectionIds;
+    }
+
+    /**
+     * @param usedIds the ids met so far, with the number a generated id equal to it gets.
+     */
+    protected void recordSectionIds(final List<Element> elements, final ConditionalBlock.Context context,
+                                    final Map<Element, String> sectionIds, final Map<String, Integer> usedIds) {
+        for (final var element : elements) {
+            recordSectionIds(element, context, sectionIds, usedIds);
+        }
+    }
+
+    protected void recordSectionIds(final Element element, final ConditionalBlock.Context context,
+                                    final Map<Element, String> sectionIds, final Map<String, Integer> usedIds) {
+        if (element == null) {
+            return;
+        }
+        switch (element.type()) {
+            case SECTION -> {
+                final var section = (Section) element;
+                recordSectionId(section.options(), section.title(), context, sectionIds, usedIds);
+                recordSectionIds(section.children(), context, sectionIds, usedIds);
+            }
+            case FLOATING_TITLE -> {
+                final var floatingTitle = (FloatingTitle) element;
+                recordSectionId(floatingTitle.options(), floatingTitle.title(), context, sectionIds, usedIds);
+            }
+            case CONDITIONAL_BLOCK -> recordSectionIds(renderedChildren((ConditionalBlock) element, context), context, sectionIds, usedIds);
+            default -> {
+                switch (element.type()) {
+                    case PARAGRAPH -> recordSectionIds(((Paragraph) element).children(), context, sectionIds, usedIds); // the blocks it groups
+                    case ADMONITION -> recordSectionIds(((Admonition) element).content(), context, sectionIds, usedIds);
+                    case OPEN_BLOCK -> recordSectionIds(((OpenBlock) element).children(), context, sectionIds, usedIds);
+                    case QUOTE -> recordSectionIds(((Quote) element).children(), context, sectionIds, usedIds);
+                    case UNORDERED_LIST -> recordSectionIds(((UnOrderedList) element).children(), context, sectionIds, usedIds);
+                    case ORDERED_LIST -> recordSectionIds(((OrderedList) element).children(), context, sectionIds, usedIds);
+                    case DESCRIPTION_LIST -> {
+                        for (final var entry : ((DescriptionList) element).children().entrySet()) {
+                            recordSectionIds(entry.getKey(), context, sectionIds, usedIds);
+                            recordSectionIds(entry.getValue(), context, sectionIds, usedIds);
+                        }
+                    }
+                    default -> {
+                    }
+                }
+                // after the content, as asciidoctor registers the id of a block once it parsed it
+                final var options = blockOptions(element);
+                final var id = id(options);
+                if (id != null && options.get("anchor") == null) {
+                    usedIds.putIfAbsent(id, 2);
+                }
+            }
+        }
+    }
+
+    /**
+     * Records the id of a section or of a floating title, in document order: an explicit id as it is, a generated
+     * one through {@link #uniqueId(String, ConditionalBlock.Context, Map)}.
+     */
+    protected void recordSectionId(final Map<String, String> options, final Element title, final ConditionalBlock.Context context,
+                                   final Map<Element, String> sectionIds, final Map<String, Integer> usedIds) {
+        final var sectionId = sectionId(options, title, context);
+        final String id;
+        if (id(options) != null) {
+            id = sectionId;
+            usedIds.putIfAbsent(id, 2);
+        } else {
+            id = uniqueId(sectionId, context, usedIds);
+        }
+        if (title != null) {
+            sectionIds.put(title, id);
+        }
+    }
+
+    /**
+     * @return the generated id, numbered when an earlier element already uses it, as asciidoctor's
+     * {@code Section.generate_id} does: from 2, skipping the numbered ids in use too.
+     */
+    protected String uniqueId(final String id, final ConditionalBlock.Context context, final Map<String, Integer> usedIds) {
+        final var next = usedIds.get(id);
+        if (next == null) {
+            usedIds.put(id, 2);
+            return id;
+        }
+        int number = next;
+        var candidate = numberedId(id, number, context);
+        while (usedIds.get(candidate) != null) {
+            number++;
+            candidate = numberedId(id, number, context);
+        }
+        usedIds.put(id, number + 1);
+        usedIds.put(candidate, 2);
+        return candidate;
     }
 
     /**

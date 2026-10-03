@@ -1227,6 +1227,18 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void siblingSectionIdAppliesToTheIndexToo() { // an override of sectionId changes the anchor and the link text
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration(), new VisitorSibling() {
+            @Override
+            public String sectionId(final Map<String, String> options, final Element title, final ConditionalBlock.Context context) {
+                return "custom-" + super.sectionId(options, title, context);
+            }
+        });
+        renderer.visit(new Parser().parse("== Install\n\nSee <<custom-_install>>.\n", new Parser.ParserContext(null)));
+        assertEquals("<a id=\"custom-_install\"></a>\n## Install\n\nSee [Install](#custom-_install).\n", renderer.result());
+    }
+
+    @Test
     void siblingReadingAppliesToTheIndexToo() { // the table of contents, the anchor and the link text use the same id
         final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration(), new VisitorSibling() {
             @Override
@@ -1276,7 +1288,7 @@ class GithubFlavoredMarkdownRendererTest {
         renderer.visit(new Parser().parse("""
                 = Doc
 
-                See <<sec-install>>.
+                See <<sec_install>>.
 
                 == Install
 
@@ -1291,17 +1303,17 @@ class GithubFlavoredMarkdownRendererTest {
 
                 **Table of Contents**
 
-                - [Install](#sec-install)
-                - [With a table of contents](#sec-with_a_table_of_contents)
+                - [Install](#sec_install)
+                - [With a table of contents](#sec_with_a_table_of_contents)
 
-                See [Install](#sec-install).
+                See [Install](#sec_install).
 
-                <a id="sec-install"></a>
+                <a id="sec_install"></a>
                 ## Install
 
                 Text.
 
-                <a id="sec-with_a_table_of_contents"></a>
+                <a id="sec_with_a_table_of_contents"></a>
                 ## With a table of contents
                 """, renderer.result());
     }
@@ -1420,6 +1432,26 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void repeatedTitlesAreAnchoredWithTheirNumberedIds() { // asciidoctor numbers the second id, _same_2
+        assertEquals("""
+                        <a id="_same"></a>
+                        ## Same
+
+                        <a id="_same_2"></a>
+                        ## Same
+
+                        See [Same](#_same) and [Same](#_same_2).
+                        """,
+                md("""
+                        == Same
+
+                        == Same
+
+                        See <<_same>> and <<_same_2>>.
+                        """));
+    }
+
+    @Test
     void generatedSectionIdUsesIdPrefix() { // same generator as the HTML renderer, so the two renderers agree
         assertContains("<a id=\"sec_my_section\"></a>\n## My Section", md("""
                 = Doc
@@ -1428,6 +1460,72 @@ class GithubFlavoredMarkdownRendererTest {
                 == My Section
 
                 See <<sec_my_section>>.
+                """));
+    }
+
+    @Test
+    void idSeparatorAsInTheQuarkusGuides() { // each quarkus.io guide includes an empty idprefix and idseparator -
+        assertEquals("""
+                # Guide
+
+                <a id="vert-x-and-the-getting-started-guide"></a>
+                ## Vert.x and the Getting-started guide
+
+                See [Vert.x and the Getting-started guide](#vert-x-and-the-getting-started-guide) and [Q&A: vertx.close()](#qa-vertx-close).
+
+                <a id="qa-vertx-close"></a>
+                ### Q&A: `vertx.close()`
+
+                Text.
+                """, md("""
+                = Guide
+                :idprefix:
+                :idseparator: -
+
+                == Vert.x and the Getting-started guide
+
+                See <<vert-x-and-the-getting-started-guide>> and <<qa-vertx-close>>.
+
+                === Q&A: `vertx.close()`
+
+                Text.
+                """));
+    }
+
+    @Test
+    void idOfALetterOutsideAsciiOrAGenericType() { // the HTML renderer writes the same ids
+        assertEquals("""
+                # Guide
+
+                ## Vert.x and the Getting-started guide
+
+                See [Café Société](#café-société) and [Using Uni\\<T>](#using-unit).
+
+                <a id="café-société"></a>
+                ## Café Société
+
+                Text.
+
+                <a id="using-unit"></a>
+                ## Using `Uni<T>`
+
+                Text.
+                """, md("""
+                = Guide
+                :idprefix:
+                :idseparator: -
+
+                == Vert.x and the Getting-started guide
+
+                See <<café-société>> and <<using-unit>>.
+
+                == Café Société
+
+                Text.
+
+                == Using `Uni<T>`
+
+                Text.
                 """));
     }
 

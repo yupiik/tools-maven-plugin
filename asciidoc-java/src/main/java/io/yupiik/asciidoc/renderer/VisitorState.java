@@ -42,7 +42,7 @@ import java.util.Set;
  * {@link #visitBody(Body)} indexes its body, and the renderer queries the result while it writes its output.
  * <p>
  * It holds the document and its attributes, the title of each section by id, the ids the document links to, the
- * sections a table of contents lists, and the footnotes met so far. The index is a first walk over the body, since a
+ * sections a table of contents lists, the id of each section, and the footnotes met so far. The index is a first walk over the body, since a
  * link can point at a section written later. Before any {@link #visit(Document)}, the document is empty, so a renderer
  * visiting only a body reads the fallback attributes.
  * <p>
@@ -58,6 +58,8 @@ public class VisitorState implements Visitor<Void> {
     protected final Map<String, String> referenceTexts = new HashMap<>(); // by id, see referenceText(String)
     protected final Set<String> referencedIds = new HashSet<>();
     protected final List<TocSection> tocSections = new ArrayList<>(); // in document order, following the rendered conditional branches
+    protected Map<Element, String> sectionIds = Map.of(); // by title element, computed by the sibling on first use, see sectionId(Map, Element)
+    protected Body sectionIdsBody = null; // the body sectionIds were computed for
     protected List<String> asciidocExtensions; // read from the attributes on first use, see asciidocExtensions()
     protected final List<Footnote> footnotes = new ArrayList<>(); // definitions, in order
     protected final Map<String, Footnote> footnotesById = new HashMap<>();
@@ -89,6 +91,8 @@ public class VisitorState implements Visitor<Void> {
         referenceTexts.clear();
         referencedIds.clear();
         tocSections.clear();
+        sectionIds = Map.of();
+        sectionIdsBody = null;
         asciidocExtensions = null;
         resetFootnotes();
     }
@@ -112,7 +116,8 @@ public class VisitorState implements Visitor<Void> {
      * <p>The walk is lazy: {@link #visitBody(Body)} only records the body, and the first read of
      * {@link #referenceText(String)}, {@link #isReferenced(String)} or {@link #tocSections()} runs the walk over the
      * recorded body (once). A document that needs none of them - no cross references, no table of contents - skips
-     * the walk entirely.
+     * the walk entirely; {@link #sectionId(Map, Element)} only needs the shorter walk of
+     * {@link VisitorSibling#sectionIds(Body, ConditionalBlock.Context)}.
      */
     protected boolean indexed = false;
     protected Body indexedBody = null;
@@ -194,6 +199,26 @@ public class VisitorState implements Visitor<Void> {
     public boolean isReferenced(final String id) {
         ensureIndexed(indexedBody);
         return referencedIds.contains(id);
+    }
+
+    /**
+     * @return the id of a section or of a floating title, as {@link VisitorSibling#sectionIds(Body, ConditionalBlock.Context)}
+     * computes it for the body, once per body. A title the state did not index, as when a renderer visits a section
+     * without its body, gets its id from {@link VisitorSibling#sectionId(Map, Element, ConditionalBlock.Context)},
+     * unnumbered.
+     */
+    public String sectionId(final Map<String, String> options, final Element title) {
+        if (indexedBody != null) {
+            if (sectionIdsBody != indexedBody) {
+                sectionIds = sibling.sectionIds(indexedBody, context());
+                sectionIdsBody = indexedBody;
+            }
+            final var id = sectionIds.get(title);
+            if (id != null) {
+                return id;
+            }
+        }
+        return sibling.sectionId(options, title, context());
     }
 
     /**
@@ -363,7 +388,7 @@ public class VisitorState implements Visitor<Void> {
 
         @Override
         public void visitSection(final Section element) {
-            final var id = sibling.sectionId(element.options(), element.title(), context());
+            final var id = sectionId(element.options(), element.title());
             final var title = sibling.titleText(element.title(), context());
             referenceTexts.putIfAbsent(id, title);
             tocSections.add(new TocSection(element.level() - 1, id, title));
@@ -373,7 +398,7 @@ public class VisitorState implements Visitor<Void> {
 
         @Override
         public void visitFloatingTitle(final FloatingTitle element) {
-            referenceTexts.putIfAbsent(sibling.sectionId(element.options(), element.title(), context()), sibling.titleText(element.title(), context()));
+            referenceTexts.putIfAbsent(sectionId(element.options(), element.title()), sibling.titleText(element.title(), context()));
             visitElement(element.title());
         }
 
@@ -385,8 +410,12 @@ public class VisitorState implements Visitor<Void> {
         }
 
         @Override
-        public void visitCode(final Code element) {
-            element.callOuts().forEach(callOut -> visitElement(callOut.text()));
+        public void visitCode(final Code element) { // the lines directly: callOuts() builds a list on each call
+            for (final var line : element.lineCallOuts()) {
+                for (final var callOut : line) {
+                    visitElement(callOut.text());
+                }
+            }
         }
 
         @Override
