@@ -226,6 +226,23 @@ public class VisitorSibling {
     }
 
     /**
+     * @return {@link #isInline(Element)}, also true for a conditional block whose rendered children are all inline,
+     * none included: asciidoctor removes the directive lines before parsing, so those children are lines of the
+     * enclosing paragraph.
+     */
+    public boolean isInline(final Element element, final ConditionalBlock.Context context) {
+        if (element instanceof ConditionalBlock block) {
+            for (final var child : renderedChildren(block, context)) {
+                if (!isInline(child, context)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return isInline(element);
+    }
+
+    /**
      * @return the children a conditional block renders: its own when its condition holds, else those of its first
      * {@code elsif} or {@code else} branch that holds; empty when none does.
      */

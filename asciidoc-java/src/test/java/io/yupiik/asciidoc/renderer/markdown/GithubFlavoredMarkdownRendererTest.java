@@ -366,6 +366,153 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void conditionalBlockInAParagraph() { // asciidoctor removes the directive lines before parsing, the conditional lines stay in their paragraph
+        final var document = """
+                == Key features
+
+                The Quarkus Security framework provides built-in mechanisms.
+                ifndef::no-webauthn-authentication[]
+                You can also use other xref:security-authentication-mechanisms.adoc#other-supported-authentication-mechanisms[authentication mechanisms], such as OpenID Connect (OIDC) and WebAuthn.
+                endif::no-webauthn-authentication[]
+                ifdef::no-webauthn-authentication[]
+                You can also use other xref:security-authentication-mechanisms.adoc#other-supported-authentication-mechanisms[authentication mechanisms], such as OpenID Connect (OIDC).
+                endif::no-webauthn-authentication[]
+                Authentication mechanisms depend on xref:security-identity-providers.adoc[identity providers].
+
+                First line +
+                ifdef::foo[]
+                conditional line
+                endif::[]
+                last line.
+                """;
+        assertEquals("""
+                        ## Key features
+
+                        The Quarkus Security framework provides built-in mechanisms. You can also use other [authentication mechanisms](security-authentication-mechanisms.md#other-supported-authentication-mechanisms), such as OpenID Connect (OIDC) and WebAuthn. Authentication mechanisms depend on [identity providers](security-identity-providers.md).
+
+                        First line\\
+                        last line.
+                        """,
+                md(document));
+        assertEquals("""
+                        ## Key features
+
+                        The Quarkus Security framework provides built-in mechanisms. You can also use other [authentication mechanisms](security-authentication-mechanisms.md#other-supported-authentication-mechanisms), such as OpenID Connect (OIDC). Authentication mechanisms depend on [identity providers](security-identity-providers.md).
+
+                        First line\\
+                        conditional line last line.
+                        """,
+                md(document, Map.of("no-webauthn-authentication", "", "foo", "")));
+    }
+
+    @Test
+    void conditionalBlockInAListItem() {
+        final var document = """
+                * To introspect the tokens remotely, you can use `quarkus-oidc`
+                ifndef::no-quarkus-elytron-security-oauth2[]
+                or `quarkus-elytron-security-oauth2`
+                endif::no-quarkus-elytron-security-oauth2[]
+                for verifying the opaque tokens.
+                * item
+                ifdef::foo[]
+                conditional line
+                endif::[]
+                +
+                second paragraph
+                * two
+                ifdef::foo[]
+                +
+                ----
+                code
+                ----
+                endif::[]
+                """;
+        assertEquals("""
+                        - To introspect the tokens remotely, you can use `quarkus-oidc` or `quarkus-elytron-security-oauth2` for verifying the opaque tokens.
+                        - item
+
+                          second paragraph
+
+                        - two
+                        """,
+                md(document));
+        assertEquals("""
+                        - To introspect the tokens remotely, you can use `quarkus-oidc` for verifying the opaque tokens.
+                        - item conditional line
+
+                          second paragraph
+
+                        - two
+
+                          ```
+                          code
+                          ```
+                        """,
+                md(document, Map.of("no-quarkus-elytron-security-oauth2", "", "foo", "")));
+    }
+
+    @Test
+    void conditionalBlockInATableCellAndAnAdmonition() {
+        final var document = """
+                [cols="1,1"]
+                |===
+                |Bearer access token |xref:security-oidc-bearer-token-authentication.adoc[OIDC Bearer token authentication], xref:security-jwt.adoc[JWT]
+                ifndef::no-quarkus-elytron-security-oauth2[]
+                , xref:security-oauth2.adoc[OAuth2]
+                endif::no-quarkus-elytron-security-oauth2[]
+
+                a|`quarkus.jlink.enabled`
+
+                [.description]
+                --
+                Whether `jlink` image generation is enabled.
+
+                ifdef::add-copy-button-to-env-var[]
+                Environment variable: env_var_with_copy_button:+++QUARKUS_JLINK_ENABLED+++[]
+                endif::add-copy-button-to-env-var[]
+                ifndef::add-copy-button-to-env-var[]
+                Environment variable: `+QUARKUS_JLINK_ENABLED+`
+                endif::add-copy-button-to-env-var[]
+                --
+                |boolean
+                |===
+
+                [NOTE]
+                ====
+                First line
+                ifndef::no-quarkus-elytron-security-oauth2[]
+                conditional line
+                endif::no-quarkus-elytron-security-oauth2[]
+                last line.
+
+                Second paragraph.
+                ====
+                """;
+        assertEquals("""
+                        | Bearer access token | [OIDC Bearer token authentication](security-oidc-bearer-token-authentication.md), [JWT](security-jwt.md) , [OAuth2](security-oauth2.md) |
+                        | --- | --- |
+                        | `quarkus.jlink.enabled`<br><br>Whether `jlink` image generation is enabled.<br><br>Environment variable: `QUARKUS_JLINK_ENABLED` | boolean |
+
+                        > [!NOTE]
+                        > First line conditional line last line.
+                        >
+                        > Second paragraph.
+                        """,
+                md(document));
+        assertEquals("""
+                        | Bearer access token | [OIDC Bearer token authentication](security-oidc-bearer-token-authentication.md), [JWT](security-jwt.md) |
+                        | --- | --- |
+                        | `quarkus.jlink.enabled`<br><br>Whether `jlink` image generation is enabled.<br><br>Environment variable: `QUARKUS_JLINK_ENABLED` | boolean |
+
+                        > [!NOTE]
+                        > First line last line.
+                        >
+                        > Second paragraph.
+                        """,
+                md(document, Map.of("no-quarkus-elytron-security-oauth2", "")));
+    }
+
+    @Test
     void passthroughHorizontalRuleAndKbd() {
         assertEquals("<b>raw html</b>\n\n---\n\nPress <kbd>Ctrl</kbd>+<kbd>C</kbd> now.\n", md("""
                 ++++
