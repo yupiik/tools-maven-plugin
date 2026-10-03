@@ -72,9 +72,6 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static io.yupiik.asciidoc.model.Element.ElementType.ANCHOR;
-import static io.yupiik.asciidoc.model.Element.ElementType.ATTRIBUTE;
-import static io.yupiik.asciidoc.model.Element.ElementType.LINE_BREAK;
 import static io.yupiik.asciidoc.model.Element.ElementType.LINK;
 import static io.yupiik.asciidoc.model.Element.ElementType.ORDERED_LIST;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
@@ -2058,14 +2055,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // a paragraph or a cell made of inline elements only gets a <p>; a conditional block is transparent so its rendered children decide
     protected boolean isInline(final Element element) {
-        return element.type() == TEXT ||
-                element.type() == ATTRIBUTE ||
-                element.type() == LINK ||
-                element.type() == ANCHOR ||
-                element.type() == LINE_BREAK ||
-                (element instanceof Macro m && m.inline()) ||
-                (element instanceof Code c && c.inline()) ||
-                (element instanceof ConditionalBlock cb && sibling.renderedChildren(cb, context()).stream().allMatch(this::isInline));
+        return sibling.isInline(element, context());
     }
 
     // a paragraph with an id or a role of its own, set on an a| cell with a block attribute line, is a block
