@@ -15,11 +15,15 @@
  */
 package io.yupiik.asciidoc.renderer;
 
+import io.yupiik.asciidoc.model.ConditionalBlock;
+import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -76,6 +80,66 @@ class VisitorStateTest {
         assertFalse(state.isReferenced("_unlinked")); // deeper than toclevels, not linked
         assertTrue(state.isReferenced("install")); // listed in the table of contents
         assertTrue(state.isReferenced("_the_end"));
+    }
+
+    @Test
+    void sectionIdsAreNumberedAsAsciidoctorNumbersThem() { // each expected id is the one asciidoctor 2.0.26 writes
+        final var document = new Parser().parse("""
+                = Doc
+
+                == [[_lead]] Lead anchor
+
+                [[_para]]
+                A paragraph with an id.
+
+                [NOTE]
+                ====
+                [[_tip]]
+                A tip.
+                ====
+
+                * item
+                +
+                [[_code]]
+                ----
+                code
+                ----
+
+                == Lead
+
+                == Para
+
+                == Tip
+
+                == Code
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var state = new VisitorState(new VisitorSibling(), key -> null);
+        state.visit(document);
+        state.visitBody(document.body());
+        final var ids = new ArrayList<String>();
+        for (final var element : document.body().children()) {
+            if (element instanceof Section section) {
+                ids.add(state.sectionId(section.options(), section.title()));
+            }
+        }
+        // the id of a block counts, also inside an admonition or a list item; an anchor starting a title does not
+        assertEquals(List.of("_lead_anchor", "_lead", "_para_2", "_tip_2", "_code_2"), ids);
+    }
+
+    @Test
+    void explicitIdChangedBySiblingCountsAsUsed() {
+        final var document = new Parser().parse("= Doc\n\n[[_b]]\n== A\n\n== B\n", new Parser.ParserContext(null));
+        final var state = new VisitorState(new VisitorSibling() {
+            @Override
+            public String sectionId(final Map<String, String> options, final Element title, final ConditionalBlock.Context context) {
+                return id(options) != null ? "custom-" + id(options) : "custom-" + generatedId(title, context);
+            }
+        }, key -> null);
+        state.visit(document);
+        state.visitBody(document.body());
+        final var sections = document.body().children();
+        assertEquals("custom-_b", state.sectionId(((Section) sections.get(0)).options(), ((Section) sections.get(0)).title()));
+        assertEquals("custom-_b_2", state.sectionId(((Section) sections.get(1)).options(), ((Section) sections.get(1)).title()));
     }
 
     @Test

@@ -236,3 +236,5 @@ The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc
 
 The `:sectanchors:` attribute writes an anchor link before the title of each section (`:sectanchors: after` writes it after the title), and the `:sectlinks:` attribute turns the title into a link to the section.
 Both attributes can be set in the document or in the attributes of the configuration.
+
+A section without an explicit id gets the id asciidoctor gives it: the title in lower case, without its markup and punctuation, after `idprefix` (`_` by default), with each run of spaces, dots and hyphens replaced by `idseparator` (`_` by default). When an earlier section or block already has that id, the separator and a number follow it: `_same_2`, `_same_3`. A title with a typographic replacement such as `--`, a footnote or a counter can still get another id than in asciidoctor. With an empty `:idprefix:` and `:idseparator: -`, `== Vert.x and the Getting-started guide` gets `vert-x-and-the-getting-started-guide`; up to version 1.2.16, it got `vertxandthegettingstartedguide`.

@@ -426,7 +426,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         content""",
                 """
                  <div class="sect1">
-                  <h2 id="my-section_title">Section Title</h2>
+                  <h2 id="my_section_title">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -521,6 +521,174 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void sectionIdOnSectionTagIsTheIdOfItsLinks() {
+        final var doc = new Parser().parseBody(
+                "[id=\" spaced \"]\n== Title\n\ncontent",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setSectionIdOnTitle(false)
+                .setAttributes(Map.of("noheader", "true", "sectanchors", "")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect1" id="spaced">
+                  <h2><a class="anchor" href="#spaced"></a>Title</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void repeatedTitlesAreNumberedAsAsciidoctorDoes() { // same ids, table of contents and link as asciidoctor 2.0.26
+        assertRendering("""
+                        = Test
+                        :toc:
+
+                        == Same
+
+                        See <<_same_2>>.
+
+                        == Same
+
+                        === Same
+                        """,
+                """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                         <meta charset="UTF-8">
+                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                         <meta name="generator" content="Asciidoctor ">
+                         <title>Test</title>
+                        </head>
+                        <body class="article">
+                         <div id="header">
+                         <h1>Test</h1>
+                         <div id="toc" class="toc">
+                          <div id="toctitle">Table of Contents</div>
+                         <ul class="sectlevel1">
+                         <li><a href="#_same">Same</a>
+                         </li>
+                         <li><a href="#_same_2">Same</a>
+                         <ul class="sectlevel2">
+                         <li><a href="#_same_3">Same</a></li>
+                         </ul>
+                         </li>
+                         </ul>
+                         </div>
+                         </div>
+                         <div id="content">
+                         <div class="sect1">
+                          <h2 id="_same">Same</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                        See  <a href="#_same_2">Same</a>
+                        . </div>
+                         </div>
+                         </div>
+                         <div class="sect1">
+                          <h2 id="_same_2">Same</h2>
+                         <div class="sectionbody">
+                         <div class="sect2">
+                          <h3 id="_same_3">Same</h3>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         <div id="footer">
+                          <div id="footer-text">
+                          </div>
+                         </div>
+                        </body>
+                        </html>
+                        """);
+    }
+
+    @Test
+    void numberedIdSkipsTheIdsInUse() { // asciidoctor 2.0.26: an explicit id and a numbered-looking title count
+        assertRenderingContent("""
+                        :idprefix:
+                        :idseparator: -
+
+                        [[same]]
+                        == Intro
+
+                        == Same 2
+
+                        == Same
+                        """,
+                """
+                         <div class="sect1">
+                          <h2 id="same">Intro</h2>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                         <div class="sect1">
+                          <h2 id="same-2">Same 2</h2>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                         <div class="sect1">
+                          <h2 id="same-3">Same</h2>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void discreteHeadingGetsTheIdTheIndexGivesIt() { // asciidoctor 2.0.26: _same for the heading, _same_2 for the section
+        assertRenderingContent("""
+                        [discrete]
+                        == Same
+
+                        == Same
+
+                        See <<_same>>.""",
+                """
+                         <h2 class="discrete" id="_same">Same</h2>
+                         <div class="sect1">
+                          <h2 id="_same_2">Same</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                        See  <a href="#_same">Same</a>
+                        . </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void sectionIdOnSectionTagStaysBeforeTheOtherAttributes() {
+        final var doc = new Parser().parseBody(
+                "[#s1,data-foo=bar]\n== Slide\n\ncontent",
+                new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setSectionIdOnTitle(false)
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(doc);
+        assertEquals("""
+                 <div class="sect1" id="s1" data-foo="bar">
+                  <h2>Slide</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
     void customIdSeparator() {
         assertRenderingContent("""
                         :idseparator: -
@@ -530,7 +698,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         content""",
                 """
                  <div class="sect1">
-                  <h2 id="_sectiontitle">Section Title</h2>
+                  <h2 id="_section-title">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -553,7 +721,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         content""",
                 """
                  <div class="sect1">
-                  <h2 id="sectiontitle">Section Title</h2>
+                  <h2 id="section-title">Section Title</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -563,6 +731,147 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  </div>
                 """);
+    }
+
+    @Test
+    void idSeparatorAsInTheQuarkusGuides() { // each quarkus.io guide includes an empty idprefix and idseparator -
+        assertRenderingContent("""
+                        :idprefix:
+                        :idseparator: -
+
+                        == Vert.x and the Getting-started guide
+
+                        See <<café-société>> and <<using-unit>>.
+
+                        == Café Société
+
+                        Text.
+
+                        == Using `Uni<T>`
+
+                        Text.""",
+                """
+                 <div class="sect1">
+                  <h2 id="vert-x-and-the-getting-started-guide">Vert.x and the Getting-started guide</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                See  <a href="#café-société">Caf&eacute; Soci&eacute;t&eacute;</a>
+                 and  <a href="#using-unit">Using Uni&lt;T&gt;</a>
+                . </div>
+                 </div>
+                 </div>
+                 <div class="sect1">
+                  <h2 id="café-société">Caf&eacute; Soci&eacute;t&eacute;</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                Text.
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                 <div class="sect1">
+                  <h2 id="using-unit">Using <code>Uni&lt;T&gt;</code></h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                Text.
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void emptyIdSeparatorOnlyRemovesTheSpaces() {
+        assertRenderingContent("""
+                        :idseparator:
+
+                        == Version 1.2.3
+
+                        content""",
+                """
+                 <div class="sect1">
+                  <h2 id="_version1.2.3">Version 1.2.3</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                content
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
+    @Test
+    void sectionNumberAndTableOfContentsKeepTheSectionId() {
+        assertRendering("""
+                        = Doc
+                        :sectnums:
+                        :toc:
+                        :idprefix:
+                        :idseparator: -
+
+                        == First
+
+                        See <<sub-part>>.
+
+                        === Sub part
+
+                        Text.
+                        """,
+                """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                         <meta charset="UTF-8">
+                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                         <meta name="generator" content="Asciidoctor ">
+                         <title>Doc</title>
+                        </head>
+                        <body class="article">
+                         <div id="header">
+                         <h1>Doc</h1>
+                         <div id="toc" class="toc">
+                          <div id="toctitle">Table of Contents</div>
+                         <ul class="sectlevel1">
+                         <li><a href="#first">First</a>
+                         <ul class="sectlevel2">
+                         <li><a href="#sub-part">Sub part</a></li>
+                         </ul>
+                         </li>
+                         </ul>
+                         </div>
+                         </div>
+                         <div id="content">
+                         <div class="sect1">
+                          <h2 id="first">1. First</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                        See  <a href="#sub-part">Sub part</a>
+                        . </div>
+                         <div class="sect2">
+                          <h3 id="sub-part">1.1. Sub part</h3>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>
+                        Text.
+                         </p>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         <div id="footer">
+                          <div id="footer-text">
+                          </div>
+                         </div>
+                        </body>
+                        </html>
+                        """);
     }
 
     @Test
@@ -2150,7 +2459,7 @@ class AsciidoctorLikeHtmlRendererTest {
                                 
                 foo""", """
                  <div class="sect1">
-                  <h2 id="_title__foo_barjson">Title :: foo <code>bar.json</code></h2>
+                  <h2 id="_title_foo_bar_json">Title :: foo <code>bar.json</code></h2>
                  <div class="sectionbody">
                  <div class="paragraph">
                  <p>
@@ -2290,7 +2599,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "== io.yupiik.test.MyObject\n",
                 """
                          <div class="sect0">
-                          <h1 id="_ioyupiiktestmyrootobject">io.yupiik.test.MyRootObject</h1>
+                          <h1 id="_io_yupiik_test_myrootobject">io.yupiik.test.MyRootObject</h1>
                          <div class="sectionbody">
                          <table class="tableblock frame-all grid-all stretch">
                           <caption class="title">io.yupiik.test.MyRootObject</caption>
@@ -2793,7 +3102,7 @@ class AsciidoctorLikeHtmlRendererTest {
     @Test
     void floatingTitle() {
         assertRenderingContent("[discrete]\n== A Title\n\ncontent",
-                " <h2 class=\"discrete\">A Title</h2>\n" +
+                " <h2 class=\"discrete\" id=\"_a_title\">A Title</h2>\n" +
                         " <div class=\"paragraph\">\n" +
                         " <p>\n" +
                         "content\n" +
@@ -2812,7 +3121,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "para A\n" +
                         " </p>\n" +
                         " </div>\n" +
-                        " <h2 class=\"discrete\">Same level as the section</h2>\n" +
+                        " <h2 class=\"discrete\" id=\"_same_level_as_the_section\">Same level as the section</h2>\n" +
                         " <div class=\"paragraph\">\n" +
                         " <p>\n" +
                         "para B\n" +
@@ -3448,13 +3757,13 @@ class AsciidoctorLikeHtmlRendererTest {
                         " <div id=\"toc\" class=\"toc\">\n" +
                         "  <div id=\"toctitle\">Table of Contents</div>\n" +
                         " <ul class=\"sectlevel1\">\n" +
-                        " <li><a href=\"#__title\">\n" +
+                        " <li><a href=\"#_title\">\n" +
                         " Title</a>\n" +
                         " </li>\n" +
                         " </ul>\n" +
                         " </div>\n" +
                         " <div class=\"sect1\">\n" +
-                        "  <h2 id=\"__title\"><a id=\"a\"></a>\n" +
+                        "  <h2 id=\"_title\"><a id=\"a\"></a>\n" +
                         " Title</h2>\n" +
                         " <div class=\"sectionbody\">\n" +
                         " <div class=\"paragraph\">\n" +

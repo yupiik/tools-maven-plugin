@@ -341,7 +341,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     protected void heading(final int level, final Element title, final Map<String, String> options) {
-        final var id = sibling.sectionId(options, title, context());
+        final var id = state.sectionId(options, title);
         if (sibling.id(options) != null || state.isReferenced(id)) { // asciidoctor gives every section an id, written when the document links to it
             anchor(id);
         }

@@ -15,7 +15,6 @@
  */
 package io.yupiik.asciidoc.renderer.html;
 
-import io.yupiik.asciidoc.renderer.IdGenerator;
 import io.yupiik.asciidoc.model.Admonition;
 import io.yupiik.asciidoc.model.Anchor;
 import io.yupiik.asciidoc.model.Attribute;
@@ -548,14 +547,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             final var sectionStyle = element.options().get("");
             final var explicitId = element.options().get("id");
             final boolean hasExplicitId = explicitId != null && !explicitId.isBlank();
-            final String id;
-            if (!hasExplicitId) {
-                final var prefix = docAttrs.getOrDefault("idprefix", configuration.getAttributes().get("idprefix"));
-                final var separator = docAttrs.getOrDefault("idseparator", configuration.getAttributes().get("idseparator"));
-                id = IdGenerator.forTitle(title, prefix, separator);
-            } else {
-                id = explicitId;
-            }
+            final var id = state.sectionId(element.options(), element.title());
             final var sectanchors = attr("sectanchors", docAttrs);
             if (sectanchors != null) {
                 final var anchor = "<a class=\"anchor\" href=\"#" + id + "\"></a>";
@@ -571,9 +563,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
             builder.append(" <").append(configuration.getSectionTag());
             final Map<String, String> sectionOptions;
-            if (configuration.isSectionIdOnTitle() && explicitId != null) {
+            if (explicitId != null && (configuration.isSectionIdOnTitle() || !hasExplicitId)) {
                 sectionOptions = new HashMap<>(element.options());
                 sectionOptions.remove("id");
+            } else if (hasExplicitId && !explicitId.equals(id)) { // the id of the links, stripped
+                sectionOptions = new HashMap<>(element.options());
+                sectionOptions.put("id", id);
             } else {
                 sectionOptions = element.options();
             }
@@ -615,9 +610,21 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var title = titleRenderer.result();
 
         final var style = element.options().getOrDefault("", "discrete");
+        final var id = state.sectionId(element.options(), element.title());
+        final var explicitId = element.options().get("id");
+        final Map<String, String> options;
+        if (explicitId != null && !explicitId.isBlank() && !explicitId.equals(id)) { // the id of the links, stripped
+            options = new HashMap<>(element.options());
+            options.put("id", id);
+        } else {
+            options = element.options();
+        }
         builder.append(" <h").append(element.level()).append("");
-        writeCommonAttributes(element.options(),
+        writeCommonAttributes(options,
                 c -> style + (c == null ? "" : (' ' + c)));
+        if (explicitId == null || explicitId.isBlank()) {
+            builder.append(" id=\"").append(id).append('"');
+        }
         builder.append(">");
         builder.append(title);
         builder.append("</h").append(element.level()).append(">\n");
@@ -1503,8 +1510,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (tocTitle != null && !tocTitle.isBlank()) {
             builder.append("  <div id=\"toctitle\">").append(tocTitle).append("</div>\n");
         }
-        final var docAttrs = state.document().header().attributes();
-        final var toc = new TocVisitor(toclevels, 1, docAttrs.get("idprefix"), docAttrs.get("idseparator"));
+        final var toc = new TocVisitor(state, toclevels, 1);
         toc.visitBody(body);
         builder.append(toc.result());
         builder.append(" </div>\n");
