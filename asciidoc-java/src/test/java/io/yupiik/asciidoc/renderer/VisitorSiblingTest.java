@@ -188,6 +188,32 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
         assertTrue(sibling.hasOption(options, "collapsible"), attributeLine);
     }
 
+    @Test
+    void conditionalBlockIsInlineWhenItsRenderedChildrenAre() {
+        final var paragraph = (Paragraph) parse("""
+                first line
+                ifdef::foo[]
+                conditional line with a xref:other.adoc[link]
+                endif::[]
+                ifdef::foo[]
+                +
+                ----
+                code
+                ----
+                endif::[]
+                """);
+        final var lines = paragraph.children().get(1);
+        final var code = paragraph.children().get(2);
+        final ConditionalBlock.Context set = Map.of("foo", "")::get;
+        final ConditionalBlock.Context unset = key -> null;
+        assertFalse(sibling.isInline(lines));
+        assertTrue(sibling.isInline(lines, set));
+        assertTrue(sibling.isInline(lines, unset)); // it renders nothing, its directive lines still end the line before
+        assertFalse(sibling.isInline(code, set));
+        assertTrue(sibling.isInline(code, unset));
+        assertTrue(sibling.isInline(paragraph.children().get(0), set));
+    }
+
     private Element parse(final String asciidoc) {
         return new Parser().parse(asciidoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))).body().children().get(0);
     }
