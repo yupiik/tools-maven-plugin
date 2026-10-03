@@ -1704,7 +1704,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1725,7 +1725,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1749,7 +1749,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1770,7 +1770,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1794,7 +1794,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1815,7 +1815,7 @@ public class Parser {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
                                 final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= 0) {
+                                if (optionsStart >= start) {
                                     options = line.substring(optionsStart + 1, i - 1);
                                     if (start < optionsStart) {
                                         flushText(elements, line.substring(start, optionsStart));
@@ -1838,7 +1838,7 @@ public class Parser {
                         String options = null;
                         if (i > 0 && ']' == line.charAt(i - 1)) {
                             final int optionsStart = line.lastIndexOf('[', i - 1);
-                            if (optionsStart >= 0) {
+                            if (optionsStart >= start) {
                                 options = line.substring(optionsStart + 1, i - 1);
                                 if (start < optionsStart) {
                                     flushText(elements, line.substring(start, optionsStart));
@@ -1911,9 +1911,9 @@ public class Parser {
                             break;
                         }
                     }
-                    // Check for an [[id]] or [[id, reftext]] inline anchor in the middle of the line;
-                    // at the very start or the very end it stays the id of the enclosing text, as it was
-                    if (i > 0 && line.length() > i + 4 && line.charAt(i + 1) == '[' && line.charAt(i + 2) != '[') {
+                    // Check for an [[id]] or [[id, reftext]] inline anchor followed by text, as asciidoctor does;
+                    // at the very end of the line it stays the id of the enclosing text, as it was
+                    if (line.length() > i + 4 && line.charAt(i + 1) == '[' && line.charAt(i + 2) != '[') {
                         final int end = line.indexOf("]]", i + 2);
                         if (end > 0 && !line.substring(end + "]]".length()).isBlank()) {
                             final var anchor = line.substring(i + 2, end);
@@ -2108,7 +2108,7 @@ public class Parser {
                         String options = null;
                         if (i > 0 && ']' == line.charAt(i - 1)) {
                             final int optionsStart = line.lastIndexOf('[', i - 1);
-                            if (optionsStart >= 0) {
+                            if (optionsStart >= start) {
                                 options = line.substring(optionsStart + 1, i - 1);
                                 // adjust indices to skip options
                                 if (start < optionsStart) {
@@ -3021,7 +3021,9 @@ public class Parser {
         final var sub = parseLine(enclosingDocument, null, content, resolver, currentAttributes, true);
         final var opts = options != null ? parseOptions(options) : Map.<String, String>of();
         if (sub.size() == 1 && sub.get(0) instanceof Text t) {
-            if (!t.style().isEmpty()) {
+            if (isAnchor(t)) {
+                collector.add(t);
+            } else if (!t.style().isEmpty()) {
                 collector.add(newText(
                         style == null ? t.style() : Stream.concat(Stream.of(style), t.style().stream()).toList(),
                         t.value(), opts));
@@ -3033,11 +3035,16 @@ public class Parser {
         } else {
             collector.addAll(sub.stream()
                     // todo: for now we loose the style for what is not pure text, should we handle it as an element or role maybe?
-                    .map(it -> it instanceof Text t ?
+                    .map(it -> it instanceof Text t && !isAnchor(t) ?
                             newText(style == null ? List.of() : List.of(style), t.value(), opts) :
                             it)
                     .toList());
         }
+    }
+
+    // an inline [[id]] or [[[ref]]] anchor, which a styled run keeps as it is
+    protected boolean isAnchor(final Text text) {
+        return text.options().get("anchor") != null || text.options().get("bibliography") != null;
     }
 
     private Element newText(final List<Text.Style> styles, final String value, final Map<String, String> options) {

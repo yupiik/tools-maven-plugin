@@ -3867,10 +3867,66 @@ class ParserTest {
     }
 
     @Test
-    void inlineAnchorAtTheStartOfALineStaysTheIdOfTheText() { // unchanged: only the middle of the line is new
+    void inlineAnchorAtTheStartOfALineBeforePlainTextIsAnAnchor() { // as asciidoctor; it was the id of the text, which nested a <p id> in a heading or a cell
         final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]] text after a space.")), null);
-        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
-                new Text(List.of(), "text after a space.", Map.of("id", "my-anchor"))), body.children());
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " text after a space.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfALineBeforeALinkIsAnAnchor() { // as asciidoctor, no text takes the id when other elements follow
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]] see link:#my-anchor[the anchor] now.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " see ", Map.of()),
+                new Link("#my-anchor", new Text(List.of(), "the anchor", Map.of("nowrap", "true", "", "the anchor")), Map.of("", "the anchor", "nowrap", "true")),
+                new Text(List.of(), " now.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfALineBeforeAStyledTextIsAnAnchor() {
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]] text *bold* more")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " text ", Map.of()),
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " more", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorWithAReferenceTextAtTheStartOfALine() { // as asciidoctor, the id stops at the comma
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor, My anchor]] see link:#my-anchor[it].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " see ", Map.of()),
+                new Link("#my-anchor", new Text(List.of(), "it", Map.of("nowrap", "true", "", "it")), Map.of("", "it", "nowrap", "true")),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorWithAReferenceTextBeforePlainText() {
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor, My anchor]] see it.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), " see it.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorBeforeAnEscapedMark() { // the escape is applied once, the backslash does not come back
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]]\\*x*")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(), "*x*", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void inlineAnchorBeforeAStyledTextGivesItNoOptions() { // the ] that ends the anchor does not open an attribute list
+        final var body = new Parser().parseBody(new Reader(List.of("[[my-anchor]]*bold* tail")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "", Map.of("id", "my-anchor", "anchor", "")),
+                new Text(List.of(BOLD), "bold", Map.of()),
+                new Text(List.of(), " tail", Map.of())), Map.of())), body.children());
     }
 
     @Test
