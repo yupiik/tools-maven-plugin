@@ -69,6 +69,8 @@ import static io.yupiik.asciidoc.model.Text.Style.EMPHASIS;
 import static io.yupiik.asciidoc.model.Text.Style.ITALIC;
 import static io.yupiik.asciidoc.model.Text.Style.MARK;
 import static io.yupiik.asciidoc.model.Text.Style.STRIKETHROUGH;
+import static io.yupiik.asciidoc.model.Text.Style.SUB;
+import static io.yupiik.asciidoc.model.Text.Style.SUP;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -4044,6 +4046,73 @@ class ParserTest {
                 new Text(List.of(), "This is ", Map.of()),
                 new Text(List.of(STRIKETHROUGH), "deleted", Map.of()),
                 new Text(List.of(), " text.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void subscriptAndSuperscriptNeedContinuousText() { // as asciidoctor, sub/sup text cannot hold a blank, so the pair does not open
+        final var body = new Parser().parseBody(new Reader(List.of("bla bla ~foo bar ~dummy")), null);
+        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
+                new Text(List.of(), "bla bla ~foo bar ~dummy", Map.of())), body.children());
+
+        final var carets = new Parser().parseBody(new Reader(List.of("bla bla ^foo bar ^dummy")), null);
+        assertEquals(List.of(
+                new Text(List.of(), "bla bla ^foo bar ^dummy", Map.of())), carets.children());
+    }
+
+    @Test
+    void subscriptAndSuperscriptAroundWordsWithBlanksOutside() { // blanks outside the pair are fine
+        final var body = new Parser().parseBody(new Reader(List.of("bla bla ~foo bar~ dummy and ^sup here^.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "bla bla ", Map.of()),
+                new Text(List.of(SUB), "foo bar", Map.of()),
+                new Text(List.of(), " dummy and ", Map.of()),
+                new Text(List.of(SUP), "sup here", Map.of()),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void subscriptAndSuperscriptStayUnconstrained() { // they still open and close inside a word
+        final var body = new Parser().parseBody(new Reader(List.of("H~2~O and E=mc^2^ formula")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "H", Map.of()),
+                new Text(List.of(SUB), "2", Map.of()),
+                new Text(List.of(), "O and E=mc", Map.of()),
+                new Text(List.of(SUP), "2", Map.of()),
+                new Text(List.of(), " formula", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void subscriptAndSuperscriptSkipAClosingMarkAfterABlank() { // the pair closes on the next mark that can close
+        final var body = new Parser().parseBody(new Reader(List.of("H~2 O~ and more~ here")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "H", Map.of()),
+                new Text(List.of(SUB), "2 O", Map.of()),
+                new Text(List.of(), " and more~ here", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void subscriptAndSuperscriptDoNotOpenAfterABlank() { // the opening mark cannot be followed by a blank either
+        final var body = new Parser().parseBody(new Reader(List.of("a ~ b~c here")), null);
+        assertEquals(List.of( // one text with no style, so the parser unwraps its paragraph
+                new Text(List.of(), "a ~ b~c here", Map.of())), body.children());
+    }
+
+    @Test
+    void markdownStrikethroughNeedsContinuousText() { // ~~ does not open, the single marks fall back on the sub pairing
+        final var body = new Parser().parseBody(new Reader(List.of("This is ~~deleted text ~~ here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "This is ~", Map.of()),
+                new Text(List.of(SUB), "deleted text ~", Map.of()),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void markdownStrikethroughSkipsAClosingMarkAfterABlank() {
+        final var body = new Parser().parseBody(new Reader(List.of("This is ~~deleted text ~~ and more~~ here.")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "This is ", Map.of()),
+                new Text(List.of(STRIKETHROUGH), "deleted text ~~ and more", Map.of()),
+                new Text(List.of(), " here.", Map.of())), Map.of())), body.children());
     }
 
     @Test
