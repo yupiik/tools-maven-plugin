@@ -1525,6 +1525,7 @@ public class Parser {
                                      final ContentResolver resolver, final Map<String, String> currentAttributes,
                                      final boolean supportComplexStructures /* title case for ex */) {
         final var elements = new ArrayList<Element>();
+        boolean onlyConditionalsSinceBreak = true; // all elements so far (paragraph start or last hard break) are conditional blocks
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
             final var stripped = line.strip();
@@ -1541,10 +1542,11 @@ public class Parser {
                 hardBreak = true;
                 line = line.substring(0, line.length() - 2);
             }
-            addLine(elements, parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options));
+            onlyConditionalsSinceBreak = addLine(elements, parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options), onlyConditionalsSinceBreak);
             if (hardBreak) {
                 unwrapFirst(elements);
                 elements.add(new LineBreak());
+                onlyConditionalsSinceBreak = true;
             }
         }
         if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
@@ -1556,22 +1558,26 @@ public class Parser {
     // a conditional block sharing the paragraph with other elements holds inline elements, see withInlineChildren(), and
     // asciidoctor joins the lines of a paragraph with a line feed, which shows as a space: mergeTexts() writes it between two
     // plain texts, so it is written here where a line starts or ends with another inline element
-    private void addLine(final List<Element> elements, final List<Element> line) {
+    private boolean addLine(final List<Element> elements, final List<Element> line, boolean onlyConditionalsSinceBreak) {
         if (line.isEmpty()) {
-            return;
+            return onlyConditionalsSinceBreak;
         }
         if (elements.isEmpty() && line.size() == 1) { // alone in the paragraph until something follows, see unwrapFirst()
             elements.add(line.get(0));
-            return;
+            return line.get(0) instanceof ConditionalBlock;
         }
         unwrapFirst(elements);
         final boolean joined = !elements.isEmpty();
         for (int i = 0; i < line.size(); i++) {
             final var element = line.get(i) instanceof ConditionalBlock block ? withInlineChildren(block) : line.get(i);
             final var added = i == 0 && joined && needsLineEnd(elements.get(elements.size() - 1), element) ?
-                    addLineEnd(elements, element) : element;
+                    addLineEnd(elements, element, onlyConditionalsSinceBreak) : element;
             elements.add(added);
+            if (onlyConditionalsSinceBreak && !(added instanceof ConditionalBlock)) {
+                onlyConditionalsSinceBreak = false;
+            }
         }
+        return onlyConditionalsSinceBreak;
     }
 
     // the first element was alone in its paragraph, so a conditional block kept its Paragraph, see withInlineChildren()
@@ -1584,9 +1590,9 @@ public class Parser {
     // writes the line end before the first element of the next line and returns that element. a conditional block takes it
     // at the start of each branch, so a branch that renders nothing leaves no space behind, and at the end of each branch
     // when only conditional blocks come before it since the paragraph start or a hard line break
-    private Element addLineEnd(final List<Element> elements, final Element first) {
+    private Element addLineEnd(final List<Element> elements, final Element first, final boolean onlyConditionals) {
         final int last = elements.size() - 1;
-        if (elements.get(last) instanceof ConditionalBlock before && onlyConditionals(elements)) {
+        if (elements.get(last) instanceof ConditionalBlock before && onlyConditionals) {
             elements.set(last, withLineEnd(before, false));
             return first;
         }
@@ -1595,18 +1601,6 @@ public class Parser {
         }
         elements.add(new Text(List.of(), " ", Map.of()));
         return first;
-    }
-
-    private boolean onlyConditionals(final List<Element> elements) {
-        for (int i = elements.size() - 1; i >= 0; i--) {
-            if (elements.get(i) instanceof LineBreak) {
-                return true;
-            }
-            if (!(elements.get(i) instanceof ConditionalBlock)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private boolean needsLineEnd(final Element before, final Element after) {
@@ -1619,38 +1613,89 @@ public class Parser {
     // the element at the edge of each branch decides: a plain text or a nested conditional block making up the whole branch
     // takes the line end, so a branch that renders nothing leaves no space, another inline element gets a space next to it,
     // and a block or a hard line break ending the branch take none since they end the line. the text is already parsed, so
-    // the padded one is a plain Text and not a newText() which reads [[id]] anchors again
+    // the padded one is a plain Text and not a newText() which reads [[id]] anchors again. recursion also pads every else
+    // branch the same way. returns the same block when nothing changes: common cases then allocate nothing
     private ConditionalBlock withLineEnd(final ConditionalBlock block, final boolean atStart) {
         final var children = block.children();
-        final List<Element> withSpace;
-        if (children.isEmpty()) {
-            withSpace = children;
-        } else {
+        List<Element> withSpace = children;
+        boolean childrenChanged = false;
+        if (!children.isEmpty()) {
             final int index = atStart ? 0 : children.size() - 1;
-            withSpace = new ArrayList<>(children.size() + 1);
-            withSpace.addAll(children);
             final var edge = children.get(index);
             if (isPlainText(edge)) {
                 final var value = ((Text) edge).value();
-                if (value.isEmpty() || !Character.isWhitespace(atStart ? value.charAt(0) : value.charAt(value.length() - 1))) {
+                if (!value.isEmpty() && !Character.isWhitespace(atStart ? value.charAt(0) : value.charAt(value.length() - 1))) {
+                    withSpace = new ArrayList<>(children.size() + 1);
+                    withSpace.addAll(children);
                     withSpace.set(index, new Text(List.of(), atStart ? " " + value : value + " ", Map.of()));
+                    childrenChanged = true;
                 }
             } else if (children.size() == 1 && edge instanceof ConditionalBlock nested) { // the whole branch: a nested branch that renders nothing leaves no space either
-                withSpace.set(index, withLineEnd(nested, atStart));
+                final var padded = withLineEnd(nested, atStart);
+                if (padded != nested) {
+                    withSpace = new ArrayList<>(1);
+                    withSpace.add(padded);
+                    childrenChanged = true;
+                }
             } else if (isInlineOrConditional(edge) && (atStart || !(edge instanceof LineBreak))) {
+                withSpace = new ArrayList<>(children.size() + 1);
+                withSpace.addAll(children);
                 withSpace.add(atStart ? 0 : withSpace.size(), new Text(List.of(), " ", Map.of()));
+                childrenChanged = true;
             }
         }
-        final List<ConditionalBlock> elseBranches;
-        if (block.elseBranches() == null) {
-            elseBranches = null;
-        } else {
-            elseBranches = new ArrayList<>(block.elseBranches().size());
-            for (final var branch : block.elseBranches()) {
-                elseBranches.add(withLineEnd(branch, atStart));
+        final var elseBranches = block.elseBranches();
+        List<ConditionalBlock> paddedElse = elseBranches;
+        if (elseBranches != null) {
+            for (int i = 0; i < elseBranches.size(); i++) {
+                final var branch = elseBranches.get(i);
+                final var padded = withLineEnd(branch, atStart);
+                if (padded != branch) {
+                    if (paddedElse == elseBranches) { // first change: copy the branches before it
+                        paddedElse = new ArrayList<>(elseBranches.subList(0, i));
+                    }
+                    paddedElse.add(padded);
+                } else if (paddedElse != elseBranches) {
+                    paddedElse.add(branch);
+                }
             }
         }
-        return new ConditionalBlock(block.evaluator(), withSpace, elseBranches, block.options());
+        if (!childrenChanged && paddedElse == elseBranches) {
+            return block;
+        }
+        return new ConditionalBlock(block.evaluator(), withSpace, paddedElse, block.options());
+    }
+
+    // the content of a conditional block is parsed as blocks, so a line of several inline elements is a Paragraph: when the
+    // block sits in a paragraph, as asciidoctor's preprocessor would have left the line there, that paragraph is the enclosing
+    // one and the block holds its elements directly. a block alone in its paragraph keeps the Paragraph, it is one. recursion
+    // also unwraps every else branch. returns the same block when nothing changed: common blocks then allocate nothing
+    private ConditionalBlock withInlineChildren(final ConditionalBlock block) {
+        final var children = inlineChildren(block.children());
+        final var elseBranches = block.elseBranches();
+        List<ConditionalBlock> mappedElse = elseBranches;
+        if (elseBranches != null) {
+            for (int i = 0; i < elseBranches.size(); i++) {
+                final var branch = elseBranches.get(i);
+                final var mapped = withInlineChildren(branch);
+                if (mapped != branch) {
+                    if (mappedElse == elseBranches) { // first change: copy the branches before it
+                        mappedElse = new ArrayList<>(elseBranches.subList(0, i));
+                    }
+                    mappedElse.add(mapped);
+                } else if (mappedElse != elseBranches) {
+                    mappedElse.add(branch);
+                }
+            }
+        }
+        if (children == block.children() && mappedElse == elseBranches) {
+            return block;
+        }
+        return new ConditionalBlock(block.evaluator(), children, mappedElse, block.options());
+    }
+
+    private List<Element> inlineChildren(final List<Element> children) {
+        return children.size() == 1 && children.get(0) instanceof Paragraph p && p.options().isEmpty() ? p.children() : children;
     }
 
     private boolean isPlainText(final Element element) {
@@ -1671,17 +1716,6 @@ public class Parser {
     // the content of a conditional block is parsed as blocks, so a line of several inline elements is a Paragraph: when the
     // block sits in a paragraph, as asciidoctor's preprocessor would have left the line there, that paragraph is the enclosing
     // one and the block holds its elements directly. a block alone in its paragraph keeps the Paragraph, it is one
-    private ConditionalBlock withInlineChildren(final ConditionalBlock block) {
-        return new ConditionalBlock(
-                block.evaluator(),
-                inlineChildren(block.children()),
-                block.elseBranches() == null ? null : block.elseBranches().stream().map(this::withInlineChildren).toList(),
-                block.options());
-    }
-
-    private List<Element> inlineChildren(final List<Element> children) {
-        return children.size() == 1 && children.get(0) instanceof Paragraph p && p.options().isEmpty() ? p.children() : children;
-    }
 
     private List<Element> parseLine(final Path enclosingDocument, final Reader reader, final String line,
                                     final ContentResolver resolver, final Map<String, String> currentAttributes,
@@ -3603,7 +3637,12 @@ public class Parser {
     }
 
     private boolean isLink(final String link) {
-        return LINK_PREFIXES.stream().anyMatch(link::startsWith);
+        for (int i = 0; i < LINK_PREFIXES.size(); i++) {
+            if (link.startsWith(LINK_PREFIXES.get(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isMacroNameChar(final char c) { // asciidoctor's MacroNameRx: word characters and hyphens
@@ -3781,11 +3820,18 @@ public class Parser {
     }
 
     private Map<String, String> merge(final Map<String, String> options, final Map<String, String> next) {
-        return Stream.of(options, next)
-                .filter(Objects::nonNull)
-                .map(Map::entrySet)
-                .flatMap(Collection::stream)
-                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a));
+        if (options == null || options.isEmpty()) {
+            return next == null ? Map.of() : next;
+        }
+        if (next == null || next.isEmpty()) {
+            return options;
+        }
+        final var merged = new HashMap<String, String>(options.size() + next.size());
+        merged.putAll(options); // first map wins, as the former merge function (a, b) -> a did
+        for (final var entry : next.entrySet()) {
+            merged.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        return Map.copyOf(merged);
     }
 
     private void addCollapsingChildOnParent(final List<Element> children, final Element elt) {
@@ -3840,11 +3886,17 @@ public class Parser {
             if (next == nextEmail) {
                 end = emailMatcher.end();
             } else {
-                end = endOfBareLink(content, next, Stream.of(" ", "\t")
-                        .mapToInt(s -> content.indexOf(s, next))
-                        .filter(i -> i > next)
-                        .min()
-                        .orElseGet(content::length));
+                final int nextSpace = content.indexOf(' ', next);
+                final int nextTab = content.indexOf('\t', next);
+                final int nextBlank;
+                if (nextSpace < 0) {
+                    nextBlank = nextTab;
+                } else if (nextTab < 0) {
+                    nextBlank = nextSpace;
+                } else {
+                    nextBlank = Math.min(nextSpace, nextTab);
+                }
+                end = endOfBareLink(content, next, nextBlank > next ? nextBlank : content.length());
             }
 
             if (start != next) {
@@ -3877,11 +3929,14 @@ public class Parser {
     }
 
     private int findNextLink(final String line, final int from) {
-        return LINK_PREFIXES.stream()
-                .mapToInt(p -> line.indexOf(p, from))
-                .filter(i -> i >= from)
-                .min()
-                .orElse(-1);
+        int best = -1;
+        for (int i = 0; i < LINK_PREFIXES.size(); i++) {
+            final int index = line.indexOf(LINK_PREFIXES.get(i), from);
+            if (index >= 0 && (best < 0 || index < best)) {
+                best = index;
+            }
+        }
+        return best;
     }
 
     private List<Element> flattenTexts(final List<Element> elements) {
@@ -3909,19 +3964,18 @@ public class Parser {
     }
 
     private Element mergeTexts(final List<Text> buffer) {
-        return buffer.size() == 1 ?
-                buffer.get(0) :
-                newText(
-                        List.of(),
-                        Stream.of(
-                                        Stream.of(buffer.get(0).value().stripTrailing()),
-                                        buffer.stream().skip(1).limit(buffer.size() - 2)
-                                                .map(Text::value)
-                                                .map(String::strip),
-                                        Stream.of(buffer.get(buffer.size() - 1).value().stripLeading()))
-                                .flatMap(identity())
-                                .collect(joining(" ")),
-                        Map.of());
+        if (buffer.size() == 1) {
+            return buffer.get(0);
+        }
+        // as the stream version did: stripTrailing() on the first, strip() in between, stripLeading() on the last, joined with one space
+        final int last = buffer.size() - 1;
+        final var out = new StringBuilder();
+        out.append(buffer.get(0).value().stripTrailing());
+        for (int i = 1; i < last; i++) {
+            out.append(' ').append(buffer.get(i).value().strip());
+        }
+        out.append(' ').append(buffer.get(last).value().stripLeading());
+        return newText(List.of(), out.toString(), Map.of());
     }
 
     private void parseTagOption(final String value, final boolean defaultInclude,
