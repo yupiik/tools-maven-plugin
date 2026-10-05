@@ -203,15 +203,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             return;
         }
         // asciidoctor's preprocessor drops the directives and parses the content where it is written, so the children
-        // render in place of the block, and in a paragraph the directive lines were line feeds around the content
-        final boolean inParagraph = state.lastElement.size() > 1 && state.lastElement.get(state.lastElement.size() - 2).type() == PARAGRAPH;
-        if (inParagraph) {
-            builder.append('\n');
-        }
+        // render in place of the block; in a paragraph, the parser keeps the line ends around them
         state.stackChainInPlaceOf(element, children, () -> children.forEach(this::visitElement));
-        if (inParagraph) {
-            builder.append('\n');
-        }
     }
 
     @Override
@@ -2055,7 +2048,15 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     // a paragraph or a cell made of inline elements only gets a <p>; a conditional block is transparent so its rendered children decide
     protected boolean isInline(final Element element) {
-        return sibling.isInline(element, context());
+        if (element instanceof ConditionalBlock block) { // through this method, so an override applies inside the block too
+            for (final var child : sibling.renderedChildren(block, context())) {
+                if (!isInline(child)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return sibling.isInline(element);
     }
 
     // a paragraph with an id or a role of its own, set on an a| cell with a block attribute line, is a block
