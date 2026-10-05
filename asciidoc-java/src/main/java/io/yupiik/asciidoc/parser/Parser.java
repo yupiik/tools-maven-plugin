@@ -1789,7 +1789,7 @@ public class Parser {
                 }
                 case '~' -> {
                     if (line.length() > i + 1 && line.charAt(i + 1) == '~') { // ~~strikethrough~~ (Markdown)
-                        final int end = line.indexOf("~~", i + 2);
+                        final int end = adjacentBlankAwareEnd(line, i, '~', "~~", i + 2);
                         if (end > 0) {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
@@ -1810,7 +1810,7 @@ public class Parser {
                             start = end + 2;
                         }
                     } else {
-                        final int end = line.indexOf('~', i + 1);
+                        final int end = adjacentBlankAwareEnd(line, i, '~');
                         if (end > 0) {
                             String options = null;
                             if (i > 0 && ']' == line.charAt(i - 1)) {
@@ -1833,7 +1833,7 @@ public class Parser {
                     }
                 }
                 case '^' -> {
-                    final int end = line.indexOf('^', i + 1);
+                    final int end = adjacentBlankAwareEnd(line, i, '^');
                     if (end > 0) {
                         String options = null;
                         if (i > 0 && ']' == line.charAt(i - 1)) {
@@ -2213,6 +2213,28 @@ public class Parser {
 
     private boolean isWordCharacter(final char c) {
         return c == '_' || Character.isLetterOrDigit(c);
+    }
+
+    // the closing mark of a sub/sup (~, ^) or strikethrough (~~) pair, or -1 when the pair does not open or never closes.
+    // as in asciidoctor, their text must be continuous: the opening mark cannot be followed by a blank and the closing
+    // one cannot be preceded by one, so '~foo bar ~dummy' stays text whereas '~foo bar~ dummy' is subscript. unlike the
+    // constrained pairs, the marks stay unconstrained: they open and close inside words (H~2~O) and a mark that cannot
+    // close is just skipped for the next one
+    private int adjacentBlankAwareEnd(final String line, final int markerStart, final char marker) {
+        return adjacentBlankAwareEnd(line, markerStart, marker, String.valueOf(marker), markerStart + 1);
+    }
+
+    private int adjacentBlankAwareEnd(final String line, final int markerStart, final char marker, final String markerStr, final int from) {
+        if (markerStart + markerStr.length() >= line.length() || Character.isWhitespace(line.charAt(markerStart + markerStr.length()))) {
+            return -1;
+        }
+        for (int end = line.indexOf(markerStr, from); end > 0; end = line.indexOf(markerStr, end + 1)) {
+            if (Character.isWhitespace(line.charAt(end - 1))) {
+                continue;
+            }
+            return end;
+        }
+        return -1;
     }
 
     // a +text+, ++text++ or +++text+++ passthrough of a code span, its text sitting between start + signs and end - signs
