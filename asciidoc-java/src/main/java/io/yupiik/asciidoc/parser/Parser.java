@@ -3740,13 +3740,43 @@ public class Parser {
         final var value = new StringBuilder();
         final var positional = new ArrayList<String>();
         boolean quoted = false;
+        boolean singleQuoted = false;
+        boolean afterSingleQuote = false;
+        int singleQuoteStart = -1;
         boolean inKey = true;
         for (int i = 0; i < options.length(); i++) {
             final char c = options.charAt(i);
-            if (c == '"') {
+            if (singleQuoted) { // as asciidoctor, \' is a quote inside the value, which ends at its closing quote
+                if (c == '\'') {
+                    singleQuoted = false;
+                    afterSingleQuote = true;
+                    if (!key.isEmpty() && !value.isEmpty()) { // an empty value sets nothing, as an absent one
+                        map.put(key.toString(), dropLegacyPassthroughMarkers(value.toString()));
+                    }
+                    key.setLength(0);
+                    value.setLength(0);
+                    inKey = true;
+                } else if (c == '\\' && i + 1 < options.length() && options.charAt(i + 1) == '\'') {
+                    value.append('\'');
+                    i++;
+                } else {
+                    value.append(c);
+                }
+                if (singleQuoted && i >= options.length() - 1) { // never closed: as asciidoctor, the quote stays text
+                    singleQuoted = false;
+                    value.setLength(0);
+                    value.append('\'');
+                    i = singleQuoteStart;
+                }
+            } else if (afterSingleQuote) { // as asciidoctor, the text between the closing quote and the next ',' is not the value
+                afterSingleQuote = c != ',';
+            } else if (c == '"') {
                 quoted = !quoted;
             } else if (quoted) {
                 (inKey ? key : value).append(c);
+            } else if (c == '\'' && !inKey && value.isEmpty() && i + 1 < options.length()) { // as asciidoctor, it quotes the value it starts
+                singleQuoted = true;
+                singleQuoteStart = i;
             } else if (c == '=') {
                 inKey = false;
             } else if (c == ',') {
