@@ -95,6 +95,51 @@ class ParserTest {
                 body.children());
     }
 
+    @Test
+    void inlineMacroTextKeepsItsSingleQuotes() { // asciidoctor reads the text of an xref or an unknown macro as written
+        final var body = new Parser().parseBody("xref:other.adoc['Getting started'] and tooltip:x['hint']", new Parser.ParserContext(null));
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Macro("xref", "other.adoc", Map.of("", "'Getting started'"), true),
+                        new Text(List.of(), " and ", Map.of()),
+                        new Macro("tooltip", "x", Map.of("", "'hint'"), true)), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void singleQuotedNamedValueInAMacroAndUnclosedQuote() { // as asciidoctor, window='_blank' gives _blank, a quote never closed stays text
+        final var body = new Parser().parseBody("See link:https://example.org[the site,window='_blank'].\n\n[title='unclosed]\nText.",
+                new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "See ", Map.of()),
+                                new Link("https://example.org",
+                                        new Text(List.of(), "the site", Map.of("", "the site", "nowrap", "true", "window", "_blank")),
+                                        Map.of("", "the site", "nowrap", "true", "window", "_blank")),
+                                new Text(List.of(), ".", Map.of())), Map.of()),
+                        new Text(List.of(), "Text.", Map.of("title", "'unclosed"))),
+                body.children());
+    }
+
+    @Test
+    void singleQuotedValueEdgeCases() { // an empty value sets nothing, and an escaped quote closes nothing, as in asciidoctor
+        final var body = new Parser().parseBody("[role='']\nA.\n\n[title='It\\'s,role=x]\nB.", new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "A.", Map.of()),
+                        new Text(List.of(), "B.", Map.of("title", "'It\\'s", "role", "x"))),
+                body.children());
+    }
+
+    @Test
+    void textAfterAClosingSingleQuoteIsNotTheStyle() { // as asciidoctor, [title='It's'] gives the title It, and the block keeps its style
+        final var body = new Parser().parseBody("[title='It's',role=x]\n====\na\n====", new Parser.ParserContext(null));
+        assertEquals(
+                List.of(new OpenBlock(List.of(new Text(List.of(), "a", Map.of())), Map.of("role", "x", "title", "It", "", "example"))),
+                body.children());
+    }
+
     // crd-ref-docs uses this kind of formatting
     @Test
     public void tableWithContinuation() {

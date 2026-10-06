@@ -4214,6 +4214,38 @@ class AsciidoctorLikeHtmlRendererTest {
                 """, renderer.result());
     }
 
+    @Test
+    void singleQuotedBlockAttributeValues() { // as asciidoctor, the quotes are not part of the value and protect its commas
+        assertRenderingContent("""
+                        [id='build-items']
+                        == Build items
+
+                        [title='Producing, consuming']
+                        A paragraph.
+
+                        [title='It\\'s a build step']
+                        A step.""",
+                """
+                         <div class="sect1">
+                          <h2 id="build-items">Build items</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                          <div class="title">Producing, consuming</div>
+                         <p>
+                        A paragraph.
+                         </p>
+                         </div>
+                         <div class="paragraph">
+                          <div class="title">It's a build step</div>
+                         <p>
+                        A step.
+                         </p>
+                         </div>
+                         </div>
+                         </div>
+                        """);
+    }
+
     private void assertRenderingContainsLines(final String adoc, final String... lines) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
