@@ -3180,8 +3180,7 @@ class ParserTest {
 
     @Test
     void tableMultiple() {
-        final var body = new Parser().parseBody(
-                new Reader(List.of("""
+        final var table = List.of("""
                         [cols="1a,1"]
                         |===
                         |Cell in column 1, row 1
@@ -3195,9 +3194,21 @@ class ParserTest {
                         |Cell in column 1, row 2
                         |Cell in column 2, row 2
                         |===                    
-                        """.split("\n"))),
-                null);
-        assertEquals(
+                        """.split("\n"));
+        assertEquals( // each paragraph of an a| cell stays a Paragraph, as in an admonition or a list item
+                List.of(new Table(List.of(
+                        List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "Cell in column 1, row 1", Map.of())), Map.of()),
+                                        new Code("public class Foo {\n}\n", Map.of("language", "java"), false, List.of())
+                                ), Map.of()),
+                                new Text(List.of(), "Cell in column 2, row 1", Map.of())),
+                        List.of(
+                                new Text(List.of(), "Cell in column 1, row 2", Map.of()),
+                                new Text(List.of(), "Cell in column 2, row 2", Map.of()))
+                ), Map.of("cols", "1a,1"))),
+                new Parser().parseBody(new Reader(table), null).children());
+        assertEquals( // keep-paragraphs=false gives the model of the versions before it
                 List.of(new Table(List.of(
                         List.of(
                                 new Paragraph(List.of(
@@ -3209,7 +3220,7 @@ class ParserTest {
                                 new Text(List.of(), "Cell in column 1, row 2", Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 2", Map.of()))
                 ), Map.of("cols", "1a,1"))),
-                body.children());
+                new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(table), null).children());
     }
 
     @Test
@@ -3371,7 +3382,7 @@ class ParserTest {
 
     @Test
     void tableRowsByColumnCount() { // the shape of the generated configuration and build item tables
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var table = List.of("""
                 [cols="2,1"]
                 |===
 
@@ -3394,8 +3405,27 @@ class ParserTest {
 
                 -- a|int
                 |===
-                """.split("\n"))), null);
-        assertEquals(
+                """.split("\n"));
+        assertEquals( // each paragraph of an a| cell stays a Paragraph, so the renderers write the property name as a paragraph
+                List.of(new Table(List.of(
+                        List.of(
+                                new Text(List.of(), "Property", Map.of("role", "header")),
+                                new Text(List.of(), "Type", Map.of("role", "header"))),
+                        List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Code("quarkus.foo", Map.of(), true, List.of())), Map.of()),
+                                        new OpenBlock(List.of(new Text(List.of(), "The description.", Map.of())), Map.of("role", "description"))), Map.of()),
+                                new Text(List.of(), "boolean", Map.of())),
+                        List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Code("quarkus.bar", Map.of(), true, List.of())), Map.of()),
+                                        new OpenBlock(List.of(new UnOrderedList(List.of(
+                                                new Text(List.of(), "one", Map.of()),
+                                                new Text(List.of(), "two", Map.of())), Map.of())), Map.of("role", "description"))), Map.of()),
+                                new Text(List.of(), "int", Map.of()))
+                ), Map.of("cols", "2,1", "noheader-option", ""))),
+                new Parser().parseBody(new Reader(table), null).children());
+        assertEquals( // keep-paragraphs=false gives the model of the versions before it
                 List.of(new Table(List.of(
                         List.of(
                                 new Text(List.of(), "Property", Map.of("role", "header")),
@@ -3413,7 +3443,7 @@ class ParserTest {
                                                 new Text(List.of(), "two", Map.of())), Map.of())), Map.of("role", "description"))), Map.of()),
                                 new Text(List.of(), "int", Map.of()))
                 ), Map.of("cols", "2,1", "noheader-option", ""))),
-                body.children());
+                new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(table), null).children());
     }
 
     @Test
@@ -3434,6 +3464,164 @@ class ParserTest {
                         List.of(new Text(List.of(), "z", Map.of()), new Text(List.of(), "w", Map.of()))
                 ), Map.of("cols", "3*"))),
                 body.children());
+    }
+
+    @Test
+    void tableRowsInAConditional() { // as asciidoctor's preprocessor, the directive is read with the rows and the rows of the branch that holds stay (#190)
+        final var table = """
+                [cols="1,1"]
+                |===
+                |Database |Driver
+
+                |postgresql
+                |PgDriver
+
+                ifndef::no-db2[]
+                |db2
+                |DB2Driver
+                endif::no-db2[]
+                |===
+                """;
+        final List<Element> header = List.of(new Text(List.of(), "Database", Map.of()), new Text(List.of(), "Driver", Map.of()));
+        final List<Element> postgresql = List.of(new Text(List.of(), "postgresql", Map.of()), new Text(List.of(), "PgDriver", Map.of()));
+        final List<Element> db2 = List.of(new Text(List.of(), "db2", Map.of()), new Text(List.of(), "DB2Driver", Map.of()));
+        assertEquals( // the attribute of the parser hides the row
+                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"))),
+                new Parser(Map.of("no-db2", "")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+        assertEquals( // an attribute entry before the table hides the row
+                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"))),
+                new Parser().parseBody(new Reader(List.of((":no-db2:\n\n" + table).split("\n"))), null).children());
+        assertEquals( // the attribute is not set: the row stays, without the directive lines
+                List.of(new Table(List.of(header, postgresql, db2), Map.of("cols", "1,1"))),
+                new Parser().parseBody(new Reader(List.of(table.split("\n"))), null).children());
+    }
+
+    @Test
+    void tableRowsInAConditionalBranches() { // the inline form, nested directives, elsif, else and ifeval, as elsewhere in the document
+        final var table = """
+                |===
+                |A |B
+
+                ifdef::foo[|C |D]
+                ifdef::foo[]
+                |E |F
+                ifdef::bar[]
+                |G |H
+                endif::[]
+                elsif::baz[]
+                |I |J
+                else::[]
+                |K |L
+                endif::[]
+                ifeval::[{v} > 1]
+                |M |N
+                endif::[]
+                |===
+                """;
+        final List<Element> ab = List.of(new Text(List.of(), "A", Map.of()), new Text(List.of(), "B", Map.of()));
+        assertEquals(
+                List.of(new Table(List.of(
+                        ab,
+                        List.<Element>of(new Text(List.of(), "C", Map.of()), new Text(List.of(), "D", Map.of())),
+                        List.<Element>of(new Text(List.of(), "E", Map.of()), new Text(List.of(), "F", Map.of())),
+                        List.<Element>of(new Text(List.of(), "M", Map.of()), new Text(List.of(), "N", Map.of()))), Map.of())),
+                new Parser(Map.of("foo", "", "v", "2")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+        assertEquals( // the nested block ends right where the branch ends: the elsif, else and endif lines are skipped
+                List.of(new Table(List.of(
+                        ab,
+                        List.<Element>of(new Text(List.of(), "C", Map.of()), new Text(List.of(), "D", Map.of())),
+                        List.<Element>of(new Text(List.of(), "E", Map.of()), new Text(List.of(), "F", Map.of())),
+                        List.<Element>of(new Text(List.of(), "G", Map.of()), new Text(List.of(), "H", Map.of()))), Map.of())),
+                new Parser(Map.of("foo", "", "bar", "", "v", "1")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+        assertEquals(
+                List.of(new Table(List.of(
+                        ab,
+                        List.<Element>of(new Text(List.of(), "I", Map.of()), new Text(List.of(), "J", Map.of()))), Map.of())),
+                new Parser(Map.of("baz", "", "v", "1")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+        assertEquals(
+                List.of(new Table(List.of(
+                        ab,
+                        List.<Element>of(new Text(List.of(), "K", Map.of()), new Text(List.of(), "L", Map.of()))), Map.of())),
+                new Parser(Map.of("v", "1")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+    }
+
+    @Test
+    void blankBracketsAreTheInlineForm() { // as asciidoctor, ifdef::a[ ] holds the content " ", it opens no block
+        final var table = List.of("|===", "|x", "ifdef::a[ ]", "|y", "endif::[]", "|z", "|===");
+        final List<List<Element>> xyz = List.of(
+                List.of(new Text(List.of(), "x", Map.of())),
+                List.of(new Text(List.of(), "y", Map.of())),
+                List.of(new Text(List.of(), "z", Map.of())));
+        assertEquals( // the row after it stays; the endif::[] closes no block and is a line of that cell (asciidoctor drops it with a warning)
+                List.of(new Table(List.of(
+                        xyz.get(0),
+                        List.<Element>of(new Paragraph(List.of(new Text(List.of(), "y", Map.of()), new Macro("endif", "", Map.of(), false)), Map.of())),
+                        xyz.get(2)), Map.of())),
+                new Parser().parseBody(new Reader(table), null).children());
+        assertEquals( // with the attribute set, the content " " is a blank line of the table
+                List.of(new Table(xyz, Map.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(List.of("|===", "|x", "ifdef::a[ ]", "|y", "|z", "|===")), null).children());
+    }
+
+    @Test
+    void malformedDirectivesInATableAreText() { // as asciidoctor, a directive without a target, or with a blank in it, is no directive
+        final var endif = new Macro("endif", "", Map.of(), false);
+        final var missingTarget = (Table) new Parser(Map.of("a", ""))
+                .parseBody(new Reader(List.of("|===", "|x", "ifdef::[]", "|y", "endif::[]", "|===")), null)
+                .children().get(0);
+        assertEquals(2, missingTarget.elements().size()); // both rows stay, the directive line is a line of the first cell
+        assertEquals(new Text(List.of(), "x", Map.of()), ((Paragraph) missingTarget.elements().get(0).get(0)).children().get(0));
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.<Element>of(new Text(List.of(), "x ifdef::a b[]", Map.of())),
+                        List.<Element>of(new Paragraph(List.of(new Text(List.of(), "y", Map.of()), endif), Map.of()))), Map.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(List.of("|===", "|x", "ifdef::a b[]", "|y", "endif::[]", "|===")), null).children());
+    }
+
+    @Test
+    void tableHeaderDecidedAfterCommentsAndDirectives() { // as asciidoctor: no header when a blank line follows |===, the comments skipped and the directives evaluated
+        final List<List<Element>> rows = List.of(
+                List.of(new Text(List.of(), "a", Map.of()), new Text(List.of(), "b", Map.of())),
+                List.of(new Text(List.of(), "c", Map.of()), new Text(List.of(), "d", Map.of())));
+        assertEquals(
+                List.of(new Table(rows, Map.of("noheader-option", ""))),
+                new Parser().parseBody(new Reader(List.of("|===", "// c", "", "|a |b", "", "|c |d", "|===")), null).children());
+        assertEquals( // the blank line inside the branch that does not hold does not count
+                List.of(new Table(rows, Map.of())),
+                new Parser().parseBody(new Reader(List.of("|===", "ifdef::foo[]", "|x |y", "", "endif::[]", "|a |b", "", "|c |d", "|===")), null).children());
+        assertEquals(
+                List.of(new Table(rows, Map.of("noheader-option", ""))),
+                new Parser().parseBody(new Reader(List.of("|===", "ifdef::foo[]", "|x |y", "endif::[]", "", "|a |b", "", "|c |d", "|===")), null).children());
+    }
+
+    @Test
+    void tableCellLinesInAConditional() { // in a cell, the lines of the branch that holds join the cell text, as in a paragraph
+        final var table = """
+                [cols="1a,1"]
+                |===
+                |Before
+                ifdef::foo[]
+                shown
+                endif::[]
+                after
+                |Second
+
+                |Third
+                |Fourth
+                |===
+                """;
+        final var second = new Text(List.of(), "Second", Map.of());
+        final List<Element> third = List.of(new Text(List.of(), "Third", Map.of()), new Text(List.of(), "Fourth", Map.of()));
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.<Element>of(new Text(List.of(), "Before shown after", Map.of()), second),
+                        third), Map.of("cols", "1a,1"))),
+                new Parser(Map.of("foo", "")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.<Element>of(new Text(List.of(), "Before after", Map.of()), second),
+                        third), Map.of("cols", "1a,1"))),
+                new Parser().parseBody(new Reader(List.of(table.split("\n"))), null).children());
     }
 
     @Test
@@ -4743,6 +4931,137 @@ class ParserTest {
         final var after = spans.values().stream().filter(it -> "after".equals(it.source())).findFirst().orElseThrow();
         assertEquals(main, after.file());
         assertEquals(8, after.startLine());
+    }
+
+    @Test
+    void sourceListenerAfterAConditionalTheParserEvaluated() { // the branch lines are read again in place, the line numbers are the ones of the file
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        new Parser().parse("""
+                = Title
+                :a: 1
+                ifdef::a[]
+                :b: 2
+                endif::[]
+
+                |===
+                |a |b
+
+                ifndef::no-db2[]
+                |c |d
+                endif::no-db2[]
+                |===
+
+                after
+                """, new Parser.ParserContext(null, spans::put));
+        assertSpan(spans, "|===\n|a |b\n\nifndef::no-db2[]\n|c |d\nendif::no-db2[]\n|===", 7, 13);
+        assertSpan(spans, "after", 15, 15);
+    }
+
+    @Test
+    void sourceListenerForTheBodyLinesOfAHeaderConditional() { // the branch lines keep their own numbers and text
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        final var doc = new Parser().parse("""
+                = Title
+                :a: 1
+                ifdef::a[]
+                :b: 2
+
+                first {b}
+                endif::[]
+
+                after
+                """, new Parser.ParserContext(null, spans::put));
+        assertEquals("2", doc.header().attributes().get("b"));
+        assertEquals(List.of(
+                new Text(List.of(), "first 2", Map.of()),
+                new Text(List.of(), "after", Map.of())), doc.body().children());
+        assertSpan(spans, "first {b}", 6, 6);
+        assertSpan(spans, "after", 9, 9);
+    }
+
+    @Test
+    void sourceListenerForATableInAHeaderConditionalWithAConditionalRow() { // a conditional nested in the branch read again
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        final var doc = new Parser().parse("""
+                = Title
+                :a: 1
+                ifdef::a[]
+
+                |===
+                |x
+                ifdef::a[]
+                |y
+                endif::[]
+                |===
+                next
+                endif::[]
+
+                after
+                """, new Parser.ParserContext(null, spans::put));
+        assertEquals(3, doc.body().children().size());
+        assertEquals(2, ((Table) doc.body().children().get(0)).elements().size());
+        assertSpan(spans, "|===\n|x\nifdef::a[]\n|y\nendif::[]\n|===", 5, 10);
+        assertSpan(spans, "next", 11, 11);
+        assertSpan(spans, "after", 14, 14);
+    }
+
+    @Test
+    void unterminatedConditionalInATableWarns() { // as asciidoctor, the rest of the document is the branch and a warning says so
+        final var warnings = new ArrayList<String>();
+        final var parser = new Parser(new Parser.Configuration().setWarning(warnings::add));
+        final var body = parser.parseBody("""
+                |===
+                |a
+                ifdef::foo[]
+                |b
+                |===
+
+                after
+                """, new Parser.ParserContext(null, null));
+        assertEquals(List.of(new Table(List.of(List.of(new Text(List.of(), "a", Map.of()))), Map.of())), body.children());
+        assertEquals(List.of("Unterminated preprocessor conditional: 'ifdef::foo[]'"), warnings);
+
+        warnings.clear();
+        assertEquals(2, parser.parseBody("""
+                |===
+                |a
+                ifdef::foo[]
+                |b
+                endif::[]
+                |===
+
+                after
+                """, new Parser.ParserContext(null, null)).children().size());
+        assertEquals(List.of(), warnings);
+    }
+
+    @Test
+    void blockAttributesInTheLinesOfAHeaderConditional() { // the block attribute line before a section title is given back, as outside a conditional
+        final var plain = """
+                = Title
+
+                == First
+
+                [role=x]
+                para
+
+                == Second
+                """;
+        final var conditional = """
+                = Title
+                ifndef::nope[]
+
+                == First
+
+                [role=x]
+                para
+
+                == Second
+                endif::[]
+                """;
+        final var expected = new Parser().parse(plain, new Parser.ParserContext(null, null)).body();
+        assertEquals(2, expected.children().size());
+        assertEquals(expected, new Parser().parse(conditional, new Parser.ParserContext(null, null)).body());
     }
 
     private void assertSpan(final Map<Element, SourceSpan> spans, final String source, final int start, final int end) {

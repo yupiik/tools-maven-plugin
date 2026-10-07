@@ -881,24 +881,23 @@ public class Parser {
                 .map(this::parseColumnStyles)
                 .orElse(List.of());
 
-        // Implicit header detection: blank lines between |=== and first row means no header
-        final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
-        if (!tableOptions.containsKey("header-option") && !tableOptions.containsKey("noheader-option")) {
-            final var afterToken = reader.nextLine();
-            if (afterToken != null && afterToken.isBlank()) {
-                tableOptions.put("noheader-option", "");
-            }
-            if (afterToken != null) {
-                reader.rewind();
-            }
-        }
-
         final var lines = new ArrayList<String>();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
+            if (rereadConditionalLines(next, reader, currentAttributes)) { // the cells never see the directives
+                continue;
+            }
             if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
                 lines.add(next.stripTrailing());
             }
+        }
+
+        // a blank line after the |=== line means no header, decided once the comments are skipped and the conditional
+        // directives evaluated, so a directive before the first row does not make a header of it
+        final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
+        if (tableOptions.get("header-option") == null && tableOptions.get("noheader-option") == null &&
+                !lines.isEmpty() && lines.get(0).isEmpty()) {
+            tableOptions.put("noheader-option", "");
         }
 
         final var cells = new TableCells(enclosingDocument, columnStyles, reader, resolver, currentAttributes);
@@ -1034,7 +1033,7 @@ public class Parser {
                               final ContentResolver resolver, final Map<String, String> currentAttributes) {
         return switch (style) {
             case "a" -> {
-                final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, true, false);
+                final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
                 yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
             }
             case "e" -> withTextStyle(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), EMPHASIS);
@@ -2674,10 +2673,10 @@ public class Parser {
     }
 
     // a conditional directive as written, with its lines still unparsed: it is read once by readConditional() for the
-    // body, which parses the lines into a ConditionalBlock the renderer evaluates, and for the header, which evaluates
-    // the conditions itself and gives the lines of the first matching branch back to its reader
+    // body, which parses the lines into a ConditionalBlock the renderer evaluates, and for the header and the tables,
+    // which evaluate the conditions themselves and read the lines of the first matching branch again
     private record Conditional(Predicate<ConditionalBlock.Context> condition, List<String> content,
-                               List<Conditional> elseBranches, Map<String, String> options) {}
+                               List<Conditional> elseBranches, Map<String, String> options, int start) {}
 
     private Conditional readConditional(final Macro macro, final String enclosed, final Reader reader,
                                         final Map<String, String> currentAttributes) {
@@ -2688,9 +2687,10 @@ public class Parser {
             default -> throw new IllegalArgumentException("Unknown conditional type: " + macro.name());
         };
         // ifdef::attr[content] is the inline form: the content sits in the brackets and there is no endif::[],
-        // so nothing more is read from the document; ifeval has no inline form, its brackets hold the condition
-        if (!"ifeval".equals(macro.name()) && !enclosed.isBlank()) {
-            return new Conditional(condition, List.of(enclosed), List.of(), Map.of());
+        // so nothing more is read from the document, and as asciidoctor a blank content is content too;
+        // ifeval has no inline form, its brackets hold the condition
+        if (!"ifeval".equals(macro.name()) && !enclosed.isEmpty()) {
+            return new Conditional(condition, List.of(enclosed), List.of(), Map.of(), -1);
         }
 
         final var content = new ArrayList<String>();
@@ -2698,6 +2698,7 @@ public class Parser {
         final var openNames = new ArrayList<String>(); // as asciidoctor, an endif closes the last block opened
         openNames.add(macro.label());
         var current = content;
+        final int start = reader.getLineOffset(); // the directive line is read, the branch starts here
         String next;
         while ((next = reader.nextLine()) != null) {
             final var stripped = next.strip();
@@ -2716,16 +2717,92 @@ public class Parser {
                 }
             } else if (openNames.size() == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
                 current = new ArrayList<>(); // the lines up to the next branch or to the endif::[]
-                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of()));
+                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of(), reader.getLineOffset()));
                 continue;
-            } else if ((next.startsWith("ifdef::") || next.startsWith("ifndef::") || next.startsWith("ifeval::")) && bracket > 0 && stripped.endsWith("]")) {
-                if (next.startsWith("ifeval::") || bracket == stripped.length() - "[]".length()) { // ifdef::name[content] has no endif
-                    openNames.add(stripped.substring(stripped.indexOf("::") + "::".length(), bracket));
+            } else {
+                final var nested = conditionalDirective(next);
+                if (nested != null && ("ifeval".equals(nested.macro().name()) || nested.enclosed().isEmpty())) { // ifdef::name[content] has no endif
+                    openNames.add(nested.macro().label());
                 }
             }
             current.add(next);
         }
-        return new Conditional(condition, content, elseBranches, macro.options());
+        if (next == null) { // as asciidoctor, the rest of the document is the branch, with a warning
+            warning.accept("Unterminated preprocessor conditional: '" + macro.name() + "::" + macro.label() + "[]'" +
+                    (reader.getFile() == null ? "" : " in '" + reader.getFile() + "'"));
+        }
+        return new Conditional(condition, content, elseBranches, macro.options(), start);
+    }
+
+    // the parser evaluated the conditional it just read: the reader reads the lines of the first branch whose
+    // condition holds again, at their place in the document; the inline form ifdef::name[content] has its content
+    // in place of the directive line; when no branch holds, the reader goes on after the block
+    private void rereadHoldingBranch(final Conditional conditional, final ConditionalBlock.Context context, final Reader reader) {
+        final var branch = holdingBranch(conditional, context);
+        if (branch == null) {
+            return;
+        }
+        if (branch.start() < 0) {
+            reader.setPreviousValue(branch.content().get(0));
+            reader.rewind();
+            return;
+        }
+        reader.reread(branch.start(), branch.start() + branch.content().size()); // the nested directive lines count too
+    }
+
+    // the first branch whose condition holds, null when none holds
+    private Conditional holdingBranch(final Conditional conditional, final ConditionalBlock.Context context) {
+        if (conditional.condition().test(context)) {
+            return conditional;
+        }
+        for (final var branch : conditional.elseBranches()) {
+            if (branch.condition().test(context)) {
+                return branch;
+            }
+        }
+        return null;
+    }
+
+    // a conditional directive line as asciidoctor's preprocessor reads it: name::target[text], from the first column
+    // to the end of the line, the target without blanks, required for ifdef and ifndef and absent for ifeval; else null
+    // and the line stays text, where asciidoctor keeps a target with a blank as text and drops a missing or forbidden
+    // target with a message
+    private Directive conditionalDirective(final String line) {
+        if (!line.startsWith("ifdef::") && !line.startsWith("ifndef::") && !line.startsWith("ifeval::")) {
+            return null;
+        }
+        final var stripped = line.strip();
+        final int bracket = stripped.indexOf('[');
+        if (bracket < 0 || !stripped.endsWith("]")) {
+            return null;
+        }
+        final int sep = stripped.indexOf("::");
+        final var target = stripped.substring(sep + "::".length(), bracket);
+        for (int i = 0; i < target.length(); i++) {
+            if (Character.isWhitespace(target.charAt(i))) {
+                return null;
+            }
+        }
+        final boolean ifeval = stripped.startsWith("ifeval::");
+        if (target.isEmpty() != ifeval) { // ifeval has no target, the two others need one
+            return null;
+        }
+        return new Directive(
+                new Macro(stripped.substring(0, sep), target, Map.of(), false),
+                stripped.substring(bracket + 1, stripped.length() - 1));
+    }
+
+    // as asciidoctor's preprocessor, a conditional directive among the lines of a table is evaluated when the line is
+    // read, with the attributes known at that point, and the lines of the branch that holds go back to the reader,
+    // so the rows and cells are parsed without the directives and a renderer attribute does not change them (#190)
+    private boolean rereadConditionalLines(final String line, final Reader reader, final Map<String, String> currentAttributes) {
+        final var directive = conditionalDirective(line);
+        if (directive == null) {
+            return false;
+        }
+        final var conditional = readConditional(directive.macro(), directive.enclosed(), reader, currentAttributes);
+        rereadHoldingBranch(conditional, key -> currentAttributes.getOrDefault(key, globalAttributes.get(key)), reader);
+        return true;
     }
 
     // else::[] always holds, elsif::name[] is an ifdef on its name
@@ -3535,19 +3612,8 @@ public class Parser {
                     }));
                 }
             } else if (isBlockMacro(line)) {
-                // simplistic macro handling, mainly for conditional blocks since we still are in headers,
-                // HEADER_MACRO guarantees the "::" and the trailing "[...]" so no need to guard the indexes
-                final var stripped = line.strip();
-                final int sep = stripped.indexOf("::");
-                final int options = stripped.indexOf('[', sep);
-                final var macro = new Macro(
-                        stripped.substring(0, sep),
-                        stripped.substring(sep + "::".length(), options),
-                        Map.of(), false);
-                // what sits in the brackets: empty for the block form (it is closed by a endif::[]),
-                // the conditioned content itself for the inline form of ifdef/ifndef which has no endif::[]
-                final var enclosed = stripped.substring(options + 1, stripped.length() - 1);
-                if ("ifdef".equals(macro.name()) || "ifndef".equals(macro.name()) || "ifeval".equals(macro.name())) {
+                final var directive = conditionalDirective(line);
+                if (directive != null) {
                     final var ctx = new ConditionalBlock.Context() {
                         @Override
                         public String attribute(final String key) { // the header ones read before the author line count too
@@ -3556,19 +3622,20 @@ public class Parser {
                     };
                     // the lines of the first branch whose condition holds go back to the loop, they are header lines
                     // as any other, and either way the header does not end here
-                    final var conditional = readConditional(macro, enclosed, reader, attributes);
-                    if (conditional.condition().test(ctx)) {
-                        reader.insert(conditional.content());
-                    } else {
-                        for (final var branch : conditional.elseBranches()) {
-                            if (branch.condition().test(ctx)) {
-                                reader.insert(branch.content());
-                                break;
-                            }
-                        }
-                    }
+                    rereadHoldingBranch(readConditional(directive.macro(), directive.enclosed(), reader, attributes), ctx, reader);
                     continue;
-                } else if ("include".equals(macro.name()) && !macro.label().isEmpty() && enclosed.isEmpty()) {
+                }
+                // simplistic macro handling for the include since we still are in headers,
+                // HEADER_MACRO guarantees the "::" and the trailing "[...]" so no need to guard the indexes
+                final var stripped = line.strip();
+                final int sep = stripped.indexOf("::");
+                final int options = stripped.indexOf('[', sep);
+                final var macro = new Macro(
+                        stripped.substring(0, sep),
+                        stripped.substring(sep + "::".length(), options),
+                        Map.of(), false);
+                final var enclosed = stripped.substring(options + 1, stripped.length() - 1);
+                if ("include".equals(macro.name()) && !macro.label().isEmpty() && enclosed.isEmpty()) {
                     doInclude(enclosingElement, macro, resolver, attributes, true);
                     continue;
                 }
@@ -4109,5 +4176,10 @@ public class Parser {
     }
 
     private record ResolvedAuthors(List<Author> authors, AuthorSource source) {
+    }
+
+    // a conditional directive: the macro and what sits in its brackets, which is the condition of an ifeval and the
+    // content of the inline form ifdef::name[content]
+    private record Directive(Macro macro, String enclosed) {
     }
 }

@@ -3538,6 +3538,171 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void tableRowInAConditional() { // the directive lines leave nothing in the cells, the row shows only when the condition holds (#190)
+        final var table = """
+                |===
+                | A1 | B1
+
+                | A2 | B2
+
+                ifndef::no-db2[]
+                | A3 | B3
+                endif::no-db2[]
+                |===
+                """;
+        final var header = " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                "  <colgroup>\n" +
+                "  </colgroup>\n" +
+                "  <thead>\n" +
+                "   <tr>\n" +
+                "    <th class=\"tableblock halign-left\">\nA1    </th>\n" +
+                "    <th class=\"tableblock halign-left\">\nB1    </th>\n" +
+                "   </tr>\n" +
+                "  </thead>\n" +
+                "  <tbody>\n" +
+                "   <tr>\n" +
+                "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA2</p>\n" +
+                "    </td>\n" +
+                "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nB2</p>\n" +
+                "    </td>\n" +
+                "   </tr>\n";
+        assertRenderingContent(":no-db2:\n\n" + table, header +
+                "  </tbody>\n" +
+                " </table>\n");
+        assertRenderingContent(table, header +
+                "   <tr>\n" +
+                "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nA3</p>\n" +
+                "    </td>\n" +
+                "    <td class=\"tableblock halign-left\">\n<p class=\"tableblock\">\nB3</p>\n" +
+                "    </td>\n" +
+                "   </tr>\n" +
+                "  </tbody>\n" +
+                " </table>\n");
+    }
+
+    @Test
+    void tableCellParagraphOfOneElementAmongBlocks() { // as asciidoctor, each paragraph of an a| cell is a paragraph, even with one element
+        assertRenderingContent("""
+                        Before.
+
+                        [cols="1",options="noheader"]
+                        |===
+                        a|First `one`
+
+                        `second`
+
+                        [.description]
+                        --
+                        Desc.
+                        --
+                        |===
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>
+                        Before.
+                         </p>
+                         </div>
+                         <table class="tableblock frame-all grid-all stretch">
+                          <colgroup>
+                           <col style="width: 100%;">
+                          </colgroup>
+                          <tbody>
+                           <tr>
+                            <td class="tableblock halign-left">
+                        <div class="content">
+                         <div class="paragraph">
+                         <p>First <code>one</code></p>
+                         </div>
+                         <div class="paragraph">
+                         <p><code>second</code></p>
+                         </div>
+                         <div class="openblock description">
+                          <div class="content description">
+                        Desc.  </div>
+                         </div>
+                        </div>
+                            </td>
+                           </tr>
+                          </tbody>
+                         </table>
+                        """);
+    }
+
+    @Test
+    void tableCellParagraphInTheFirstTableOfADocument() { // the paragraph of a cell is nested, so it never becomes the preamble of the document; its <p> waits for the preamble as every nested paragraph does
+        assertRendering("""
+                        = Title
+
+                        [options="noheader"]
+                        |===
+                        a|text
+
+                        * item
+                        |===
+
+                        == Section
+
+                        Body.
+                        """,
+                """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                         <meta charset="UTF-8">
+                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                         <meta name="generator" content="Asciidoctor ">
+                         <title>Title</title>
+                        </head>
+                        <body class="article">
+                         <div id="header">
+                         <h1>Title</h1>
+                         </div>
+                         <div id="content">
+                         <table class="tableblock frame-all grid-all stretch">
+                          <colgroup>
+                          </colgroup>
+                          <tbody>
+                           <tr>
+                            <td class="tableblock halign-left">
+                        <div class="content">
+                         <div class="paragraph">
+                        text </div>
+                         <div class="ulist">
+                         <ul>
+                          <li>
+                         <p>
+                        item
+                         </p>
+                          </li>
+                         </ul>
+                         </div>
+                        </div>
+                            </td>
+                           </tr>
+                          </tbody>
+                         </table>
+                         <div class="sect1">
+                          <h2 id="_section">Section</h2>
+                         <div class="sectionbody">
+                         <div class="paragraph">
+                         <p>
+                        Body.
+                         </p>
+                         </div>
+                         </div>
+                         </div>
+                         </div>
+                         <div id="footer">
+                          <div id="footer-text">
+                          </div>
+                         </div>
+                        </body>
+                        </html>
+                        """);
+    }
+
+    @Test
     void tableColspan() {
         assertRenderingContent("|===\n|2+| Spans two | Last\n|===\n",
                 " <table class=\"tableblock frame-all grid-all stretch\">\n" +
