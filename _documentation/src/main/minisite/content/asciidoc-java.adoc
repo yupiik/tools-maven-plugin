@@ -51,7 +51,7 @@ Set them in the document (`:keep-paragraphs: false`), or pass them to the `Parse
 
 |`keep-paragraphs`
 |`true`
-|Each paragraph of the blocks of an admonition block, a list item or a callout item stays a `Paragraph`, also when it holds one text. `false` gives the model of the versions before this attribute: the parser replaces such a paragraph with its text, so `* **First**` followed by a `+` continuation paragraph `Second` gives the same model as `* **First**Second`.
+|Each paragraph of the blocks of an admonition block, a list item, a callout item or an `a\|` table cell stays a `Paragraph`, also when it holds one text. `false` gives the model of the versions before this attribute: the parser replaces such a paragraph with its text, so `* **First**` followed by a `+` continuation paragraph `Second` gives the same model as `* **First**Second`.
 |===
 
 == Source positions
@@ -60,6 +60,7 @@ The model does not keep the source text of the elements.
 To get it, for example to look each paragraph up in a translation file before rendering, register a `SourceListener` in the `ParserContext`.
 The parser calls it for each block-level element with a `SourceSpan`: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it.
 List items and table cells are read from their own reader, so their line numbers are relative to the item or cell.
+Where the parser evaluates a conditional while it reads, in the header and in a table, an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included; a conditional nested in such a branch is read the same way, one level deep: a third level fails the parse with a message.
 
 [source,java]
 ----
@@ -101,7 +102,7 @@ The Markdown renderer writes each construct as follows:
 |Cross reference to another page (`<<page.adoc#id>>`, `<<page#id>>` or `xref:page.adoc#id[]`)|Link to the rendered page, `relfileprefix` + page + `relfilesuffix`, then `#id`. As asciidoctor reads the `<<...>>` form, the part before the `#` is always a page and a target without `#` is always an id, so `<<page.adoc>>` links the id `page.adoc` where `xref:page.adoc[]` links the page.
 |Table of contents (`:toc:`)|List of links to the sections, where asciidoctor places it: at the top, after the preamble (`:toc: preamble`) or at the `toc::[]` macro (`:toc: macro`).
 |Icon (`icon:lock[]`)|`[lock]`, as asciidoctor writes an icon without an icon font.
-|Conditional (`ifdef::[]`, `ifndef::[]`, `ifeval::[]`)|The content of the branch that holds, where the block is written. As asciidoctor removes the directive lines before parsing, conditional lines inside a paragraph, a list item, a table cell or an admonition stay in that paragraph, joined with a space like its other lines, and a conditional paragraph between blank lines stays a paragraph of its own.
+|Conditional (`ifdef::[]`, `ifndef::[]`, `ifeval::[]`)|The content of the branch that holds, where the block is written. As asciidoctor removes the directive lines before parsing, conditional lines inside a paragraph, a list item or an admonition stay in that paragraph, joined with a space like its other lines, and a conditional paragraph between blank lines stays a paragraph of its own. Inside a table, the parser evaluates the directive while it reads the rows, with the attributes it knows at that point (the document attributes and its own), as asciidoctor's preprocessor does, so an attribute given only to the renderer does not change the rows.
 |====
 
 When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An `include` macro reaching the renderer fails, since the parser resolves includes before rendering. A macro the renderer has no case for, such as `tooltip:foo[a hint]`, is written as text by default, as asciidoctor writes a macro no extension registers: `Configuration.setUnknownMacro(UnknownMacro.IGNORE)` writes nothing, `UnknownMacro.FAIL` throws an `IllegalArgumentException` naming the macro, `UnknownMacro.TEXT` writes the macro as text, and the attribute `yupiik-renderer-githubflavoredmarkdown-unknownMacro`, in the document or in the attributes of the configuration, wins over the option. A subclass renders its own macros in `onMissingMacro`.

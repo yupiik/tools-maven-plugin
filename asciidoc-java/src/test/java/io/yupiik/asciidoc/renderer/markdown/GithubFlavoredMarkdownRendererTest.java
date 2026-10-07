@@ -321,6 +321,56 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void tableRowInAConditional() { // the row shows only when the condition holds, and no directive text reaches a cell (#190)
+        final var table = """
+                [cols="1,1",options="header"]
+                |===
+                |Database |Driver
+
+                |postgresql
+                |PgDriver
+
+                ifndef::no-db2[]
+                |db2
+                |DB2Driver
+                endif::no-db2[]
+                |===
+                """;
+        assertEquals("""
+                        | Database | Driver |
+                        | --- | --- |
+                        | postgresql | PgDriver |
+                        """,
+                md(":no-db2:\n\n" + table));
+        assertEquals("""
+                        | Database | Driver |
+                        | --- | --- |
+                        | postgresql | PgDriver |
+                        | db2 | DB2Driver |
+                        """,
+                md(table));
+    }
+
+    @Test
+    void tableCellParagraphOfOneElementAmongBlocks() { // each paragraph of an a| cell is a paragraph, even with one element
+        assertEquals("""
+                        |  |
+                        | --- |
+                        | text<br><br>`code`<br><br>- item |
+                        """,
+                md("""
+                        [cols="1",options="noheader"]
+                        |===
+                        a|text
+
+                        `code`
+
+                        * item
+                        |===
+                        """));
+    }
+
+    @Test
     void quoteAndCollapsible() {
         final var md = md("""
                 [quote, Someone, Somewhere]

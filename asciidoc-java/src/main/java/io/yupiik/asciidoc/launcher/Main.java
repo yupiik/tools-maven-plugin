@@ -98,7 +98,7 @@ public final class Main {
         }
 
         final var logger = Logger.getLogger(Main.class.getName());
-        final var parser = new Parser(new Parser.Configuration().setWarning(logger::warning));
+        final var parser = new Parser(new Parser.Configuration().setGlobalAttributes(attributes).setWarning(logger::warning));
         configuration.setAttributes(attributes).setAssetsBase(input.getParent());
         if (watch <= 0) {
             doRender(input, parser, resolver, configuration, output, logger);

@@ -117,7 +117,9 @@ public class AsciidocMojo extends AbstractMojo {
     private UnknownMacro unknownMacro;
 
     /**
-     * attributes.
+     * Attributes given to the parser and to the renderer: they resolve the conditional directives the parser evaluates
+     * (in the header and inside a table) and the references of the rendered content, for the names the document does
+     * not set itself, since an attribute entry of the document wins over them.
      */
     @Parameter(property = "yupiik.asciidoc.attributes")
     private Map<String, String> attributes;
@@ -180,7 +182,9 @@ public class AsciidocMojo extends AbstractMojo {
         }
 
         try {
-            final var parser = new Parser(new Parser.Configuration().setWarning(getLog()::warn));
+            final var parser = new Parser(new Parser.Configuration()
+                    .setGlobalAttributes(attributes)
+                    .setWarning(getLog()::warn));
             doRender(input, parser, resolver, output, configuration);
 
             if (watch < 0) {
