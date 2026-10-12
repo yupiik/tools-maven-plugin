@@ -1344,7 +1344,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append(current);
             return;
         }
-        Visitor.super.visitAttribute(element);
+        final var attribute = context().attribute(name);
+        if (attribute == null) { // an unresolvable reference is kept literal, as asciidoctor does
+            builder.append('{').append(name).append('}');
+            return;
+        }
+        element.evaluator().apply(attribute).forEach(this::visitElement);
     }
 
     @Override

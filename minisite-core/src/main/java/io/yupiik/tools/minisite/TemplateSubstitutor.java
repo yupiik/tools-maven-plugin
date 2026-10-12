@@ -22,6 +22,18 @@ import java.util.function.Function;
 
 import static java.util.Optional.ofNullable;
 
+/**
+ * Unused legacy property/placeholder substitution for page content.
+ *
+ * <p>It was intended to render the {@code {$yupiik.minisite.openbracket$}} escape back to a literal
+ * {@code {} in minisite output, but it is not wired into {@link MiniSite} (or any other runtime path), so the
+ * escape is no longer processed. Since the asciidoc-java renderer now keeps literal {@code {{...}}}/{@code {{{...}}}
+ * in page text as-is (matching JRuby asciidoctor), pages no longer need that escape either.</p>
+ *
+ * @deprecated no runtime caller; kept only so the class does not silently disappear. Remove it when the escape is no
+ * longer referenced by any documentation.
+ */
+@Deprecated(forRemoval = true)
 public class TemplateSubstitutor {
     private static final char ESCAPE = '$';
     private static final char[] PREFIX = "{{{".toCharArray();

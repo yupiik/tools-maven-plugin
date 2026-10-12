@@ -1320,6 +1320,27 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void undefinedAndNestedAttributeReferences() { // literal handlebars-like {{...}} and unresolvable {name} stay as-is
+        assertEquals("""
+                soloUndef: {foo}
+
+                dblUndef: {{foo}}
+
+                triUndef: {{{foo}}}
+
+                handlebars: {{#if (eq x "y")}}yes{{/if}}
+                """, md("""
+                soloUndef: {foo}
+
+                dblUndef: {{foo}}
+
+                triUndef: {{{foo}}}
+
+                handlebars: {{#if (eq x "y")}}yes{{/if}}
+                """));
+    }
+
+    @Test
     void escapedAttributeReferenceInALinkTarget() { // the parser substitutes a link url, so the renderer must not do it again
         assertEquals("[label]({name})\n", md(":name: value\n\nlink:\\{name}[label]\n"));
         assertEquals("[label](value)\n", md(":name: value\n\nlink:{name}[label]\n"));

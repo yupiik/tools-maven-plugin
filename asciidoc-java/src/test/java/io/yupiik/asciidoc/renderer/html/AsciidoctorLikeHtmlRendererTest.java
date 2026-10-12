@@ -105,6 +105,25 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void undefinedAndNestedAttributeReferences() { // literal handlebars-like {{...}} and unresolvable {name} stay as-is, as asciidoctor
+        assertRenderingContent("""
+                :name: value
+
+                soloUndef: {foo} here.
+                dblUndef: {{foo}} here.
+                triUndef: {{{foo}}} here.
+                soloDef: {name} here.
+                dblDef: {{name}} here.
+                triDef: {{{name}}} here.
+                handlebars: {{systemProperty "user.name"}} and {{#if (eq x "y")}}yes{{/if}} here.
+                """, """
+                 <div class="paragraph">
+                 <p>soloUndef: {foo} here. dblUndef: {{foo}} here. triUndef: {{{foo}}} here. soloDef: value here. dblDef: {value} here. triDef: {{value}} here. handlebars: {{systemProperty "user.name"}} and {{#if (eq x "y")}}yes{{/if}} here.</p>
+                 </div>
+                """);
+    }
+
+    @Test
     void inlineCodeInDefinitionLst() {
         assertRenderingContent("""
                         `scheduler.tasks` (env: `SCHEDULER_TASKS`)::
