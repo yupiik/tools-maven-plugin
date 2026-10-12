@@ -1830,13 +1830,18 @@ public class Parser {
                 case '{' -> {
                     final int end = line.indexOf('}', i + 1);
                     if (end > 0) {
-                        if (start != i) {
-                            flushText(elements, line.substring(start, i));
-                        }
                         final var attributeName = line.substring(i + 1, end);
-                        elements.add(lazyAttribute(enclosingDocument, attributeName, resolver, currentAttributes, Set.of(attributeName)));
-                        i = end;
-                        start = end + 1;
+                        // nested braces ({{name}}, {{{name}}}) are not a single attribute reference: an attribute name
+                        // never holds a '{', so keep this '{' as literal text and let the inner reference be tokenized
+                        // on next pass - as asciidoctor which resolves one brace at a time
+                        if (attributeName.indexOf('{') < 0) {
+                            if (start != i) {
+                                flushText(elements, line.substring(start, i));
+                            }
+                            elements.add(lazyAttribute(enclosingDocument, attributeName, resolver, currentAttributes, Set.of(attributeName)));
+                            i = end;
+                            start = end + 1;
+                        }
                     }
                 }
                 case '*' -> {
