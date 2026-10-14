@@ -1,156 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <title>Maven</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use &#x60;javax.json&#x60; whereas 1.1.x uses &#x60;jakarta.json&#x60;, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
     <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: light)">
 
-    <link href="//fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Montserrat:300,400,500,700" rel="stylesheet">
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
-    <style>
-        :root {
-            /* YUPIIK colors (from dark to light) */
-            --yupiik-site-green: #46F72F;
-            --yupiik-site-purple: #D858FF;
-            --yupiik-site-blue-light: #02ABEA;
-            --yupiik-site-blue-dark: #056EBB;
-            --yupiik-site-grey-light: #F4F4F4;
-            --yupiik-site-grey-dark: #212121;
-
-            --yupiik-blue1: var(--yupiik-site-blue-dark);
-            --yupiik-blue2: var(--yupiik-site-blue-dark);
-            --yupiik-blue3: var(--yupiik-site-blue-dark);
-
-            --yupiik-color-white: #fff;
-            --yupiik-color-black: #000;
-
-            --yupiik-color-gray-0: var(--yupiik-color-white);
-            --yupiik-color-gray-100: #f5f6f7;
-            --yupiik-color-gray-200: #ebedf0;
-            --yupiik-color-gray-300: #dadde1;
-            --yupiik-color-gray-400: #ccd0d5;
-            --yupiik-color-gray-500: #bec3c9;
-            --yupiik-color-gray-600: #8d949e;
-            --yupiik-color-gray-700: #606770;
-            --yupiik-color-gray-800: #444950;
-            --yupiik-color-gray-900: #1c1e21;
-            --yupiik-color-gray-1000: var(--yupiik-color-black);
-
-            --yupiik-color-emphasis-0: var(--yupiik-color-gray-0);
-            --yupiik-color-emphasis-100: var(--yupiik-color-gray-100);
-            --yupiik-color-emphasis-200: var(--yupiik-color-gray-200);
-            --yupiik-color-emphasis-300: var(--yupiik-color-gray-300);
-            --yupiik-color-emphasis-400: var(--yupiik-color-gray-400);
-            --yupiik-color-emphasis-500: var(--yupiik-color-gray-500);
-            --yupiik-color-emphasis-600: var(--yupiik-color-gray-600);
-            --yupiik-color-emphasis-700: var(--yupiik-color-gray-700);
-            --yupiik-color-emphasis-800: var(--yupiik-color-gray-800);
-            --yupiik-color-emphasis-900: var(--yupiik-color-gray-900);
-            --yupiik-color-emphasis-1000: var(--yupiik-color-gray-1000);
-            --yupiik-color-content: var(--yupiik-color-emphasis-900);
-
-            --yupiik-font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-            --yupiik-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            --yupiik-font-size-base: 100%;
-
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-
-            --yupiik-global-spacing: 1rem;
-            --yupiik-spacing-vertical: var(--yupiik-global-spacing);
-            --yupiik-spacing-horizontal: var(--yupiik-global-spacing);
-
-            --yupiik-h1-font-size: 2rem;
-            --yupiik-h2-font-size: 1.5rem;
-            --yupiik-h3-font-size: 1.25rem;
-            --yupiik-h4-font-size: 1rem;
-            --yupiik-h5-font-size: 0.875rem;
-            --yupiik-h6-font-size: 0.85rem;
-
-            --yupiik-heading-color: var(--yupiik-blue1);
-            --yupiik-heading-margin-top: 0;
-            --yupiik-heading-margin-bottom: var(--yupiik-spacing-vertical);
-            --yupiik-heading-font-family: var(--yupiik-font-family-base);
-            --yupiik-heading-font-weight: var(--yupiik-font-weight-bold);
-            --yupiik-heading-line-height: 1.25;
-        }
-    </style>
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.3.1-SNAPSHOT">
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.13-SNAPSHOT">
+    
+<script>/* inline to avoid flicker */try{var t=localStorage.getItem('yupiik-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}</script>
 </head>
 <body>
-    <header class="header fixed-top">
-        <div class="branding docs-branding">
-            <div class="container-fluid position-relative py-2">
-                <div class="docs-logo-wrapper">
-	                <div class="site-logo"><a title="Home" class="navbar-brand" href="/tools-maven-plugin/index.html">
-	                <img class="logo-icon mr-2" src="//www.yupiik.io/images/favicon.png" alt="logo">
-	                <span class="logo-text">Tools :: Documentation <span class="text-alt">Docs</span></span></a></div>
-                </div>
-	            <div class="docs-top-utilities d-flex justify-content-end align-items-center">
-					
-					<li class="list-inline-item"><a title="Search" id="search-button" href="#" data-toggle="modal" data-target="#searchModal"><i data-toggle="tooltip" data-placement="top" title="Search" class="fas fa-search"></i></a></li>
-
-					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
-						
-						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-		            </ul>
-	            </div>
+<header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <a class="brand-link" title="Home" href="/tools-maven-plugin/index.html">
+                    <img class="brand-logo" src="//www.yupiik.io/images/favicon.png" alt="logo">
+                    <span class="brand-text">Tools :: Documentation<span class="brand-side">Docs</span></span>
+                </a>
+            </div>
+            <div class="header-actions">
+                
+                <button class="icon-btn" id="search-button" type="button" title="Search" aria-label="Search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+    </button>
+                
+				<ul class="social-list">
+				<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+				</ul>
+				<button class="icon-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+					<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-16a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.34 4.93a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zm11.32 12.73a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zM4 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm16 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM4.93 17.66a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41zm12.73-11.32a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41z"/></svg>
+					<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+				</button>
             </div>
         </div>
     </header>
 	<div class="page">
-        <div class="page-navigation-left">
-            <h3>Menu</h3>
-            <ul>
-                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
-                        <i class="fas fa-building"></i>Maven
-                    </a>
-                </li>                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
-                        <i class="fas fa-terminal"></i>CLI
-                    </a>
-                </li>                <li>
-                    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
-                        <i class="fas fa-book"></i>Asciidoc Java
-                    </a>
-                </li>                <li>
-                    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
-                        <i class="fas fa-font"></i>Ascii2SVG
-                    </a>
-                </li>                <li>
-                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
-                        <i class="fas fa-robot"></i>YEM
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <div id="mojos-html-container" class="container page-content mojos-html ">
-                        <div class="page-header">
+<div class="page-navigation-left">
+    <h3 class="menu-label">Menu</h3>
+    <ul>
+<li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
+        <i class="fas fa-building"></i>Maven
+    </a>
+</li><li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
+        <i class="fas fa-terminal"></i>CLI
+    </a>
+</li><li>
+    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
+        <i class="fas fa-book"></i>Asciidoc Java
+    </a>
+</li><li>
+    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
+        <i class="fas fa-font"></i>Ascii2SVG
+    </a>
+</li><li>
+    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+        <i class="fas fa-robot"></i>YEM
+    </a>
+</li>
+    </ul>
+</div>
+<div id="mojos-html-container" class="container page-content mojos-html ">
+            <div class="page-header">
                 <h1>Maven Plugin</h1>
             </div>
             <div class="page-content-body">
@@ -162,8 +89,8 @@
  </div>
  </div>
  </div>
- <div class="sect1" id="_chain_plugins">
-  <h2>Chain plugins</h2>
+ <div class="sect1">
+  <h2 id="_chain_plugins">Chain plugins</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -184,13 +111,14 @@ This is the case of the git report one and PDF one for example:
     -Dyupiik.git-report.dotGit=/path/to/project/.git \
     -Dyupiik.git-report.target=log.adoc
     -Dyupiik.pdf.source=log.adoc \
-    -Dyupiik.pdf.target=.</code></pre>
+    -Dyupiik.pdf.target=.
+</code></pre>
  </div>
  </div>
  </div>
  </div>
- <div class="sect1" id="_pdf_and_latex_formula">
-  <h2>PDF and latex formula</h2>
+ <div class="sect1">
+  <h2 id="_pdf_and_latex_formula">PDF and latex formula</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -212,7 +140,8 @@ You can enable latex formula support in PDF adding the related dependency:
       &lt;version&gt;1.0.7&lt;/version&gt;
     &lt;/dependency&gt;
   &lt;/dependencies&gt;
-&lt;/plugin&gt;</code></pre>
+&lt;/plugin&gt;
+</code></pre>
  </div>
  </div>
  <div class="paragraph">
@@ -222,18 +151,20 @@ Then usage is as follow:
  </div>
  <div class="listingblock">
  <div class="content">
- <pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">[jlatexmath]
+ <pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">
+[jlatexmath]
 --
 x = a + b
 --
 
-This formula (jmath:_[a + b]) is cool.</code></pre>
+This formula (jmath:_[a + b]) is cool.
+</code></pre>
  </div>
  </div>
  </div>
  </div>
- <div class="sect1" id="_pomless_pdf_rendering">
-  <h2>Pom-less PDF rendering</h2>
+ <div class="sect1">
+  <h2 id="_pom_less_pdf_rendering">Pom-less PDF rendering</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -245,13 +176,14 @@ You can render an asciidoctor file without a pom nor pom declaration:
  <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn \
   io.yupiik.maven:yupiik-tools-maven-plugin:$version:pdf \
   -Dyupiik.pdf.source=content.adoc \
-  -Dyupiik.pdf.target=.</code></pre>
+  -Dyupiik.pdf.target=.
+</code></pre>
  </div>
  </div>
  </div>
  </div>
- <div class="sect1" id="_minisite">
-  <h2>Minisite</h2>
+ <div class="sect1">
+  <h2 id="_minisite">Minisite</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p> <a href="mojo/minisite.html">minisite</a>
@@ -283,106 +215,145 @@ Here is the related documentation.
  </div>
  <table class="tableblock frame-all grid-all stretch">
   <colgroup>
-   <col width="25%">
-   <col width="25%">
-   <col width="50%">
+   <col style="width: 25%;">
+   <col style="width: 25%;">
+   <col style="width: 50%;">
   </colgroup>
   <thead>
    <tr>
-    <th>
+    <th class="tableblock halign-left">
 Name    </th>
-    <th>
+    <th class="tableblock halign-left">
 Type    </th>
-    <th>
+    <th class="tableblock halign-left">
 Description    </th>
    </tr>
   </thead>
   <tbody>
    <tr>
-    <td>
-branch    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
- <div class="paragraph">
- <p>Git branch to update (default to <code>refs/heads/gh-pages</code>).</p>
- </div>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+branch</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Git branch to update (default to <code>refs/heads/gh-pages</code>).</p>
     </td>
    </tr>
    <tr>
-    <td>
-username    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
-Username if serverId is not set.    </td>
-   </tr>
-   <tr>
-    <td>
-password    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
-Password if serverId is not set.    </td>
-   </tr>
-   <tr>
-    <td>
-serverId    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
- <div class="paragraph">
- <p>ServerID to use to get username/password from settings.xml - default to <code>project.scm.url</code>. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.</p>
- </div>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+username</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Username if serverId is not set.</p>
     </td>
    </tr>
    <tr>
-    <td>
-url    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
-Git url.    </td>
-   </tr>
-   <tr>
-    <td>
-ignore    </td>
-    <td>
-<code>boolean</code>    </td>
-    <td>
-Should the execution be skipped - enables to set a maven variable.    </td>
-   </tr>
-   <tr>
-    <td>
-prefix    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
- <div class="paragraph">
- <p>Prefix prepended to file in the git repo (ex: <code>public/</code>).</p>
- </div>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+password</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Password if serverId is not set.</p>
     </td>
    </tr>
    <tr>
-    <td>
-noJekyll    </td>
-    <td>
-<code>boolean</code>    </td>
-    <td>
- <div class="paragraph">
- <p>Will force a <code>.nojekyll</code> file presence if <code>true</code>.</p>
- </div>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+serverId</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+ServerID to use to get username/password from settings.xml - default to <code>project.scm.url</code>. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.</p>
     </td>
    </tr>
    <tr>
-    <td>
-envBase64SshKey    </td>
-    <td>
-<code>String</code>    </td>
-    <td>
- <div class="paragraph">
- <p>Environment variable the private key will be read as base64 encoded from - useful on CI. note that <code>&lt;value&gt;_PH</code> environment variable must contain the associated passphrase.</p>
- </div>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+url</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Git url.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+ignore</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>boolean</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Should the execution be skipped - enables to set a maven variable.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+prefix</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Prefix prepended to file in the git repo (ex: <code>public/</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+noJekyll</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>boolean</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Will force a <code>.nojekyll</code> file presence if <code>true</code>.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+envBase64SshKey</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>String</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Environment variable the private key will be read as base64 encoded from - useful on CI. note that <code>&lt;value&gt;_PH</code> environment variable must contain the associated passphrase.</p>
     </td>
    </tr>
   </tbody>
@@ -420,7 +391,8 @@ envBase64SshKey    </td>
       &lt;/plugin&gt;
     &lt;/plugins&gt;
   &lt;/build&gt;
-&lt;/profile&gt;</code></pre>
+&lt;/profile&gt;
+</code></pre>
  </div>
  </div>
  <div class="admonitionblock important">
@@ -439,8 +411,8 @@ envBase64SshKey    </td>
       </tbody>
   </table>
  </div>
- <div class="sect2" id="_confluence_limitations">
-  <h3>Confluence Limitations</h3>
+ <div class="sect2">
+  <h3 id="_confluence_limitations">Confluence Limitations</h3>
  <div class="sectionbody">
  <div class="ulist">
  <ul>
@@ -463,8 +435,8 @@ To look nice, you can need to tune the Confluence space CSS to import admonition
  </div>
  </div>
  </div>
- <div class="sect2" id="_blog">
-  <h3>Blog</h3>
+ <div class="sect2">
+  <h3 id="_blog">Blog</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -508,13 +480,14 @@ Blog page example:
 :minisite-blog-authors: Romain Manni-Bucau
 :minisite-blog-summary: Second post.
 
-Bla bla</code></pre>
+Bla bla
+</code></pre>
  </div>
  </div>
  </div>
  </div>
- <div class="sect2" id="_preaction">
-  <h3>Pre-Action</h3>
+ <div class="sect2">
+  <h3 id="_pre_action">Pre-Action</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Pre actions enables to generate some content from the project. It is typically used to generate configuration from code or things like that. It uses the documentation module classpath. Actions must implement <code>Runnable</code> and can have some (public) constructor parameters (we use parameter names to match so ensure to enable <code>-parameters</code> in maven compiler plugin):</p>
@@ -538,12 +511,13 @@ Bla bla</code></pre>
   </li>
  </ul>
  </div>
- <div class="sect3" id="_maven_plugin">
-  <h4>Maven Plugin</h4>
+ <div class="sect3">
+  <h4 id="_maven_plugin">Maven Plugin</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=maven-plugin</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.MojoDocumentationGeneration</code> you can get a <code>plugin.xml</code> file parsed to generate:</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -556,11 +530,13 @@ Bla bla</code></pre>
  </div>
   </li>
  </ol>
+ </div>
  <div class="paragraph">
  <p>
 The configuration of this action is:
  </p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -580,12 +556,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_copy">
-  <h4>Copy</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_copy">Copy</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=copy</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.CopyFile</code> will copy a file from a source to a destination: It is typically useful for assets (<code>openapi.json</code> for example).</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -600,12 +578,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_jsonschema">
-  <h4>JSON-Schema</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_json_schema">JSON-Schema</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=jsonschema</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchemaGenerator</code> will generate a JSON-Schema from a class:</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -653,6 +633,7 @@ The configuration of this action is:
  </div>
   </li>
  </ol>
+ </div>
  <div class="admonitionblock note">
   <table>
     <tbody>
@@ -671,12 +652,13 @@ The configuration of this action is:
  </div>
  </div>
  </div>
- <div class="sect3" id="_jsonschema_to_asciidoc">
-  <h4>JSON-Schema to asciidoc</h4>
+ <div class="sect3">
+  <h4 id="_json_schema_to_asciidoc">JSON-Schema to asciidoc</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=jsonschema2adoc</code> (recommended) or <code>type=io.yupiik.maven.service.action.builtin.JsonSchema2AdocGenerator</code> will generate an asciidoctor document from a JSON-Schema file (intended to be used with fusion mainly):</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -701,12 +683,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_openmetrics_renderer">
-  <h4>OpenMetrics renderer</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_openmetrics_renderer">OpenMetrics renderer</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=openmetrics2adoc</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc</code> will generate an asciidoctor form from an OpenMetrics export.</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -720,7 +704,7 @@ The configuration of this action is:
   </li>
   <li>
  <div class="paragraph">
- <p><code>levelPrefix</code>: a prefix set before the part title (<code>==</code> by default for a second level title).</p>
+ <p><code>levelPrefix</code>: a prefix set before the part title (<code>== </code> by default for a second level title).</p>
  </div>
   </li>
   <li>
@@ -736,12 +720,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_yupiik_batch_simpleconfiguration_renderer">
-  <h4>Yupiik Batch simple-configuration renderer</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_yupiik_batch_simple_configuration_renderer">Yupiik Batch simple-configuration renderer</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=simple-configuration</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator</code> will generate an asciidoctor from a configuration class passed in <code>class</code> <code>&lt;configuration&gt;</code> option.</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -756,12 +742,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_download_and_unzip">
-  <h4>Download and Unzip</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_download_and_unzip">Download and Unzip</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=download-unzip</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.DownloadAndUnzip</code> enables to download a zip from a HTTP url then extract it totally or partially to a particular folder. This can be used to download a git repository using Github/Gitlab/Gitea API for example.</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -791,12 +779,14 @@ The configuration of this action is:
  </ol>
  </div>
  </div>
- <div class="sect3" id="_replace_string_in_file">
-  <h4>Replace string in file</h4>
+ </div>
+ <div class="sect3">
+  <h4 id="_replace_string_in_file">Replace string in file</h4>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Using <code>type=replace-in-file</code> (recommended) or <code>type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile</code> will rewrite a text file replacing a string by another one.</p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -814,6 +804,7 @@ The configuration of this action is:
  </div>
   </li>
  </ol>
+ </div>
  <div class="admonitionblock tip">
   <table>
     <tbody>
@@ -834,8 +825,8 @@ The configuration of this action is:
  </div>
  </div>
  </div>
- <div class="sect2" id="_example">
-  <h3>Example</h3>
+ <div class="sect2">
+  <h3 id="_example">Example</h3>
  <div class="sectionbody">
  <div class="listingblock">
  <div class="content">
@@ -860,13 +851,14 @@ The configuration of this action is:
       &lt;/configuration&gt;
     &lt;/execution&gt;
   &lt;/executions&gt;
-&lt;/plugin&gt;</code></pre>
+&lt;/plugin&gt;
+</code></pre>
  </div>
  </div>
  </div>
  </div>
- <div class="sect2" id="_page_attributes">
-  <h3>Page attributes</h3>
+ <div class="sect2">
+  <h3 id="_page_attributes">Page attributes</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -922,8 +914,8 @@ for a good documentation it is highly recommended to use nav and breadcrumb feat
  </div>
  </div>
  </div>
- <div class="sect2" id="_index_generation">
-  <h3>Index generation</h3>
+ <div class="sect2">
+  <h3 id="_index_generation">Index generation</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>To include a page in the index it must contain <code>minisite-index</code> attribute. Its value is the order of the entry in the index tiles.</p>
@@ -965,16 +957,18 @@ for a good documentation it is highly recommended to use nav and breadcrumb feat
  </div>
  </div>
  </div>
- <div class="sect2" id="_escaping">
-  <h3>Escaping</h3>
+ <div class="sect2">
+  <h3 id="_theme_and_templates">Theme and templates</h3>
  <div class="sectionbody">
  <div class="paragraph">
- <p>When you write some documentation in a language close to the minisite interpolation one (mustache for ex), it can be hard to use. To ease that, you can surround your snippet with <code></code> and <code></code>, included text will not support interpolations.</p>
+ <p>The minisite default templates are rendered with a  <a href="https://handlebarsjs.com/">handlebars</a>
+-like engine so they can be <code>.hb</code> files. To customize the look and feel, read the  <a href="minisite-theme.html">Minisite Theme</a>
+ dedicated page.</p>
  </div>
  </div>
  </div>
- <div class="sect2" id="_synchronize_releases_example">
-  <h3>Synchronize Releases Example</h3>
+ <div class="sect2">
+  <h3 id="_synchronize_releases_example">Synchronize Releases Example</h3>
  <div class="sectionbody">
  <div class="listingblock">
  <div class="content">
@@ -1022,7 +1016,8 @@ for a good documentation it is highly recommended to use nav and breadcrumb feat
       &lt;/configuration&gt;
     &lt;/execution&gt;
   &lt;/executions&gt;
-&lt;/plugin&gt;</code></pre>
+&lt;/plugin&gt;
+</code></pre>
  </div>
  </div>
  <div class="paragraph">
@@ -1032,8 +1027,8 @@ for a good documentation it is highly recommended to use nav and breadcrumb feat
  </div>
  </div>
  </div>
- <div class="sect1" id="_bash_cli_skeleton">
-  <h2>Bash CLI skeleton</h2>
+ <div class="sect1">
+  <h2 id="_bash_cli_skeleton">Bash CLI skeleton</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p> <a href="mojo/script-cli-skeleton.html">script-cli-skeleton</a>
@@ -1055,14 +1050,15 @@ for a good documentation it is highly recommended to use nav and breadcrumb feat
       </tbody>
   </table>
  </div>
- <div class="sect2" id="_usage">
-  <h3>Usage</h3>
+ <div class="sect2">
+  <h3 id="_usage">Usage</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
 To add a command:
  </p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -1079,24 +1075,25 @@ To add a command:
  </div>
  </div>
  </div>
- <div class="sect1" id="_maven_asciidoctor_macro">
-  <h2>Maven Asciidoctor Macro</h2>
+ </div>
+ <div class="sect1">
+  <h2 id="_maven_asciidoctor_macro">Maven Asciidoctor Macro</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
 The project adds asciidoc macros to get back some maven build information. Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
  </p>
  </div>
- <div class="sect2" id="_maven_dependencies">
-  <h3>maven_dependencies</h3>
+ <div class="sect2">
+  <h3 id="_maven_dependencies">maven_dependencies</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
 Enables to list the project dependencies.
  </p>
  </div>
- <div class="sect3" id="_usage">
-  <h4>Usage</h4>
+ <div class="sect3">
+  <h4 id="_usage_2">Usage</h4>
  <div class="sectionbody">
  <div class="listingblock">
  <div class="content">
@@ -1173,8 +1170,8 @@ runtime_only
  </div>
  </div>
  </div>
- <div class="sect1" id="_simple_dependencies">
-  <h2>Simple Dependencies</h2>
+ <div class="sect1">
+  <h2 id="_simple_dependencies">Simple Dependencies</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p> <a href="mojo/simple-dependencies.html">simple-dependencies</a>
@@ -1185,8 +1182,8 @@ runtime_only
  </div>
  </div>
  </div>
- <div class="sect1" id="_yupiik_oss_extension">
-  <h2>Yupiik OSS extension</h2>
+ <div class="sect1">
+  <h2 id="_yupiik_oss_extension">Yupiik OSS extension</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -1208,7 +1205,8 @@ It is configured in the root project through maven properties:
   &lt;yupiik.oss.encoding&gt;UTF-8&lt;/yupiik.oss.enabled&gt;
   &lt;yupiik.oss.javadoc.doclint&gt;none&lt;/yupiik.oss.enabled&gt;
   &lt;yupiik.oss..sign.skip&gt;none&lt;/yupiik.oss.enabled&gt;
-&lt;/properties&gt;</code></pre>
+&lt;/properties&gt;
+</code></pre>
  </div>
  </div>
  <div class="paragraph">
@@ -1219,8 +1217,8 @@ Just enabling this extension will upgrade a few plugin, enforce the encoding and
  <div class="paragraph">
  <p>See <code>io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead</code> for details.</p>
  </div>
- <div class="sect2" id="_example">
-  <h3>Example</h3>
+ <div class="sect2">
+  <h3 id="_example_2">Example</h3>
  <div class="sectionbody">
  <div class="listingblock">
  <div class="content">
@@ -1250,15 +1248,16 @@ Just enabling this extension will upgrade a few plugin, enforce the encoding and
       &lt;id&gt;release&lt;/id&gt;
     &lt;/profile&gt;
   &lt;/profiles&gt;
-&lt;/project&gt;</code></pre>
+&lt;/project&gt;
+</code></pre>
  </div>
  </div>
  </div>
  </div>
  </div>
  </div>
- <div class="sect1" id="_inline_pom_contributor_extension">
-  <h2>Inline pom contributor extension</h2>
+ <div class="sect1">
+  <h2 id="_inline_pom_contributor_extension">Inline pom contributor extension</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>It enables to put in each module a <code>YupiikContributor.java</code> file which will be compiled and executed in <code>afterProjectRead(MavenSession)</code> callback.</p>
@@ -1280,7 +1279,8 @@ public class YupiikContributor extends AbstractMavenLifecycleParticipant {
     public void afterProjectsRead(final MavenSession session) {
         System.out.println(&quot;&gt;&gt;&gt;&gt; hello: &quot; + session);
     }
-}</code></pre>
+}
+</code></pre>
  </div>
  </div>
  <div class="paragraph">
@@ -1303,7 +1303,8 @@ To enable it, enable the related extension:
       &lt;version&gt;${yupiik-tools-maven-plugin.version}&lt;/version&gt;
     &lt;/extension&gt;
   &lt;/extensions&gt;
-&lt;/build&gt;</code></pre>
+&lt;/build&gt;
+</code></pre>
  </div>
  </div>
  <div class="admonitionblock tip">
@@ -1324,8 +1325,8 @@ To enable it, enable the related extension:
  </div>
  </div>
  </div>
- <div class="sect1" id="_crypt_mojos">
-  <h2>Crypt mojos</h2>
+ <div class="sect1">
+  <h2 id="_crypt_mojos">Crypt mojos</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>Crypt mojos are intended to encrypt/decrypt (using <code>AES/CBC/PKCS5Padding</code> algorithm - like  <a href="https://maven.apache.org/guides/mini/guide-encryption.html">maven default encryption</a>
@@ -1344,8 +1345,8 @@ it is a neat way to handle secrets in a bundlebee placeholder properties file on
       </tbody>
   </table>
  </div>
- <div class="sect2" id="_value_based_mojo">
-  <h3>Value based mojo</h3>
+ <div class="sect2">
+  <h3 id="_value_based_mojo">Value based mojo</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
@@ -1376,8 +1377,8 @@ Configuration is:
  </div>
  </div>
  </div>
- <div class="sect2" id="_properties_based_mojo">
-  <h3>Properties based mojo</h3>
+ <div class="sect2">
+  <h3 id="_properties_based_mojo">Properties based mojo</h3>
  <div class="sectionbody">
  <div class="paragraph">
  <p><code>yupiik-tools:crypt-value</code> will enable to encrypt a value (symmetrically, <code>decrypt-value</code> will decrypt a value).</p>
@@ -1391,7 +1392,7 @@ Configuration is:
  <ul>
   <li>
  <div class="paragraph">
- <p><code>input</code>: path to the properties file to crypt (decrypt) <b>values</b> for (keys are never encrypted),</p>
+ <p><code>input</code>: path to the properties file to crypt (decrypt) <strong>values</strong> for (keys are never encrypted),</p>
  </div>
   </li>
   <li>
@@ -1411,7 +1412,7 @@ Configuration is:
   </li>
   <li>
  <div class="paragraph">
- <p><code>excludedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to <b>NOT</b> encrypt (decrypt) based on their keys.</p>
+ <p><code>excludedKeys</code>: a list of values (direct key), <code>start:&lt;some prefix&gt;</code> prefixes or <code>regex:&lt;pattern&gt;</code> regex to filter the values to <strong>NOT</strong> encrypt (decrypt) based on their keys.</p>
  </div>
   </li>
  </ul>
@@ -1440,62 +1441,101 @@ Configuration is:
                 
             </div>
         </div>
-    <div class="page-navigation-right">
+<div class="page-navigation-right">
         <h3>Navigation</h3>
         <nav class="generated-nav-menu"></nav>
     </div>
     </div>
-    <footer class="footer pb-5">
-	    <div class="text-center">
-		    <ul class="social-list list-unstyled">
+<footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-social">
+                <ul class="social-list">
                 <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-	        </ul>
-            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-use/">Terms of use</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
-	    </div>
+                </ul>
+            </div>
+            <nav class="footer-bar"><small class="copyright">Yupiik &copy;</small><a class="legal-link" href="https://www.yupiik.com/terms-of-use/">Terms of use</a><a class="legal-link" href="https://www.yupiik.com/privacy-policy/">Privacy policy</a></nav>
+        </div>
     </footer>
 
-    <div class="modal fade" id="searchModal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="searchModalLabel">Search</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="return false;" class="form-inline">
-          <div class="form-group">
-            <label for="searchInput"><b>Search: </b></label>
-            <input class="form-control" id="searchInput" placeholder="Enter search text and hit enter...">
-          </div>
-        </form>
-        <div class="search-hits"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
-      </div>
+    <div class="modal" id="searchModal" role="dialog" aria-label="Search site">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <h5 class="modal-title">Search</h5>
+            <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input class="form-control" id="searchInput" placeholder="Search the docs..." autocomplete="off">
+            <div class="search-hits"></div>
+        </div>
     </div>
-  </div>
 </div>
 
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" ></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/js/bootstrap.min.js" integrity="sha512-8qmis31OQi6hIRgvkht0s6mCOittjMa9GMqtK9hes5iEQBQE/Ca6yGE5FsW36vyipGoWQswBj/QBm2JR086Rkw==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js" integrity="sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
-    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.highlightAll();
-function addCopyButtons(clipboard) {
-  document.querySelectorAll('pre > code').forEach(function (codeBlock) {
-  var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
-if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.13-SNAPSHOT"></script>
+    <script>if (!(window.minisite || {}).skipHighlightJs) {
+        hljs.highlightAll();
+        function addCopyButtons(clipboard) {
+          document.querySelectorAll('pre > code').forEach(function (codeBlock) {
+          var button = document.createElement('button');
+          button.className = 'copy-code-button';
+          button.type = 'button';
+          button.innerText = 'Copy';
+          button.addEventListener('click', function () {
+           clipboard.writeText(codeBlock.innerText).then(function () {
+           button.blur();
+           button.innerText = 'Copied!';
+           setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });
+          });
+          var pre = codeBlock.parentNode;
+          if (pre.parentNode.classList.contains('highlight')) {
+          var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);
+          } else { pre.parentNode.insertBefore(button, pre); }
+         });
+        }
+        if (navigator && navigator.clipboard) {
+         addCopyButtons(navigator.clipboard);
+        } else {
+         var script = document.createElement('script');
+         script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';
+         script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';
+         script.crossOrigin = 'anonymous';
+         script.onload = function() {addCopyButtons(clipboard);};
+         document.body.appendChild(script);
+        }
+    }</script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.3.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
+    
 
+<script>
+    (function () {
+        // theme toggle
+        var root = document.documentElement;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
+            });
+        }
+        // search modal
+        var modal = document.getElementById('searchModal');
+        function openModal() { if (modal) modal.classList.add('open'); }
+        function closeModal() { if (modal) modal.classList.remove('open'); }
+        var sb = document.getElementById('search-button');
+        if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (modal) {
+            modal.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
 </body>
 </html>

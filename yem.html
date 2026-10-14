@@ -1,195 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <title>YEM</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use &#x60;javax.json&#x60; whereas 1.1.x uses &#x60;jakarta.json&#x60;, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
     <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: light)">
 
-    <link href="//fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Montserrat:300,400,500,700" rel="stylesheet">
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
-    <style>
-        :root {
-            /* YUPIIK colors (from dark to light) */
-            --yupiik-site-green: #46F72F;
-            --yupiik-site-purple: #D858FF;
-            --yupiik-site-blue-light: #02ABEA;
-            --yupiik-site-blue-dark: #056EBB;
-            --yupiik-site-grey-light: #F4F4F4;
-            --yupiik-site-grey-dark: #212121;
-
-            --yupiik-blue1: var(--yupiik-site-blue-dark);
-            --yupiik-blue2: var(--yupiik-site-blue-dark);
-            --yupiik-blue3: var(--yupiik-site-blue-dark);
-
-            --yupiik-color-white: #fff;
-            --yupiik-color-black: #000;
-
-            --yupiik-color-gray-0: var(--yupiik-color-white);
-            --yupiik-color-gray-100: #f5f6f7;
-            --yupiik-color-gray-200: #ebedf0;
-            --yupiik-color-gray-300: #dadde1;
-            --yupiik-color-gray-400: #ccd0d5;
-            --yupiik-color-gray-500: #bec3c9;
-            --yupiik-color-gray-600: #8d949e;
-            --yupiik-color-gray-700: #606770;
-            --yupiik-color-gray-800: #444950;
-            --yupiik-color-gray-900: #1c1e21;
-            --yupiik-color-gray-1000: var(--yupiik-color-black);
-
-            --yupiik-color-emphasis-0: var(--yupiik-color-gray-0);
-            --yupiik-color-emphasis-100: var(--yupiik-color-gray-100);
-            --yupiik-color-emphasis-200: var(--yupiik-color-gray-200);
-            --yupiik-color-emphasis-300: var(--yupiik-color-gray-300);
-            --yupiik-color-emphasis-400: var(--yupiik-color-gray-400);
-            --yupiik-color-emphasis-500: var(--yupiik-color-gray-500);
-            --yupiik-color-emphasis-600: var(--yupiik-color-gray-600);
-            --yupiik-color-emphasis-700: var(--yupiik-color-gray-700);
-            --yupiik-color-emphasis-800: var(--yupiik-color-gray-800);
-            --yupiik-color-emphasis-900: var(--yupiik-color-gray-900);
-            --yupiik-color-emphasis-1000: var(--yupiik-color-gray-1000);
-            --yupiik-color-content: var(--yupiik-color-emphasis-900);
-
-            --yupiik-font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-            --yupiik-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            --yupiik-font-size-base: 100%;
-
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-
-            --yupiik-global-spacing: 1rem;
-            --yupiik-spacing-vertical: var(--yupiik-global-spacing);
-            --yupiik-spacing-horizontal: var(--yupiik-global-spacing);
-
-            --yupiik-h1-font-size: 2rem;
-            --yupiik-h2-font-size: 1.5rem;
-            --yupiik-h3-font-size: 1.25rem;
-            --yupiik-h4-font-size: 1rem;
-            --yupiik-h5-font-size: 0.875rem;
-            --yupiik-h6-font-size: 0.85rem;
-
-            --yupiik-heading-color: var(--yupiik-blue1);
-            --yupiik-heading-margin-top: 0;
-            --yupiik-heading-margin-bottom: var(--yupiik-spacing-vertical);
-            --yupiik-heading-font-family: var(--yupiik-font-family-base);
-            --yupiik-heading-font-weight: var(--yupiik-font-weight-bold);
-            --yupiik-heading-line-height: 1.25;
-        }
-    </style>
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.3.1-SNAPSHOT">
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.13-SNAPSHOT">
+    
+<script>/* inline to avoid flicker */try{var t=localStorage.getItem('yupiik-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}</script>
 </head>
 <body>
-    <header class="header fixed-top">
-        <div class="branding docs-branding">
-            <div class="container-fluid position-relative py-2">
-                <div class="docs-logo-wrapper">
-	                <div class="site-logo"><a title="Home" class="navbar-brand" href="/tools-maven-plugin/index.html">
-	                <img class="logo-icon mr-2" src="//www.yupiik.io/images/favicon.png" alt="logo">
-	                <span class="logo-text">Tools :: Documentation <span class="text-alt">Docs</span></span></a></div>
-                </div>
-	            <div class="docs-top-utilities d-flex justify-content-end align-items-center">
-					
-					<li class="list-inline-item"><a title="Search" id="search-button" href="#" data-toggle="modal" data-target="#searchModal"><i data-toggle="tooltip" data-placement="top" title="Search" class="fas fa-search"></i></a></li>
-
-					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
-						
-						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-		            </ul>
-	            </div>
+<header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <a class="brand-link" title="Home" href="/tools-maven-plugin/index.html">
+                    <img class="brand-logo" src="//www.yupiik.io/images/favicon.png" alt="logo">
+                    <span class="brand-text">Tools :: Documentation<span class="brand-side">Docs</span></span>
+                </a>
+            </div>
+            <div class="header-actions">
+                
+                <button class="icon-btn" id="search-button" type="button" title="Search" aria-label="Search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+    </button>
+                
+				<ul class="social-list">
+				<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+				</ul>
+				<button class="icon-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+					<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-16a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.34 4.93a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zm11.32 12.73a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zM4 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm16 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM4.93 17.66a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41zm12.73-11.32a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41z"/></svg>
+					<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+				</button>
             </div>
         </div>
     </header>
 	<div class="page">
-        <div class="page-navigation-left">
-            <h3>Menu</h3>
-            <ul>
-                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
-                        <i class="fas fa-building"></i>Maven
-                    </a>
-                </li>                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
-                        <i class="fas fa-terminal"></i>CLI
-                    </a>
-                </li>                <li>
-                    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
-                        <i class="fas fa-book"></i>Asciidoc Java
-                    </a>
-                </li>                <li>
-                    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
-                        <i class="fas fa-font"></i>Ascii2SVG
-                    </a>
-                </li>                <li>
-                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
-                        <i class="fas fa-robot"></i>YEM
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <div id="yem-html-container" class="container page-content yem-html ">
-                        <div class="page-header">
+<div class="page-navigation-left">
+    <h3 class="menu-label">Menu</h3>
+    <ul>
+<li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
+        <i class="fas fa-building"></i>Maven
+    </a>
+</li><li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
+        <i class="fas fa-terminal"></i>CLI
+    </a>
+</li><li>
+    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
+        <i class="fas fa-book"></i>Asciidoc Java
+    </a>
+</li><li>
+    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
+        <i class="fas fa-font"></i>Ascii2SVG
+    </a>
+</li><li>
+    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+        <i class="fas fa-robot"></i>YEM
+    </a>
+</li>
+    </ul>
+</div>
+<div id="yem-html-container" class="container page-content yem-html ">
+            <div class="page-header">
                 <h1>YEM (Environment Manager)</h1>
             </div>
             <div class="page-content-body">
                 <div id="preamble">
  <div class="sectionbody">
  <div class="paragraph abstract">
- <p>Setting up dev environment can be a nightmare.<i>yem</i> intends to make it easier.</p>
+ <p>Setting up dev environment can be a nightmare. <em>yem</em> intends to make it easier.</p>
  </div>
  </div>
  </div>
- <div class="sect1" id="_inspiration">
-  <h2>Inspiration</h2>
+ <div class="sect1">
+  <h2 id="_inspiration">Inspiration</h2>
  <div class="sectionbody">
  <div class="paragraph">
- <p><i>yem</i> is inspired from SDKMan, Chocolatey and other alternatives. The main differences are:</p>
+ <p><em>yem</em> is inspired from SDKMan, Chocolatey and other alternatives. The main differences are:</p>
  </div>
  <div class="ulist">
  <ul>
   <li>
  <div class="paragraph">
- <p><i>yem</i> does not come with a remote storage but it tries to reuse existing ones - priviledging immutable one when possible (compared to SDKMan where you can loose the version you picked),</p>
+ <p><em>yem</em> does not come with a remote storage but it tries to reuse existing ones - priviledging immutable one when possible (compared to SDKMan where you can loose the version you picked),</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><i>yem</i> intends to be portable (linux/windows at least),</p>
+ <p><em>yem</em> intends to be portable (linux/windows at least),</p>
  </div>
   </li>
   <li>
  <div class="paragraph">
- <p><i>yem</i> is extensible if needed (new source or tool/distribution).</p>
+ <p><em>yem</em> is extensible if needed (new source or tool/distribution).</p>
  </div>
   </li>
  </ul>
  </div>
  </div>
  </div>
- <div class="sect1" id="_configuration">
-  <h2>Configuration</h2>
+ <div class="sect1">
+  <h2 id="_configuration">Configuration</h2>
  <div class="sectionbody">
  <div class="admonitionblock important">
   <table>
@@ -543,317 +470,44 @@
  </div>
  </div>
  </div>
- <div class="sect1" id="_cli">
-  <h2>CLI</h2>
+ <div class="sect1">
+  <h2 id="_cli">CLI</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>The command line uses spaces between option and value: <code>yem install --tool java --version 21.0.2</code>.</p>
  </div>
- <div class="sect2" id="_commands">
-  <h3>Commands</h3>
- <div class="sectionbody">
- <div class="ulist">
- <ul>
-  <li>
- <p>
-config: Show configuration.
- </p>
-  </li>
-  <li>
- <div class="paragraph">
-delete: Delete a distribution. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---delete-provider: Provider to use to delete the version (if not t is deduced from the tool/version parameters).
- </p>
-  </li>
-  <li>
- <p>
---delete-tool: Tool to delete.
- </p>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--delete-version: Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance.</p>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-env: Creates a script you can eval in a shell to prepare the environment from a file. Often used as <code>eval $(yem env--env-rc .yemrc)</code> <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
- <p>--env-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--env-enableAutoDetection: EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels.</p>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--env-inlineRc: Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: `eval $(yem env --inlineRc 'java.version=17. java.relaxed = true')<code>. Note that to persist the change even if you automatically switch from the global</code>yemrc<code>file the context, we set</code>YEM<i>$TOOLPATHVARNAME</i>OVERRIDDEN<code>environment variable. To reset the value to the global configuration just</code>unset<code>this variable (ex:</code>unset YEM<i>JAVA</i>PATH_OVERRIDDEN<code>). Note that you can also just set the values inline as args without that option:</code>eval $(yem env --java-version 17. --java-relaxed true ...)`.</p>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--env-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--env-skipReset: By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-http: Show configuration in a web browser. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---http-address: Binding address.
- </p>
-  </li>
-  <li>
- <p>
---http-open: Should the server be opened ASAP if possible on your system or just the server be launched.
- </p>
-  </li>
-  <li>
- <p>
---http-port: Port to open the server to, by default it is random.
- </p>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-install: Install a distribution. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---install-provider: Provider to use to install the version (if not t is deduced from the tool/version parameters).
- </p>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--install-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>).</p>
- </div>
-  </li>
-  <li>
- <p>
---install-skipProgress: Should progress bar be skipped (can be useful on CI for example).
- </p>
-  </li>
-  <li>
- <p>
---install-tool: Tool to install.
- </p>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--install-version: Version of <code>tool</code> to install.</p>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-list: List remote (available) distributions. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---list-providers: List of providers to use (comma separated).
- </p>
-  </li>
-  <li>
- <p>
---list-tools: List of tools to list (comma separated).
- </p>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-list-local: List local available distributions. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---list-local-tool: Tool to filter.
- </p>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <p>
-list-providers: List available providers.
- </p>
-  </li>
-  <li>
- <div class="paragraph">
-resolve: Resolve a distribution. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---resolve-provider: Provider to use to resolve the version (if not t is deduced from the tool/version parameters).
- </p>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--resolve-relaxed: Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>).</p>
- </div>
-  </li>
-  <li>
- <p>
---resolve-tool: Tool to resolve.
- </p>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--resolve-version: Version of <code>tool</code> to resolve.</p>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-run: Similar to <code>env</code> spirit but for aliases or execution in the shell context of the <code>.yemrc</code> file. Important: it is recommended to use <code>--</code> to separate yem args from the command: <code>yem run --rc .yemrc -- mvn clean package</code>. Note that the first arg after <code>--</code> will be tested against an alias in the <code>.yemrc</code> (or global one) so you can pre-define complex commands there. Ex: <code>build.alias = mvn package</code> in <code>.yemrc</code> will enable to run <code>yem run -- build</code> which will actually execute <code>mvn package</code> and if you configure maven version (<code>maven.version = 3.9.6</code> for example) the execution environment will use the right distribution. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
- <p>--run-defaultRc: Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>.</p>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
- <p>--run-rc: Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
-  <li>
- <div class="paragraph">
-unset: Enable to unset manually forced environment/versions with <code>env</code> command. As <code>env</code>, it is used with <code>eval</code> (<code>eval $(yem unset --tools java)</code> for example). It also uses <code>YEM_ORIGINAL_PATH</code> environment variable to restore original path if <code>--all</code> is set. <div class="ulist">
- <ul>
-  <li>
- <div class="paragraph">
-Parameters: <div class="ulist">
- <ul>
-  <li>
- <p>
---unset-all: Will unset all overridden versions.
- </p>
-  </li>
-  <li>
- <p>
---unset-tools: List of tools to reset overridden environment.
- </p>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
-  </li>
- </ul>
- </div>
- </div>
- </div>
- </div>
- </div>
- <div class="sect1" id="_autopath">
-  <h2>Auto-path</h2>
+ <div class="sect2">
+  <h3 id="_commands">Commands</h3>
  <div class="sectionbody">
  <div class="paragraph">
- <p>A bit like SDKMan, <i>yem</i> supports to initialize an environment from a file but with some differences.</p>
+ <div class="paragraph">
+ <p>Commands: completion/bash    Print a bash completion script. Usage: &lt;app&gt; completion bash &gt; /etc/bash_completion.d/&lt;app&gt; (then source it, or eval &quot;$(&lt;app&gt; completion bash)&quot;). config             Show configuration. delete             Delete a distribution. env                Creates a script you can eval in a shell to prepare the environment from a file. Often used as <code>eval $(yem env--env-rc .yemrc)</code>  http               Show configuration in a web browser. install            Install a distribution. list               List remote (available) distributions. list-local         List local available distributions. list-providers     List available providers. resolve            Resolve a distribution. run                Similar to <code>env</code> spirit but for aliases or execution in the shell context of the <code>.yemrc</code> file. Important: it is recommended to use <code>--</code> to separate yem args from the command: <code>yem run --rc .yemrc -- mvn clean package</code>. Note that the first arg after <code>--</code> will be tested against an alias in the <code>.yemrc</code> (or global one) so you can pre-define complex commands there. Ex: <code>build.alias = mvn package</code> in <code>.yemrc</code> will enable to run <code>yem run -- build</code> which will actually execute <code>mvn package</code> and if you configure maven version (<code>maven.version = 3.9.6</code> for example) the execution environment will use the right distribution. unset              Enable to unset manually forced environment/versions with <code>env</code> command. As <code>env</code>, it is used with <code>eval</code> (<code>eval $(yem unset --tools java)</code> for example). It also uses <code>YEM_ORIGINAL_PATH</code> environment variable to restore original path if <code>--all</code> is set.</p>
+ </div>
+ <div class="paragraph">
+ <p>Options for 'delete': *** --provider    Provider to use to delete the version (if not t is deduced from the tool/version parameters). *** --tool        Tool to delete. *** --version     Version of <code>tool</code> to delete - we recommend to use the actual identifier to avoid to delete more than the expected instance.</p>
+ </div>
+ <div class="paragraph">
+ <p>Options for 'env': *** --defaultRc              Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. *** --enableAutoDetection    EXPERIMENTAL. If enabled and no <code>.yemrc</code> nor <code>.sdkmanrc</code> setup any tool (ie empty does not count) then try to detect some well known tools like Java (there is a <code>pom.xml</code> and the compiler version can be extracted for example) and Maven (<code>pom.xml</code> presence). Note that it is done using <code>./</code> folder and bubbles up with a max of 10 levels. *** --inlineRc               Enables to set inline a rc file, ex: <code>eval $(yem env --inlineRc 'java.version=17.0.9')</code>, you can use EOL too: <code>eval $(yem env --inlineRc 'java.version=17.\njava.relaxed = true')</code>. Note that to persist the change even if you automatically switch from the global <code>yemrc</code> file the context, we set <code>YEM_$TOOLPATHVARNAME_OVERRIDDEN</code> environment variable. To reset the value to the global configuration just <code>unset</code> this variable (ex: <code>unset YEM_JAVA_PATH_OVERRIDDEN</code>). Note that you can also just set the values inline as args without that option: <code>eval $(yem env --java-version 17. --java-relaxed true ...)</code>. *** --rc                     Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present. *** --skipReset              By default if <code>YEM_ORIGINAL_PATH</code> exists in the environment variables it is used as <code>PATH</code> base to not keep appending path to the <code>PATH</code> indefinively. This can be disabled setting this property to <code>false</code></p>
+ </div>
+Options for 'http': *** --address    Binding address. *** --open       Should the server be opened ASAP if possible on your system or just the server be launched. *** --port       Port to open the server to, by default it is random. <div class="paragraph">
+ <p>Options for 'install': *** --provider        Provider to use to install the version (if not t is deduced from the tool/version parameters). *** --relaxed         Should version be matched with a <code>startsWith</code> logic (ex: <code>install --install-tool java --install-relaxed true --install-version 21.</code>). *** --skipProgress    Should progress bar be skipped (can be useful on CI for example). *** --tool            Tool to install. *** --version         Version of <code>tool</code> to install.</p>
+ </div>
+Options for 'list': *** --providers    List of providers to use (comma separated). *** --tools        List of tools to list (comma separated). Options for 'list-local': *** --tool    Tool to filter. <div class="paragraph">
+ <p>Options for 'resolve': *** --provider    Provider to use to resolve the version (if not t is deduced from the tool/version parameters). *** --relaxed     Should version be matched with a <code>startsWith</code> logic (ex: <code>resolve --resolve-tool java --resolve-relaxed true --resolve-version 21.</code>). *** --tool        Tool to resolve. *** --version     Version of <code>tool</code> to resolve.</p>
+ </div>
+ <div class="paragraph">
+ <p>Options for 'run': *** --defaultRc    Should <code>~/.yupiik/yem/rc</code> be ignored or not. If present it defines default versions and uses the same syntax than <code>yemrc</code>. *** --rc           Env file location to read to generate the script. Note that <code>auto</code> will try to pick <code>.yemrc</code> and if not there will use <code>.sdkmanrc</code> if present.</p>
+ </div>
+Options for 'unset': *** --all      Will unset all overridden versions. *** --tools    List of tools to reset overridden environment. </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_auto_path">Auto-path</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>A bit like SDKMan, <em>yem</em> supports to initialize an environment from a file but with some differences.</p>
  </div>
  <div class="paragraph">
  <p>The file must be a <code>properties</code> file. Each tool/distribution setup has several properties:</p>
@@ -867,7 +521,8 @@ prefix.envVarName = xxxx <b class="conum">(4)</b>
 prefix.addToPath = [true|false] <b class="conum">(5)</b>
 prefix.failOnMissing = [true|false] <b class="conum">(6)</b>
 prefix.installIfMissing = [true|false] <b class="conum">(7)</b>
-prefix.toolName = 1.2.3 <b class="conum">(8)</b></code></pre>
+prefix.toolName = 1.2.3 <b class="conum">(8)</b>
+</code></pre>
  </div>
  </div>
  <div class="colist arabic">
@@ -946,8 +601,8 @@ If your prefix does not match the tool name, the tool name to use.
  </div>
  </div>
  </div>
- <div class="sect1" id="_alias_support">
-  <h2>Alias support</h2>
+ <div class="sect1">
+  <h2 id="_alias_support">Alias support</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>The <code>run</code> command supports aliases. They globally use a <code>.yemrc</code> file as for <code>env</code> command but support additional properties.</p>
@@ -957,19 +612,19 @@ If your prefix does not match the tool name, the tool name to use.
  </div>
  </div>
  </div>
- <div class="sect1" id="_tip">
-  <h2>TIP</h2>
+ <div class="sect1">
+  <h2 id="_tip">TIP</h2>
  <div class="sectionbody">
  <div class="paragraph">
- <p>If you need to see more logs from <i>yem</i> you can add the following system properties: <code>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST</code>.</p>
+ <p>If you need to see more logs from <em>yem</em> you can add the following system properties: <code>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST</code>.</p>
  </div>
  <div class="paragraph">
  <p>You can also force some default configuration (typically central <code>gavs</code> or <code>offlineMode</code>) in <code>~/.yupiik/yem/rc</code>. If you don't want this global file to be taken into account temporarly (or not) you can set the environment variable <code>YEM_DISABLE_GLOBAL_RC_FILE</code> to <code>true</code>.</p>
  </div>
  </div>
  </div>
- <div class="sect1" id="_shellbash_setup">
-  <h2>Shell/Bash setup</h2>
+ <div class="sect1">
+  <h2 id="_shellbash_setup">Shell/Bash setup</h2>
  <div class="sectionbody">
  <div class="paragraph">
  <p>
@@ -990,9 +645,11 @@ else
   trimmed_prompt_command=&quot;${PROMPT_COMMAND%&quot;${PROMPT_COMMAND##*[![:space:]]}&quot;}&quot;
   [[ -z &quot;$trimmed_prompt_command&quot; ]] &amp;&amp; PROMPT_COMMAND=&quot;yem_env&quot; || PROMPT_COMMAND=&quot;${trimmed_prompt_command%\;};yem_env&quot;
 fi
-yem_env</code></pre>
+yem_env
+</code></pre>
  </div>
  </div>
+ <div class="openblock">
   <div class="content">
  <div class="admonitionblock tip">
   <table>
@@ -1014,10 +671,12 @@ if you don't use zsh shell you can simplify it:    </td>
 }
 trimmed_prompt_command=&quot;${PROMPT_COMMAND%&quot;${PROMPT_COMMAND##*[![:space:]]}&quot;}&quot;
 [[ -z &quot;$trimmed_prompt_command&quot; ]] &amp;&amp; PROMPT_COMMAND=&quot;yem_env&quot; || PROMPT_COMMAND=&quot;${trimmed_prompt_command%\;};yem_env&quot;
-yem_env</code></pre>
+yem_env
+</code></pre>
  </div>
  </div>
   </div>
+ </div>
  <div class="admonitionblock tip">
   <table>
     <tbody>
@@ -1040,62 +699,101 @@ yem_env</code></pre>
                 
             </div>
         </div>
-    <div class="page-navigation-right">
+<div class="page-navigation-right">
         <h3>Navigation</h3>
         <nav class="generated-nav-menu"></nav>
     </div>
     </div>
-    <footer class="footer pb-5">
-	    <div class="text-center">
-		    <ul class="social-list list-unstyled">
+<footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-social">
+                <ul class="social-list">
                 <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-	        </ul>
-            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-use/">Terms of use</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
-	    </div>
+                </ul>
+            </div>
+            <nav class="footer-bar"><small class="copyright">Yupiik &copy;</small><a class="legal-link" href="https://www.yupiik.com/terms-of-use/">Terms of use</a><a class="legal-link" href="https://www.yupiik.com/privacy-policy/">Privacy policy</a></nav>
+        </div>
     </footer>
 
-    <div class="modal fade" id="searchModal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="searchModalLabel">Search</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="return false;" class="form-inline">
-          <div class="form-group">
-            <label for="searchInput"><b>Search: </b></label>
-            <input class="form-control" id="searchInput" placeholder="Enter search text and hit enter...">
-          </div>
-        </form>
-        <div class="search-hits"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
-      </div>
+    <div class="modal" id="searchModal" role="dialog" aria-label="Search site">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <h5 class="modal-title">Search</h5>
+            <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input class="form-control" id="searchInput" placeholder="Search the docs..." autocomplete="off">
+            <div class="search-hits"></div>
+        </div>
     </div>
-  </div>
 </div>
 
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" ></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/js/bootstrap.min.js" integrity="sha512-8qmis31OQi6hIRgvkht0s6mCOittjMa9GMqtK9hes5iEQBQE/Ca6yGE5FsW36vyipGoWQswBj/QBm2JR086Rkw==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js" integrity="sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
-    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.highlightAll();
-function addCopyButtons(clipboard) {
-  document.querySelectorAll('pre > code').forEach(function (codeBlock) {
-  var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
-if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.13-SNAPSHOT"></script>
+    <script>if (!(window.minisite || {}).skipHighlightJs) {
+        hljs.highlightAll();
+        function addCopyButtons(clipboard) {
+          document.querySelectorAll('pre > code').forEach(function (codeBlock) {
+          var button = document.createElement('button');
+          button.className = 'copy-code-button';
+          button.type = 'button';
+          button.innerText = 'Copy';
+          button.addEventListener('click', function () {
+           clipboard.writeText(codeBlock.innerText).then(function () {
+           button.blur();
+           button.innerText = 'Copied!';
+           setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });
+          });
+          var pre = codeBlock.parentNode;
+          if (pre.parentNode.classList.contains('highlight')) {
+          var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);
+          } else { pre.parentNode.insertBefore(button, pre); }
+         });
+        }
+        if (navigator && navigator.clipboard) {
+         addCopyButtons(navigator.clipboard);
+        } else {
+         var script = document.createElement('script');
+         script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';
+         script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';
+         script.crossOrigin = 'anonymous';
+         script.onload = function() {addCopyButtons(clipboard);};
+         document.body.appendChild(script);
+        }
+    }</script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.3.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
+    
 
+<script>
+    (function () {
+        // theme toggle
+        var root = document.documentElement;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
+            });
+        }
+        // search modal
+        var modal = document.getElementById('searchModal');
+        function openModal() { if (modal) modal.classList.add('open'); }
+        function closeModal() { if (modal) modal.classList.remove('open'); }
+        var sb = document.getElementById('search-button');
+        if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (modal) {
+            modal.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
 </body>
 </html>

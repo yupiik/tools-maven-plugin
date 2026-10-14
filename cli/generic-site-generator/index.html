@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <title></title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use &#x60;javax.json&#x60; whereas 1.1.x uses &#x60;jakarta.json&#x60;, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
+    <meta name="author" content="Yupiik Minisite Generator">
+    <meta name="generator" content="Yupiik Minisite Generator">
+    
+    <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: light)">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.3.1-SNAPSHOT">
+    
+    
+<script>/* inline to avoid flicker */try{var t=localStorage.getItem('yupiik-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <a class="brand-link" title="Home" href="/tools-maven-plugin/index.html">
+                    <img class="brand-logo" src="//www.yupiik.io/images/favicon.png" alt="logo">
+                    <span class="brand-text">Tools :: Documentation<span class="brand-side">Docs</span></span>
+                </a>
+            </div>
+            <div class="header-actions">
+                
+                <button class="icon-btn" id="search-button" type="button" title="Search" aria-label="Search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+    </button>
+                
+				<ul class="social-list">
+				<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+				</ul>
+				<button class="icon-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+					<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-16a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.34 4.93a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zm11.32 12.73a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zM4 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm16 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM4.93 17.66a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41zm12.73-11.32a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41z"/></svg>
+					<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+				</button>
+            </div>
+        </div>
+    </header>
+	<div class="page">
+<div class="page-navigation-left">
+    <h3 class="menu-label">Menu</h3>
+    <ul>
+<li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
+        <i class="fas fa-building"></i>Maven
+    </a>
+</li><li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
+        <i class="fas fa-terminal"></i>CLI
+    </a>
+</li><li>
+    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
+        <i class="fas fa-book"></i>Asciidoc Java
+    </a>
+</li><li>
+    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
+        <i class="fas fa-font"></i>Ascii2SVG
+    </a>
+</li><li>
+    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+        <i class="fas fa-robot"></i>YEM
+    </a>
+</li>
+    </ul>
+</div>
+<div id="cli-generic-site-generator-index-html-container" class="container page-content cli-generic-site-generator-index-html ">
+            <div class="page-header">
+                <h1></h1>
+            </div>
+            <div class="page-content-body">
+                <div class="sect1">
+  <h2 id="_generic_static_generator">generic-static-generator</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Simple extensible generic static generator.
+ </p>
+ </div>
+ <div class="paragraph">
+Base concept is to create a <em>context</em> based on <em>ContextContributors</em> and pass this context to some handlebars template to render a text file (can be a HTML or not content). </div>
+ <div class="paragraph">
+A <code>ContextContributor</code> must implement <code>io.yupiik.tools.generator.generic.contributor.ContextContributor</code> interface and register itself in Yupiik Fusion IoC using a <code>FusionModule</code> <code>ServiceLoader</code> registration. </div>
+ <div class="paragraph">
+ <p>Similarly, <code>io.yupiik.tools.generator.generic.helper.Helper</code> can be registered as a fusion bean to add helpers to the rendering context in addition to the default ones.</p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>it can also be used to generate a static javascript site dataset - the site being built elsewhere with <code>rsbuild</code>, <code>esbuild</code> or any friend and the generate just used to aggregate data and dump them as json using <code>toJson</code> helper.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_contributors">Contributors</h2>
+ <div class="sectionbody">
+ <div class="sect2">
+  <h3 id="_gitlab_commit">gitlab-commit</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Calls a gitlab instance to fetch commits based on a project and branches list. The resulting object is an object keyed by the project id with the commits as value.
+ </p>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>branches</code> (env: <code>COMMIT_BRANCHES</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Branches to fetch (ref name). If set to <code>all</code>, it just fetches all commits from the repository. Default: <code>java.util.List.of(&quot;main&quot;)</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>cacheProjects</code> (env: <code>COMMIT_CACHEPROJECTS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Should projects be cached - in memory - when <code>topics</code> is set, useful if multiple contributors the same request. Enable when multiple contributors do the same request to do it only once. Default: <code>false</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.baseUrl</code> (env: <code>COMMIT_GITLAB_BASEURL</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Base URL. Default: <code> <a href="https://gitlab.com" class="inline-code">https://gitlab.com</a>
+</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.headers</code> (env: <code>COMMIT_GITLAB_HEADERS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP headers to use as <code>key=value</code> form. Default: <code>java.util.Map.of()</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.timeout</code> (env: <code>COMMIT_GITLAB_TIMEOUT</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Request timeout in java <code>Duration</code> format. Default: <code>PT30S</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>since</code> (env: <code>COMMIT_SINCE</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>If set a starting date for commits to not fetch the while dataset (<code>YYYY-MM-DDTHH:MM:SSZ</code> format). If starting with <code>now-</code> the end of the string is treated as a <code>Period</code> to parse and date is computed. Default: <code>now-P6M</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>statistics</code> (env: <code>COMMIT_STATISTICS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Should statistics be fetched. Default: <code>true</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>topics</code> (env: <code>COMMIT_TOPICS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <div class="paragraph">
+ <p>Topics to filter when fetching commits based on a project filter. Default: <code>java.util.List.of()</code>.</p>
+ </div>
+ <div class="sect2">
+  <h3 id="_gitlab_environment">gitlab-environment</h3>
+ <div class="sectionbody">
+ </div>
+ </div>
+ </div>
+</dd>
+  </dl>
+ </div>
+ <div class="paragraph">
+ <p>
+Calls a gitlab instance to fetch environments based on a project list. The resulting object is an object keyed by the project id with the environment as value.
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration_2">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>cacheProjects</code> (env: <code>ENVIRONMENT_CACHEPROJECTS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Should projects be cached - in memory - when <code>topics</code> is set, useful if multiple contributors the same request. Enable when multiple contributors do the same request to do it only once. Default: <code>false</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>details</code> (env: <code>ENVIRONMENT_DETAILS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Should details be fetched or just environment index is sufficient. Default: <code>false</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.baseUrl</code> (env: <code>ENVIRONMENT_GITLAB_BASEURL</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Base URL. Default: <code> <a href="https://gitlab.com" class="inline-code">https://gitlab.com</a>
+</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.headers</code> (env: <code>ENVIRONMENT_GITLAB_HEADERS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP headers to use as <code>key=value</code> form. Default: <code>java.util.Map.of()</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.timeout</code> (env: <code>ENVIRONMENT_GITLAB_TIMEOUT</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Request timeout in java <code>Duration</code> format. Default: <code>PT30S</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>topics</code> (env: <code>ENVIRONMENT_TOPICS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <div class="paragraph">
+ <p>Topics to filter when fetching environments based on a project filter. Default: <code>java.util.List.of()</code>.</p>
+ </div>
+ <div class="sect2">
+  <h3 id="_gitlab_project">gitlab-project</h3>
+ <div class="sectionbody">
+ </div>
+ </div>
+ </div>
+</dd>
+  </dl>
+ </div>
+ <div class="paragraph">
+ <p>
+Calls a gitlab instance using its REST API to fetch a list of project.
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration_3">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>cache</code> (env: <code>PROJECT_CACHE</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Should projects be cached - in memory, useful if multiple contributors the same request. Enable when multiple contributors do the same request to do it only once. Default: <code>false</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.baseUrl</code> (env: <code>PROJECT_GITLAB_BASEURL</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Base URL. Default: <code> <a href="https://gitlab.com" class="inline-code">https://gitlab.com</a>
+</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.headers</code> (env: <code>PROJECT_GITLAB_HEADERS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP headers to use as <code>key=value</code> form. Default: <code>java.util.Map.of()</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>gitlab.timeout</code> (env: <code>PROJECT_GITLAB_TIMEOUT</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Request timeout in java <code>Duration</code> format. Default: <code>PT30S</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>topics</code> (env: <code>PROJECT_TOPICS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <div class="paragraph">
+ <p>Topics to filter when fetching projects. Default: <code>java.util.List.of()</code>.</p>
+ </div>
+ <div class="sect2">
+  <h3 id="_http">http</h3>
+ <div class="sectionbody">
+ </div>
+ </div>
+ </div>
+</dd>
+  </dl>
+ </div>
+ <div class="paragraph">
+ <p>
+Enable to call a HTTP method to get a JSON response and map the result to contributed data.
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration_4">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.headers</code> (env: <code>REQUEST_HEADERS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP request headers in properties syntax. Default: <code>java.util.Map.of()</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.httpVersion</code> (env: <code>REQUEST_HTTPVERSION</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP version - as in <code>java.net.http.HttpClient.Version</code>. Default: <code>HTTP_1_1</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.method</code> (env: <code>REQUEST_METHOD</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP verb. Default: <code>GET</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.payload</code> (env: <code>REQUEST_PAYLOAD</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP request payload. Default: <code></code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.timeout</code> (env: <code>REQUEST_TIMEOUT</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>HTTP request timeout in java <code>Duration</code> format. Default: <code>PT30S</code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>request.uri</code> (env: <code>REQUEST_URI</code>)</p>
+ </div>
+</dt>
+    <dd>
+<p>HTTP endpoint.</p>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>response.dataJsonPointer</code> (env: <code>RESPONSE_DATAJSONPOINTER</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>JSON Pointer to extract data to contribute to the rendering context.If extracted value is not an object it will be wrapped in an object with <code>value</code> key. Note that if it point on <em>nothing</em> then an empty context is returned. Default: <code></code>.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>response.expectedStatus</code> (env: <code>RESPONSE_EXPECTEDSTATUS</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <div class="paragraph">
+ <p>HTTP response list of status (comma separated) which are valid. Default: <code>java.util.List.of(200)</code>.</p>
+ </div>
+ <div class="sect2">
+  <h3 id="_java">java</h3>
+ <div class="sectionbody">
+ </div>
+ </div>
+ </div>
+</dd>
+  </dl>
+ </div>
+ <div class="admonitionblock warning">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">WARNING</div>
+       </td>
+      <td class="content">
+requires a JDK and not a simple JRE.    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="paragraph">
+ <p>
+Enable to inject plain Java code to implement dynamically a contributor.
+ </p>
+ </div>
+ <div class="paragraph">
+ <p>
+This is quite neat when dealing with complex logic and default contributors are not sufficient.
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration_5">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>code</code> (env: <code>CODE</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>Code of the contributor <code>contribute</code> method. There are three implicit variables: <code>configuration</code> which is a <code>Map&lt;String, String&gt;</code> with the contributor configuration, <code>executor</code> which is the thread pool to use if needed and <code>container</code> which is Yupiik Fusion IoC if some other beans are needed. It must end with a <code>return xxx</code> with <code>xxx</code> a <code>CompletionStage&lt;Map&lt;String, Object&gt;&gt;</code>. For convenience, <code>completedFuture</code> is implicitly available as well as <code>java.util</code>. If it starts with <code>file:</code> the end of the string is a file path.</p>
+ </div>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>compilationClasspath</code> (env: <code>COMPILATIONCLASSPATH</code>)</p>
+ </div>
+</dt>
+    <dd>
+<p>Enable to set the compilation classpath (for 3rd parties). If not set we try to inherit from current classloader one.</p>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>imports</code> (env: <code>IMPORTS</code>)</p>
+ </div>
+</dt>
+    <dd>
+<p>Enable to set global imports to the generated class.</p>
+</dd>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>packageName</code> (env: <code>PACKAGENAME</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+Package name override - else an internal package is used. Mainly useful to access package scope classes. <div class="sect2">
+  <h3 id="_json">json</h3>
+ <div class="sectionbody">
+ </div>
+ </div>
+ </div>
+</dd>
+  </dl>
+ </div>
+ <div class="paragraph">
+ <p>Simple contributor which loads some content from a JSON inline data or a file. If content is an array it is wrapped in a <code>{value:...}</code> object.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect3">
+  <h4 id="_configuration_6">Configuration</h4>
+ <div class="sectionbody">
+ <div class="dlist">
+  <dl>
+    <dt class="hdlist1"> <div class="paragraph">
+ <p><code>data</code> (env: <code>DATA</code>)</p>
+ </div>
+</dt>
+    <dd>
+ <div class="paragraph">
+ <p>JSON content or a file path starting with <code>file:</code> (ex: <code>file:/my/path.json</code>).</p>
+ </div>
+</dd>
+  </dl>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_helpers">Helpers</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <div class="sect2">
+  <h3 id="_lowercase">lowercase</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Type: <strong>inline</strong>.</p>
+ </div>
+ <div class="paragraph">
+ <p>Lowercase the passed parameter (stringified using <code>toString</code> or <code>null</code>).</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect2">
+  <h3 id="_tojson">toJson</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Type: <strong>inline</strong>.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+Converts the passed parameter to a JSON string.
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect2">
+  <h3 id="_truncate">truncate</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Type: <strong>inline</strong>.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+Truncate a string based on a length. It takes two parameters, the value to truncate and the desired length (&gt;=3).
+ </p>
+ </div>
+ </div>
+ </div>
+ <div class="sect2">
+  <h3 id="_uppercase">uppercase</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Type: <strong>inline</strong>.</p>
+ </div>
+ <div class="paragraph">
+ <p>Uppercase the passed parameter (stringified using <code>toString</code> or <code>null</code>).</p>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>See  <a href="generic-static-generator.html">generic-static-generator</a>
+ detail page.</p>
+ </div>
+ </div>
+ </div>
+                
+                
+            </div>
+        </div>
+<div class="page-navigation-right">
+        <h3>Navigation</h3>
+        <nav class="generated-nav-menu"></nav>
+    </div>
+    </div>
+<footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-social">
+                <ul class="social-list">
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                </ul>
+            </div>
+            <nav class="footer-bar"><small class="copyright">Yupiik &copy;</small><a class="legal-link" href="https://www.yupiik.com/terms-of-use/">Terms of use</a><a class="legal-link" href="https://www.yupiik.com/privacy-policy/">Privacy policy</a></nav>
+        </div>
+    </footer>
+
+    <div class="modal" id="searchModal" role="dialog" aria-label="Search site">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <h5 class="modal-title">Search</h5>
+            <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input class="form-control" id="searchInput" placeholder="Search the docs..." autocomplete="off">
+            <div class="search-hits"></div>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js" integrity="sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
+    <script>if (!(window.minisite || {}).skipHighlightJs) {
+        hljs.highlightAll();
+        function addCopyButtons(clipboard) {
+          document.querySelectorAll('pre > code').forEach(function (codeBlock) {
+          var button = document.createElement('button');
+          button.className = 'copy-code-button';
+          button.type = 'button';
+          button.innerText = 'Copy';
+          button.addEventListener('click', function () {
+           clipboard.writeText(codeBlock.innerText).then(function () {
+           button.blur();
+           button.innerText = 'Copied!';
+           setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });
+          });
+          var pre = codeBlock.parentNode;
+          if (pre.parentNode.classList.contains('highlight')) {
+          var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);
+          } else { pre.parentNode.insertBefore(button, pre); }
+         });
+        }
+        if (navigator && navigator.clipboard) {
+         addCopyButtons(navigator.clipboard);
+        } else {
+         var script = document.createElement('script');
+         script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';
+         script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';
+         script.crossOrigin = 'anonymous';
+         script.onload = function() {addCopyButtons(clipboard);};
+         document.body.appendChild(script);
+        }
+    }</script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.3.1-SNAPSHOT"></script>
+    <script>$('.page-content-body').generatedNavMenu();</script>
+    
+    
+
+<script>
+    (function () {
+        // theme toggle
+        var root = document.documentElement;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
+            });
+        }
+        // search modal
+        var modal = document.getElementById('searchModal');
+        function openModal() { if (modal) modal.classList.add('open'); }
+        function closeModal() { if (modal) modal.classList.remove('open'); }
+        var sb = document.getElementById('search-button');
+        if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (modal) {
+            modal.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
+</body>
+</html>

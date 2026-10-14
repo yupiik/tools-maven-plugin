@@ -1,167 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <title>Asciidoc Java</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use `javax.json` whereas 1.1.x uses `jakarta.json`, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use &#x60;javax.json&#x60; whereas 1.1.x uses &#x60;jakarta.json&#x60;, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
     <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: light)">
 
-    <link href="//fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Montserrat:300,400,500,700" rel="stylesheet">
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
-    <style>
-        :root {
-            /* YUPIIK colors (from dark to light) */
-            --yupiik-site-green: #46F72F;
-            --yupiik-site-purple: #D858FF;
-            --yupiik-site-blue-light: #02ABEA;
-            --yupiik-site-blue-dark: #056EBB;
-            --yupiik-site-grey-light: #F4F4F4;
-            --yupiik-site-grey-dark: #212121;
-
-            --yupiik-blue1: var(--yupiik-site-blue-dark);
-            --yupiik-blue2: var(--yupiik-site-blue-dark);
-            --yupiik-blue3: var(--yupiik-site-blue-dark);
-
-            --yupiik-color-white: #fff;
-            --yupiik-color-black: #000;
-
-            --yupiik-color-gray-0: var(--yupiik-color-white);
-            --yupiik-color-gray-100: #f5f6f7;
-            --yupiik-color-gray-200: #ebedf0;
-            --yupiik-color-gray-300: #dadde1;
-            --yupiik-color-gray-400: #ccd0d5;
-            --yupiik-color-gray-500: #bec3c9;
-            --yupiik-color-gray-600: #8d949e;
-            --yupiik-color-gray-700: #606770;
-            --yupiik-color-gray-800: #444950;
-            --yupiik-color-gray-900: #1c1e21;
-            --yupiik-color-gray-1000: var(--yupiik-color-black);
-
-            --yupiik-color-emphasis-0: var(--yupiik-color-gray-0);
-            --yupiik-color-emphasis-100: var(--yupiik-color-gray-100);
-            --yupiik-color-emphasis-200: var(--yupiik-color-gray-200);
-            --yupiik-color-emphasis-300: var(--yupiik-color-gray-300);
-            --yupiik-color-emphasis-400: var(--yupiik-color-gray-400);
-            --yupiik-color-emphasis-500: var(--yupiik-color-gray-500);
-            --yupiik-color-emphasis-600: var(--yupiik-color-gray-600);
-            --yupiik-color-emphasis-700: var(--yupiik-color-gray-700);
-            --yupiik-color-emphasis-800: var(--yupiik-color-gray-800);
-            --yupiik-color-emphasis-900: var(--yupiik-color-gray-900);
-            --yupiik-color-emphasis-1000: var(--yupiik-color-gray-1000);
-            --yupiik-color-content: var(--yupiik-color-emphasis-900);
-
-            --yupiik-font-family-base: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-            --yupiik-font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            --yupiik-font-size-base: 100%;
-
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-            --yupiik-font-weight-light: 300;
-            --yupiik-font-weight-normal: 400;
-            --yupiik-font-weight-semibold: 500;
-            --yupiik-font-weight-bold: 700;
-
-            --yupiik-font-weight-base: var(--yupiik-font-weight-normal);
-            --yupiik-line-height-base: 1.65;
-
-            --yupiik-global-spacing: 1rem;
-            --yupiik-spacing-vertical: var(--yupiik-global-spacing);
-            --yupiik-spacing-horizontal: var(--yupiik-global-spacing);
-
-            --yupiik-h1-font-size: 2rem;
-            --yupiik-h2-font-size: 1.5rem;
-            --yupiik-h3-font-size: 1.25rem;
-            --yupiik-h4-font-size: 1rem;
-            --yupiik-h5-font-size: 0.875rem;
-            --yupiik-h6-font-size: 0.85rem;
-
-            --yupiik-heading-color: var(--yupiik-blue1);
-            --yupiik-heading-margin-top: 0;
-            --yupiik-heading-margin-bottom: var(--yupiik-spacing-vertical);
-            --yupiik-heading-font-family: var(--yupiik-font-family-base);
-            --yupiik-heading-font-weight: var(--yupiik-font-weight-bold);
-            --yupiik-heading-line-height: 1.25;
-        }
-    </style>
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.3.1-SNAPSHOT">
     
-    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.2.13-SNAPSHOT">
+    
+<script>/* inline to avoid flicker */try{var t=localStorage.getItem('yupiik-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}</script>
 </head>
 <body>
-    <header class="header fixed-top">
-        <div class="branding docs-branding">
-            <div class="container-fluid position-relative py-2">
-                <div class="docs-logo-wrapper">
-	                <div class="site-logo"><a title="Home" class="navbar-brand" href="/tools-maven-plugin/index.html">
-	                <img class="logo-icon mr-2" src="//www.yupiik.io/images/favicon.png" alt="logo">
-	                <span class="logo-text">Tools :: Documentation <span class="text-alt">Docs</span></span></a></div>
-                </div>
-	            <div class="docs-top-utilities d-flex justify-content-end align-items-center">
-					
-					<li class="list-inline-item"><a title="Search" id="search-button" href="#" data-toggle="modal" data-target="#searchModal"><i data-toggle="tooltip" data-placement="top" title="Search" class="fas fa-search"></i></a></li>
-
-					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
-						
-						<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-		            </ul>
-	            </div>
+<header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <a class="brand-link" title="Home" href="/tools-maven-plugin/index.html">
+                    <img class="brand-logo" src="//www.yupiik.io/images/favicon.png" alt="logo">
+                    <span class="brand-text">Tools :: Documentation<span class="brand-side">Docs</span></span>
+                </a>
+            </div>
+            <div class="header-actions">
+                
+                <button class="icon-btn" id="search-button" type="button" title="Search" aria-label="Search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+    </button>
+                
+				<ul class="social-list">
+				<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+				</ul>
+				<button class="icon-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+					<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-16a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.34 4.93a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zm11.32 12.73a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zM4 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm16 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM4.93 17.66a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41zm12.73-11.32a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41z"/></svg>
+					<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+				</button>
             </div>
         </div>
     </header>
 	<div class="page">
-        <div class="page-navigation-left">
-            <h3>Menu</h3>
-            <ul>
-                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
-                        <i class="fas fa-building"></i>Maven
-                    </a>
-                </li>                <li>
-                    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
-                        <i class="fas fa-terminal"></i>CLI
-                    </a>
-                </li>                <li>
-                    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
-                        <i class="fas fa-book"></i>Asciidoc Java
-                    </a>
-                </li>                <li>
-                    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
-                        <i class="fas fa-font"></i>Ascii2SVG
-                    </a>
-                </li>                <li>
-                    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
-                        <i class="fas fa-robot"></i>YEM
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <div id="asciidoc-java-html-container" class="container page-content asciidoc-java-html ">
-                        <div class="page-header">
+<div class="page-navigation-left">
+    <h3 class="menu-label">Menu</h3>
+    <ul>
+<li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
+        <i class="fas fa-building"></i>Maven
+    </a>
+</li><li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
+        <i class="fas fa-terminal"></i>CLI
+    </a>
+</li><li>
+    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
+        <i class="fas fa-book"></i>Asciidoc Java
+    </a>
+</li><li>
+    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
+        <i class="fas fa-font"></i>Ascii2SVG
+    </a>
+</li><li>
+    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+        <i class="fas fa-robot"></i>YEM
+    </a>
+</li>
+    </ul>
+</div>
+<div id="asciidoc-java-html-container" class="container page-content asciidoc-java-html ">
+            <div class="page-header">
                 <h1>Asciidoc Java</h1>
             </div>
             <div class="page-content-body">
-                <div class="paragraph">
+                <div id="preamble">
+ <div class="sectionbody">
+ <div class="paragraph">
  <p>The module <code>asciidoc-java</code> implements a light Asciidoc syntax parser in plain Java. It aims at making it easier and lighter than using JRuby to embed Asciidoc in any Java based (native or not) application.</p>
+ </div>
+ </div>
  </div>
  <div class="paragraph">
  <p>
 Its usage is pretty simple:
  </p>
  </div>
+ <div class="olist">
  <ol>
   <li>
  <div class="paragraph">
@@ -174,6 +106,7 @@ Its usage is pretty simple:
  </div>
   </li>
  </ol>
+ </div>
  <div class="admonitionblock tip">
   <table>
     <tbody>
@@ -201,7 +134,8 @@ Here is a basic example:
 final var doc = parser.parse(myDocContent, new Parser.ParserContext(ContextResolver.of(Path.of(&quot;asciidoc/content&quot;)))); <b class="conum">(2)</b>
 final var renderer = new AsciidoctorLikeHtmlRenderer(); <b class="conum">(3)</b>
 renderer.visit(doc); <b class="conum">(4)</b>
-final var html = renderer.result(); <b class="conum">(5)</b></code></pre>
+final var html = renderer.result(); <b class="conum">(5)</b>
+</code></pre>
  </div>
  </div>
  <div class="colist arabic">
@@ -246,66 +180,964 @@ the asciidoc syntax is not 100% implemented yet, if you encounter anything you m
       </tbody>
   </table>
  </div>
+ <div class="sect1">
+  <h2 id="_parser_attributes">Parser attributes</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>These attributes change how the parser reads a document. Set them in the document (<code>:keep-paragraphs: false</code>), or pass them to the <code>Parser</code> constructor to apply them to every document.</p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 16%;">
+   <col style="width: 16%;">
+   <col style="width: 64%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Name    </th>
+    <th class="tableblock halign-left">
+Default    </th>
+    <th class="tableblock halign-left">
+Description    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>blank-target-macros</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>image,icon,menu,xref</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The inline macros whose target can hold blanks, as <code>image:my file.png[alt]</code>; every other target stops at a blank, as in asciidoctor. Add <code>link</code> for a document whose links hold blanks in their target. An empty value stops every target at a blank.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>callout-mismatch</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+unset</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>ignore</code> keeps a code block whose callout markers do not match the callout list after it, without the unmatched markers and items. By default the parser fails on such a block.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>keep-paragraphs</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Each paragraph of the blocks of an admonition block, a list item, a callout item or an <code>a|</code> table cell stays a <code>Paragraph</code>, also when it holds one text. <code>false</code> gives the model of the versions before this attribute: the parser replaces such a paragraph with its text, so <code>* **First**</code> followed by a <code>+</code> continuation paragraph <code>Second</code> gives the same model as <code>* **First**Second</code>.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_source_positions">Source positions</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>The model does not keep the source text of the elements. To get it, for example to look each paragraph up in a translation file before rendering, register a <code>SourceListener</code> in the <code>ParserContext</code>. The parser calls it for each block-level element with a <code>SourceSpan</code>: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it. List items and table cells are read from their own reader, so their line numbers are relative to the item or cell. Where the parser evaluates a conditional while it reads, in the header and in a table, an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included; a conditional nested in such a branch is read the same way, one level deep: a third level fails the parse with a message.</p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">final var spans = new IdentityHashMap&lt;Element, SourceSpan&gt;(); <b class="conum">(1)</b>
+final var doc = parser.parse(myDocContent, new Parser.ParserContext(resolver, spans::put)); <b class="conum">(2)</b>
+</code></pre>
+ </div>
+ </div>
+ <div class="colist arabic">
+  <ol>
+   <li>
+ <span>
+Elements are records and compare by value, so key the map by identity,
+ </span>
+   </li>
+   <li>
+ <span>
+The listener is the second constructor argument; the one-argument constructor keeps working and tracks nothing.
+ </span>
+   </li>
+  </ol>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_markdown_output">Markdown output</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p><code>GithubFlavoredMarkdownRenderer</code> renders the same model as GitHub-Flavored Markdown, for example to publish a Markdown copy of a page for AI agents or to feed a text pipeline:</p>
+ </div>
+ <div class="listingblock">
+ <div class="content">
+ <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+    .setAttributes(Map.of(&quot;imagesdir&quot;, &quot;/images&quot;))); <b class="conum">(1)</b>
+renderer.visit(doc);
+final var markdown = renderer.result();
+</code></pre>
+ </div>
+ </div>
+ <div class="colist arabic">
+  <ol>
+   <li>
+ <span>
+Pass the attributes the renderer uses when the document does not define them, as for the HTML renderer.
+ </span>
+   </li>
+  </ol>
+ </div>
+ <div class="paragraph">
+ <p>
+The Markdown renderer writes each construct as follows:
+ </p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 33%;">
+   <col style="width: 66%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+AsciiDoc    </th>
+    <th class="tableblock halign-left">
+Markdown    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Plain text</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Written with a backslash before each character a Markdown parser reads as markup: <code>\</code>, <code></code> <code> </code><code>, </code>*<code>, </code>[<code>, </code>]<code>, </code>&lt;<code>, </code>~<code>, and </code>_<code> outside a word. A </code>&amp;<code> stays as written, since a character reference resolves the same way in both outputs. At the start of a line a </code>#<code>, </code>-<code>, </code>+<code>, </code>&gt;<code>, </code>=` or ordered list marker is escaped too, so text does not become a block. Code, passthroughs, link targets and the HTML the renderer writes stay as they are.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Section (<code>== Title</code>)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+ATX heading (<code>## Title</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Source block</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Fenced code block with the language. A diagram style such as <code>[mermaid]</code> is kept as the language.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Table</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Pipe table.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Admonition</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+GitHub alert (<code>&gt; [!NOTE]</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Callouts</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Numbered list after the code block, the <code>&lt;1&gt;</code> markers staying in the code.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Description list</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Bold term followed by its description.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Collapsible example block (<code>[%collapsible]</code> or <code>opts=collapsible</code> on a <code>====</code> block)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>&lt;details&gt;</code> element, <code>&lt;details open&gt;</code> with <code>%open</code>. As in asciidoctor, the option collapses an example block only, not an open block or a sidebar.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Footnote</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>[^1]</code> reference, with its definition at the end of the document.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Id of a section or of a block</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Empty <code>&lt;a id=&quot;...&quot;&gt;</code> anchor, so <code>&lt;&lt;id&gt;&gt;</code> links work. A section without an explicit id gets the id the HTML renderer would give it when the document links to it.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Cross reference (<code>&lt;&lt;id&gt;&gt;</code> or <code>xref:id[]</code>) without its own text</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Link to the anchor, its text being the <code>reftext</code> of the target, else the title of the target, else the id between square brackets, as asciidoctor writes it.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Cross reference to another page (<code>&lt;&lt;page.adoc#id&gt;&gt;</code>, <code>&lt;&lt;page#id&gt;&gt;</code> or <code>xref:page.adoc#id[]</code>)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Link to the rendered page, <code>relfileprefix</code> + page + <code>relfilesuffix</code>, then <code>#id</code>. As asciidoctor reads the <code>&lt;&lt;...&gt;&gt;</code> form, the part before the <code>#</code> is always a page and a target without <code>#</code> is always an id, so <code>&lt;&lt;page.adoc&gt;&gt;</code> links the id <code>page.adoc</code> where <code>xref:page.adoc[]</code> links the page.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Table of contents (<code>:toc:</code>)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+List of links to the sections, where asciidoctor places it: at the top, after the preamble (<code>:toc: preamble</code>) or at the <code>toc::[]</code> macro (<code>:toc: macro</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Icon (<code>icon:lock[]</code>)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>[lock]</code>, as asciidoctor writes an icon without an icon font.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Conditional (<code>ifdef::[]</code>, <code>ifndef::[]</code>, <code>ifeval::[]</code>)</p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The content of the branch that holds, where the block is written. As asciidoctor removes the directive lines before parsing, conditional lines inside a paragraph, a list item or an admonition stay in that paragraph, joined with a space like its other lines, and a conditional paragraph between blank lines stays a paragraph of its own. Inside a table, the parser evaluates the directive while it reads the rows, with the attributes it knows at that point (the document attributes and its own), as asciidoctor's preprocessor does, so an attribute given only to the renderer does not change the rows.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="paragraph">
+ <p>When neither the document nor the configuration defines an attribute, the Markdown renderer leaves its reference literal. An <code>include</code> macro reaching the renderer fails, since the parser resolves includes before rendering. A macro the renderer has no case for, such as <code>tooltip:foo[a hint]</code>, is written as text by default, as asciidoctor writes a macro no extension registers: <code>Configuration.setUnknownMacro(UnknownMacro.IGNORE)</code> writes nothing, <code>UnknownMacro.FAIL</code> throws an <code>IllegalArgumentException</code> naming the macro, <code>UnknownMacro.TEXT</code> writes the macro as text, and the attribute <code>yupiik-renderer-githubflavoredmarkdown-unknownMacro</code>, in the document or in the attributes of the configuration, wins over the option. A subclass renders its own macros in <code>onMissingMacro</code>.</p>
+ </div>
+ <div class="paragraph">
+ <p>A subclass that wants a text run written as it is overrides <code>escapeText</code>. One renderer instance can render several documents one after the other: each call to <code>visit</code> starts from an empty output. A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+The Markdown renderer reads these attributes:
+ </p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 33%;">
+   <col style="width: 66%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Attribute    </th>
+    <th class="tableblock halign-left">
+Use    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>noheader</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Skips the document title.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>imagesdir</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Prefixed to a relative image target.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>idprefix</code>, <code>idseparator</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Build the id of a section without an explicit id, as in the HTML renderer.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>relfileprefix</code>, <code>relfilesuffix</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Build the target of an <code>xref:page.adoc[]</code> link, <code>relfilesuffix</code> defaulting to <code>outfilesuffix</code> and then to <code>.md</code>.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>asciidoc-extensions</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Extensions of the documents an <code>xref:</code> link points at, <code>adoc,asciidoc</code> by default. A link to a file with another extension keeps the file name, and a file without extension before a <code>#</code> is a document, as in asciidoctor.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>toc</code>, <code>toc-placement</code>, <code>toc-title</code>, <code>toclevels</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Write the table of contents, as in asciidoctor.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>yupiik-renderer-githubflavoredmarkdown-unknownMacro</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+What the renderer does with a macro it has no case for: <code>text</code> (the default, as asciidoctor writes a macro no extension registers), <code>ignore</code> or <code>fail</code>, in any case. It wins over <code>Configuration.setUnknownMacro</code>.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_reading_the_model_in_a_visitor">Reading the model in a visitor</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>A custom visitor can read the model as the HTML and Markdown renderers do, with two classes of <code>io.yupiik.asciidoc.renderer</code>:</p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 25%;">
+   <col style="width: 75%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Class    </th>
+    <th class="tableblock halign-left">
+Use    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>VisitorSibling</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Reads the values the parser keeps as raw text: the id, the style and the options of a block, attribute references in titles, the parts of a cross reference or image target, macro labels such as the keys of <code>kbd:[]</code>, the AsciiDoc text of a macro, the <code>unknownMacro</code> attribute of a renderer, whether an element is inline (a conditional block is inline when the branch it renders is), a list of elements with each conditional block replaced by the branch it renders (<code>expandConditionals</code>), and where paragraphs end when the parser gives them as sibling elements. It has no state, so any visitor can create one.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>VisitorState</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Keeps the state of a rendering: the attributes of the document then the fallback ones, the text of a cross reference to each id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its <code>visit</code> and <code>visitBody</code> methods, then queries it while it writes; the state of the HTML renderer extends it with the flags of that output. Before any <code>visit</code> it reads the fallback attributes only, so a visitor can render a body alone.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="paragraph">
+ <p><code>new AsciidoctorLikeHtmlRenderer(configuration, sibling)</code> and <code>new GithubFlavoredMarkdownRenderer(configuration, sibling)</code> take a subclass of <code>VisitorSibling</code>, whose readings then apply to the renderer and to its state.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_syntax">Syntax</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+The parser supports standard Asciidoc syntax including:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p>Headings (e.g. <code>= Document Title</code>, <code>== Section</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Discrete headings (<code>[discrete]</code> or <code>[float]</code> above a heading): a title block that opens no section, ends none and stays out of the table of contents</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Paragraphs and text formatting (<code>*bold*</code>, <code>_italic_</code>, <code>monospace</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Unordered lists (<code>*</code>) and ordered lists (<code>.</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Links (<code>link:url[text]</code>) and images (<code>image:path[alt]</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Tables (<code>|===</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Source blocks (<code>[source,...]</code>)</p>
+ </div>
+  </li>
+  <li>
+ <p>
+Admonitions (NOTE:, TIP:, IMPORTANT:, WARNING:, CAUTION:)
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Block titles, a <code>.Title</code> line or <code>title=</code> on the attribute line above a paragraph, an admonition, a list, a code block, a table, an image or an open block, written as asciidoctor writes them (<code>&lt;div class=&quot;title&quot;&gt;</code>, a <code>&lt;caption&gt;</code> for a table)</p>
+ </div>
+  </li>
+  <li>
+ <p>
+Open/closed blocks, quote blocks, listing blocks, example blocks
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Block ids, written <code>[#id]</code>, <code>[id=name]</code> or as an anchor line <code>[[id]]</code> (<code>[[id, reftext]]</code> with a reference text) above a block or the document title</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Quoted values of named attributes, <code>[title=&quot;One, two&quot;]</code> or <code>[title='One, two']</code>, on a block attribute line as in a macro (<code>link:url[text,window='_blank']</code>): as in asciidoctor, the quotes are not part of the value and keep its commas, <code>\'</code> is a quote inside single quotes, and a single quote that is never closed stays text. A single-quoted positional value, such as <code>xref:page.adoc['Getting started']</code>, keeps its quotes</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Inline anchors, <code>[[id]]</code> or <code>[[id, reftext]]</code>, written as an empty <code>&lt;a id&gt;</code> when text follows them on the line, as asciidoctor does; at the end of a line, the anchor stays the id of the text before it</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Shorthands on a block style, <code>[NOTE#note.important%collapsible]</code> giving the style <code>NOTE</code>, the id <code>note</code>, the role <code>important</code> and the option <code>collapsible</code>, and chained options, <code>[%collapsible%open]</code>. A line without a style keeps the whole shorthand as one value, so <code>[#io.yupiik.test.MyObject]</code> is that id</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Macros (<code>image:</code>, <code>video:</code>, <code>audio:</code>, <code>icon:</code>, <code>btn:</code>, <code>kbd:</code>, <code>menu:</code>, <code>xref:</code>, footnote), the keys of <code>kbd:</code> being split on the first <code>,</code> or <code>` after the first character, so `kbd:[Ctrl,Shift]` and `kbd:[Ctrl+Shift]` are both two keys and `kbd:[Ctrl+]</code> is <code>Ctrl</code> and <code>+</code></p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>An inline macro starts where its name stands, as in asciidoctor: the target is the run without blanks before the <code>[</code>, up to its first colon, and the name is the run of word characters and hyphens before that colon, so <code>Environment variable: env_var:X[]</code> keeps <code>Environment variable: </code> as text, <code>name.footnote:[..]</code> is a footnote and <code>Time: 10:00 [foo]</code> holds no macro. The parser has no registry of names, so every name is read the same way: <code>hyperlink:x[y]</code> is a macro named <code>hyperlink</code>, where asciidoctor reads <code>hyper</code> then a link. The macros of the <code>blank-target-macros</code> attribute also take a target holding blanks, as <code>image:my file.png[alt]</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>A macro with another name, such as <code>tooltip:foo[a hint]</code>, is kept in the model as a <code>Macro</code> element; both renderers write it as text by default, as asciidoctor does with a macro no extension registers, or ignore it or fail on it when the <code>unknownMacro</code> option of each renderer (see below and the Markdown output section) or its attribute asks for it, and a subclass of <code>AsciidoctorLikeHtmlRenderer</code> or of <code>GithubFlavoredMarkdownRenderer</code> renders it in <code>onMissingMacro</code></p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Cross references (<code>&lt;&lt;id&gt;&gt;</code>, <code>&lt;&lt;id,text&gt;&gt;</code>, <code>&lt;&lt;page.adoc#id,text&gt;&gt;</code>, <code>xref:page.adoc#id[text]</code>), the <code>&lt;&lt;...&gt;&gt;</code> form reading the part before a <code>#</code> as a page whatever its extension, as asciidoctor does</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Include directives with <code>tag</code>/<code>tags</code>/<code>lines</code>/<code>leveloffset</code>/<code>indent</code> filtering</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Conditionals (<code>ifdef::[]</code>, <code>ifndef::[]</code>, <code>ifeval::[]</code> with <code>else::[]</code>, <code>elsif::[]</code>), in the document header as in the body, the condition of <code>ifeval</code> written in its brackets as asciidoctor requires (<code>ifeval::[{version} &gt; 1]</code>), the inline form <code>ifdef::name[content]</code> and multi-attribute conditions (<code>name1,name2</code> for an or, <code>name1+name2</code> for an and)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Attributes and substitutions (<code>:name: value</code>, <code>{name}</code>, <code>:!name:</code> to unset, <code>{name}</code> escaping)</p>
+ </div>
+  </li>
+  <li>
+ <p>
+Inline passthroughs in a code span: the text between single, double or triple plus signs inside the backticks is written as it is, without attribute substitution, and so is a double-plus run inside a longer code span; a span opening with a passthrough ends after it, so that passthrough can hold a backtick
+ </p>
+  </li>
+  <li>
+ <p>
+Callouts, footnotes, index terms, counters
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Table features: cell specifiers before <code>|</code> (a span <code>2+</code>, <code>.2+</code> or <code>2.3+</code>, a duplication factor <code>3*</code>, an alignment <code>^</code>, <code>&gt;</code> or <code>.^</code>, and a style <code>a</code>, <code>d</code>, <code>e</code>, <code>h</code>, <code>l</code>, <code>m</code> or <code>s</code>, at the start of a line or after a blank), cells put into rows by column count, header option, autowidth, stripes, column alignment</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Nested ordered/unordered lists, <code>[start=NN]</code> on ordered lists, <code>[qanda]</code>/<code>[horizontal]</code> description lists</p>
+ </div>
+  </li>
+  <li>
+ <p>
+Video macros for YouTube/Vimeo embed, audio/video with controls
+ </p>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Man page doctype (<code>= commandname(1)</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Document authors, either with the author line (<code>firstname middlename lastname &lt;mail&gt;</code>, multiple authors being separated by <code>;</code>, attribute entries being supported before it) or with attribute entries (<code>:author:</code>/<code>:email:</code> for a single author, <code>:authors:</code> or <code>:author_&lt;n&gt;:</code>/<code>:email_&lt;n&gt;:</code> for multiple ones)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Revision line (<code>v1.0, 2013-01-01: the remark</code>, a revision number without a date requiring the <code>v</code> prefix)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Author and revision attributes deduced from the header (<code>authorcount</code>, <code>authors</code>, <code>firstname</code>, <code>middlename</code>, <code>lastname</code>, <code>authorinitials</code>, <code>revnumber</code>, <code>revdate</code>, <code>revremark</code> and their <code>_&lt;n&gt;</code> variants), the attribute entries of the document winning over the values deduced from the author line, <code>Author</code> also exposing the deduced names</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Markdown pipe tables (<code>|---|</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Bibliography/glossary entries (<code>[[[ref]]]</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Bare email autolink (<code>user@example.com</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Inline STEM (<code>$...$</code>, <code>stem:[...]</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Block STEM (<code>[stem]</code>, <code>[latexmath]</code>, <code>[asciimath]</code> + passthrough)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Section numbering (<code>:sectnums:</code>), special sections (<code>[appendix]</code>, <code>[bibliography]</code>, <code>[glossary]</code>, <code>[index]</code>)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Inline role <code>[.role]#text#</code>, <code>%</code> option prefix</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>TOC placement macro <code>toc::[]</code>, Mermaid diagrams</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ <div class="admonitionblock important">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">IMPORTANT</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>as in asciidoctor the document header ends on the first empty line so the line following the title is always the author line, unless it is an attribute entry or a preprocessor directive such as <code>ifeval::[{version} &gt; 1]</code>, a section or a list not preceded by an empty line becoming an author.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="sect2">
+  <h3 id="_commonmark_syntax">CommonMark syntax</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+The parser also supports a subset of CommonMark syntax for convenience:
+ </p>
+ </div>
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>**bold**</code> &rarr; bold text</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>~~strikethrough~~</code> &rarr; strikethrough text</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code></code> <code>code</code> <code></code> &rarr; inline code</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>[text](url)</code> &rarr; inline links</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>![alt](url)</code> &rarr; inline images</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code># Heading</code> &rarr; section headings (level based on <code>#</code> count)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>---</code>, <code>***</code>, <code>___</code> &rarr; horizontal rules</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>|---|</code> &rarr; pipe tables (Markdown table syntax)</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>**** content ****</code> &rarr; sidebar block</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p>Trailing double space at end of line &rarr; hard line break (<code>&lt;br&gt;</code>)</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+ <div class="paragraph">
+ <p>
+These syntaxes are recognized alongside native Asciidoc syntax and can be mixed freely.
+ </p>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_html_renderer_configuration">HTML renderer configuration</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p><code>AsciidoctorLikeHtmlRenderer.Configuration</code> changes the HTML that <code>AsciidoctorLikeHtmlRenderer</code> writes. The <code>asciidoc</code> goal of the Maven plugin sets these options with <code>yupiik.asciidoc.</code> properties, such as <code>yupiik.asciidoc.sectionIdOnTitle</code>, and the <code>asciidoc-java</code> launcher sets <code>sectionTag</code>, <code>sectionIdOnTitle</code>, <code>skipSectionBody</code>, <code>skipGlobalContentWrapper</code>, <code>supportDataAttributes</code> and <code>unknownMacro</code> with <code>--section-tag</code>, <code>--section-id-on-title</code>, <code>--skip-section-body</code>, <code>--skip-global-content-wrapper</code>, <code>--data-attribute</code> and <code>--unknown-macro</code>.</p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 28%;">
+   <col style="width: 14%;">
+   <col style="width: 56%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Option    </th>
+    <th class="tableblock halign-left">
+Default    </th>
+    <th class="tableblock halign-left">
+Description    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>sectionTag</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>div</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The tag that wraps a section and its title.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>sectionIdOnTitle</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code> writes the id of a section on its title tag (<code>&lt;h2 id=&quot;_intro&quot;&gt;</code>), as asciidoctor does. <code>false</code> writes it on the section tag (<code>&lt;div class=&quot;sect1&quot; id=&quot;_intro&quot;&gt;</code>), as the renderer did before version 1.2.17. <code>ShowerRenderer</code> always uses <code>false</code>, because a slide is addressed by the id of its <code>section</code>.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>skipSectionBody</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>false</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code> does not write the <code>&lt;div class=&quot;sectionbody&quot;&gt;</code> wrapper of a section.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>skipGlobalContentWrapper</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>false</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code> does not write the <code>&lt;div id=&quot;content&quot;&gt;</code> wrapper of the document.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>supportDataAttributes</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code> writes the <code>data-*</code> attributes of a block on its HTML element.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>dataUriForAscii2Svg</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>true</code> writes an <code>ascii2svg</code> diagram as an image with a data URI, <code>false</code> writes it as an inline <code>svg</code> tag.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>unknownMacro</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>TEXT</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+What the renderer does with a macro it has no method for, such as <code>tooltip:foo[a hint]</code>: <code>TEXT</code> writes the macro as text, as asciidoctor writes a macro no extension registers (the default), <code>IGNORE</code> writes nothing, <code>FAIL</code> throws an <code>IllegalArgumentException</code> naming the macro when it is a mistake in the document. The attribute <code>yupiik-renderer-asciidoctorlikehtml-unknownMacro</code>, set in the document or in the attributes of the configuration (<code>:yupiik-renderer-asciidoctorlikehtml-unknownMacro: text</code>), wins over the option. The <code>asciidoc</code> goal sets the option with <code>yupiik.asciidoc.unknownMacro</code>, the launcher with <code>--unknown-macro</code>, and minisite reads the attribute.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="paragraph">
+ <p>The <code>:sectanchors:</code> attribute writes an anchor link before the title of each section (<code>:sectanchors: after</code> writes it after the title), and the <code>:sectlinks:</code> attribute turns the title into a link to the section. Both attributes can be set in the document or in the attributes of the configuration.</p>
+ </div>
+ <div class="paragraph">
+ <p>A section without an explicit id gets the id asciidoctor gives it: the title in lower case, without its markup and punctuation, after <code>idprefix</code> (<code>_</code> by default), with each run of spaces, dots and hyphens replaced by <code>idseparator</code> (<code>_</code> by default). When an earlier section or block already has that id, the separator and a number follow it: <code>_same_2</code>, <code>_same_3</code>. A title with a typographic replacement such as <code>--</code>, a footnote or a counter can still get another id than in asciidoctor. With an empty <code>:idprefix:</code> and <code>:idseparator: -</code>, <code>== Vert.x and the Getting-started guide</code> gets <code>vert-x-and-the-getting-started-guide</code>; up to version 1.2.16, it got <code>vertxandthegettingstartedguide</code>.</p>
+ </div>
+ </div>
+ </div>
                 
                 
             </div>
         </div>
-    <div class="page-navigation-right">
+<div class="page-navigation-right">
         <h3>Navigation</h3>
         <nav class="generated-nav-menu"></nav>
     </div>
     </div>
-    <footer class="footer pb-5">
-	    <div class="text-center">
-		    <ul class="social-list list-unstyled">
+<footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-social">
+                <ul class="social-list">
                 <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
-	        </ul>
-            <small class="copyright">Yupiik &copy;</small> | <a href="https://www.yupiik.com/terms-of-use/">Terms of use</a> | <a href="https://www.yupiik.com/privacy-policy/">Privacy policy</a>
-	    </div>
+                </ul>
+            </div>
+            <nav class="footer-bar"><small class="copyright">Yupiik &copy;</small><a class="legal-link" href="https://www.yupiik.com/terms-of-use/">Terms of use</a><a class="legal-link" href="https://www.yupiik.com/privacy-policy/">Privacy policy</a></nav>
+        </div>
     </footer>
 
-    <div class="modal fade" id="searchModal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="searchModalLabel">Search</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="return false;" class="form-inline">
-          <div class="form-group">
-            <label for="searchInput"><b>Search: </b></label>
-            <input class="form-control" id="searchInput" placeholder="Enter search text and hit enter...">
-          </div>
-        </form>
-        <div class="search-hits"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
-      </div>
+    <div class="modal" id="searchModal" role="dialog" aria-label="Search site">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <h5 class="modal-title">Search</h5>
+            <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input class="form-control" id="searchInput" placeholder="Search the docs..." autocomplete="off">
+            <div class="search-hits"></div>
+        </div>
     </div>
-  </div>
 </div>
 
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" ></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/js/bootstrap.min.js" integrity="sha512-8qmis31OQi6hIRgvkht0s6mCOittjMa9GMqtK9hes5iEQBQE/Ca6yGE5FsW36vyipGoWQswBj/QBm2JR086Rkw==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js" integrity="sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
-    <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.highlightAll();
-function addCopyButtons(clipboard) {
-  document.querySelectorAll('pre > code').forEach(function (codeBlock) {
-  var button = document.createElement('button');  button.className = 'copy-code-button';  button.type = 'button';  button.innerText = 'Copy';  button.addEventListener('click', function () {   clipboard.writeText(codeBlock.innerText).then(function () {   button.blur();   button.innerText = 'Copied!';   setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });  });  var pre = codeBlock.parentNode;  if (pre.parentNode.classList.contains('highlight')) {   var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);  } else { pre.parentNode.insertBefore(button, pre); } });}
-if (navigator && navigator.clipboard) { addCopyButtons(navigator.clipboard);} else { var script = document.createElement('script'); script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js'; script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94='; script.crossOrigin = 'anonymous'; script.onload = function() {addCopyButtons(clipboard);}; document.body.appendChild(script);} }</script>
-    <script src="/tools-maven-plugin/js/minisite.js?v=1.2.13-SNAPSHOT"></script>
+    <script>if (!(window.minisite || {}).skipHighlightJs) {
+        hljs.highlightAll();
+        function addCopyButtons(clipboard) {
+          document.querySelectorAll('pre > code').forEach(function (codeBlock) {
+          var button = document.createElement('button');
+          button.className = 'copy-code-button';
+          button.type = 'button';
+          button.innerText = 'Copy';
+          button.addEventListener('click', function () {
+           clipboard.writeText(codeBlock.innerText).then(function () {
+           button.blur();
+           button.innerText = 'Copied!';
+           setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });
+          });
+          var pre = codeBlock.parentNode;
+          if (pre.parentNode.classList.contains('highlight')) {
+          var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);
+          } else { pre.parentNode.insertBefore(button, pre); }
+         });
+        }
+        if (navigator && navigator.clipboard) {
+         addCopyButtons(navigator.clipboard);
+        } else {
+         var script = document.createElement('script');
+         script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';
+         script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';
+         script.crossOrigin = 'anonymous';
+         script.onload = function() {addCopyButtons(clipboard);};
+         document.body.appendChild(script);
+        }
+    }</script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.3.1-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
+    
 
+<script>
+    (function () {
+        // theme toggle
+        var root = document.documentElement;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
+            });
+        }
+        // search modal
+        var modal = document.getElementById('searchModal');
+        function openModal() { if (modal) modal.classList.add('open'); }
+        function closeModal() { if (modal) modal.classList.remove('open'); }
+        var sb = document.getElementById('search-button');
+        if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (modal) {
+            modal.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
 </body>
 </html>

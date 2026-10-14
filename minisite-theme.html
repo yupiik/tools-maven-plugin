@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <title>Theme</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A set of build utilities.  IMPORTANT: 1.0.x use &#x60;javax.json&#x60; whereas 1.1.x uses &#x60;jakarta.json&#x60;, it can impact your setup and need customization for minisite generation for example. Last available 1.0.x release is 1.0.26.">
+    <meta name="author" content="Yupiik Minisite Generator">
+    <meta name="generator" content="Yupiik Minisite Generator">
+    
+    <link rel="shortcut icon" href="/tools-maven-plugin/images/favicon.png">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#191b20" media="(prefers-color-scheme: light)">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/atom-one-dark.min.css" integrity="sha512-Fcqyubi5qOvl+yCwSJ+r7lli+CO1eHXMaugsZrnxuU4DVpLYWXTVoHy55+mCb4VZpMgy7PBhV7IiymC0yu9tkQ==" crossorigin="anonymous" />
+    <link id="theme-style" rel="stylesheet" href="/tools-maven-plugin/css/theme.css?v=1.3.1-SNAPSHOT">
+    
+    
+<script>/* inline to avoid flicker */try{var t=localStorage.getItem('yupiik-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <a class="brand-link" title="Home" href="/tools-maven-plugin/index.html">
+                    <img class="brand-logo" src="//www.yupiik.io/images/favicon.png" alt="logo">
+                    <span class="brand-text">Tools :: Documentation<span class="brand-side">Docs</span></span>
+                </a>
+            </div>
+            <div class="header-actions">
+                
+                <button class="icon-btn" id="search-button" type="button" title="Search" aria-label="Search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+    </button>
+                
+				<ul class="social-list">
+				<li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+				</ul>
+				<button class="icon-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+					<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-16a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.34 4.93a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zm11.32 12.73a1 1 0 1 1 1.41 1.41 1 1 0 0 1-1.41-1.41zM4 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm16 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM4.93 17.66a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41zm12.73-11.32a1 1 0 1 1 1.41-1.41 1 1 0 0 1-1.41 1.41z"/></svg>
+					<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+				</button>
+            </div>
+        </div>
+    </header>
+	<div class="page">
+<div class="page-navigation-left">
+    <h3 class="menu-label">Menu</h3>
+    <ul>
+<li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/mojos.html">
+        <i class="fas fa-building"></i>Maven
+    </a>
+</li><li>
+    <a title="Maven Plugin" href="/tools-maven-plugin/cli.html">
+        <i class="fas fa-terminal"></i>CLI
+    </a>
+</li><li>
+    <a title="Asciidoc Java" href="/tools-maven-plugin/asciidoc-java.html">
+        <i class="fas fa-book"></i>Asciidoc Java
+    </a>
+</li><li>
+    <a title="Ascii2SVG" href="/tools-maven-plugin/ascii2svg.html">
+        <i class="fas fa-font"></i>Ascii2SVG
+    </a>
+</li><li>
+    <a title="YEM (Environment Manager)" href="/tools-maven-plugin/yem.html">
+        <i class="fas fa-robot"></i>YEM
+    </a>
+</li>
+    </ul>
+</div>
+<div id="minisite-theme-html-container" class="container page-content minisite-theme-html ">
+            <div class="page-header">
+                <h1>Minisite Theme</h1>
+            </div>
+            <div class="page-content-body">
+                <div id="preamble">
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>The minisite default template is a documentation theme with a dark header and footer, a neutral background, a spacious reading column and rounded cards derived from the  <a href="https://yupiik.com">yupiik.com</a>
+ brand identity. It ships as a set of  <a href="https://handlebarsjs.com/">handlebars</a>
+-like templates (<code>.hb</code> files) and a CSS variable-driven stylesheet supporting <strong>light</strong> and <strong>dark</strong> color schemes with a manual toggle.</p>
+ </div>
+ </div>
+ </div>
+ <div class="paragraph">
+ <p>
+This page documents how the template engine works, which templates and partials exist, and how to override them for your own website.
+ </p>
+ </div>
+ <div class="sect1">
+  <h2 id="_how_templating_works">How templating works</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+Templates are rendered by an embedded handlebars engine (fusion-handlebars). The syntax is a subset of handlebars:
+ </p>
+ </div>
+ <div class="admonitionblock tip">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">TIP</div>
+       </td>
+      <td class="content">
+ <div class="ulist">
+ <ul>
+  <li>
+ <div class="paragraph">
+ <p><code>{{name}}</code> interpolates the <code>name</code> value and <strong>HTML-escapes</strong> it.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>{{{name}}}</code> interpolates the <code>name</code> value <strong>without</strong> escaping (raw). Use it for values that already contain HTML such as the rendered page <code>body</code>, <code>breadcrumb</code> or generated navigation.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>{{#if name}}...{{else}}...{{/if}}</code>, <code>{{#each items}}...{{/each}}</code> and similar block helpers are supported.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>{{&gt; partialName}}</code> includes a partial (see  <a href="#Partials">[Partials]</a>
+). Note there is <strong>no space</strong> after <code>&gt;</code>.</p>
+ </div>
+  </li>
+  <li>
+ <div class="paragraph">
+ <p><code>{{lowercase value}}</code> / <code>{{uppercase value}}</code> are built-in helpers.</p>
+ </div>
+  </li>
+ </ul>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="paragraph">
+ <p>The <code>{{...}}</code>/<code>{{{...}}}</code> sequences you write in the minisite <strong>templates</strong> (<code>.hb</code> files) are handlebars and are rendered by the engine. In contrast, the paragraphs and blocks of a page's AsciiDoc source are converted to HTML by the Asciidoctor renderer and then inserted via <code>{{{body}}}</code> without being re-parsed, so a literal <code>{{name}}</code> or <code>{{{name}}}</code> you write in a page body (for example when documenting handlebars) is preserved as-is and does not need to be escaped.</p>
+ </div>
+ <div class="admonitionblock note">
+  <table>
+    <tbody>
+     <tr>
+      <td class="icon">
+     <div class="title">NOTE</div>
+       </td>
+      <td class="content">
+ <div class="paragraph">
+ <p>the old <code>{$yupiik.minisite.openbracket$}</code> escape (and the <code>TemplateSubstitutor</code> that rendered it back) is no longer active, so you don't need it and you should not rely on it: it is not processed anymore since the Asciidoctor renderer preserves literal <code>{{...}}</code> in page text.</p>
+ </div>
+    </td>
+   </tr>
+      </tbody>
+  </table>
+ </div>
+ <div class="paragraph">
+ <p>The values (the &quot;model&quot;) are provided by the generator Java code. Most of them are dynamic (page title, body, breadcrumb, dates and so on). Values that are only relevant when a feature is enabled (search, blog, llm chat, copy button) are available as boolean flags you can use with <code>{{#if ...}}</code>.</p>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_default_templates">Default templates</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Templates live under the <code>templates</code> folder of your minisite source (<code>src/main/minisite/templates</code> by default). If a template is not found there, the generator falls back to its bundled defaults, so you only need to copy the files you want to customize.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+The layout is composed of the following default templates:
+ </p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 33%;">
+   <col style="width: 66%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+File    </th>
+    <th class="tableblock halign-left">
+Purpose    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>header.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>&lt;head&gt;</code> plus the opening <code>&lt;body&gt;</code>. Global meta, fonts, icons, theme stylesheet and the inline anti-flicker theme script.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>menu.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Sticky site header: brand/logo, header actions (custom menu, search, blog link, social links, theme toggle) and the opening <code>.page</code> wrapper.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>footer-top.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Right-hand navigation column (the table of contents populated by <code>minisite.js</code>), closes the <code>.page</code> wrapper.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>footer-end.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Site footer (social links + copyright), search modal, jQuery, highlight.js, <code>minisite.js</code>, llm chat scripts, custom scripts, closing <code>&lt;/body&gt;&lt;/html&gt;</code>.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>page-title.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The page <code>&lt;h1&gt;</code> heading block.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>page-content.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The main content column: breadcrumb, title and the <code>.page-content-body</code> that receives the rendered Asciidoctor content and the previous/next navigation.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>left-menu.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Optional left navigation column rendered when the left menu is enabled.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>left-menu-item.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Single entry of the left navigation.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>index-item.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+One tile (card) of an automatically generated index page.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>index-content.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The index page layout: heading, intro and the docs overview grid.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>page-footer-nav.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Previous/next pagination navigation block.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>page-footer-nav-link.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Single previous/next link.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>blog-list.adoc.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Asciidoctor page listing all blog posts (title, items and pagination links).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>blog-list-item.adoc.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Asciidoctor passthrough wrapping one blog post card.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="sect2">
+  <h3 id="_prefix_and_suffix">Prefix and suffix</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p><code>header.hb</code>, <code>menu.hb</code> and <code>footer-top.hb</code>, <code>footer-end.hb</code> are the <strong>prefix</strong> and <strong>suffix</strong> templates that wrap each page. The <code>templatePrefixes</code> / <code>templateSuffixes</code> configuration (default <code>header.hb,menu.hb</code> and <code>footer-top.hb,footer-end.hb</code>) lists which files to use, in order.</p>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_partials">Partials</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>Reusable fragments are stored in the <code>templates/_partials</code> folder and included with <code>{{&gt; name}}</code>. They are exposed to templates either as static HTML or as HTML gated behind a boolean model flag:</p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 33%;">
+   <col style="width: 66%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Partial    </th>
+    <th class="tableblock halign-left">
+Purpose    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>search.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The search button in the header (<code>{{#if search}}</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>searchModal.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The search modal dialog (<code>{{#if searchModal}}</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>blogLink.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The blog link in the header (<code>{{#if blogLink}}</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>highlightJsCss.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The highlight.js stylesheet link (<code>{{#if highlightJsCss}}</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>highlightJs.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The highlight.js script tag (<code>{{#if highlightJs}}</code>), including the optional copy-to-clipboard button.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>llmChatCss.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+LLM chat stylesheet link (<code>{{#if llmChat}}</code>).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>llmChatScripts.hb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The LLM chat widget markup and scripts (<code>{{#if llmChat}}</code>).</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="sect2">
+  <h3 id="_extension_points">Extension points</h3>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>The generator sets a few partials from your site configuration so they can be placed anywhere: <code>socialLinks</code>, <code>socialLinksFooter</code>, <code>copyrightLine</code> and any custom entry of <code>templateExtensionPoints</code>. You can also provide your own partial by putting a <code>*.hb</code> file under the <code>templates/extension-points</code> folder; its name (without the <code>.hb</code> extension) is then usable as <code>{{&gt; name}}</code>.</p>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_model_available_values">Model (available values)</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>
+The following keys are available in all page templates when applicable:
+ </p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 33%;">
+   <col style="width: 66%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Key    </th>
+    <th class="tableblock halign-left">
+Description    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>base</code> / <code>siteBase</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+The site absolute base URL.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>title</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Page title.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>description</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Page description (from <code>minisite-description</code>, the global config, or the index subtitle).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>metaAuthor</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Author or <code>Yupiik Minisite Generator</code> by default.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>metaKeywords</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Prebuilt <code>&lt;meta name=&quot;keywords&quot;&gt;</code> HTML or empty.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>logo</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Logo URL.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>logoText</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Text next to the logo.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>logoSideText</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Small uppercase label next to the logo text.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>favicon</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Favicon URL.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>projectVersion</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Current project version.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>linkedInCompany</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+LinkedIn company identifier.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>copyright</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Copyright line.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>body</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Rendered Asciidoctor content (raw HTML).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>breadcrumb</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Breadcrumb HTML (raw).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>pageClass</code>, <code>categoryClass</code>, <code>icon</code>, <code>isBlogClass</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Classes/icons used to style cards and pages.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>author</code>, <code>authors</code>, <code>authors-list</code>, <code>gravatar</code>, <code>publishedDate</code>, <code>summary</code>, <code>readingTime</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Blog metadata.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>defaultEndOfContent</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Blog extra content (categories, authors, navigation).</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>href</code>, <code>hrefTitle</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Link and title used by cards.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>customHead</code>, <code>customMenu</code>, <code>customScripts</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Raw HTML injected by the user configuration.</p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>search</code>, <code>searchModal</code>, <code>blogLink</code>, <code>highlightJs</code>, <code>highlightJsCss</code>, <code>llmChat</code>, <code>addCodeCopyButton</code>, <code>addLeftMenu</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+Boolean toggles gating feature HTML via <code>{{#if ...}}</code>.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ </div>
+ </div>
+ <div class="sect1">
+  <h2 id="_theme_colors_and_lightdark_mode">Theme colors and light/dark mode</h2>
+ <div class="sectionbody">
+ <div class="paragraph">
+ <p>The theme uses CSS variables defined on <code>:root</code>, overridden by <code>:root[data-theme='light']</code> and <code>:root[data-theme='dark']</code>. The <code>data-theme</code> attribute is set on the <code>&lt;html&gt;</code> element and persisted in the <code>yupiik-theme</code> localStorage key; an inline script in <code>header.hb</code> applies it before first paint to avoid a flicker, and the toggle button in <code>menu.hb</code> switches it in <code>footer-end.hb</code>.</p>
+ </div>
+ <div class="paragraph">
+ <p>
+The palette is derived from the yupiik.com brand:
+ </p>
+ </div>
+ <table class="tableblock frame-all grid-all stretch">
+  <colgroup>
+   <col style="width: 32%;">
+   <col style="width: 64%;">
+  </colgroup>
+  <thead>
+   <tr>
+    <th class="tableblock halign-left">
+Token    </th>
+    <th class="tableblock halign-left">
+Value    </th>
+   </tr>
+  </thead>
+  <tbody>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>--brand-green</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>#46F72F</code></p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>--brand-purple</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>#D858FF</code></p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>--brand-blue</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>#02ABEA</code></p>
+    </td>
+   </tr>
+   <tr>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>--brand-blue-dark</code></p>
+    </td>
+    <td class="tableblock halign-left">
+<p class="tableblock">
+<code>#056EBB</code></p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+ <div class="paragraph">
+ <p>The bundled template starts in light mode. A saved visitor preference is applied before first paint, and the header toggle switches between light and dark mode. Custom templates can omit <code>data-theme</code> to follow the operating system preference via <code>prefers-color-scheme</code>. Override <code>--bg</code>, <code>--surface</code>, <code>--text</code>, <code>--brand</code>, <code>--ring</code> and the other semantic variables in a stylesheet loaded through <code>customHead</code>. Set them on <code>:root[data-theme='light']</code> and <code>:root[data-theme='dark']</code> to customize each mode. Alternatively, provide your own <code>css/theme.css</code> asset to replace the bundled stylesheet. The header and footer use a dark neutral frame with a blue accent in both modes. On smaller screens, the left menu becomes a horizontal navigation strip and the right table of contents is hidden. The table of contents uses clickable rows without bullets, with indented tree branches connecting child headings to their parents. Keyboard focus indicators and reduced-motion preferences are supported.</p>
+ </div>
+ </div>
+ </div>
+                
+                
+            </div>
+        </div>
+<div class="page-navigation-right">
+        <h3>Navigation</h3>
+        <nav class="generated-nav-menu"></nav>
+    </div>
+    </div>
+<footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-social">
+                <ul class="social-list">
+                <li class="list-inline-item"><a title="Github" href="https://www.github.com/yupiik/"><i class="fab fa-github fa-fw"></i></a></li><li class="list-inline-item"><a title="LinkedIn" href="https://www.linkedin.com/company/yupiik/"><i class="fab fa-linkedin fa-fw"></i></a></li>
+                </ul>
+            </div>
+            <nav class="footer-bar"><small class="copyright">Yupiik &copy;</small><a class="legal-link" href="https://www.yupiik.com/terms-of-use/">Terms of use</a><a class="legal-link" href="https://www.yupiik.com/privacy-policy/">Privacy policy</a></nav>
+        </div>
+    </footer>
+
+    <div class="modal" id="searchModal" role="dialog" aria-label="Search site">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <h5 class="modal-title">Search</h5>
+            <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input class="form-control" id="searchInput" placeholder="Search the docs..." autocomplete="off">
+            <div class="search-hits"></div>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js" integrity="sha512-d00ajEME7cZhepRqSIVsQVGDJBdZlfHyQLNC6tZXYKTG7iwcF8nhlFuppanz8hYgXr8VvlfKh4gLC25ud3c90A==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/bash.min.js" integrity="sha512-Hg0ufGEvn0AuzKMU0psJ1iH238iUN6THh7EI0CfA0n1sd3yu6PYet4SaDMpgzN9L1yQHxfB3yc5ezw3PwolIfA==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
+    <script>if (!(window.minisite || {}).skipHighlightJs) {
+        hljs.highlightAll();
+        function addCopyButtons(clipboard) {
+          document.querySelectorAll('pre > code').forEach(function (codeBlock) {
+          var button = document.createElement('button');
+          button.className = 'copy-code-button';
+          button.type = 'button';
+          button.innerText = 'Copy';
+          button.addEventListener('click', function () {
+           clipboard.writeText(codeBlock.innerText).then(function () {
+           button.blur();
+           button.innerText = 'Copied!';
+           setTimeout(function () { button.innerText = 'Copy'; }, 2000); }, function (error) { button.innerText = 'Error'; });
+          });
+          var pre = codeBlock.parentNode;
+          if (pre.parentNode.classList.contains('highlight')) {
+          var highlight = pre.parentNode; highlight.parentNode.insertBefore(button, highlight);
+          } else { pre.parentNode.insertBefore(button, pre); }
+         });
+        }
+        if (navigator && navigator.clipboard) {
+         addCopyButtons(navigator.clipboard);
+        } else {
+         var script = document.createElement('script');
+         script.src = '//cdnjs.cloudflare.com/ajax/libs/clipboard-polyfill/2.7.0/clipboard-polyfill.promise.js';
+         script.integrity = 'sha256-waClS2re9NUbXRsryKoof+F9qc1gjjIhc2eT7ZbIv94=';
+         script.crossOrigin = 'anonymous';
+         script.onload = function() {addCopyButtons(clipboard);};
+         document.body.appendChild(script);
+        }
+    }</script>
+    <script src="/tools-maven-plugin/js/minisite.js?v=1.3.1-SNAPSHOT"></script>
+    <script>$('.page-content-body').generatedNavMenu();</script>
+    
+    
+
+<script>
+    (function () {
+        // theme toggle
+        var root = document.documentElement;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', next);
+                try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
+            });
+        }
+        // search modal
+        var modal = document.getElementById('searchModal');
+        function openModal() { if (modal) modal.classList.add('open'); }
+        function closeModal() { if (modal) modal.classList.remove('open'); }
+        var sb = document.getElementById('search-button');
+        if (sb) sb.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (modal) {
+            modal.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+        }
+    })();
+</script>
+</body>
+</html>
