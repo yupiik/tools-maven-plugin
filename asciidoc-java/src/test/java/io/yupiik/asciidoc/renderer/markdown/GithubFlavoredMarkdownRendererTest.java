@@ -1868,6 +1868,14 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void linkTextKeepsItsQuotesAndCommas() { // a property name of the generated configuration tables, as asciidoctor
+        assertEquals("The [`quarkus.log.category.\"categories\".level`](#quarkus-log_quarkus-log-category-categories-level) property sets the level, " +
+                        "as [How to Use Kafka, Schema Registry and Avro with Quarkus](https://quarkus.io/blog/kafka-avro/) shows.\n",
+                md("The link:#quarkus-log_quarkus-log-category-categories-level[`quarkus.log.category.\"categories\".level`] property sets the level, " +
+                        "as link:https://quarkus.io/blog/kafka-avro/[How to Use Kafka, Schema Registry and Avro with Quarkus] shows."));
+    }
+
+    @Test
     void balancedParenthesesStayInAPlainDestination() {
         assertEquals("See the [parse](https://docs.oracle.com/Duration.html#parse(java.lang.CharSequence)).\n",
                 md("See the https://docs.oracle.com/Duration.html#parse(java.lang.CharSequence)[parse]."));
