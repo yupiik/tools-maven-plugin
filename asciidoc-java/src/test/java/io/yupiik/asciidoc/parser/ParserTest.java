@@ -140,6 +140,44 @@ class ParserTest {
                 body.children());
     }
 
+    @Test
+    void linkTextWithoutAnEqualsSignIsOneValue() { // as asciidoctor, for link:, URL and xref: texts; a '=' makes it an attribute list
+        assertEquals(
+                List.of(new Link("https://example.org", new Text(List.of(), "a, b", Map.of("", "a, b", "nowrap", "true")), Map.of("", "a, b", "nowrap", "true"))),
+                new Parser().parseBody("link:https://example.org[a, b]", new Parser.ParserContext(null)).children());
+        assertEquals(
+                List.of(new Macro("xref", "t", Map.of("", "a, b"), true)),
+                new Parser().parseBody("xref:t[a, b]", new Parser.ParserContext(null)).children());
+        assertEquals(
+                List.of(new Macro("xref", "t", Map.of("", "a", "role", "ref"), true)),
+                new Parser().parseBody("xref:t[a,role=ref]", new Parser.ParserContext(null)).children());
+    }
+
+    @Test
+    void percentInsideAQuotedColsValueIsNotAnOption() { // deploying-to-openshift.adoc: [cols="15%,15%",options="header"] is two columns with a header
+        final var body = new Parser().parseBody("""
+                [cols="15%,15%",options="header"]
+                |===
+                |a|b
+                |c|d
+                |===
+                """, new Parser.ParserContext(null));
+        assertEquals(1, body.children().size());
+        final var table = (Table) body.children().get(0);
+        assertEquals(Map.of("cols", "15%,15%", "header-option", ""), table.options());
+        assertEquals(2, table.elements().size());
+        assertEquals(2, table.elements().get(0).size());
+    }
+
+    @Test
+    void quotedPositionalWithPercentAndEmptyQuotedValue() { // ["50%,x"] is one style value; title="" sets an empty title, as asciidoctor
+        final var body = new Parser().parseBody("""
+                ["50%,x",title=""]
+                hello
+                """, new Parser.ParserContext(null));
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "50%,x", "title", ""))), body.children());
+    }
+
     // crd-ref-docs uses this kind of formatting
     @Test
     public void tableWithContinuation() {
