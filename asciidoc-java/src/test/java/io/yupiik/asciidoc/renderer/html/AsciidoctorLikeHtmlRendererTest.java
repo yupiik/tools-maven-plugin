@@ -2525,6 +2525,112 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void linkTextIsAnAttributeListOnlyWithAnEqualsSign() { // as asciidoctor, the text keeps its quotes, its commas and a style word
+        assertRenderingContent("""
+                        The link:#quarkus-log_quarkus-log-category-categories-level[`quarkus.log.category."categories".level`] property sets the level, as link:https://quarkus.io/blog/kafka-avro/[How to Use Kafka, Schema Registry and Avro with Quarkus] shows.
+                        See the Prometheus link:https://github.com/prometheus/prometheus[example], https://github.com/quarkusio/quarkus/issues/15782[#15782] and xref:logging.adoc[Logging, the reference].""",
+                """
+                         <div class="paragraph">
+                         <p>The  <a href="#quarkus-log_quarkus-log-category-categories-level"><code>quarkus.log.category.&quot;categories&quot;.level</code></a>
+                         property sets the level, as  <a href="https://quarkus.io/blog/kafka-avro/">How to Use Kafka, Schema Registry and Avro with Quarkus</a>
+                         shows. See the Prometheus  <a href="https://github.com/prometheus/prometheus">example</a>
+                        ,  <a href="https://github.com/quarkusio/quarkus/issues/15782">#15782</a>
+                         and  <a href="logging.html">Logging, the reference</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void linkTextWithAnEqualsSignIsAnAttributeListWhoseFirstValueIsTheText() { // never a block style or shorthand; a '=' after a non-name is text
+        assertRenderingContent(
+                "Visit link:https://quarkus.io[\"Quarkus, the site\",role=external,window=_blank], https://quarkus.io/guides/[\"a, b\",window=_blank], " +
+                        "link:https://quarkus.io[source,role=x], link:https://quarkus.io[50%,role=x], link:https://quarkus.io[.foo,role=x], " +
+                        "https://quarkus.io[`quarkus.http.port=8080`] and ftp://host/file[a, b], " +
+                        "or mailto:team@example.org[Ask us, Subject here] and mailto:team@example.org[Hi=there].",
+                """
+                         <div class="paragraph">
+                         <p>Visit  <a href="https://quarkus.io" class="external" target="_blank" rel="noopener">Quarkus, the site</a>
+                        ,  <a href="https://quarkus.io/guides/" target="_blank" rel="noopener">a, b</a>
+                        ,  <a href="https://quarkus.io" class="x">source</a>
+                        ,  <a href="https://quarkus.io" class="x">50%</a>
+                        ,  <a href="https://quarkus.io" class="x">.foo</a>
+                        ,  <a href="https://quarkus.io"><code>quarkus.http.port=8080</code></a>
+                         and  <a href="ftp://host/file">a, b</a>
+                        , or  <a href="mailto:team@example.org">Ask us</a>
+                         and  <a href="mailto:team@example.org">Hi=there</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void quotesInALinkTextWithAnEqualsSign() { // a quote inside a run is text, a quoted run is the whole value, the rest up to ',' is dropped
+        assertRenderingContent(
+                "See link:#id[`quarkus.log.category.\"categories\".level=DEBUG`], link:#id[a.\"b\".c=d], link:https://u.io[\"a, b\" and c=d], " +
+                        "link:https://u.io[\"\",role=x] and link:https://u.io[\"unclosed, role=x].",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="#id"><code>quarkus.log.category.&quot;categories&quot;.level=DEBUG</code></a>
+                        ,  <a href="#id">a.&quot;b&quot;.c=d</a>
+                        ,  <a href="https://u.io">a, b</a>
+                        ,  <a href="https://u.io" class="x">https://u.io</a>
+                         and  <a href="https://u.io" class="x">&quot;unclosed</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void escapedQuoteInADoubleQuotedAttributeValue() { // as asciidoctor, \" is a quote inside the value
+        assertRenderingContent(
+                """
+                        [source,java,title="say \\"hi\\""]
+                        ----
+                        x
+                        ----""",
+                """
+                         <div class="listingblock">
+                          <div class="title">say &quot;hi&quot;</div>
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">x
+                        </code></pre>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void linkTextWithAnUnclosedBracketEndsAtTheFirstClosingOne() { // as asciidoctor; master threw StringIndexOutOfBoundsException
+        assertRenderingContent(
+                "See link:https://x.io/a[a [b] here.",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="https://x.io/a">a [b</a>
+                         here.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void macrosInsideALinkTextKeepTheirOwnAttributes() { // the generated configuration tables: link:#id[icon:question-circle[title=...]]
+        assertRenderingContent(
+                """
+                        :icons: font
+
+                        The type is link:#x[icon:question-circle[title=More information]] here, see link:https://x.io/a[image:a.png[x] image:b.png[y]] too.""",
+                """
+                         <div class="paragraph">
+                         <p>The type is  <a href="#x"><span class="icon"><i class="question-circle" title="More information"></i></span></a>
+                         here, see  <a href="https://x.io/a"> <span class="image"><img src="a.png" alt="x"></span>
+                          <span class="image"><img src="b.png" alt="y"></span>
+                        </a>
+                         too.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
     void imagesDirs() { // as asciidoctor, the default alt text is the file name without its extension, - and _ read as spaces
         assertRenderingContent(
                 """

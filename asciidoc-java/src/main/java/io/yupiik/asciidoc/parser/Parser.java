@@ -124,7 +124,9 @@ public class Parser {
     private static final Pattern UPPER_ALPHA = Pattern.compile("[A-Z]");
     private static final Pattern MAN_PAGE_TITLE = Pattern.compile("^(\\S[^()\\s]*)\\((\\d+)\\)$");
     private static final Pattern PIPE_TABLE_SEPARATOR = Pattern.compile("^\\|(?:[ :-]+\\|)+$");
-    private static final List<String> LINK_PREFIXES = List.of("http://", "https://", "ftp://", "ftps://", "irc://", "file://", "mailto:");
+    // the schemes of a bare link; mailto: is a link too, tested apart because its text keeps the attribute-list reading
+    private static final String[] LINK_SCHEMES = {"http://", "https://", "ftp://", "ftps://", "irc://", "file://"};
+    private static final String MAILTO = "mailto:";
     // the default of the blank-target-macros attribute: asciidoctor's image, icon, menu and xref regexes take blanks in
     // the target, as image:my file.png[alt]; the target of a link stops at a blank, as in asciidoctor
     private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref";
@@ -2133,7 +2135,6 @@ public class Parser {
                                 continue;
                             }
 
-                            var options = parseOptions(line.substring(i + 1, end).strip());
                             if (start < backward) {
                                 flushText(elements, line.substring(start, backward));
                             }
@@ -2149,6 +2150,8 @@ public class Parser {
                                 optionsPrefix = optionsPrefix.substring(2);
                                 offset = 2;
                             }
+                            // read after the escaped check, which needs no options, and after the __ strip, so the prefix is the real one
+                            var options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip());
 
                             final int macroMarker = optionsPrefix.indexOf(":");
                             if (macroMarker > 0 && !isLink(optionsPrefix)) {
@@ -2167,9 +2170,14 @@ public class Parser {
                                     var linkName = options.get("");
                                     int from = linkName.indexOf('[');
                                     while (from > 0) { // if label has some opening label we must slice what we computed (images in link)
-                                        end = line.indexOf(']', end + 1);
-                                        from = label.indexOf('[', from + 1);
-                                        options = parseOptions(line.substring(i + 1, end).strip());
+                                        final int next = line.indexOf(']', end + 1);
+                                        if (next < 0) { // no closing bracket for the nested one: the text ends at the first ']', as asciidoctor's "a [b"
+                                            break;
+                                        }
+                                        end = next;
+                                        options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip());
+                                        linkName = options.getOrDefault("", "");
+                                        from = linkName.indexOf('[', from + 1);
                                     }
                                 }
 
@@ -3333,20 +3341,33 @@ public class Parser {
         if (options.contains("%")) {
             final var tokens = List.of(options.split(","));
             final var extraOptions = new java.util.LinkedHashMap<String, String>();
-            final var cleaned = tokens.stream().map(t -> {
-                if (t.contains("%") && !t.contains("=")) {
+            final var cleaned = new StringBuilder(options.length());
+            boolean quoted = false; // a '%' inside a quoted value, cols="15%,15%", is not the option shorthand
+            for (int i = 0; i < tokens.size(); i++) {
+                final var t = tokens.get(i);
+                if (i > 0) {
+                    cleaned.append(',');
+                }
+                if (!quoted && t.indexOf('"') < 0 && t.contains("%") && !t.contains("=")) {
                     final var parts = t.split("%", -1);
-                    for (int i = 1; i < parts.length; i++) {
-                        if (!parts[i].isEmpty()) {
-                            extraOptions.put(parts[i] + "-option", "");
+                    for (int j = 1; j < parts.length; j++) {
+                        if (!parts[j].isEmpty()) {
+                            extraOptions.put(parts[j] + "-option", "");
                         }
                     }
-                    return parts[0];
+                    cleaned.append(parts[0]);
+                } else {
+                    cleaned.append(t);
                 }
-                return t;
-            }).collect(java.util.stream.Collectors.joining(","));
-            if (!cleaned.equals(options)) {
-                return merge(parseOptions(cleaned), extraOptions);
+                for (int j = 0; j < t.length(); j++) {
+                    if (t.charAt(j) == '"') {
+                        quoted = !quoted;
+                    }
+                }
+            }
+            final var cleanedOptions = cleaned.toString();
+            if (!cleanedOptions.equals(options)) {
+                return merge(parseOptions(cleanedOptions), extraOptions);
             }
         }
         return mapIf("source", null, "language", options)
@@ -3680,8 +3701,9 @@ public class Parser {
         if (first instanceof Link l) {
             return new Link(l.url(), l.label(), merge(l.options(), element.options()));
         }
-        if (first instanceof Macro m) {
-            return new Macro(m.name(), m.label(), merge(m.options(), element.options()), m.inline());
+        if (first instanceof Macro m) { // the positional values of a macro are inside its own brackets, not the paragraph's
+            final var paragraphOptions = element.options().get("") == null ? element.options() : removeEmptyKey(element.options());
+            return new Macro(m.name(), m.label(), merge(m.options(), paragraphOptions), m.inline());
         }
         if (first instanceof Quote q) {
             return new Quote(q.children(), merge(q.options(), element.options()));
@@ -3708,9 +3730,34 @@ public class Parser {
         return element;
     }
 
+    // as asciidoctor, the text of a link or a cross reference is an attribute list only when it holds a '=', so
+    // link:url[a, "b"] keeps its comma and its quotes; with a '=' the text is the first positional value, never a block
+    // style, so link:url[source,role=x] keeps "source". A mailto: text is split at its commas, as asciidoctor does to
+    // read the subject and the body, which the renderers do not write yet
+    private Map<String, String> parseMacroOptions(final String prefix, final String text) {
+        if (text.isEmpty()) {
+            return Map.of();
+        }
+        if (prefix.startsWith(MAILTO)) { // as asciidoctor, a mailto: text is an attribute list only when it holds a ','
+            return text.indexOf(',') < 0 ? Map.of("", dropLegacyPassthroughMarkers(text)) : doParseOptions(text, "", true, false);
+        }
+        if (!(prefix.startsWith("link:") || prefix.startsWith("xref:") || hasLinkScheme(prefix))) {
+            return parseOptions(text);
+        }
+        if (text.indexOf('=') < 0) {
+            return Map.of("", dropLegacyPassthroughMarkers(text));
+        }
+        return doParseOptions(text, "", true, false); // an inline list: no .role, #id or %option shorthand on the text
+    }
+
     private boolean isLink(final String link) {
-        for (int i = 0; i < LINK_PREFIXES.size(); i++) {
-            if (link.startsWith(LINK_PREFIXES.get(i))) {
+        return hasLinkScheme(link) || link.startsWith(MAILTO);
+    }
+
+
+    private boolean hasLinkScheme(final String link) {
+        for (final var scheme : LINK_SCHEMES) {
+            if (link.startsWith(scheme)) {
                 return true;
             }
         }
@@ -3807,13 +3854,20 @@ public class Parser {
     }
 
     private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport) {
+        return doParseOptions(options, defaultKey, nestedOptsSupport, true);
+    }
+
+    // blockShorthand: a block attribute line reads .role, #id and %option in its positional values, an inline macro text does not
+    private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport,
+                                               final boolean blockShorthand) {
         final var map = new HashMap<String, String>();
         final var key = new StringBuilder();
         final var value = new StringBuilder();
         final var positional = new ArrayList<String>();
         boolean quoted = false;
+        int quoteStart = -1;
         boolean singleQuoted = false;
-        boolean afterSingleQuote = false;
+        boolean afterClosingQuote = false;
         int singleQuoteStart = -1;
         boolean inKey = true;
         for (int i = 0; i < options.length(); i++) {
@@ -3821,7 +3875,7 @@ public class Parser {
             if (singleQuoted) { // as asciidoctor, \' is a quote inside the value, which ends at its closing quote
                 if (c == '\'') {
                     singleQuoted = false;
-                    afterSingleQuote = true;
+                    afterClosingQuote = true;
                     if (!key.isEmpty() && !value.isEmpty()) { // an empty value sets nothing, as an absent one
                         map.put(key.toString(), dropLegacyPassthroughMarkers(value.toString()));
                     }
@@ -3840,16 +3894,45 @@ public class Parser {
                     value.append('\'');
                     i = singleQuoteStart;
                 }
-            } else if (afterSingleQuote) { // as asciidoctor, the text between the closing quote and the next ',' is not the value
-                afterSingleQuote = c != ',';
-            } else if (c == '"') {
-                quoted = !quoted;
+            } else if (afterClosingQuote) { // as asciidoctor, the text between the closing quote and the next ',' is not the value
+                afterClosingQuote = c != ',';
+            } else if (c == '"' && quoted) { // closing quote: as for a single quote, the text up to the next ',' is not part of the value
+                quoted = false;
+                if (inKey) {
+                    if (!key.isEmpty()) {
+                        positional.add(key.toString());
+                    }
+                } else if (!key.isEmpty()) {
+                    if (value.isEmpty()) { // name="" sets the attribute to the empty string
+                        map.put(key.toString(), "");
+                    } else {
+                        flushOption(defaultKey, key, value, map);
+                    }
+                }
+                key.setLength(0);
+                value.setLength(0);
+                inKey = true;
+                afterClosingQuote = true;
+            } else if (c == '"' && (inKey ? key : value).isEmpty()) { // as asciidoctor, a quote quotes only a whole name or value
+                quoted = true;
+                quoteStart = i;
             } else if (quoted) {
-                (inKey ? key : value).append(c);
+                if (c == '\\' && i + 1 < options.length() && options.charAt(i + 1) == '"') { // as asciidoctor, \" is a quote inside the value
+                    (inKey ? key : value).append('"');
+                    i++;
+                } else {
+                    (inKey ? key : value).append(c);
+                }
+                if (i >= options.length() - 1) { // never closed: as asciidoctor, the quote stays text and the list goes on
+                    quoted = false;
+                    (inKey ? key : value).setLength(0);
+                    (inKey ? key : value).append('"');
+                    i = quoteStart;
+                }
             } else if (c == '\'' && !inKey && value.isEmpty() && i + 1 < options.length()) { // as asciidoctor, it quotes the value it starts
                 singleQuoted = true;
                 singleQuoteStart = i;
-            } else if (c == '=') {
+            } else if (c == '=' && inKey && isAttributeName(key)) { // as asciidoctor, only a name is followed by '='
                 inKey = false;
             } else if (c == ',') {
                 if (!key.isEmpty()) {
@@ -3885,11 +3968,11 @@ public class Parser {
         }
         for (int i = 0; i < positional.size(); i++) {
             final var pos = dropLegacyPassthroughMarkers(positional.get(i));
-            if (pos.startsWith(".")) {
+            if (blockShorthand && pos.startsWith(".")) {
                 addRole(map, pos.substring(1).replace('.', ' '));
-            } else if (pos.startsWith("#")) {
+            } else if (blockShorthand && pos.startsWith("#")) {
                 map.put("id", pos.substring(1));
-            } else if (pos.startsWith("%")) {
+            } else if (blockShorthand && pos.startsWith("%")) {
                 map.put(pos.substring(1) + "-option", "");
             } else if (i == 0) {
                 map.putIfAbsent(defaultKey, pos);
@@ -3914,6 +3997,21 @@ public class Parser {
             }
         }
         return map;
+    }
+
+    // asciidoctor's attribute name (NameRx): a word character, then word characters, '-' or '.'; anything else before a
+    // '=' is text. A '!' at the end is kept for the include directive's tag!=name negation, which this parser supports
+    private boolean isAttributeName(final StringBuilder key) {
+        if (key.isEmpty() || !isWordCharacter(key.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < key.length(); i++) {
+            final char c = key.charAt(i);
+            if (!(isWordCharacter(c) || c == '-' || c == '.' || (c == '!' && i == key.length() - 1))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // as asciidoctor, the roles of a '.name' shorthand are added to the role attribute, they do not replace it
@@ -4027,13 +4125,22 @@ public class Parser {
                 last--;
             }
         }
-        return LINK_PREFIXES.contains(content.substring(from, last)) ? end : last; // keep bare schemes as they are
+        return isBareScheme(content, from, last) ? end : last; // keep bare schemes as they are
+    }
+
+    private boolean isBareScheme(final String content, final int from, final int to) { // the text is a scheme and nothing else
+        for (final var scheme : LINK_SCHEMES) {
+            if (scheme.length() == to - from && content.startsWith(scheme, from)) {
+                return true;
+            }
+        }
+        return MAILTO.length() == to - from && content.startsWith(MAILTO, from);
     }
 
     private int findNextLink(final String line, final int from) {
-        int best = -1;
-        for (int i = 0; i < LINK_PREFIXES.size(); i++) {
-            final int index = line.indexOf(LINK_PREFIXES.get(i), from);
+        int best = line.indexOf(MAILTO, from);
+        for (final var scheme : LINK_SCHEMES) {
+            final int index = line.indexOf(scheme, from);
             if (index >= 0 && (best < 0 || index < best)) {
                 best = index;
             }
