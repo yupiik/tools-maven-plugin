@@ -284,6 +284,7 @@ public class AsciidocMojo extends AbstractMojo {
                     .setSectionTag(configuration.getSectionTag())
                     .setSectionIdOnTitle(configuration.isSectionIdOnTitle())
                     .setUnknownMacro(configuration.getUnknownMacro())
+                    .setFontHandler(configuration.getFontHandler())
                     .setAttributes(rendererAttributes(document)));
         }
         if ("io.yupiik.asciidoc.renderer.html.ShowerRenderer".equals(renderer) || "shower".equals(renderer)) {
@@ -292,6 +293,7 @@ public class AsciidocMojo extends AbstractMojo {
                     .setSupportDataAttributes(configuration.isSupportDataAttributes())
                     .setDataUriForAscii2Svg(configuration.isDataUriForAscii2Svg())
                     .setResolver(configuration.getResolver())
+                    .setFontHandler(configuration.getFontHandler())
                     .setAttributes(rendererAttributes(document)));
         }
         try {

@@ -106,6 +106,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     protected final DataResolver resolver;
     protected final State state; // the document, its index, the footnotes and the flags of this output; this is why we are not thread safe
     private String icons; // per-document caches, see icons()/voidSlash()/booleanAttr()
+    private FontHandler fontHandler; // per-document cache, see fontHandler()
+    private FontHandlers fontHandlers; // created by the first resolution, see fontHandlers()
     private String voidSlash;
     private Boolean xmlSyntax;
     protected final Parser subParser;
@@ -155,6 +157,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitBody(final Body body) {
         state.visitBody(body); // indexed here, so rendering only a body keeps the section titles of links
+        fontHandler(); // as visit(): a wrong attribute value fails the body whether or not it holds an icon
         final var noheader = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"));
         final var tocAttr = attr("toc", "toc", "none", state.document().header().attributes());
         final var showToc = !"none".equals(tocAttr);
@@ -230,6 +233,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         icons = null; // per-document caches, see icons()/voidSlash()/booleanAttr(): header attributes are constant per document
         voidSlash = null;
         xmlSyntax = null;
+        fontHandler = null;
+        fontHandler(); // a wrong attribute value fails the document whether or not it holds an icon
         final var embeddedAttr = attr("embedded", document.header().attributes());
         final boolean contentOnly = Boolean.parseBoolean(configuration.getAttributes().getOrDefault("noheader", "false"))
                 || "true".equals(embeddedAttr) || "".equals(embeddedAttr);
@@ -284,7 +289,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 if (attr("iconfont-remote", "iconfont-remote", null, attributes) != null) {
                     var iconfontCdn = attr("iconfont-cdn", "iconfont-cdn", null, attributes);
                     if (iconfontCdn == null) {
-                        iconfontCdn = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css";
+                        iconfontCdn = fontHandler().stylesheet(); // the stylesheet of the classes the icons get
+                    }
+                    if (iconfontCdn == null) { // a handler without one: asciidoctor's default
+                        iconfontCdn = FontAwesome4Handler.STYLESHEET;
                     }
                     builder.append(" <link rel=\"stylesheet\" href=\"").append(iconfontCdn).append('"').append(voidSlash()).append(">\n");
                 } else {
@@ -516,8 +524,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitSection(final Section element) {
         state.stackChain(element.children(), () -> {
-            final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
-            titleRenderer.state.sawPreamble = true;
+            final var titleRenderer = nested();
             titleRenderer.state.nowrap = true;
             titleRenderer.visitElement(element.title());
             var title = titleRenderer.result();
@@ -603,8 +610,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitFloatingTitle(final FloatingTitle element) {
-        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
-        titleRenderer.state.sawPreamble = true;
+        final var titleRenderer = nested();
         titleRenderer.state.nowrap = true;
         titleRenderer.visitElement(element.title());
         final var title = titleRenderer.result();
@@ -1515,7 +1521,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (tocTitle != null && !tocTitle.isBlank()) {
             builder.append("  <div id=\"toctitle\">").append(tocTitle).append("</div>\n");
         }
-        final var toc = new TocVisitor(state, toclevels, 1);
+        final var toc = new TocVisitor(new TocVisitor.Configuration()
+                .setState(state)
+                .setToclevels(toclevels)
+                .setCurrentLevel(1)
+                .setFontHandler(fontHandler()));
         toc.visitBody(body);
         builder.append(toc.result());
         builder.append(" </div>\n");
@@ -1573,9 +1583,19 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
-    private AsciidoctorLikeHtmlRenderer render(final Body body) {
+    /**
+     * @return a renderer for a part of the document (a title, a cell) reading it as this one does: same configuration,
+     * same sibling, and the icon font picked for the document, which the part alone could not know.
+     */
+    protected AsciidoctorLikeHtmlRenderer nested() {
         final var nested = new AsciidoctorLikeHtmlRenderer(configuration, sibling);
+        nested.fontHandler = fontHandler();
         nested.state.sawPreamble = true;
+        return nested;
+    }
+
+    private AsciidoctorLikeHtmlRenderer render(final Body body) {
+        final var nested = nested();
         (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
                 p.children() :
                 body.children()).stream()
@@ -1831,35 +1851,25 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (!element.inline()) {
             builder.append(' ');
         }
-        final var hasRole = element.options().containsKey("role");
-        final var link = element.options().get("link");
+        final var opts = element.options();
+        final var hasRole = opts.get("role") != null;
+        final var link = opts.get("link");
         if (hasRole) {
             builder.append("<span");
-            writeCommonAttributes(element.options(), null);
+            writeCommonAttributes(opts, null);
             builder.append(">");
         }
         if (link != null) {
-            builder.append("<a href=\"").append(link).append("\">");
+            builder.append("<a href=\"").append(escape(link)).append("\">");
         }
-        final var opts = element.options();
-        builder.append("<span class=\"icon\"><i class=\"");
-        final var label = element.label();
-        if (label.startsWith("fa") && !label.contains(" ")) {
-            builder.append("fa ");
+        builder.append("<span class=\"icon\"><i class=\"")
+                .append(escape(fontHandler().classes(element.label(), opts)))
+                .append('"');
+        final var title = opts.get("title");
+        if (title != null) {
+            builder.append(" title=\"").append(escape(title)).append('"');
         }
-        builder.append(label);
-        ofNullable(opts.getOrDefault("", opts.get("size")))
-                .map(size -> " fa-" + size)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("flip"))
-                .map(flip -> " fa-flip-" + flip)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("rotate"))
-                .map(rotate -> " fa-rotate-" + rotate)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("title"))
-                .ifPresent(title -> builder.append("\" title=\"").append(title));
-        builder.append("\"></i></span>");
+        builder.append("></i></span>");
         if (link != null) {
             builder.append("</a>");
         }
@@ -2202,6 +2212,29 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return "<img src=\"" + icons + "/callouts/" + number + ".png\" alt=\"" + number + '"' + voidSlash() + ">";
     }
 
+    /**
+     * @return the handler of the icon macros for this document, picked by {@link FontHandlers}: the one the document
+     * or the configuration attributes name with {@link FontHandlers#ATTRIBUTE}, else the one of the configuration,
+     * else Font Awesome 5 classes.
+     */
+    protected FontHandler fontHandler() {
+        if (fontHandler == null) {
+            fontHandler = fontHandlers().resolve(context(), configuration.getFontHandler());
+        }
+        return fontHandler;
+    }
+
+    /**
+     * @return the resolver of the built-in handlers, created by the first resolution and never for a renderer that
+     * {@link #nested()} gives the handler of its document.
+     */
+    protected FontHandlers fontHandlers() {
+        if (fontHandlers == null) {
+            fontHandlers = new FontHandlers();
+        }
+        return fontHandlers;
+    }
+
     protected String icons() {
         // htmlsyntax/icons are header attributes, constant for the whole document render (never mutated mid-render)
         if (icons == null) {
@@ -2366,6 +2399,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     private void release() {
         state.close();
+        icons = null; // per-document caches, see visit()
+        voidSlash = null;
+        xmlSyntax = null;
+        fontHandler = null;
         if (resolver != null) {
             resolver.close();
         }
@@ -2433,6 +2470,18 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
         private UnknownMacro unknownMacro = UnknownMacro.TEXT;
+        private FontHandler fontHandler;
+
+        /**
+         * @param fontHandler writes the classes of the {@code <i>} tag of an icon macro for the icon font the site
+         *                    loads, when neither the document nor the attributes name one with {@link FontHandlers#ATTRIBUTE};
+         *                    {@link FontAwesome5Handler} when unset.
+         * @return this.
+         */
+        public Configuration setFontHandler(final FontHandler fontHandler) {
+            this.fontHandler = fontHandler;
+            return this;
+        }
 
         /**
          * @param unknownMacro what the renderer does with a macro it has no method for, {@link UnknownMacro#TEXT} by
