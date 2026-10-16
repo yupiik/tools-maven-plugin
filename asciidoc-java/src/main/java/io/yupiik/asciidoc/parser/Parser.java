@@ -126,6 +126,14 @@ public class Parser {
     // the schemes of a bare link; mailto: is a link too, tested apart because its text keeps the attribute-list reading
     private static final String[] LINK_SCHEMES = {"http://", "https://", "ftp://", "ftps://", "irc://", "file://"};
     private static final String MAILTO = "mailto:";
+    // asciidoctor's posattrs: the keys of the positional values of a block attribute line (the style, then opts), of a
+    // source block, of a quote, of a link text and of a mailto: text, mailto:a@b.c[Text, Subject, Body]
+    private static final List<String> STYLE_KEYS = List.of("");
+    private static final List<String> LANGUAGE_KEYS = List.of("language");
+    private static final List<String> ATTRIBUTION_KEYS = List.of("attribution", "citetitle"); // asciidoctor's posattrs of quote and verse
+    private static final List<String> MAILTO_TEXT_KEYS = List.of("", "subject", "body");
+    private static final Map<String, String> NOWRAP = Map.of("nowrap", "true"); // the options of a link text, which is one line
+    private static final String SHORTHAND_MARKERS = "#.%"; // asciidoctor's id, role and option shorthands of a block style
     // the default of the blank-target-macros attribute: asciidoctor's image, icon, menu and xref regexes take blanks in
     // the target, as image:my file.png[alt]; the target of a link stops at a blank, as in asciidoctor
     private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref";
@@ -313,49 +321,24 @@ public class Parser {
         return parseStyleShorthands(stripped.substring(1, stripped.length() - 1));
     }
 
-    // as asciidoctor, the style of a block attribute line carries the #id, .role and %option shorthands,
-    // as in [NOTE#note.important%collapsible]. The % ones stay in the string, parseOptions already reads them.
-    // A line without a style, such as [#id] or [.role], is left to doParseOptions: minisite-core writes
-    // [#io.yupiik.test.MyObject], so splitting a bare #id at its dots would break the generated schema pages.
+    // as asciidoctor, the style of a block attribute line carries the #id, .role and %option shorthands, as in
+    // [NOTE#note.important%collapsible], when it holds no blank (parse_style_attribute). They are read here, before
+    // mapIf reads the style; a value which is a shorthand alone, [#id], [.role] or [%option], is read by doParseOptions
     private Map<String, String> parseStyleShorthands(final String options) {
         final int end = firstIndexOf(options, ",=\"");
         if (end >= 0 && options.charAt(end) != ',') { // a '=' or a '"' means the first attribute is not a style
             return parseOptions(options);
         }
-        final var first = end < 0 ? options : options.substring(0, end);
-        if (first.indexOf('#') < 0 && first.indexOf('.') < 0) {
-            return parseOptions(options);
-        }
-        final int style = firstIndexOf(first, "#.%");
-        if (style <= 0) { // no style before the shorthand, so nothing changes
+        final var first = (end < 0 ? options : options.substring(0, end)).strip();
+        final int marker = firstIndexOf(first, SHORTHAND_MARKERS);
+        if (marker <= 0 || holdsBlank(first)) { // no style before the shorthand: doParseOptions reads it, in order with the other values
             return parseOptions(options);
         }
         final var shorthands = new HashMap<String, String>();
-        final var kept = new StringBuilder(first.substring(0, style));
-        int i = style;
-        while (i < first.length()) {
-            final char marker = first.charAt(i);
-            int next = i + 1;
-            while (next < first.length() && "#.%".indexOf(first.charAt(next)) < 0) {
-                next++;
-            }
-            final var name = first.substring(i + 1, next);
-            if (!name.isEmpty()) {
-                switch (marker) {
-                    case '#' -> shorthands.put("id", name);
-                    case '.' -> addRole(shorthands, name);
-                    default -> kept.append('%').append(name);
-                }
-            }
-            i = next;
-        }
-        final var rest = end < 0 ? "" : options.substring(end); // starts with the ',' that ended the first attribute
-        final var rebuilt = kept.isEmpty() && !rest.isEmpty() ? rest.substring(1) : kept + rest;
-        if (rebuilt.isEmpty()) {
-            return shorthands;
-        }
+        final var style = readShorthands(shorthands, first, marker);
+        final var rebuilt = end < 0 ? style : style + options.substring(end); // the rest starts with its ',', so the values keep their index
         final var result = new HashMap<>(parseOptions(rebuilt));
-        shorthands.forEach((key, value) -> {
+        shorthands.forEach((key, value) -> { // as asciidoctor, the roles of the style come after a named role
             if ("role".equals(key)) {
                 addRole(result, value);
             } else {
@@ -363,6 +346,40 @@ public class Parser {
             }
         });
         return result;
+    }
+
+    // reads asciidoctor's shorthands of a style, style#id.role%option, into the map and returns the style, empty when
+    // the value starts with a shorthand. A value starting with '#' is one id up to a '%', its dots kept: minisite-core
+    // writes [#io.yupiik.test.MyObject], where asciidoctor would read the id io and the roles yupiik, test and MyObject
+    private String readShorthands(final Map<String, String> map, final String value, final int firstMarker) {
+        boolean bareId = firstMarker == 0 && value.charAt(0) == '#'; // the id keeps its dots up to a '%'
+        int i = firstMarker;
+        while (i < value.length()) {
+            final char marker = value.charAt(i);
+            int next = i + 1;
+            while (next < value.length() && !(bareId ? value.charAt(next) == '%' : isShorthandMarker(value.charAt(next)))) {
+                next++;
+            }
+            bareId = false;
+            final var name = value.substring(i + 1, next);
+            if (!name.isEmpty()) {
+                switch (marker) {
+                    case '#' -> map.put("id", name);
+                    case '.' -> addRole(map, name);
+                    default -> map.put(name + "-option", "");
+                }
+            }
+            i = next;
+        }
+        return value.substring(0, firstMarker);
+    }
+
+    private boolean isShorthandMarker(final char c) {
+        return SHORTHAND_MARKERS.indexOf(c) >= 0;
+    }
+
+    private boolean holdsBlank(final String value) { // a space or a tab, the blanks of asciidoctor's AttributeList
+        return value.indexOf(' ') >= 0 || value.indexOf('\t') >= 0;
     }
 
     private int firstIndexOf(final String value, final String characters) {
@@ -890,8 +907,12 @@ public class Parser {
                              final ContentResolver resolver,
                              final Map<String, String> currentAttributes,
                              final String token) {
-        final var columns = ofNullable(options)
-                .map(o -> o.get("cols"))
+        final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
+        final var cols = tableOptions.get("cols");
+        if (cols != null && cols.isBlank()) { // cols= specifies no column, as asciidoctor, so the renderers see none either
+            tableOptions.remove("cols");
+        }
+        final var columns = ofNullable(tableOptions.get("cols"))
                 .map(this::parseColumnSpecs)
                 .orElse(List.of());
 
@@ -908,7 +929,6 @@ public class Parser {
 
         // a blank line after the |=== line means no header, decided once the comments are skipped and the conditional
         // directives evaluated, so a directive before the first row does not make a header of it
-        final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
         if (tableOptions.get("header-option") == null && tableOptions.get("noheader-option") == null &&
                 !lines.isEmpty() && lines.get(0).isEmpty()) {
             tableOptions.put("noheader-option", "");
@@ -2247,13 +2267,7 @@ public class Parser {
                             }
                         }
                     }
-                    int end = line.indexOf(']', i + 1);
-                    while (end > 0) {
-                        if (line.charAt(end - 1) != '\\') {
-                            break;
-                        }
-                        end = line.indexOf(']', end + 1);
-                    }
+                    int end = closingBracket(line, i + 1);
 
                     if (end > 0 && (end == (line.length() - 1) || !isInlineOptionContentMarker(line.charAt(end + 1)))) { // check it is maybe a link
                         final int backward = macroStart(line, start, i, currentAttributes);
@@ -2296,11 +2310,17 @@ public class Parser {
                                 optionsPrefix = optionsPrefix.substring(2);
                                 offset = 2;
                             }
+                            final boolean link = isLink(optionsPrefix);
+                            // the macros whose text follows asciidoctor's link text rules: link:, xref:, a bare link and mailto:
+                            final boolean linkText = link || optionsPrefix.startsWith("link:") || optionsPrefix.startsWith("xref:");
+                            if (linkText) { // a nested macro, link:url[image:a.png[alt]], keeps its brackets
+                                end = linkTextEnd(line, i, end, currentAttributes);
+                            }
                             // read after the escaped check, which needs no options, and after the __ strip, so the prefix is the real one
-                            var options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip());
+                            final var options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip(), linkText);
 
                             final int macroMarker = optionsPrefix.indexOf(":");
-                            if (macroMarker > 0 && !isLink(optionsPrefix)) {
+                            if (macroMarker > 0 && !link) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
                                 // as asciidoctor, these macros keep the brackets as written, the renderer reads them
@@ -2312,21 +2332,6 @@ public class Parser {
                                         line.substring(i + 1, end) :
                                         unescapeAttributeReferences(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)));
 
-                                if ("link".equals(type) && options.containsKey("")) {
-                                    var linkName = options.get("");
-                                    int from = linkName.indexOf('[');
-                                    while (from > 0) { // if label has some opening label we must slice what we computed (images in link)
-                                        final int next = line.indexOf(']', end + 1);
-                                        if (next < 0) { // no closing bracket for the nested one: the text ends at the first ']', as asciidoctor's "a [b"
-                                            break;
-                                        }
-                                        end = next;
-                                        options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip());
-                                        linkName = options.getOrDefault("", "");
-                                        from = linkName.indexOf('[', from + 1);
-                                    }
-                                }
-
                                 final var macro = new Macro(type, label,
                                         "pass".equals(type) ?
                                                 resolvePassSubs(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2))) :
@@ -2337,32 +2342,32 @@ public class Parser {
                                             readConditional(macro, line.substring(i + 1, end), reader, currentAttributes),
                                             enclosingDocument, reader, resolver, currentAttributes));
                                     default -> {
-                                        var linkLabel = unwrapElementIfPossible(parseParagraph(
-                                                enclosingDocument,
-                                                new Reader(List.of(options.getOrDefault("", label))),
-                                                Stream.of(options.entrySet(), Map.of("nowrap", "true").entrySet())
-                                                        .flatMap(Collection::stream)
-                                                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)), resolver, currentAttributes, supportComplexStructures));
-                                        if (linkLabel.type() == LINK) {
-                                            final var l = (Link) linkLabel;
-                                            linkLabel = l.label();
+                                        if (!"link".equals(macro.name())) { // only a link parses its text here, the other macros keep it in their options
+                                            elements.add(macro);
+                                        } else {
+                                            final var text = options.get("");
+                                            final var linkOptions = merge(options, NOWRAP); // the macro's options are these options
+                                            var linkLabel = unwrapElementIfPossible(parseParagraph(
+                                                    enclosingDocument,
+                                                    new Reader(List.of(text == null || text.isEmpty() ? label : text)), // as asciidoctor, an empty text of an attribute list, ["",role=x], shows the target too
+                                                    linkOptions, resolver, currentAttributes, supportComplexStructures));
+                                            if (linkLabel.type() == LINK) {
+                                                final var l = (Link) linkLabel;
+                                                linkLabel = l.label();
+                                            }
+                                            elements.add(new Link(unescapeAttributeReferences(macro.label()), linkLabel, linkOptions));
                                         }
-                                        elements.add("link".equals(macro.name()) ?
-                                                new Link(unescapeAttributeReferences(macro.label()),
-                                                        linkLabel,
-                                                        Stream.of(macro.options().entrySet(), Map.of("nowrap", "true").entrySet())
-                                                                .flatMap(Collection::stream)
-                                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a))) :
-                                                macro);
                                     }
                                 }
                             } else {
-                                final var label = options.getOrDefault("", optionsPrefix);
+                                // as asciidoctor, a link without a text, or with an empty one, shows its target, a mailto: one its address
+                                final var text = options.get("");
+                                final var label = text == null || text.isEmpty() ?
+                                        (optionsPrefix.startsWith(MAILTO) ? optionsPrefix.substring(MAILTO.length()) : optionsPrefix) :
+                                        text;
                                 var linkLabel = unwrapElementIfPossible(parseParagraph(
                                         enclosingDocument, new Reader(List.of(label)),
-                                        Stream.of(options.entrySet(), Map.of("nowrap", "true").entrySet())
-                                                .flatMap(Collection::stream)
-                                                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a)), resolver, currentAttributes, supportComplexStructures));
+                                        merge(options, NOWRAP), resolver, currentAttributes, supportComplexStructures));
                                 if (linkLabel.type() == LINK) {
                                     final var l = (Link) linkLabel;
                                     linkLabel = l.label();
@@ -3026,6 +3031,7 @@ public class Parser {
                                       final boolean parse,
                                       final Reader parent) {
         final var encoding = ofNullable(macro.options().get("encoding"))
+                .filter(it -> !it.isEmpty()) // encoding= is the default charset, as asciidoctor
                 .map(Charset::forName)
                 .orElse(UTF_8);
         var resolved = (resolver instanceof RelativeContentResolver r ?
@@ -3151,7 +3157,7 @@ public class Parser {
         }
 
         final var leveloffset = macro.options().get("leveloffset");
-        if (leveloffset != null) {
+        if (leveloffset != null && !leveloffset.isEmpty()) { // leveloffset= is no offset, as asciidoctor
             final char first = leveloffset.charAt(0);
             final int offset = (first == '-' ? -1 : 1) *
                     Integer.parseInt(first == '+' || first == '-' ? leveloffset.substring(1) : leveloffset);
@@ -3168,7 +3174,7 @@ public class Parser {
         }
 
         final var indent = macro.options().get("indent");
-        if (indent != null) {
+        if (indent != null && !indent.isEmpty()) { // indent= is no indent, as asciidoctor
             final int value = Integer.parseInt(indent);
             final var noIndent = String.join("\n", content).stripIndent();
             content = List.of((value > 0 ? noIndent.indent(value) : noIndent).split("\n"));
@@ -3499,94 +3505,53 @@ public class Parser {
         if (options.startsWith("verse,")) {
             return parseQuoteLikeOptions(options, "verse,", "verseblock");
         }
-        // handle inline % within positional args: source%linenums,java → source,java + linenums-option,
-        // and the chained form %collapsible%open → collapsible-option + open-option
-        if (options.contains("%")) {
-            final var tokens = List.of(options.split(","));
-            final var extraOptions = new java.util.LinkedHashMap<String, String>();
-            final var cleaned = new StringBuilder(options.length());
-            boolean quoted = false; // a '%' inside a quoted value, cols="15%,15%", is not the option shorthand
-            for (int i = 0; i < tokens.size(); i++) {
-                final var t = tokens.get(i);
-                if (i > 0) {
-                    cleaned.append(',');
-                }
-                if (!quoted && t.indexOf('"') < 0 && t.contains("%") && !t.contains("=")) {
-                    final var parts = t.split("%", -1);
-                    for (int j = 1; j < parts.length; j++) {
-                        if (!parts[j].isEmpty()) {
-                            extraOptions.put(parts[j] + "-option", "");
-                        }
-                    }
-                    cleaned.append(parts[0]);
-                } else {
-                    cleaned.append(t);
-                }
-                for (int j = 0; j < t.length(); j++) {
-                    if (t.charAt(j) == '"') {
-                        quoted = !quoted;
-                    }
-                }
-            }
-            final var cleanedOptions = cleaned.toString();
-            if (!cleanedOptions.equals(options)) {
-                return merge(parseOptions(cleanedOptions), extraOptions);
-            }
-        }
-        return mapIf("source", null, "language", options)
-                .or(() -> mapIf("example", "exampleblock", "", options))
-                .or(() -> mapIf("verse", "verseblock", "", options))
-                .or(() -> mapIf("quote", "quoteblock", "attribution", options))
-                .orElseGet(() -> doParseOptions(options, "", true));
+        return mapIf("source", null, LANGUAGE_KEYS, options)
+                .or(() -> mapIf("example", "exampleblock", STYLE_KEYS, options))
+                .or(() -> mapIf("verse", "verseblock", STYLE_KEYS, options))
+                .or(() -> mapIf("quote", "quoteblock", ATTRIBUTION_KEYS, options))
+                .orElseGet(() -> doParseOptions(options, STYLE_KEYS, true));
     }
 
     private Map<String, String> parseQuoteLikeOptions(final String options, final String prefix, final String type) {
-        final var result = doParseOptions(options.substring(prefix.length()), "attribution", true);
-        final var opts = result.remove("opts");
-        if (opts != null) {
-            final var comma = opts.indexOf(',');
-            if (comma < 0) {
-                result.put("citetitle", opts.strip());
-            } else {
-                result.put("citetitle", opts.substring(0, comma).strip());
-                result.put("opts", opts.substring(comma + 1).strip());
-            }
-        }
+        final var result = doParseOptions(options.substring(prefix.length()), ATTRIBUTION_KEYS, true);
         result.putIfAbsent("role", type);
         return result;
     }
 
     private Optional<Map<String, String>> mapIf(final String matcher, final String role,
-                                                final String defaultKey, final String options) {
+                                                final List<String> positionalKeys, final String options) {
         if (options.equals(matcher)) {
             return of(role == null ? Map.of() : Map.of("role", role));
         }
         if (options.startsWith(matcher + ",")) {
             return of(merge(
                     role == null ? Map.of() : Map.of("role", role),
-                    doParseOptions(options.substring(matcher.length() + ",".length()), defaultKey, true)));
+                    doParseOptions(options.substring(matcher.length() + ",".length()), positionalKeys, true)));
         }
 
         return empty();
     }
 
-    private void flushOption(final String defaultKey,
-                             final StringBuilder key, final StringBuilder value,
-                             final Map<String, String> collector) {
-        final var keyValue = key.toString();
-        if (value.isEmpty()) {
-            if (keyValue.startsWith(".")) {
-                collector.put("role", keyValue.substring(1).replace('.', ' '));
-            } else if (keyValue.startsWith("#")) {
-                collector.put("id", keyValue.substring(1));
-            } else {
-                collector.put(defaultKey, dropLegacyPassthroughMarkers(keyValue));
-            }
+    // one attribute ends: a positional value takes its slot, empty for a quoted "" (the empty subject of
+    // mailto:a@b.c[Text,"",Body]; on a block line it holds its slot and sets nothing) and none for an unquoted empty
+    // value; a name gets its value, empty for name= or name="" (asciidoctor's AttributeList, and alt="" marks a
+    // decorative image) and none for an unquoted None, which asciidoctor drops while it keeps a quoted "None".
+    // Returns the slot of the first named attribute, firstNamed when one was seen before or this attribute is positional
+    private int flushAttribute(final Map<String, String> map, final List<String> positional,
+                               final StringBuilder key, final StringBuilder value, final boolean inKey, final boolean quoted,
+                               final int firstNamed) {
+        if (inKey) {
+            positional.add(key.isEmpty() && !quoted ? null : key.toString());
         } else {
-            collector.put(
-                    keyValue,
-                    dropLegacyPassthroughMarkers(value.toString()));
+            final var named = dropLegacyPassthroughMarkers(value.toString());
+            if (quoted || !"None".equals(named)) {
+                map.put(key.toString(), named);
+            }
+            positional.add(null);
         }
+        key.setLength(0);
+        value.setLength(0);
+        return !inKey && firstNamed < 0 ? positional.size() - 1 : firstNamed;
     }
 
     private String dropLegacyPassthroughMarkers(final String v) {
@@ -3893,24 +3858,107 @@ public class Parser {
         return element;
     }
 
-    // as asciidoctor, the text of a link or a cross reference is an attribute list only when it holds a '=', so
-    // link:url[a, "b"] keeps its comma and its quotes; with a '=' the text is the first positional value, never a block
-    // style, so link:url[source,role=x] keeps "source". A mailto: text is split at its commas, as asciidoctor does to
-    // read the subject and the body, which the renderers do not write yet
-    private Map<String, String> parseMacroOptions(final String prefix, final String text) {
+    // as asciidoctor, the text of a link or a cross reference is an attribute list only when it holds a '=', and a
+    // mailto: text only when it holds a ',', a nested macro or a passthrough not counting: link:url[a, "b"] keeps its
+    // comma and its quotes, with a '=' the text is the first positional value, never a block style, so
+    // link:url[source,role=x] keeps "source", and mailto:a@b.c[Text, Subject, Body] reads the subject and the body
+    private Map<String, String> parseMacroOptions(final String prefix, final String text, final boolean linkText) {
         if (text.isEmpty()) {
             return Map.of();
         }
-        if (prefix.startsWith(MAILTO)) { // as asciidoctor, a mailto: text is an attribute list only when it holds a ','
-            return text.indexOf(',') < 0 ? Map.of("", dropLegacyPassthroughMarkers(text)) : doParseOptions(text, "", true, false);
-        }
-        if (!(prefix.startsWith("link:") || prefix.startsWith("xref:") || hasLinkScheme(prefix))) {
+        if (!linkText) {
             return parseOptions(text);
         }
-        if (text.indexOf('=') < 0) {
-            return Map.of("", dropLegacyPassthroughMarkers(text));
+        if (prefix.startsWith(MAILTO)) {
+            return holdsOutsideOpaqueRuns(text, ',') ?
+                    doParseOptions(text, MAILTO_TEXT_KEYS, false) :
+                    Map.of("", dropLegacyPassthroughMarkers(text));
         }
-        return doParseOptions(text, "", true, false); // an inline list: no .role, #id or %option shorthand on the text
+        return holdsOutsideOpaqueRuns(text, '=') ?
+                doParseOptions(text, STYLE_KEYS, false) :
+                Map.of("", dropLegacyPassthroughMarkers(text));
+    }
+
+    // whether the text holds the character outside its opaque runs, as image:a.png[alt=x] in a link text
+    private boolean holdsOutsideOpaqueRuns(final String text, final char c) {
+        if (text.indexOf(c) < 0) {
+            return false;
+        }
+        if (text.indexOf('[') < 0 && text.indexOf('+') < 0) { // no run starts without them, see opaqueRunEnd
+            return true;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == c) {
+                return true;
+            }
+            final int runEnd = opaqueRunEnd(text, i);
+            if (runEnd > 0) {
+                i = runEnd;
+            }
+        }
+        return false;
+    }
+
+    // the last index of an opaque run of a link text starting at the index: the brackets of a nested macro,
+    // image:a.png[alt,width=100], or a passthrough, +text+, ++text++ or +++text+++ as passthroughAt reads them, which
+    // asciidoctor substitutes before it reads the link, so their ',', '=' and ']' are not the text's; -1 when no run starts there
+    private int opaqueRunEnd(final String text, final int i) {
+        if (text.charAt(i) == '[') {
+            return closingBracket(text, i + 1);
+        }
+        if (text.charAt(i) == '+') {
+            final var passthrough = passthroughAt(text, i, text.length());
+            return passthrough == null ? -1 : passthrough.end() - 1;
+        }
+        return -1;
+    }
+
+    // the first ']' at or after the index that no backslash escapes, or -1
+    private int closingBracket(final String line, final int from) {
+        int end = line.indexOf(']', from);
+        while (end > 0 && line.charAt(end - 1) == '\\') {
+            end = line.indexOf(']', end + 1);
+        }
+        return end;
+    }
+
+    // as asciidoctor, which substitutes the passthroughs, image:, icon: and the other macros before the links, a macro
+    // nested in a link text keeps its brackets, a passthrough its ']', and the text goes on to the next ']'; a lone
+    // '[' is text, so link:url[a [b] c] ends at the first ']', as asciidoctor's "a [b". A bare URL nested in the text
+    // keeps its brackets too, where asciidoctor, reading URLs and links in one pass, ends the text at the URL's ']'
+    private int linkTextEnd(final String line, final int open, final int firstClose, final Map<String, String> currentAttributes) {
+        boolean mayHoldRun = false; // a run starts at a '[' or a '+' only, see opaqueRunEnd
+        for (int i = open + 1; i < firstClose && !mayHoldRun; i++) {
+            final char c = line.charAt(i);
+            mayHoldRun = c == '[' || c == '+';
+        }
+        if (!mayHoldRun) {
+            return firstClose;
+        }
+        int end = firstClose;
+        final int colon = line.indexOf(':', open + 1); // a nested macro needs a colon before its '['
+        for (int i = open + 1; i < end; i++) {
+            final int runEnd = opaqueRunEnd(line, i);
+            if (runEnd < 0 || (line.charAt(i) == '[' && (colon < 0 || colon > i || macroStart(line, open + 1, i, currentAttributes) < 0))) {
+                continue;
+            }
+            if (runEnd >= end) { // the run holds the ']' taken as the end, so the text goes on to the next one
+                if (line.charAt(i) == '+') { // a passthrough closed after another macro or link, https://x.io[C++] and https://y.io[C++], would swallow it: the text ends here
+                    for (int bracket = line.indexOf('[', end + 1); bracket >= 0 && bracket < runEnd; bracket = line.indexOf('[', bracket + 1)) {
+                        if (macroStart(line, end + 1, bracket, currentAttributes) >= 0) {
+                            return end;
+                        }
+                    }
+                }
+                final int next = closingBracket(line, runEnd + 1);
+                if (next < 0) { // the run has the only ']': the text ends there
+                    return end;
+                }
+                end = next;
+            }
+            i = runEnd;
+        }
+        return end;
     }
 
     /**
@@ -4050,146 +4098,121 @@ public class Parser {
         return true;
     }
 
-    private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport) {
-        return doParseOptions(options, defaultKey, nestedOptsSupport, true);
-    }
-
-    // blockShorthand: a block attribute line reads .role, #id and %option in its positional values, an inline macro text does not
-    private Map<String, String> doParseOptions(final String options, final String defaultKey, final boolean nestedOptsSupport,
-                                               final boolean blockShorthand) {
+    // positionalKeys are asciidoctor's posattrs, the key of each positional value, the values being numbered across
+    // the named ones as asciidoctor does, so [role=x,Text] has no text. A block attribute line reads a value which is
+    // a .role, #id or %option shorthand, and joins the values after the keys in opts; an inline macro text reads no
+    // shorthand, drops the values after the keys and keeps a nested macro, image:a.png[alt,width=100], or a +++
+    // passthrough as one value
+    private Map<String, String> doParseOptions(final String options, final List<String> positionalKeys, final boolean block) {
         final var map = new HashMap<String, String>();
         final var key = new StringBuilder();
         final var value = new StringBuilder();
-        final var positional = new ArrayList<String>();
-        boolean quoted = false;
+        final var positional = new ArrayList<String>(); // one slot per attribute, null for a named or an empty one
+        char quote = 0; // the '"' or '\'' which opened the current name or value
         int quoteStart = -1;
-        boolean singleQuoted = false;
+        int firstNamed = -1; // the slot of the first named attribute: a bare value after it sets nothing, as asciidoctor ignores it
         boolean afterClosingQuote = false;
-        int singleQuoteStart = -1;
         boolean inKey = true;
         for (int i = 0; i < options.length(); i++) {
             final char c = options.charAt(i);
-            if (singleQuoted) { // as asciidoctor, \' is a quote inside the value, which ends at its closing quote
-                if (c == '\'') {
-                    singleQuoted = false;
+            final var current = inKey ? key : value;
+            if (afterClosingQuote && c != ',' && c != ' ' && c != '\t') { // as asciidoctor's parse_attribute, other text after a closing quote is the next attribute
+                afterClosingQuote = false;
+            }
+            if (quote != 0) {
+                if (c == quote) {
+                    quote = 0;
                     afterClosingQuote = true;
-                    if (!key.isEmpty() && !value.isEmpty()) { // an empty value sets nothing, as an absent one
-                        map.put(key.toString(), dropLegacyPassthroughMarkers(value.toString()));
-                    }
-                    key.setLength(0);
-                    value.setLength(0);
+                    firstNamed = flushAttribute(map, positional, key, value, inKey, true, firstNamed);
                     inKey = true;
-                } else if (c == '\\' && i + 1 < options.length() && options.charAt(i + 1) == '\'') {
-                    value.append('\'');
+                } else if (c == '\\' && i + 1 < options.length() && options.charAt(i + 1) == quote) { // as asciidoctor, \" is a quote inside the value
+                    current.append(quote);
                     i++;
                 } else {
-                    value.append(c);
+                    current.append(c);
                 }
-                if (singleQuoted && i >= options.length() - 1) { // never closed: as asciidoctor, the quote stays text
-                    singleQuoted = false;
-                    value.setLength(0);
-                    value.append('\'');
-                    i = singleQuoteStart;
-                }
-            } else if (afterClosingQuote) { // as asciidoctor, the text between the closing quote and the next ',' is not the value
-                afterClosingQuote = c != ',';
-            } else if (c == '"' && quoted) { // closing quote: as for a single quote, the text up to the next ',' is not part of the value
-                quoted = false;
-                if (inKey) {
-                    if (!key.isEmpty()) {
-                        positional.add(key.toString());
-                    }
-                } else if (!key.isEmpty()) {
-                    if (value.isEmpty()) { // name="" sets the attribute to the empty string
-                        map.put(key.toString(), "");
-                    } else {
-                        flushOption(defaultKey, key, value, map);
-                    }
-                }
-                key.setLength(0);
-                value.setLength(0);
-                inKey = true;
-                afterClosingQuote = true;
-            } else if (c == '"' && (inKey ? key : value).isEmpty()) { // as asciidoctor, a quote quotes only a whole name or value
-                quoted = true;
-                quoteStart = i;
-            } else if (quoted) {
-                if (c == '\\' && i + 1 < options.length() && options.charAt(i + 1) == '"') { // as asciidoctor, \" is a quote inside the value
-                    (inKey ? key : value).append('"');
-                    i++;
-                } else {
-                    (inKey ? key : value).append(c);
-                }
-                if (i >= options.length() - 1) { // never closed: as asciidoctor, the quote stays text and the list goes on
-                    quoted = false;
-                    (inKey ? key : value).setLength(0);
-                    (inKey ? key : value).append('"');
+                if (quote != 0 && i >= options.length() - 1) { // never closed: as asciidoctor, the quote stays text and the list goes on
+                    quote = 0;
+                    current.setLength(0);
+                    current.append(options.charAt(quoteStart));
                     i = quoteStart;
                 }
-            } else if (c == '\'' && !inKey && value.isEmpty() && i + 1 < options.length()) { // as asciidoctor, it quotes the value it starts
-                singleQuoted = true;
-                singleQuoteStart = i;
+            } else if (afterClosingQuote) { // as asciidoctor's skip_delimiter, the blanks and the ',' after a closing quote end the attribute
+                afterClosingQuote = c != ',';
+            } else if ((c == '"' || (c == '\'' && !inKey)) && current.isEmpty() && i + 1 < options.length()) {
+                // as asciidoctor, a quote quotes a whole name or value and a last one is text; a single quote quotes only a value,
+                // so the text of a macro the parser does not know, tooltip:x['hint' text], stays as written for the text mode of the renderers
+                quote = c;
+                quoteStart = i;
             } else if (c == '=' && inKey && isAttributeName(key)) { // as asciidoctor, only a name is followed by '='
                 inKey = false;
             } else if (c == ',') {
-                if (!key.isEmpty()) {
-                    if (value.isEmpty()) {
-                        positional.add(key.toString());
-                    } else {
-                        flushOption(defaultKey, key, value, map);
-                    }
-                }
-                key.setLength(0);
-                value.setLength(0);
+                firstNamed = flushAttribute(map, positional, key, value, inKey, false, firstNamed);
                 inKey = true;
+            } else if (!block && (c == '[' || c == '+')) { // a nested macro or a passthrough is one run, with the ',' and '=' it holds
+                final int runEnd = opaqueRunEnd(options, i);
+                if (runEnd > 0) {
+                    current.append(options, i, runEnd + 1);
+                    i = runEnd;
+                } else {
+                    current.append(c);
+                }
             } else if (c == ' ' || c == '\t') { // as asciidoctor, blanks around a name or a value are not part of it
-                final var current = inKey ? key : value;
                 int next = i + 1;
                 while (next < options.length() && (options.charAt(next) == ' ' || options.charAt(next) == '\t')) {
                     next++;
                 }
-                if (!current.isEmpty() && next < options.length() && options.charAt(next) != ',' && options.charAt(next) != '=') {
+                if (!current.isEmpty() && next < options.length() && options.charAt(next) != ','
+                        && (options.charAt(next) != '=' || !(inKey && isAttributeName(current)))) { // "see a = b" keeps its blanks: a '=' after a non-name is text
                     current.append(options, i, next);
                 }
                 i = next - 1;
             } else {
-                (inKey ? key : value).append(c);
+                current.append(c);
             }
         }
-        if (!key.isEmpty()) {
-            if (value.isEmpty()) {
-                positional.add(key.toString());
-            } else {
-                flushOption(defaultKey, key, value, map);
+        if (!key.isEmpty() || !inKey) {
+            firstNamed = flushAttribute(map, positional, key, value, inKey, false, firstNamed);
+        }
+        int lastValued = -1; // a quoted "" holds its slot for the values after it, mailto:a@b.c[Text,"",Body], and sets nothing as the last one or on a block line, [""] being no style
+        for (int i = positional.size() - 1; i >= 0 && lastValued < 0; i--) {
+            final var slot = positional.get(i);
+            if (slot != null && !slot.isEmpty()) {
+                lastValued = i;
             }
+        }
+        boolean positionalBeforeNamed = false; // [source,java,title=x,linenums]: the bare values after the keys stay options, as before
+        for (int i = 0; i < firstNamed && !positionalBeforeNamed; i++) {
+            final var slot = positional.get(i);
+            positionalBeforeNamed = slot != null && !slot.isEmpty();
         }
         for (int i = 0; i < positional.size(); i++) {
-            final var pos = dropLegacyPassthroughMarkers(positional.get(i));
-            if (blockShorthand && pos.startsWith(".")) {
-                addRole(map, pos.substring(1).replace('.', ' '));
-            } else if (blockShorthand && pos.startsWith("#")) {
-                map.put("id", pos.substring(1));
-            } else if (blockShorthand && pos.startsWith("%")) {
-                map.put(pos.substring(1) + "-option", "");
-            } else if (i == 0) {
-                map.putIfAbsent(defaultKey, pos);
-            } else {
+            var pos = positional.get(i);
+            if (pos == null || (pos.isEmpty() && (block || i > lastValued))) {
+                continue;
+            }
+            final var unwrapped = dropLegacyPassthroughMarkers(pos);
+            if (unwrapped.isEmpty() && !pos.isEmpty()) { // $$$$, an empty legacy passthrough, sets nothing
+                continue;
+            }
+            pos = unwrapped;
+            if (block && !pos.isEmpty() && isShorthandMarker(pos.charAt(0)) && !holdsBlank(pos)) { // a shorthand holds no blank, as asciidoctor's parse_style_attribute
+                readShorthands(map, pos, 0);
+                continue;
+            }
+            if (i < positionalKeys.size()) {
+                map.putIfAbsent(positionalKeys.get(i), pos);
+            } else if (block && !pos.isEmpty() && (firstNamed < 0 || i < firstNamed || positionalBeforeNamed)) { // the values after the keys are options, [source,java,linenums]; bare values after a named attribute set nothing, so [cols="1,1", noheader] keeps its header (asciidoctor ignores them)
                 final var existing = map.get("opts");
                 map.put("opts", existing == null ? pos : existing + "," + pos);
             }
         }
-        if (nestedOptsSupport) {
-            final var opts = map.remove("opts");
-            if (opts != null) {
-                map.putAll(doParseOptions(opts, "opts", false));
-            }
-            final var optionsAttr = map.remove("options");
-            if (optionsAttr != null) {
-                for (var opt : optionsAttr.split(",")) {
-                    opt = opt.strip();
-                    if (!opt.isEmpty()) {
-                        map.put(opt + "-option", "");
-                    }
+        final var optionsAttr = map.remove("options");
+        if (optionsAttr != null) {
+            for (var opt : optionsAttr.split(",")) {
+                opt = opt.strip();
+                if (!opt.isEmpty()) {
+                    map.put(opt + "-option", "");
                 }
             }
         }

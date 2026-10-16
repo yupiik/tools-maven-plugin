@@ -666,7 +666,12 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("<code>");
         }
 
-        builder.append(" <a href=\"").append(element.url()).append("\"");
+        final var query = sibling.mailtoQuery(element); // empty for every link but a mailto: with a subject
+        builder.append(" <a href=\"").append(element.url());
+        if (!query.isEmpty()) {
+            builder.append(escape(query));
+        }
+        builder.append("\"");
         writeCommonAttributes(element.options(), null);
 
         var noFollow = false;
@@ -681,8 +686,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final var optsAttribute = element.options().get("opts");
         if (optsAttribute != null) {
-            for (var optValue : optsAttribute.split(",")) {
-                switch (optValue) {
+            for (final var optValue : optsAttribute.split(",")) {
+                switch (optValue.trim()) { // opts="nofollow, noopener" keeps its blank
                     case "nofollow" -> noFollow = true;
                     case "noopener" -> noOpener = true;
                 }
