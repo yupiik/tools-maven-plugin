@@ -1874,6 +1874,18 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void mailtoLinkWritesTheSubjectAndTheBody() { // as asciidoctor's href, percent-encoded; a mailto: without text shows its address, as a bare email does
+        assertEquals("Write to [Text](mailto:a@b.c?subject=Sub%20ject&body=Body), [a@b.c](mailto:a@b.c?subject=Subject%20only) or [a@b.c](mailto:a@b.c).\n",
+                md("Write to mailto:a@b.c[Text, Sub ject, Body], mailto:a@b.c[,Subject only] or mailto:a@b.c[]."));
+    }
+
+    @Test
+    void linkTextWithANestedMacroOrAPassthroughIsOneValue() { // as asciidoctor: the ',' and ']' of a nested macro or a passthrough are the text's, a quoted "" is an empty subject, an empty text shows the URL
+        assertEquals("See [![alt](a.png)](https://u.io), [`a[i].b`](#id), [`a, b`](mailto:a@b.c), [Text](mailto:a@b.c?subject=&body=Body) and <https://u.io> here.\n",
+                md("See link:https://u.io[image:a.png[alt,width=100]], link:#id[`+a[i].b+`], mailto:a@b.c[`+a, b+`], mailto:a@b.c[Text,\"\",Body] and link:https://u.io[\"\",role=x] here."));
+    }
+
+    @Test
     void linkTextKeepsItsQuotesAndCommas() { // a property name of the generated configuration tables, as asciidoctor
         assertEquals("The [`quarkus.log.category.\"categories\".level`](#quarkus-log_quarkus-log-category-categories-level) property sets the level, " +
                         "as [How to Use Kafka, Schema Registry and Avro with Quarkus](https://quarkus.io/blog/kafka-avro/) shows.\n",

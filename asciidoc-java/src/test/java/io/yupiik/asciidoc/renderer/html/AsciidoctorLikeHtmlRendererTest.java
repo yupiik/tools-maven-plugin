@@ -2502,6 +2502,38 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void imageWithAnEmptyAltKeepsIt() { // alt="" marks a decorative image, as asciidoctor writes it; without an alt, or with a blank one, the file name is the alt as before
+        assertRenderingContent("See image:a.png[alt=\"\"], image:b.png[] and image:c.png[alt=\"  \"] here.", """
+                 <div class="paragraph">
+                 <p>See  <span class="image"><img src="a.png" alt=""></span>
+                ,  <span class="image"><img src="b.png" alt="b"></span>
+                 and  <span class="image"><img src="c.png" alt="c"></span>
+                 here.</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void ascii2svgEmptyOptionsAreTheDefaults() { // tabWidth=, scaleX= and font= are empty values, which the diagram reads as its defaults
+        final var diagram = """
+                ....
+                .---.
+                | a |
+                '---'
+                ....
+                """;
+        final var defaults = renderBody("[a2s, format=\"svg\"]\n" + diagram);
+        assertTrue(defaults.contains("data:image/svg+xml;base64,"), defaults);
+        assertEquals(defaults, renderBody("[a2s, format=\"svg\", tabWidth=, scaleX=, font=]\n" + diagram));
+        final var scaled = renderBody("[a2s, format=\"svg\", scaleX=1]\n" + diagram);
+        assertTrue(!scaled.equals(defaults) && !renderBody("[a2s, format=\"svg\", scaleX=1, scaleY=40]\n" + diagram).equals(scaled), scaled); // scaleY is read on its own
+    }
+
+    private String renderBody(final String adoc) {
+        return render(adoc, null, UnaryOperator.identity());
+    }
+
+    @Test
     void ascii2svg() {
         assertRenderingContent("""
                 = Test
@@ -2895,7 +2927,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         ,  <a href="https://quarkus.io" class="x">.foo</a>
                         ,  <a href="https://quarkus.io"><code>quarkus.http.port=8080</code></a>
                          and  <a href="ftp://host/file">a, b</a>
-                        , or  <a href="mailto:team@example.org">Ask us</a>
+                        , or  <a href="mailto:team@example.org?subject=Subject%20here">Ask us</a>
                          and  <a href="mailto:team@example.org">Hi=there</a>
                         .</p>
                          </div>
@@ -2946,6 +2978,166 @@ class AsciidoctorLikeHtmlRendererTest {
                          <div class="paragraph">
                          <p>See  <a href="https://x.io/a">a [b</a>
                          here.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void nestedMacrosKeepTheirBracketsInLinkTextsAndALoneBracketEndsTheText() { // as asciidoctor, for link:, URL and xref: texts, with or without a '='
+        assertRenderingContent(
+                """
+                        :icons: font
+
+                        See link:https://x.io[image:a.png[alt,width=100],window=_blank], https://x.io[image:a.png[alt,width=100]] and xref:t[icon:question-circle[title=More]] here, then link:https://u.io[a [b, role=x] c] d.""",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="https://x.io" target="_blank" rel="noopener"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
+                        </a>
+                        ,  <a href="https://x.io"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
+                        </a>
+                         and  <a href="#t"><span class="icon"><i class="fas fa-question-circle" title="More"></i></span></a>
+                         here, then  <a href="https://u.io" class="x">a [b</a>
+                         c] d.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void passthroughInALinkTextKeepsItsBrackets() { // the generated configuration tables: link:#id[`+++quarkus.http.proxy.trusted-proxy[i].subject-dn+++`]
+        assertRenderingContent(
+                "See link:#id[`+++quarkus.http.proxy.trusted-proxy[i].subject-dn+++`] and link:https://u.io[`+++a, b+++`, role=x] here.",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="#id"><code>quarkus.http.proxy.trusted-proxy[i].subject-dn</code></a>
+                         and  <a href="https://u.io" class="x"><code>a, b</code></a>
+                         here.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void passthroughOfAnySignCountInALinkTextIsOneRun() { // as asciidoctor, which reads +, ++ and +++ passthroughs before the links, so their ']' and ',' belong to the text; the backtick form matches asciidoctor's output
+        assertRenderingContent(
+                "See link:#id[`+a[i].b+`] and https://u.io[`+a[i]+`] and xref:t[`+a[i]+`] and link:https://u.io[`+a, b+`, role=x] here.",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="#id"><code>a[i].b</code></a>
+                         and  <a href="https://u.io"><code>a[i]</code></a>
+                         and  <a href="#t"><code>a[i]</code></a>
+                         and  <a href="https://u.io" class="x"><code>a, b</code></a>
+                         here.</p>
+                         </div>
+                        """);
+        assertRenderingContent( // outside a code span the text stays whole; its signs stay too, where asciidoctor drops them (a passthrough outside backticks is not substituted yet)
+                "See link:#id[+a[i].b+] and link:#id[++a[i]++] here.",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="#id">+a[i].b+</a>
+                         and  <a href="#id">++a[i]++</a>
+                         here.</p>
+                         </div>
+                        """);
+        assertRenderingContent( // a passthrough closed after another '[' would swallow the next link, so the text ends at its ']' as on master (asciidoctor's passthrough extraction merges the two links into one)
+                "See https://x.io[C++] and https://y.io[C++] here, then link:#id[`+a[i].b+`] and link:#x[`+c[j]+`], and link:#y[`+a[i][j]+`] and https://u.io[`+++b[i][j]+++`].",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="https://x.io">C++</a>
+                         and  <a href="https://y.io">C++</a>
+                         here, then  <a href="#id"><code>a[i].b</code></a>
+                         and  <a href="#x"><code>c[j]</code></a>
+                        , and  <a href="#y"><code>a[i][j]</code></a>
+                         and  <a href="https://u.io"><code>b[i][j]</code></a>
+                        .</p>
+                         </div>
+                        """);
+        assertRenderingContent( // a ',' or '=' inside the passthrough does not make the text an attribute list, as asciidoctor, which extracts the passthroughs first
+                "See link:https://u.io[a, +b=c+] and link:https://u.io[\"quoted\" +a=b+] here.",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="https://u.io">a, +b=c+</a>
+                         and  <a href="https://u.io">&quot;quoted&quot; +a=b+</a>
+                         here.</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void namedValueNoneSetsNothing() { // as asciidoctor's AttributeList: role=None is no role, on a block line as in a macro
+        assertRenderingContent("[role=None]\nparagraph", """
+                 <div class="paragraph">
+                 <p>
+                paragraph
+                 </p>
+                 </div>
+                """);
+        assertRenderingContent("[role=x]\nparagraph", """
+                 <div class="paragraph x">
+                 <p class="x">
+                paragraph
+                 </p>
+                 </div>
+                """);
+        for (final var quoted : List.of("[title=\"None\"]\nparagraph", "[title='None']\nparagraph")) { // a quoted None is the value
+            assertRenderingContent(quoted, """
+                     <div class="paragraph">
+                      <div class="title">None</div>
+                     <p>
+                    paragraph
+                     </p>
+                     </div>
+                    """);
+        }
+        assertRenderingContent("See link:https://u.io[role=None,Text] here.", """
+                 <div class="paragraph">
+                 <p>See  <a href="https://u.io">https://u.io</a>
+                 here.</p>
+                 </div>
+                """); // the positional value after a named one shows the URL as the text, as asciidoctor, which also writes class="bare" there
+    }
+
+    @Test
+    void textAfterAClosingQuoteIsTheNextValue() { // as asciidoctor's AttributeList, which skips only blanks and a ',' after the quote and reads what follows as the next attribute
+        assertRenderingContent("See mailto:a@b.c[\"Hi\" there, Subject] and link:https://u.io[\"a\" b, role=x] here.", """
+                 <div class="paragraph">
+                 <p>See  <a href="mailto:a@b.c?subject=there&amp;body=Subject">Hi</a>
+                 and  <a href="https://u.io" class="x">a</a>
+                 here.</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void mailtoTextWritesTheSubjectAndTheBodyOnTheLink() { // as asciidoctor, percent-encoded; a second value is never a link option, an empty text shows the address, a body without a subject writes no query, a quoted "" is an empty subject
+        assertRenderingContent(
+                "Write to mailto:a@b.c[Text, Sub ject & co?, Body/\u00e9+1=2], mailto:a@b.c[Ask us, noopener], mailto:a@b.c[,Subject only], mailto:a@b.c[Text, role=x, Body], mailto:a@b.c[Text,\"\",Body] and mailto:a@b.c[].",
+                """
+                         <div class="paragraph">
+                         <p>Write to  <a href="mailto:a@b.c?subject=Sub%20ject%20%26%20co%3F&amp;body=Body%2F%C3%A9%2B1%3D2">Text</a>
+                        ,  <a href="mailto:a@b.c?subject=noopener">Ask us</a>
+                        ,  <a href="mailto:a@b.c?subject=Subject%20only">a@b.c</a>
+                        ,  <a href="mailto:a@b.c" class="x">Text</a>
+                        ,  <a href="mailto:a@b.c?subject=&amp;body=Body">Text</a>
+                         and  <a href="mailto:a@b.c">a@b.c</a>
+                        .</p>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void linkTextAttributeListEdgeCases() { // as asciidoctor: a last quote is text, a positional after a named one is not the text, a positional after the text is not an option, a quoted opts keeps its blank, a '=' after a non-name keeps its blanks; name= sets an empty value; this renderer's own: rel="noopener" without a window and no title attribute (rows DG and DC)
+        assertRenderingContent(
+                "See link:https://u.io[title=\"] after, link:https://u.io[x=] after, link:https://u.io[role=x,Text], https://u.io[window=_blank,\"a, b\"], " +
+                        "link:https://u.io[text, noopener, role=x] and link:https://u.io[text,opts=\"nofollow, noopener\"], then link:https://u.io[see a = b, role=x].",
+                """
+                         <div class="paragraph">
+                         <p>See  <a href="https://u.io">https://u.io</a>
+                         after,  <a href="https://u.io">https://u.io</a>
+                         after,  <a href="https://u.io" class="x">https://u.io</a>
+                        ,  <a href="https://u.io" target="_blank" rel="noopener">https://u.io</a>
+                        ,  <a href="https://u.io" class="x">text</a>
+                         and  <a href="https://u.io" rel="nofollow noopener">text</a>
+                        , then  <a href="https://u.io" class="x">see a = b</a>
+                        .</p>
                          </div>
                         """);
     }
@@ -6022,6 +6214,10 @@ class AsciidoctorLikeHtmlRendererTest {
 
     private void assertRenderingContent(final String adoc, final String html, final Path work,
                                         final UnaryOperator<AsciidoctorLikeHtmlRenderer.Configuration> customizer) {
+        assertEquals(html, render(adoc, work, customizer));
+    }
+
+    private String render(final String adoc, final Path work, final UnaryOperator<AsciidoctorLikeHtmlRenderer.Configuration> customizer) {
         final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(work != null ? work : Path.of("target/missing"))));
         final var attributes = new Parser().parseHeader(new Reader(List.of(adoc.split("\n")))).attributes();
         final var renderer = new AsciidoctorLikeHtmlRenderer(customizer.apply(new AsciidoctorLikeHtmlRenderer.Configuration()
@@ -6029,6 +6225,6 @@ class AsciidoctorLikeHtmlRendererTest {
                     put("noheader", "true");
                 }})));
         renderer.visitBody(doc);
-        assertEquals(html, renderer.result());
+        return renderer.result();
     }
 }
