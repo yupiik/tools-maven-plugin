@@ -25,6 +25,8 @@ import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.VisitorSibling;
+import io.yupiik.asciidoc.renderer.VisitorState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,6 +37,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2461,6 +2464,271 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void iconWithFont() { // the attribute picks the font awesome 4 classes, as asciidoctor writes them: `fa fa-<name>`, flip wins over rotate
+        assertRenderingContent("""
+                        :icons: font
+                        :yupiik-renderer-fontHandler: font-awesome-4
+
+                        john icon:at[] example.com, icon:lock[title=Fixed at build time] and icon:my_icon[2x]
+                        then icon:heart[size=2x,flip=horizontal,rotate=90] and icon:heart[rotate=90] and icon:a<b[title=a <b>]
+                        and icon:facebook[] and icon:fa[] and icon:fax[role=red] and icon:check[link=https://example.org/?a&b]
+                        but icon:fas fa-gift[size=2x] and icon:fa-gift[] and icon:fa-solid fa-gift[] and icon:fass fa-gift[] keep their font awesome 5 classes,
+                        and icon:facebook fa-2x[] and icon:fa-gift fa-fw[] get their style.""",
+                """
+                 <div class="paragraph">
+                 <p>john <span class="icon"><i class="fa fa-at"></i></span> example.com, <span class="icon"><i class="fa fa-lock" title="Fixed at build time"></i></span> and <span class="icon"><i class="fa fa-my_icon fa-2x"></i></span> then <span class="icon"><i class="fa fa-heart fa-2x fa-flip-horizontal"></i></span> and <span class="icon"><i class="fa fa-heart fa-rotate-90"></i></span> and <span class="icon"><i class="fa fa-a&lt;b" title="a &lt;b&gt;"></i></span> and <span class="icon"><i class="fa fa-facebook"></i></span> and <span class="icon"><i class="fa fa-fa"></i></span> and <span class="red"><span class="icon"><i class="fa fa-fax"></i></span></span> and <a href="https://example.org/?a&amp;b"><span class="icon"><i class="fa fa-check"></i></span></a> but <span class="icon"><i class="fas fa-gift fa-2x"></i></span> and <span class="icon"><i class="fa fa-gift"></i></span> and <span class="icon"><i class="fa-solid fa-gift"></i></span> and <span class="icon"><i class="fass fa-gift"></i></span> keep their font awesome 5 classes, and <span class="icon"><i class="fa fa-facebook fa-2x"></i></span> and <span class="icon"><i class="fa fa-gift fa-fw"></i></span> get their style.</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconWithoutIconsAttribute() { // the default handler, font awesome 5 classes, applies without `icons` too: the renderer always writes the tag, where asciidoctor writes the text `[at]`
+        assertRenderingContent("""
+                        john icon:at[] example.com, icon:lock[title=Fixed at build time] and icon:my_icon[2x] and icon:facebook[] and icon:fa-gift[] and icon:fab fa-github[]""",
+                """
+                 <div class="paragraph">
+                 <p>john <span class="icon"><i class="fas fa-at"></i></span> example.com, <span class="icon"><i class="fas fa-lock" title="Fixed at build time"></i></span> and <span class="icon"><i class="fas fa-my_icon fa-2x"></i></span> and <span class="icon"><i class="fas fa-facebook"></i></span> and <span class="icon"><i class="fas fa-gift"></i></span> and <span class="icon"><i class="fab fa-github"></i></span></p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconFontHandlerAttributeWinsOverTheConfiguration() { // both directions: the configuration alone, then the attribute over it
+        final var adoc = "see icon:lock[] here";
+        assertRenderingContent(adoc, new FontAwesome6Handler(), """
+                 <div class="paragraph">
+                 <p>see <span class="icon"><i class="fa-solid fa-lock"></i></span> here</p>
+                 </div>
+                """);
+        assertRenderingContent(":yupiik-renderer-fontHandler: Font-Awesome-4\n\n" + adoc, """
+                 <div class="paragraph">
+                 <p>see <span class="icon"><i class="fa fa-lock"></i></span> here</p>
+                 </div>
+                """, null, c -> c.setFontHandler(new FontAwesome6Handler()));
+    }
+
+    @Test
+    void iconFontStylesheetFollowsTheHandler() { // the head links the stylesheet of the classes the icons get, unless iconfont-cdn says otherwise
+        final var ctx = new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")));
+        final var byDefault = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        byDefault.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n\nicon:lock[]", ctx));
+        assertTrue(byDefault.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css\">"), byDefault.result());
+        assertTrue(byDefault.result().contains("<i class=\"fas fa-lock\">"), byDefault.result());
+        final var v4 = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        v4.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n:yupiik-renderer-fontHandler: font-awesome-4\n\nicon:lock[]", ctx));
+        assertTrue(v4.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css\">"), v4.result());
+        assertTrue(v4.result().contains("<i class=\"fa fa-lock\">"), v4.result());
+        final var v6 = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        v6.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n:yupiik-renderer-fontHandler: font-awesome-6\n\nicon:lock[]", ctx));
+        assertTrue(v6.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css\">"), v6.result());
+        assertTrue(v6.result().contains("<i class=\"fa-solid fa-lock\">"), v6.result());
+        final var v7 = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        v7.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n:yupiik-renderer-fontHandler: font-awesome-7\n\nicon:lock[]", ctx));
+        assertTrue(v7.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css\">"), v7.result());
+        assertTrue(v7.result().contains("<i class=\"fa-solid fa-lock\">"), v7.result());
+        final var regular = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setFontHandler(new FontAwesomeHandler("far")));
+        regular.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n\nicon:lock[]", ctx));
+        assertTrue(regular.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css\">"), regular.result()); // a style of your own keeps the all bundle, which reads it
+        assertTrue(regular.result().contains("<i class=\"far fa-lock\">"), regular.result());
+        final var custom = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        custom.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n:iconfont-cdn: /css/icons.css\n\nicon:lock[]", ctx));
+        assertTrue(custom.result().contains("<link rel=\"stylesheet\" href=\"/css/icons.css\">"), custom.result());
+        final var otherFont = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setFontHandler((name, options) -> "bi bi-" + name));
+        otherFont.visit(new Parser().parse("= Title\n:icons: font\n:iconfont-remote:\n\nicon:lock[]", ctx));
+        assertTrue(otherFont.result().contains("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css\">"), otherFont.result()); // a handler without a stylesheet keeps asciidoctor's default link
+        assertTrue(otherFont.result().contains("<i class=\"bi bi-lock\">"), otherFont.result());
+    }
+
+    @Test
+    void iconFontHandlerReachesNestedRenderersAndIsForgottenWithTheDocument() {
+        final var ctx = new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        renderer.visit(new Parser().parse(":yupiik-renderer-fontHandler: font-awesome-4\n\n== icon:lock[] Title\n\n[discrete]\n=== icon:key[] Floating\n\n|===\n|icon:check[] cell\n|===", ctx));
+        final var page = renderer.result();
+        assertEquals(3, page.split("<i class=\"fa fa-", -1).length - 1, page); // the section title, the discrete title and the cell, rendered by nested renderers
+        renderer.visitBody(new Parser().parseBody("icon:lock[]", ctx)); // after result(), the previous document and its handler are forgotten
+        assertTrue(renderer.result().endsWith("<span class=\"icon\"><i class=\"fas fa-lock\"></i></span>"), renderer.result());
+    }
+
+    @Test
+    void iconInTocFollowsTheAttributeThroughTheRenderer() { // the renderer resolves the handler once and hands it to its table of contents; a table of contents built apart, without a handler, uses the default
+        final var doc = new Parser().parse(":toc:\n:yupiik-renderer-fontHandler: font-awesome-4\n\n== icon:lock[] Secure\n\ntext", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        final var toc = new TocVisitor(renderer.state, 2, 1); // before result(), which releases the document from the state
+        toc.visitBody(doc.body());
+        assertEquals("""
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fas fa-lock"></i></span> Secure</a>
+                 </li>
+                 </ul>
+                """, toc.result().toString());
+        assertEquals("""
+                 <div id="toc" class="toc">
+                  <div id="toctitle">Table of Contents</div>
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fa fa-lock"></i></span> Secure</a>
+                 </li>
+                 </ul>
+                 </div>
+                 <div class="sect1">
+                  <h2 id="_secure"><span class="icon"><i class="fa fa-lock"></i></span> Secure</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                text
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void iconInStandaloneTocUsesTheConfiguredHandler() { // the table of contents reads no attribute: the caller resolves the handler, as the renderer does for its own table of contents
+        final var doc = new Parser().parse(":yupiik-renderer-fontHandler: font-awesome-4\n\n== icon:lock[] Secure\n\ntext\n\n=== icon:key[] Keys\n\nmore", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var configured = new TocVisitor(new TocVisitor.Configuration()
+                .setState(new VisitorState(new VisitorSibling(), doc.header().attributes()::get))
+                .setIndexes(true)
+                .setFontHandler(new FontAwesome6Handler()));
+        configured.visitBody(doc.body());
+        assertEquals("""
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fa-solid fa-lock"></i></span> Secure</a>
+                 <ul class="sectlevel2">
+                 <li><a href="#_keys"><span class="icon"><i class="fa-solid fa-key"></i></span> Keys</a></li>
+                 </ul>
+                 </li>
+                 </ul>
+                """, configured.result().toString());
+        final var resolved = new TocVisitor(new TocVisitor.Configuration()
+                .setState(new VisitorState(new VisitorSibling(), doc.header().attributes()::get))
+                .setIndexes(true)
+                .setFontHandler(new FontHandlers().resolve(doc.header().attributes()::get, null)));
+        resolved.visitBody(doc.body());
+        assertEquals("""
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fa fa-lock"></i></span> Secure</a>
+                 <ul class="sectlevel2">
+                 <li><a href="#_keys"><span class="icon"><i class="fa fa-key"></i></span> Keys</a></li>
+                 </ul>
+                 </li>
+                 </ul>
+                """, resolved.result().toString());
+    }
+
+    @Test
+    void iconFontHandlerAttributeValueMustBeKnown() { // an alias or the name of a FontHandler class, else the document fails
+        final var expected = "Unknown value '%s' for the attribute yupiik-renderer-fontHandler, expected font-awesome-4, font-awesome-5, font-awesome-6, font-awesome-7 or the name of a FontHandler class with a public no-arg constructor";
+        final var doc = new Parser().parseBody("icon:lock[]", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "yupiik-renderer-fontHandler", "font-awesome-3")));
+        final var error = assertThrows(IllegalArgumentException.class, () -> renderer.visitBody(doc));
+        assertEquals(expected.formatted("font-awesome-3"), error.getMessage());
+        final var withoutIcon = new Parser().parse("= Title\n:yupiik-renderer-fontHandler: font-awesome-3\n\ntext", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var page = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        assertEquals(error.getMessage(), assertThrows(IllegalArgumentException.class, () -> page.visit(withoutIcon)).getMessage()); // visit() fails the document even without an icon
+        final var notAHandler = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "yupiik-renderer-fontHandler", "java.lang.String")));
+        assertEquals(expected.formatted("java.lang.String"), assertThrows(IllegalArgumentException.class, () -> notAHandler.visitBody(doc)).getMessage()); // a class that is not a FontHandler
+        final var textOnly = new Parser().parseBody("text", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        assertEquals(expected.formatted("font-awesome-3"), assertThrows(IllegalArgumentException.class, () -> renderer.visitBody(textOnly)).getMessage()); // visitBody() fails the body even without an icon, as visit()
+        final var broken = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(Map.of("noheader", "true", "yupiik-renderer-fontHandler", "io.yupiik.asciidoc.renderer.html.BootstrapIconsHandler$Broken")));
+        assertEquals("The constructor of 'io.yupiik.asciidoc.renderer.html.BootstrapIconsHandler$Broken', named by the attribute yupiik-renderer-fontHandler, failed: java.lang.IllegalStateException: missing icon map",
+                assertThrows(IllegalArgumentException.class, () -> broken.visitBody(doc)).getMessage()); // a handler of your own that fails names itself, not the accepted values
+    }
+
+    @Test
+    void iconFontHandlerAttributeLoadsAClassName() { // a handler of your own, picked by the document or the configuration attributes without code; blanks around the name are ignored
+        assertRenderingContent(":yupiik-renderer-fontHandler: io.yupiik.asciidoc.renderer.html.BootstrapIconsHandler\n\nsee icon:lock[] here", """
+                 <div class="paragraph">
+                 <p>see <span class="icon"><i class="bi bi-lock"></i></span> here</p>
+                 </div>
+                """);
+        assertRenderingContent("see icon:lock[] here", """
+                 <div class="paragraph">
+                 <p>see <span class="icon"><i class="bi bi-lock"></i></span> here</p>
+                 </div>
+                """, null, c -> c.setAttributes(Map.of("noheader", "true", "yupiik-renderer-fontHandler", " io.yupiik.asciidoc.renderer.html.BootstrapIconsHandler ")));
+    }
+
+    @Test
+    void iconFontAwesomeVersions() { // one handler per version, a name already holding its classes is kept by all of them
+        final var adoc = "icon:lock[2x] icon:fa-gift[] icon:fab fa-github[flip=horizontal] icon:fa-solid fa-gift[]";
+        assertRenderingContent(adoc, new FontAwesome4Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fa fa-lock fa-2x"></i></span> <span class="icon"><i class="fa fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+        assertRenderingContent(adoc, new FontAwesome5Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fas fa-lock fa-2x"></i></span> <span class="icon"><i class="fas fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+        assertRenderingContent(adoc, new FontAwesome6Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fa-solid fa-lock fa-2x"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+        assertRenderingContent(adoc, new FontAwesome7Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fa-solid fa-lock fa-2x"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconInSectionTitleAndToc() { // the table of contents renders a title, at any level, with the configuration of the page
+        final var doc = new Parser().parse(":toc:\n\n== icon:lock[] Secure\n\ntext\n\n=== icon:key[] Keys\n\nmore", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setFontHandler(new FontAwesome5Handler())
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <div id="toc" class="toc">
+                  <div id="toctitle">Table of Contents</div>
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fas fa-lock"></i></span> Secure</a>
+                 <ul class="sectlevel2">
+                 <li><a href="#_keys"><span class="icon"><i class="fas fa-key"></i></span> Keys</a></li>
+                 </ul>
+                 </li>
+                 </ul>
+                 </div>
+                 <div class="sect1">
+                  <h2 id="_secure"><span class="icon"><i class="fas fa-lock"></i></span> Secure</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                text
+                 </p>
+                 </div>
+                 <div class="sect2">
+                  <h3 id="_keys"><span class="icon"><i class="fas fa-key"></i></span> Keys</h3>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                more
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void iconOtherFont() { // a handler of the site for another icon font, Bootstrap Icons here
+        assertRenderingContent("icon:lock[title=Locked] and icon:a<b[]", (name, options) -> "bi bi-" + name, """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="bi bi-lock" title="Locked"></i></span> and <span class="icon"><i class="bi bi-a&lt;b"></i></span></p>
+                 </div>
+                """);
+    }
+
+    @Test
     void codeInSectionTitle() {
         assertRenderingContent("== Section `#1`", """
                  <div class="sect1">
@@ -2621,7 +2889,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         The type is link:#x[icon:question-circle[title=More information]] here, see link:https://x.io/a[image:a.png[x] image:b.png[y]] too.""",
                 """
                          <div class="paragraph">
-                         <p>The type is  <a href="#x"><span class="icon"><i class="question-circle" title="More information"></i></span></a>
+                         <p>The type is  <a href="#x"><span class="icon"><i class="fas fa-question-circle" title="More information"></i></span></a>
                          here, see  <a href="https://x.io/a"> <span class="image"><img src="a.png" alt="x"></span>
                           <span class="image"><img src="b.png" alt="y"></span>
                         </a>
@@ -5254,13 +5522,22 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(adoc, html, null);
     }
 
+    private void assertRenderingContent(final String adoc, final FontHandler fontHandler, final String html) {
+        assertRenderingContent(adoc, html, null, c -> c.setFontHandler(fontHandler));
+    }
+
     private void assertRenderingContent(final String adoc, final String html, final Path work) {
+        assertRenderingContent(adoc, html, work, UnaryOperator.identity());
+    }
+
+    private void assertRenderingContent(final String adoc, final String html, final Path work,
+                                        final UnaryOperator<AsciidoctorLikeHtmlRenderer.Configuration> customizer) {
         final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(work != null ? work : Path.of("target/missing"))));
         final var attributes = new Parser().parseHeader(new Reader(List.of(adoc.split("\n")))).attributes();
-        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+        final var renderer = new AsciidoctorLikeHtmlRenderer(customizer.apply(new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setAttributes(new HashMap<>(attributes) {{
                     put("noheader", "true");
-                }}));
+                }})));
         renderer.visitBody(doc);
         assertEquals(html, renderer.result());
     }

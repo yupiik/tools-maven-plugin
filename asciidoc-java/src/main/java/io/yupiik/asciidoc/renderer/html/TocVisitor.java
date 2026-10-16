@@ -23,21 +23,19 @@ import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
 import io.yupiik.asciidoc.renderer.VisitorState;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static java.util.Locale.ROOT;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class TocVisitor implements Visitor<StringBuilder> {
     private static final Pattern DROP_ANCHOR_RX = Pattern.compile("<(?:a\\b[^>]*|/a)>");
-    private final int maxLevel;
-    private final int currentLevel;
-    private final VisitorState state;
-    private final boolean indexes; // the state is its own, so it indexes the body it lists
+    private final Configuration configuration;
     private final Collection<Section> sections = new ArrayList<>();
 
     public TocVisitor(final int toclevels, final int currentLevel) {
@@ -58,7 +56,11 @@ public class TocVisitor implements Visitor<StringBuilder> {
      * @param context the attributes the ids are built with, such as {@code idprefix} and {@code idseparator}.
      */
     public TocVisitor(final VisitorSibling sibling, final ConditionalBlock.Context context, final int toclevels, final int currentLevel) {
-        this(new VisitorState(sibling, context), toclevels, currentLevel, true);
+        this(new Configuration()
+                .setState(new VisitorState(sibling, context))
+                .setIndexes(true)
+                .setToclevels(toclevels)
+                .setCurrentLevel(currentLevel));
     }
 
     /**
@@ -66,32 +68,36 @@ public class TocVisitor implements Visitor<StringBuilder> {
      *              numbered as on the page when two sections would get the same id.
      */
     public TocVisitor(final VisitorState state, final int toclevels, final int currentLevel) {
-        this(state, toclevels, currentLevel, false);
+        this(new Configuration()
+                .setState(state)
+                .setToclevels(toclevels)
+                .setCurrentLevel(currentLevel));
     }
 
-    private TocVisitor(final VisitorState state, final int toclevels, final int currentLevel, final boolean indexes) {
-        this.state = state;
-        this.maxLevel = toclevels;
-        this.currentLevel = currentLevel;
-        this.indexes = indexes;
+    /**
+     * @param configuration what the table of contents lists and how it renders the titles, see {@link Configuration}.
+     */
+    public TocVisitor(final Configuration configuration) {
+        this.configuration = requireNonNull(configuration, "configuration");
+        requireNonNull(configuration.getState(), "state");
     }
 
     @Override
     public void visitBody(final Body body) {
-        if (indexes) {
-            state.visitBody(body);
+        if (configuration.isIndexes()) {
+            configuration.getState().visitBody(body);
         }
         Visitor.super.visitBody(body);
     }
 
     @Override
     public ConditionalBlock.Context context() { // a section inside ifdef is listed when the page renders it
-        return state.context();
+        return configuration.getState().context();
     }
 
     @Override
     public void visitSection(final Section element) {
-        if (element.level() == currentLevel + 1) {
+        if (element.level() == configuration.getCurrentLevel() + 1) {
             sections.add(element);
         }
     }
@@ -103,8 +109,10 @@ public class TocVisitor implements Visitor<StringBuilder> {
             return builder;
         }
 
+        final var state = configuration.getState();
+        final var currentLevel = configuration.getCurrentLevel();
         builder.append(" <ul class=\"sectlevel").append(currentLevel).append("\">\n");
-        if (currentLevel == maxLevel) {
+        if (currentLevel == configuration.getToclevels()) {
             builder.append(sections.stream()
                     .map(it -> {
                         final var title = title(it.title());
@@ -114,7 +122,11 @@ public class TocVisitor implements Visitor<StringBuilder> {
         } else {
             builder.append(sections.stream()
                     .map(it -> {
-                        final var tocVisitor = new TocVisitor(state, maxLevel, currentLevel + 1);
+                        final var tocVisitor = new TocVisitor(new Configuration()
+                                .setState(state)
+                                .setToclevels(configuration.getToclevels())
+                                .setCurrentLevel(currentLevel + 1)
+                                .setFontHandler(configuration.getFontHandler()));
                         tocVisitor.visitBody(new Body(it.children()));
                         final var children = tocVisitor.result().toString();
                         final var title = title(it.title());
@@ -127,7 +139,8 @@ public class TocVisitor implements Visitor<StringBuilder> {
     }
 
     private String title(final Element title) {
-        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setFontHandler(configuration.getFontHandler()));
         titleRenderer.visitElement(title instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                 new Text(t.style(), t.value(), Map.of("nowrap", "")) :
                 title);
@@ -136,5 +149,67 @@ public class TocVisitor implements Visitor<StringBuilder> {
             result = DROP_ANCHOR_RX.matcher(result).replaceAll("");
         }
         return result;
+    }
+
+    /**
+     * The dependencies of a table of contents, so a new one breaks no caller of the constructors.
+     */
+    @Getter
+    public static class Configuration {
+        private VisitorState state;
+        private int toclevels = 2;
+        private int currentLevel = 1;
+        private boolean indexes;
+        private FontHandler fontHandler;
+
+        /**
+         * @param state the state of the renderer that writes the sections, so each link reads the id of its section
+         *              there, numbered as on the page; or a state of the table of contents' own, with
+         *              {@link #setIndexes(boolean)}.
+         * @return this.
+         */
+        public Configuration setState(final VisitorState state) {
+            this.state = state;
+            return this;
+        }
+
+        /**
+         * @param toclevels the deepest section level listed, the {@code toclevels} attribute of the document, 2 by default.
+         * @return this.
+         */
+        public Configuration setToclevels(final int toclevels) {
+            this.toclevels = toclevels;
+            return this;
+        }
+
+        /**
+         * @param currentLevel the level of the sections this visitor lists, 1 at the top of the table of contents.
+         * @return this.
+         */
+        public Configuration setCurrentLevel(final int currentLevel) {
+            this.currentLevel = currentLevel;
+            return this;
+        }
+
+        /**
+         * @param indexes {@code true} when the state is the table of contents' own, so it indexes the body it lists
+         *                before listing it; {@code false} when the renderer that wrote the sections indexed it.
+         * @return this.
+         */
+        public Configuration setIndexes(final boolean indexes) {
+            this.indexes = indexes;
+            return this;
+        }
+
+        /**
+         * @param fontHandler the handler of the icon macros in the titles, the one the page renders with, resolved by
+         *                    the enclosing renderer; the table of contents does not resolve it itself, so unset it
+         *                    falls back to the default of the title renderer.
+         * @return this.
+         */
+        public Configuration setFontHandler(final FontHandler fontHandler) {
+            this.fontHandler = fontHandler;
+            return this;
+        }
     }
 }

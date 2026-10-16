@@ -21,6 +21,7 @@ import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
+import io.yupiik.asciidoc.renderer.VisitorState;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -141,5 +142,33 @@ class TocVisitorTest {
                  </li>
                  </ul>
                 """, withoutFoo.result().toString());
+    }
+
+    @Test
+    void configurationConstructorListsAsTheLevelConstructors() { // one object for every dependency, so a new one breaks no caller
+        final var body = new Body(List.of(
+                new Section(2, new Text(List.of(), "S1", Map.of()), List.of(
+                        new Section(3, new Text(List.of(), "S11", Map.of()), List.of(), Map.of())), Map.of()),
+                new Section(2, new Text(List.of(), "S2", Map.of()), List.of(), Map.of())));
+        final var fromLevels = new TocVisitor(2, 1);
+        fromLevels.visitBody(body);
+        final var fromConfiguration = new TocVisitor(new TocVisitor.Configuration()
+                .setState(new VisitorState(new VisitorSibling(), key -> null))
+                .setIndexes(true)
+                .setToclevels(2)
+                .setCurrentLevel(1));
+        fromConfiguration.visitBody(body);
+        assertEquals(fromLevels.result().toString(), fromConfiguration.result().toString());
+        assertEquals("""
+                 <ul class="sectlevel1">
+                 <li><a href="#_s1">S1</a>
+                 <ul class="sectlevel2">
+                 <li><a href="#_s11">S11</a></li>
+                 </ul>
+                 </li>
+                 <li><a href="#_s2">S2</a>
+                 </li>
+                 </ul>
+                """, fromConfiguration.result().toString());
     }
 }

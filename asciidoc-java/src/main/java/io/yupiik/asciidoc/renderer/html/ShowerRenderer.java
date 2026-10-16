@@ -69,6 +69,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
                 .setAttributes(configuration.getAttributes())
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())
                 .setAssetsBase(configuration.getAssetsBase())
+                .setFontHandler(configuration.getFontHandler())
                 .setResolver(configuration.getResolver()));
     }
 
@@ -111,6 +112,17 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+        private FontHandler fontHandler;
+
+        /**
+         * @param fontHandler writes the classes of the {@code <i>} tag of an icon macro for the icon font the slides
+         *                    load, when no attribute names one; {@link FontAwesome5Handler} when unset.
+         * @return this.
+         */
+        public Configuration setFontHandler(final FontHandler fontHandler) {
+            this.fontHandler = fontHandler;
+            return this;
+        }
 
         public Configuration setDataUriForAscii2Svg(final boolean dataUriForAscii2Svg) {
             this.dataUriForAscii2Svg = dataUriForAscii2Svg;
