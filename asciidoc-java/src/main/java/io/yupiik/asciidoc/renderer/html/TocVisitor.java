@@ -30,12 +30,14 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.util.Locale.ROOT;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class TocVisitor implements Visitor<StringBuilder> {
     private static final Pattern DROP_ANCHOR_RX = Pattern.compile("<(?:a\\b[^>]*|/a)>");
     private final int maxLevel;
     private final int currentLevel;
+    private final AsciidoctorLikeHtmlRenderer.Configuration configuration;
     private final VisitorState state;
     private final boolean indexes; // the state is its own, so it indexes the body it lists
     private final Collection<Section> sections = new ArrayList<>();
@@ -69,7 +71,22 @@ public class TocVisitor implements Visitor<StringBuilder> {
         this(state, toclevels, currentLevel, false);
     }
 
+    /**
+     * @param configuration the configuration of the renderer that writes the sections, so a title renders in the table
+     *                      of contents as in its heading (the icon font for example).
+     */
+    public TocVisitor(final VisitorState state, final int toclevels, final int currentLevel,
+                      final AsciidoctorLikeHtmlRenderer.Configuration configuration) {
+        this(state, toclevels, currentLevel, false, configuration);
+    }
+
     private TocVisitor(final VisitorState state, final int toclevels, final int currentLevel, final boolean indexes) {
+        this(state, toclevels, currentLevel, indexes, new AsciidoctorLikeHtmlRenderer.Configuration());
+    }
+
+    private TocVisitor(final VisitorState state, final int toclevels, final int currentLevel, final boolean indexes,
+                       final AsciidoctorLikeHtmlRenderer.Configuration configuration) {
+        this.configuration = requireNonNull(configuration, "configuration");
         this.state = state;
         this.maxLevel = toclevels;
         this.currentLevel = currentLevel;
@@ -114,7 +131,7 @@ public class TocVisitor implements Visitor<StringBuilder> {
         } else {
             builder.append(sections.stream()
                     .map(it -> {
-                        final var tocVisitor = new TocVisitor(state, maxLevel, currentLevel + 1);
+                        final var tocVisitor = new TocVisitor(state, maxLevel, currentLevel + 1, configuration);
                         tocVisitor.visitBody(new Body(it.children()));
                         final var children = tocVisitor.result().toString();
                         final var title = title(it.title());
@@ -127,7 +144,7 @@ public class TocVisitor implements Visitor<StringBuilder> {
     }
 
     private String title(final Element title) {
-        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration());
+        final var titleRenderer = new AsciidoctorLikeHtmlRenderer(configuration, state.sibling());
         titleRenderer.visitElement(title instanceof Text t && t.options().isEmpty() && t.style().isEmpty() ?
                 new Text(t.style(), t.value(), Map.of("nowrap", "")) :
                 title);

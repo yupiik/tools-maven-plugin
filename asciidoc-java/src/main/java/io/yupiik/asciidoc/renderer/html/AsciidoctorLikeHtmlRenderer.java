@@ -79,6 +79,7 @@ import static io.yupiik.asciidoc.model.Element.ElementType.TEXT;
 import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
+import static java.util.Objects.requireNonNull;
 import static java.util.Map.entry;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
@@ -1515,7 +1516,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (tocTitle != null && !tocTitle.isBlank()) {
             builder.append("  <div id=\"toctitle\">").append(tocTitle).append("</div>\n");
         }
-        final var toc = new TocVisitor(state, toclevels, 1);
+        final var toc = new TocVisitor(state, toclevels, 1, configuration);
         toc.visitBody(body);
         builder.append(toc.result());
         builder.append(" </div>\n");
@@ -1831,35 +1832,25 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         if (!element.inline()) {
             builder.append(' ');
         }
-        final var hasRole = element.options().containsKey("role");
-        final var link = element.options().get("link");
+        final var opts = element.options();
+        final var hasRole = opts.get("role") != null;
+        final var link = opts.get("link");
         if (hasRole) {
             builder.append("<span");
-            writeCommonAttributes(element.options(), null);
+            writeCommonAttributes(opts, null);
             builder.append(">");
         }
         if (link != null) {
-            builder.append("<a href=\"").append(link).append("\">");
+            builder.append("<a href=\"").append(escape(link)).append("\">");
         }
-        final var opts = element.options();
-        builder.append("<span class=\"icon\"><i class=\"");
-        final var label = element.label();
-        if (label.startsWith("fa") && !label.contains(" ")) {
-            builder.append("fa ");
+        builder.append("<span class=\"icon\"><i class=\"")
+                .append(escape(configuration.getFontHandler().classes(element.label(), opts)))
+                .append('"');
+        final var title = opts.get("title");
+        if (title != null) {
+            builder.append(" title=\"").append(escape(title)).append('"');
         }
-        builder.append(label);
-        ofNullable(opts.getOrDefault("", opts.get("size")))
-                .map(size -> " fa-" + size)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("flip"))
-                .map(flip -> " fa-flip-" + flip)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("rotate"))
-                .map(rotate -> " fa-rotate-" + rotate)
-                .ifPresent(builder::append);
-        ofNullable(opts.get("title"))
-                .ifPresent(title -> builder.append("\" title=\"").append(title));
-        builder.append("\"></i></span>");
+        builder.append("></i></span>");
         if (link != null) {
             builder.append("</a>");
         }
@@ -2433,6 +2424,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
         private UnknownMacro unknownMacro = UnknownMacro.TEXT;
+        private FontHandler fontHandler = new FontAwesome4Handler();
+
+        /**
+         * @param fontHandler writes the classes of the {@code <i>} tag of an icon macro for the icon font the site
+         *                    loads, {@link FontAwesome4Handler} by default (what asciidoctor writes with {@code icons=font}).
+         * @return this.
+         */
+        public Configuration setFontHandler(final FontHandler fontHandler) {
+            this.fontHandler = requireNonNull(fontHandler, "fontHandler");
+            return this;
+        }
 
         /**
          * @param unknownMacro what the renderer does with a macro it has no method for, {@link UnknownMacro#TEXT} by
