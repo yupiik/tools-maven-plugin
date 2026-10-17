@@ -1,0 +1,150 @@
+= Asciidoc Java: Markdown renderer
+
+`GithubFlavoredMarkdownRenderer` renders the model the parser gives (see xref:asciidoc-java.adoc[Asciidoc Java]) as GitHub-flavored Markdown, for example to publish a Markdown copy of a page for AI agents or to feed a text pipeline.
+It reads the document as the xref:asciidoc-java-html.adoc[HTML renderer] does, so the two outputs agree on ids, cross references and conditionals.
+
+== Usage
+
+[source,java]
+----
+final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+    .setAttributes(Map.of("imagesdir", "/images"))); <1>
+renderer.visit(doc);
+final var markdown = renderer.result();
+----
+<.> Pass the attributes the renderer uses when the document does not define them, as for the HTML renderer.
+
+One renderer instance can render several documents one after the other: each call to `visit` starts from an empty output.
+
+For this document:
+
+[source,asciidoc]
+----
+= Release notes
+
+== Version 1.3
+
+NOTE: The parser now reads `icon:lock[]` as asciidoctor does.
+
+* Faster parsing, see <<benchmark>>.
+* A `FontHandler` for the icon font of the site.
+
+[#benchmark]
+== Benchmark
+
+Run `GuideBench` on the Fusion documentation to measure a change.
+----
+
+the renderer writes:
+
+[source,markdown]
+----
+# Release notes
+
+## Version 1.3
+
+> [!NOTE]
+> The parser now reads `icon:lock[]` as asciidoctor does.
+
+- Faster parsing, see [Benchmark](#benchmark).
+- A `FontHandler` for the icon font of the site.
+
+<a id="benchmark"></a>
+## Benchmark
+
+Run `GuideBench` on the Fusion documentation to measure a change.
+----
+
+== What each construct becomes
+
+[cols="1,2",options="header"]
+|===
+|AsciiDoc |Markdown
+
+|Plain text
+|Written with a backslash before each character a Markdown parser reads as markup: `\`, `` ` ``, `*`, `[`, `]`, `<`, `~`, and `_` outside a word. A `&` stays as written, since a character reference resolves the same way in both outputs. At the start of a line a `#`, `-`, `+`, `>`, `=` or ordered list marker is escaped too, so text does not become a block. Code, passthroughs, link targets and the HTML the renderer writes stay as they are.
+
+|Section (`== Title`)
+|An ATX heading (`## Title`).
+
+|Source block
+|A fenced code block with the language. A diagram style such as `[mermaid]` is kept as the language.
+
+|Table
+|A pipe table.
+
+|Admonition
+|A GitHub alert (`> [!NOTE]`).
+
+|Callouts
+|A numbered list after the code block, the `<1>` markers staying in the code.
+
+|Description list
+|A bold term followed by its description.
+
+|Collapsible example block (`[%collapsible]` or `opts=collapsible` on a `====` block)
+|A `<details>` element, `<details open>` with `%open`. As in asciidoctor, the option collapses an example block only, not an open block or a sidebar.
+
+|Footnote
+|A `[^1]` reference, with its definition at the end of the document.
+
+|Id of a section or of a block
+|An empty `<a id="...">` anchor, so `<<id>>` links work. A section without an explicit id gets the id the HTML renderer would give it when the document links to it, see xref:asciidoc-java-syntax.adoc#_section_ids[Section ids].
+
+|Cross reference (`<<id>>` or `xref:id[]`) without its own text
+|A link to the anchor, its text being the `reftext` of the target, else the title of the target, else the id between square brackets, as asciidoctor writes it.
+
+|Cross reference to another page (`<<page.adoc#id>>`, `<<page#id>>` or `xref:page.adoc#id[]`)
+|A link to the rendered page, `relfileprefix` + page + `relfilesuffix`, then `#id`; the `<<...>>` form is read as in xref:asciidoc-java-syntax.adoc#_links_cross_references_and_anchors[Links, cross references and anchors].
+
+|Table of contents (`:toc:`)
+|A list of links to the sections, where asciidoctor places it: at the top, after the preamble (`:toc: preamble`) or at the `toc::[]` macro (`:toc: macro`).
+
+|Icon (`icon:lock[]`)
+|`[lock]`, as asciidoctor writes an icon without an icon font.
+
+|Conditional (`ifdef::[]`, `ifndef::[]`, `ifeval::[]`)
+|The content of the branch that holds, where the block is written; conditional lines in a paragraph and in a table follow xref:asciidoc-java-syntax.adoc#_includes_and_conditionals[Includes and conditionals].
+|===
+
+== Attributes the renderer reads
+
+[cols="1,3",options="header"]
+|===
+|Attribute |Use
+
+|`noheader`
+|Skips the document title.
+
+|`imagesdir`
+|Prefixed to a relative image target.
+
+|`idprefix`, `idseparator`
+|Build the id of a section without an explicit id, as in the HTML renderer.
+
+|`relfileprefix`, `relfilesuffix`
+|Build the target of an `xref:page.adoc[]` link, `relfilesuffix` defaulting to `outfilesuffix` and then to `.md`.
+
+|`asciidoc-extensions`
+|The extensions of the documents an `xref:` link points at, `adoc,asciidoc` by default. A link to a file with another extension keeps the file name, and a file without extension before a `#` is a document, as in asciidoctor.
+
+|`toc`, `toc-placement`, `toc-title`, `toclevels`
+|Write the table of contents, as in asciidoctor.
+
+|`yupiik-renderer-githubflavoredmarkdown-unknownMacro`
+|What the renderer does with a macro it has no case for, `text`, `ignore` or `fail` in any case, see <<_unknown_macros_and_includes,Unknown macros and includes>>; it wins over `Configuration.setUnknownMacro`.
+|===
+
+When neither the document nor the configuration defines an attribute, the renderer leaves its reference literal.
+
+== Unknown macros and includes
+
+An `include` macro reaching the renderer fails, since the parser resolves includes before rendering.
+A macro the renderer has no case for, such as `tooltip:foo[a hint]`, is written as text by default, as asciidoctor writes a macro no extension registers: `Configuration.setUnknownMacro(UnknownMacro.IGNORE)` writes nothing, `UnknownMacro.FAIL` throws an `IllegalArgumentException` naming the macro, `UnknownMacro.TEXT` writes the macro as text, and the attribute `yupiik-renderer-githubflavoredmarkdown-unknownMacro`, in the document or in the attributes of the configuration, wins over the option.
+A subclass renders its own macros in `onMissingMacro`.
+
+== Extending the renderer
+
+A subclass can override any rendering method, and the override also applies inside admonitions, lists and tables.
+A subclass that wants a text run written as it is overrides `escapeText`.
+`new GithubFlavoredMarkdownRenderer(configuration, sibling)` takes a subclass of `VisitorSibling`, whose readings then apply to the renderer and to its state, see xref:asciidoc-java-model.adoc#_reading_the_model_as_the_renderers_do[Reading the model as the renderers do].

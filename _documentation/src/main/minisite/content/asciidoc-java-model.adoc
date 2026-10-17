@@ -1,0 +1,56 @@
+= Asciidoc Java: model and visitors
+
+The parser of xref:asciidoc-java.adoc[Asciidoc Java] turns a document into a model of Java records, and a renderer is a `Visitor` that walks that model.
+This page is for the developer who reads the model, extends a renderer or writes one.
+
+== The model
+
+`Parser.parse` returns a `Document`: a `Header` (the title, the authors, the revision and the attribute entries) and a `Body`, the list of its elements.
+Every element is a record of `io.yupiik.asciidoc.model` implementing `Element`: `Section`, `Paragraph`, `Text`, `Code`, `Listing`, `Link`, `Macro`, `Anchor`, `UnOrderedList`, `OrderedList`, `DescriptionList`, `Table`, `Admonition`, `Quote`, `OpenBlock`, `PassthroughBlock`, `ConditionalBlock`, `FloatingTitle`, `Attribute`, `LineBreak`, `PageBreak` and `HorizontalRule`. `Author` and `Revision` belong to the `Header`, and a `CallOut` holds the number and the text of one callout of a `Code` block.
+A record carries data only: the parser reads the source once, and the renderers read the model without parsing again.
+Includes are resolved by the parser, so the model holds the included elements and never an `include` macro.
+Conditionals stay in the model as `ConditionalBlock` elements, and each renderer writes the branch that holds with the attributes it knows.
+
+TIP: a `Document` and the parser are thread safe, a renderer is not; see the xref:asciidoc-java.adoc#_quick_start[quick start] for how to reuse each renderer.
+
+== Visiting the model
+
+`io.yupiik.asciidoc.renderer.Visitor<R>` has one method per element (`visitSection`, `visitParagraph`, `visitTable`, ...), `visit(Document)` for a whole document, `visitBody(Body)` for a body alone, and `result()` for what the visitor computed.
+The HTML and Markdown renderers are visitors whose result is a `String`.
+`DelegatingVisitor` forwards every call to another visitor, so a subclass overrides only the methods it needs.
+
+Each construct is rendered by one `visitX` method, so a subclass changes a construct everywhere by overriding that method, inside admonitions, lists and tables included.
+Both renderers write a macro they have no method for in `onMissingMacro`, see xref:asciidoc-java-html.adoc#_unknown_macros[the HTML renderer] and xref:asciidoc-java-markdown.adoc#_unknown_macros_and_includes[the Markdown renderer]; the Markdown renderer also lets a subclass override `escapeText`, and the HTML renderer takes a `FontHandler` for the classes of an icon, see xref:asciidoc-java-html.adoc#_icons_and_icon_fonts[Icons and icon fonts].
+
+== Reading the model as the renderers do
+
+A visitor of your own can read the model as the HTML and Markdown renderers do, with two classes of `io.yupiik.asciidoc.renderer`:
+
+[cols="1,3",options="header"]
+|===
+|Class |Use
+
+|`VisitorSibling`
+|Reads the values the parser keeps as raw text: the id, the style and the options of a block, attribute references in titles, the parts of a cross reference or image target, macro labels such as the keys of `kbd:[]`, the AsciiDoc text of a macro, the `unknownMacro` attribute of a renderer, whether an element is inline (a conditional block is inline when the branch it renders is), a list of elements with each conditional block replaced by the branch it renders (`expandConditionals`), and where paragraphs end when the parser gives them as sibling elements. It has no state, so any visitor can create one.
+
+|`VisitorState`
+|Keeps the state of a rendering: the attributes of the document then the fallback ones, the text of a cross reference to each id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its `visit` and `visitBody` methods, then queries it while it writes; the state of the HTML renderer extends it with the flags of that output. Before any `visit` it reads the fallback attributes only, so a visitor can render a body alone.
+|===
+
+`new AsciidoctorLikeHtmlRenderer(configuration, sibling)` and `new GithubFlavoredMarkdownRenderer(configuration, sibling)` take a subclass of `VisitorSibling`, whose readings then apply to the renderer, to its state and to the renderers it creates for the section titles, the floating titles and the table cells; the table of contents renders its titles with the default `VisitorSibling`.
+
+== Source positions
+
+The model does not keep the source text of the elements.
+To get it, for example to look each paragraph up in a translation file before rendering, register a `SourceListener` in the `ParserContext`.
+The parser calls it for each block-level element with a `SourceSpan`: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it.
+List items and table cells are read from their own reader, so their line numbers are relative to the item or cell.
+Where the parser evaluates a conditional while it reads, in the header and in a table, an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included; a conditional nested in such a branch is read the same way, one level deep: a third level fails the parse with a message.
+
+[source,java]
+----
+final var spans = new IdentityHashMap<Element, SourceSpan>(); <1>
+final var doc = parser.parse(myDocContent, new Parser.ParserContext(resolver, spans::put)); <2>
+----
+<.> Elements are records and compare by value, so key the map by identity,
+<.> The listener is the second constructor argument; the one-argument constructor keeps working and tracks nothing.

@@ -1,0 +1,158 @@
+= Asciidoc Java: HTML renderer
+
+`AsciidoctorLikeHtmlRenderer` renders the model the parser gives (see xref:asciidoc-java.adoc[Asciidoc Java]) as the HTML asciidoctor writes, so asciidoctor's stylesheet and the minisite themes apply to the output without changes.
+Byte-for-byte equality with asciidoctor is not a goal; the structure and the classes are.
+
+== Usage
+
+[source,java]
+----
+final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+    .setAttributes(Map.of("noheader", "true", "icons", "font")) <1>
+    .setSectionTag("section")); <2>
+renderer.visit(doc); <3>
+final var html = renderer.result();
+----
+<.> The attributes the renderer reads when the document does not define them,
+<.> The options of <<_configuration_options,Configuration options>>,
+<.> `visit(document)` writes the page; `visitBody(body)` writes a body alone when the configuration attributes set `noheader` to `true`, as here.
+
+== Configuration options
+
+`AsciidoctorLikeHtmlRenderer.Configuration` changes the HTML the renderer writes.
+The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc.` properties, such as `yupiik.asciidoc.sectionIdOnTitle`, and the `asciidoc-java` launcher (`io.yupiik.asciidoc.launcher.Main`, a bootstrap for tests) sets `sectionTag`, `sectionIdOnTitle`, `skipSectionBody`, `skipGlobalContentWrapper`, `supportDataAttributes` and `unknownMacro` with `--section-tag`, `--section-id-on-title`, `--skip-section-body`, `--skip-global-content-wrapper`, `--data-attribute` and `--unknown-macro`.
+
+[cols="2,1,4",options="header"]
+|===
+|Option |Default |Description
+
+|`attributes`
+|empty
+|The attributes the renderer uses when the document does not define them: `icons`, `sectanchors`, `noheader` and the others of <<_attributes_the_renderer_reads,Attributes the renderer reads>>. The goal sets them with `yupiik.asciidoc.attributes`.
+
+|`sectionTag`
+|`div`
+|The tag that wraps a section and its title. The goal sets it with `yupiik.asciidoc.sectionTag`.
+
+|`sectionIdOnTitle`
+|`true`
+|`true` writes the id of a section on its title tag (`<h2 id="_intro">`), as asciidoctor does. `false` writes it on the section tag (`<div class="sect1" id="_intro">`), as the renderer did before version 1.2.17. `ShowerRenderer` always uses `false`, because a slide is addressed by the id of its `section`. The goal sets it with `yupiik.asciidoc.sectionIdOnTitle`.
+
+|`skipSectionBody`
+|`false`
+|`true` does not write the `<div class="sectionbody">` wrapper of a section. The goal sets it with `yupiik.asciidoc.skipSectionBody`.
+
+|`skipGlobalContentWrapper`
+|`false`
+|`true` does not write the `<div id="content">` wrapper of the document. The goal sets it with `yupiik.asciidoc.skipGlobalContentWrapper`.
+
+|`supportDataAttributes`
+|`true`
+|`true` writes the `data-*` attributes of a block on its HTML element. The goal sets it with `yupiik.asciidoc.supportsDataAttributes`.
+
+|`dataUriForAscii2Svg`
+|`true`
+|`true` writes an `ascii2svg` diagram (an `[a2s]` block) as an image with a data URI, `false` writes it as an inline `svg` tag. The goal sets it with `yupiik.asciidoc.dataUriForAscii2Svg`.
+
+|`fontHandler`
+|unset
+|Writes the classes of the `<i>` tag of an icon macro when the `yupiik-renderer-fontHandler` attribute names none, see <<_icons_and_icon_fonts,Icons and icon fonts>>; `FontAwesome5Handler` applies when both are unset. No goal parameter or launcher flag sets it: the goal (`yupiik.asciidoc.attributes`) and the launcher (`--attribute`) pick a handler through the attribute.
+
+|`assetsBase`
+|unset
+|The directory the `data-uri` attribute reads the image files from, or its `imagesdir` subdirectory when the configuration attributes set `imagesdir`; the `:imagesdir:` of the document changes the `src` of the images, not where `data-uri` reads them. Needed with `data-uri`.
+
+|`resolver`
+|reads the files
+|The `DataResolver` that reads an asset for `data-uri`, from `assetsBase` by default.
+
+|`unknownMacro`
+|`TEXT`
+|What the renderer does with a macro it has no method for, see <<_unknown_macros,Unknown macros>>. The goal sets it with `yupiik.asciidoc.unknownMacro`, and minisite reads the attribute.
+|===
+
+== Attributes the renderer reads
+
+Most attributes come from the document header (`:sectanchors:`) or, when the document does not set them, from the attributes of the configuration; `data-uri` is read from the configuration only, and `noheader` drops the page frame from the configuration only, see its row.
+
+[cols="1,3",options="header"]
+|===
+|Attribute |Use
+
+|`noheader`, `embedded`
+|`noheader` set to `true` in the configuration attributes writes the content only, without the `<html>` page frame and without the document title. In the document, `:noheader: true` hides the title and keeps the frame. `:embedded:` in the document, or `embedded` in the configuration attributes, drops the frame but keeps the title and, today, the closing `div` of the header the frame would have opened, so an embedded rendering is cleaner with `noheader` in the configuration.
+
+|`sectanchors`, `sectlinks`
+|`:sectanchors:` writes an anchor link before the title of each section (`:sectanchors: after` writes it after the title), and `:sectlinks:` turns the title into a link to the section.
+
+|`idprefix`, `idseparator`
+|Build the id of a section without an explicit id, see xref:asciidoc-java-syntax.adoc#_section_ids[Section ids].
+
+|`toc`, `toclevels`, `toc-title`
+|Any value of `toc` but `none` writes the table of contents at the top of the document, `toclevels` deep (2 by default), under `toc-title`; a `toc::[]` macro writes it again where it stands, so a document written for asciidoctor's `:toc: macro` gets two.
+
+|`icons`
+|When set, the callout list is a table, as asciidoctor writes it with icons: `font` makes the callout markers icons (`<i class="conum">`), another value is the directory of the callout images (`image/callouts/1.png` for `:icons: image`), where asciidoctor reads `iconsdir`. The icon macro does not depend on it, see <<_icons_and_icon_fonts,Icons and icon fonts>>.
+
+|`iconfont-remote`, `iconfont-cdn`, `iconfont-name`, `stylesdir`
+|With `icons=font`, the page links an icon font stylesheet: when `iconfont-remote` is set, the `iconfont-cdn` URL, by default the cdnjs stylesheet of the icon font in use (the `all` bundle of Font Awesome 5.15.4, 6.7.2 or 7.3.1, `font-awesome.min.css` 4.7.0, which is also the link for a handler of your own without a `stylesheet()`); otherwise the file `iconfont-name` + `.css` (`font-awesome.css` by default), prefixed with the `stylesdir` value as written, so the value needs its trailing slash where asciidoctor adds it.
+
+|`data-uri`
+|In the configuration attributes, embeds the images as data URIs, except an image with the `skip-data-uri` option; needs the `assetsBase` option.
+
+|`yupiik-renderer-fontHandler`
+|The icon font of the icon macros: `font-awesome-4`, `font-awesome-5`, `font-awesome-6` or `font-awesome-7`, in any case, or the name of a `FontHandler` class with a public no-arg constructor, loaded with the thread context class loader; it wins over the `fontHandler` option, see <<_icons_and_icon_fonts,Icons and icon fonts>>. Another value fails the rendering with the list of accepted values. The attribute is shared by the renderers that write icon classes, `ShowerRenderer` reading it through this renderer.
+
+|`yupiik-renderer-asciidoctorlikehtml-unknownMacro`
+|What the renderer does with a macro it has no method for, `text`, `ignore` or `fail`, in any case, see <<_unknown_macros,Unknown macros>>.
+|===
+
+The renderer also reads `showtitle` and `notitle` for the document title, `imagesdir` for the relative image targets, `sectnums` and `sectnumlevels` for the section numbers, `toc-class` for the table of contents, and, for the page frame, `lang`, `nolang`, `encoding`, `htmlsyntax`, `description`, `keywords`, `copyright`, `favicon`, `custom-css`, `custom-js`, `asciidoctor-css`, `stylesdir`, `max-width`, `nofooter`, `reproducible`, `last-update-label`, `docdatetime` and `version-label`.
+
+== Icons and icon fonts
+
+An icon macro, `icon:lock[]`, is written as `<span class="icon"><i class="fas fa-lock"></i></span>`: the classes of the `<i>` tag come from a `FontHandler`, so a site writes the classes of the icon font it loads. The attribute `yupiik-renderer-fontHandler`, in the document or in the attributes of the configuration (`:yupiik-renderer-fontHandler: font-awesome-6`), names a built-in handler or a `FontHandler` class; else the `fontHandler` option applies; else Font Awesome 5 classes, which the stylesheets of versions 5, 6 and 7 read.
+
+[cols="1,3",options="header"]
+|===
+|Handler |Classes
+
+|`FontAwesome4Handler` (`font-awesome-4`)
+|`fa fa-lock`, what asciidoctor writes with `icons=font`.
+
+|`FontAwesome5Handler` (`font-awesome-5`)
+|`fas fa-lock`, the solid style of Font Awesome 5; the default, since versions 6 and 7 read these classes too.
+
+|`FontAwesome6Handler` (`font-awesome-6`)
+|`fa-solid fa-lock`, the solid style of Font Awesome 6.
+
+|`FontAwesome7Handler` (`font-awesome-7`)
+|The classes of version 6, which version 7 keeps, and the version 7 stylesheet.
+
+|A `FontHandler` of your own, with `setFontHandler`
+|`(name, options) -> "bi bi-" + name` writes the classes of another font, Bootstrap Icons here; `stylesheet()` names its stylesheet. `new FontAwesomeHandler("far")` writes another Font Awesome style and keeps the version 5 bundle.
+|===
+
+[source,java]
+----
+new AsciidoctorLikeHtmlRenderer.Configuration().setFontHandler(new FontAwesome5Handler());
+----
+
+The Font Awesome handlers write a bare name as a solid icon; a brand or regular icon is written with its classes (`icon:fab fa-github[]`, `icon:far fa-heart[]`), which the handlers keep, and needs the stylesheet of that style, the `all` bundle for example. An icon class without its style (`icon:fa-gift[]`) gets the style of the handler, and the words after a name stay (`icon:gift fa-fw[]`). The handlers add the `fa-2x` size, `fa-flip-horizontal` and `fa-rotate-90` modifiers from the macro options, `flip` winning over `rotate` as in asciidoctor.
+Up to version 1.3.0 the renderer wrote the name as the class, with `fa ` before a name starting with `fa` (`<i class="lock">`, `<i class="fa fax">`, `fa fa-gift` for `icon:fa-gift[]`), and both `fa-flip-*` and `fa-rotate-*`; `font-awesome-4` gives the `fa fa-` prefix back.
+The table of contents, the titles and the table cells use the handler picked for the page, and so does `ShowerRenderer`.
+
+The renderer writes the `<i>` tag whatever the `icons` attribute says, where asciidoctor writes the text `[lock]` without `icons` and an `<img>` from `iconsdir` with another value than `font`.
+
+== Unknown macros
+
+A macro the renderer has no method for, such as `tooltip:foo[a hint]`, is written as text by default, as asciidoctor writes a macro no extension registers.
+`Configuration.setUnknownMacro(UnknownMacro.IGNORE)` writes nothing, `UnknownMacro.FAIL` throws an `IllegalArgumentException` naming the macro when it is a mistake in the document, and `UnknownMacro.TEXT` writes the macro as text.
+The attribute `yupiik-renderer-asciidoctorlikehtml-unknownMacro`, set in the document or in the attributes of the configuration (`:yupiik-renderer-asciidoctorlikehtml-unknownMacro: text`), wins over the option.
+A subclass renders its own macros in `onMissingMacro`.
+
+== Slides
+
+`ShowerRenderer` extends the HTML renderer for slide decks: each section is a `<section>` with its id on the section tag, without the `sectionbody` and `content` wrappers, so a slide theme addresses each slide by its id.
+Its `ShowerRenderer.Configuration` carries the attributes, the assets base, the `DataResolver`, the data attributes, the `ascii2svg` option and the `fontHandler`.
+
