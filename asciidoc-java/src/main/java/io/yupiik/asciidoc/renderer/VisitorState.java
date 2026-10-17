@@ -80,6 +80,14 @@ public class VisitorState implements Visitor<Void> {
     }
 
     /**
+     * @return the readings this state uses, so a renderer created for a part of the page (a title in the table of
+     * contents) reads the document as the page renderer does.
+     */
+    public VisitorSibling sibling() {
+        return sibling;
+    }
+
+    /**
      * Starts a document: forgets the previous one, its index and its footnotes. It does not index the body, the
      * renderer calls {@link #visitBody(Body)} for that.
      */

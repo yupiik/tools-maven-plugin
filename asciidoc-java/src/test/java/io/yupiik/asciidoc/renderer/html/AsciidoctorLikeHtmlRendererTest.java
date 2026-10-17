@@ -35,6 +35,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2458,6 +2459,103 @@ class AsciidoctorLikeHtmlRendererTest {
     @Test
     void icon() {
         assertRenderingContent("icon:fas fa-gift[]", "<span class=\"icon\"><i class=\"fas fa-gift\"></i></span>");
+    }
+
+    @Test
+    void iconWithFont() { // as of asciidoctor with font awesome 4: `fa fa-<name>`, flip wins over rotate
+        assertRenderingContent("""
+                        :icons: font
+
+                        john icon:at[] example.com, icon:lock[title=Fixed at build time] and icon:my_icon[2x]
+                        then icon:heart[size=2x,flip=horizontal,rotate=90] and icon:heart[rotate=90] and icon:a<b[title=a <b>]
+                        and icon:facebook[] and icon:fa[] and icon:fax[role=red] and icon:check[link=https://example.org/?a&b]
+                        but icon:fas fa-gift[size=2x] and icon:fa-gift[] and icon:fa-solid fa-gift[] and icon:fass fa-gift[] keep their font awesome 5 classes.""",
+                """
+                 <div class="paragraph">
+                 <p>john <span class="icon"><i class="fa fa-at"></i></span> example.com, <span class="icon"><i class="fa fa-lock" title="Fixed at build time"></i></span> and <span class="icon"><i class="fa fa-my_icon fa-2x"></i></span> then <span class="icon"><i class="fa fa-heart fa-2x fa-flip-horizontal"></i></span> and <span class="icon"><i class="fa fa-heart fa-rotate-90"></i></span> and <span class="icon"><i class="fa fa-a&lt;b" title="a &lt;b&gt;"></i></span> and <span class="icon"><i class="fa fa-facebook"></i></span> and <span class="icon"><i class="fa fa-fa"></i></span> and <span class="red"><span class="icon"><i class="fa fa-fax"></i></span></span> and <a href="https://example.org/?a&amp;b"><span class="icon"><i class="fa fa-check"></i></span></a> but <span class="icon"><i class="fas fa-gift fa-2x"></i></span> and <span class="icon"><i class="fa fa-gift"></i></span> and <span class="icon"><i class="fa-solid fa-gift"></i></span> and <span class="icon"><i class="fass fa-gift"></i></span> keep their font awesome 5 classes.</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconWithoutIconsAttribute() { // the handler applies too: the renderer always writes the tag, where asciidoctor writes the text `[at]`
+        assertRenderingContent("""
+                        john icon:at[] example.com, icon:lock[title=Fixed at build time] and icon:my_icon[2x] and icon:facebook[] and icon:fa-gift[]""",
+                """
+                 <div class="paragraph">
+                 <p>john <span class="icon"><i class="fa fa-at"></i></span> example.com, <span class="icon"><i class="fa fa-lock" title="Fixed at build time"></i></span> and <span class="icon"><i class="fa fa-my_icon fa-2x"></i></span> and <span class="icon"><i class="fa fa-facebook"></i></span> and <span class="icon"><i class="fa fa-gift"></i></span></p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconFontAwesomeVersions() { // one handler per version, a name already holding its classes is kept by all of them
+        final var adoc = "icon:lock[2x] icon:fa-gift[] icon:fab fa-github[flip=horizontal] icon:fa-solid fa-gift[]";
+        assertRenderingContent(adoc, new FontAwesome4Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fa fa-lock fa-2x"></i></span> <span class="icon"><i class="fa fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+        assertRenderingContent(adoc, new FontAwesome5Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fas fa-lock fa-2x"></i></span> <span class="icon"><i class="fas fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+        assertRenderingContent(adoc, new FontAwesome6Handler(), """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="fa-solid fa-lock fa-2x"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span> <span class="icon"><i class="fab fa-github fa-flip-horizontal"></i></span> <span class="icon"><i class="fa-solid fa-gift"></i></span></p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void iconInSectionTitleAndToc() { // the table of contents renders a title, at any level, with the configuration of the page
+        final var doc = new Parser().parse(":toc:\n\n== icon:lock[] Secure\n\ntext\n\n=== icon:key[] Keys\n\nmore", new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setFontHandler(new FontAwesome5Handler())
+                .setAttributes(Map.of("noheader", "true")));
+        renderer.visit(doc);
+        assertEquals("""
+                 <div id="toc" class="toc">
+                  <div id="toctitle">Table of Contents</div>
+                 <ul class="sectlevel1">
+                 <li><a href="#_secure"><span class="icon"><i class="fas fa-lock"></i></span> Secure</a>
+                 <ul class="sectlevel2">
+                 <li><a href="#_keys"><span class="icon"><i class="fas fa-key"></i></span> Keys</a></li>
+                 </ul>
+                 </li>
+                 </ul>
+                 </div>
+                 <div class="sect1">
+                  <h2 id="_secure"><span class="icon"><i class="fas fa-lock"></i></span> Secure</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                text
+                 </p>
+                 </div>
+                 <div class="sect2">
+                  <h3 id="_keys"><span class="icon"><i class="fas fa-key"></i></span> Keys</h3>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                more
+                 </p>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """, renderer.result());
+    }
+
+    @Test
+    void iconOtherFont() { // a handler of the site for another icon font, Bootstrap Icons here
+        assertRenderingContent("icon:lock[title=Locked] and icon:a<b[]", (name, options) -> "bi bi-" + name, """
+                 <div class="paragraph">
+                 <p><span class="icon"><i class="bi bi-lock" title="Locked"></i></span> and <span class="icon"><i class="bi bi-a&lt;b"></i></span></p>
+                 </div>
+                """);
     }
 
     @Test
@@ -5148,13 +5246,22 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(adoc, html, null);
     }
 
+    private void assertRenderingContent(final String adoc, final FontHandler fontHandler, final String html) {
+        assertRenderingContent(adoc, html, null, c -> c.setFontHandler(fontHandler));
+    }
+
     private void assertRenderingContent(final String adoc, final String html, final Path work) {
+        assertRenderingContent(adoc, html, work, UnaryOperator.identity());
+    }
+
+    private void assertRenderingContent(final String adoc, final String html, final Path work,
+                                        final UnaryOperator<AsciidoctorLikeHtmlRenderer.Configuration> customizer) {
         final var doc = new Parser().parseBody(adoc, new Parser.ParserContext(ContentResolver.of(work != null ? work : Path.of("target/missing"))));
         final var attributes = new Parser().parseHeader(new Reader(List.of(adoc.split("\n")))).attributes();
-        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+        final var renderer = new AsciidoctorLikeHtmlRenderer(customizer.apply(new AsciidoctorLikeHtmlRenderer.Configuration()
                 .setAttributes(new HashMap<>(attributes) {{
                     put("noheader", "true");
-                }}));
+                }})));
         renderer.visitBody(doc);
         assertEquals(html, renderer.result());
     }

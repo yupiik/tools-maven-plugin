@@ -23,6 +23,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Enable to render HTML5 slides.
  * it is fully doable using placeholders but it is easier to get it preconfigured.
@@ -69,6 +71,7 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
                 .setAttributes(configuration.getAttributes())
                 .setSupportDataAttributes(configuration.isSupportDataAttributes())
                 .setAssetsBase(configuration.getAssetsBase())
+                .setFontHandler(configuration.getFontHandler())
                 .setResolver(configuration.getResolver()));
     }
 
@@ -111,6 +114,17 @@ public class ShowerRenderer extends AsciidoctorLikeHtmlRenderer {
         private DataResolver resolver;
         private Path assetsBase;
         private Map<String, String> attributes = Map.of();
+        private FontHandler fontHandler = new FontAwesome4Handler();
+
+        /**
+         * @param fontHandler writes the classes of the {@code <i>} tag of an icon macro for the icon font the slides
+         *                    load, {@link FontAwesome4Handler} by default.
+         * @return this.
+         */
+        public Configuration setFontHandler(final FontHandler fontHandler) {
+            this.fontHandler = requireNonNull(fontHandler, "fontHandler");
+            return this;
+        }
 
         public Configuration setDataUriForAscii2Svg(final boolean dataUriForAscii2Svg) {
             this.dataUriForAscii2Svg = dataUriForAscii2Svg;

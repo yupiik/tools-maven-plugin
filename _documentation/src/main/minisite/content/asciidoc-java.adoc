@@ -231,6 +231,10 @@ The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc
 |`true`
 |`true` writes an `ascii2svg` diagram as an image with a data URI, `false` writes it as an inline `svg` tag.
 
+|`fontHandler`
+|`FontAwesome4Handler`
+|Writes the classes of the `<i>` tag of an icon macro (`icon:lock[]`) for the icon font the site loads: `FontAwesome4Handler` writes `fa fa-lock`, as asciidoctor does with `icons=font`, `FontAwesome5Handler` writes `fas fa-lock`, `FontAwesome6Handler` writes `fa-solid fa-lock`, and a `FontHandler` of your own writes the classes of another font. A name written with its classes (`icon:fas fa-gift[]`) is kept by the Font Awesome handlers. The renderer writes the `<i>` tag whatever the `icons` attribute says, where asciidoctor writes the text `[lock]` without `icons` and an `<img>` from `iconsdir` with another value than `font`. Only the Java API sets it (`Configuration.setFontHandler`); the `asciidoc` goal, the launcher and minisite do not expose it yet.
+
 |`unknownMacro`
 |`TEXT`
 |What the renderer does with a macro it has no method for, such as `tooltip:foo[a hint]`: `TEXT` writes the macro as text, as asciidoctor writes a macro no extension registers (the default), `IGNORE` writes nothing, `FAIL` throws an `IllegalArgumentException` naming the macro when it is a mistake in the document. The attribute `yupiik-renderer-asciidoctorlikehtml-unknownMacro`, set in the document or in the attributes of the configuration (`:yupiik-renderer-asciidoctorlikehtml-unknownMacro: text`), wins over the option. The `asciidoc` goal sets the option with `yupiik.asciidoc.unknownMacro`, the launcher with `--unknown-macro`, and minisite reads the attribute.
