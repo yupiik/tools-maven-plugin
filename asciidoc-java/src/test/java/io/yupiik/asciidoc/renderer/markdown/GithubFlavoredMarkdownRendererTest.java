@@ -1070,6 +1070,12 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void passAttributesSubstitution() {
+        assertEquals("A WIP B.\n",
+                md("A pass:a[{wip}] B.", Map.of("wip", "WIP")));
+    }
+
+    @Test
     void blockAnchorIsNotAFenceLanguage() {
         // the literal block carries no title, so the reference shows the id between brackets as asciidoctor does
         assertEquals("<a id=\"snippet\"></a>\n\n```\nplain text\n```\n\nSee [\\[snippet\\]](#snippet).\n", md("""

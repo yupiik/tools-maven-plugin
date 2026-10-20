@@ -99,6 +99,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             Text.Style.SUP, "sup",
             Text.Style.MARK, "mark",
             Text.Style.STRIKETHROUGH, "del");
+    // the pass:[] substitutions that need the parser's formatting/macro pass (the whole normal bundle), not just a string rewrite
+    private static final java.util.Set<String> PASS_INLINE_SUBS = java.util.Set.of("quotes", "macros", "replacements", "post_replacements");
     protected final StringBuilder builder = new StringBuilder();
     protected final Configuration configuration;
     protected final VisitorSibling sibling; // reads the model as the other renderers do
@@ -1799,7 +1801,33 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     }
 
     protected void visitPassthroughInline(final Macro element) {
-        builder.append(element.label());
+        final var subs = element.options().get(Parser.PASS_SUBS_OPTION);
+        if (subs == null || subs.isBlank()) { // no substitution: asciidoctor passes the content through as written
+            builder.append(element.label());
+            return;
+        }
+        // the inline "quotes"/"macros" families need the parser's formatting/macro pass, which also escapes the special
+        // characters and resolves the attributes; the rest the engine applies on the strings alone
+        final var requested = List.of(subs.split(","));
+        final var parsesInline = requested.stream()
+                .anyMatch(PASS_INLINE_SUBS::contains);
+        if (parsesInline) {
+            try {
+                final var body = subParser.parseBody(new Reader(List.of(element.label())), subResolver);
+                builder.append(render(body).result());
+            } catch (final RuntimeException re) { // keep the content as written rather than failing the whole document
+                builder.append(element.label());
+            }
+            return;
+        }
+        var value = element.label();
+        if (requested.contains("specialcharacters")) { // escaped, but the attributes stay {name} until their pass
+            value = escape(value);
+        }
+        if (requested.contains("attributes")) {
+            value = sibling.substitute(value, context());
+        }
+        builder.append(value);
     }
 
     protected void visitBtn(final Macro element) {

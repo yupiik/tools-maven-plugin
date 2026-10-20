@@ -145,12 +145,25 @@ public class Parser {
     // and the groups compute the right set, but change nothing here: a verbatim block is stored as written and
     // the renderer always escapes it.
     private static final Set<String> NO_SUBS = Set.of(); // passthrough block default
+    // option key where the parser stores the inline substitutions of a pass:[] macro, for the renderers to apply them
+    public static final String PASS_SUBS_OPTION = "pass-subs";
     private static final Set<String> VERBATIM_SUBS = Set.of("specialcharacters", "callouts"); // listing, literal and source block default
+    private static final Set<String> NORMAL_SUBS = Set.of("specialcharacters", "quotes", "attributes", "replacements", "macros", "post_replacements");
     private static final Map<String, List<String>> SUB_GROUPS = Map.of(
             "none", List.of(),
             "normal", List.of("specialcharacters", "quotes", "attributes", "replacements", "macros", "post_replacements"),
             "verbatim", List.of("specialcharacters", "callouts"),
             "specialchars", List.of("specialcharacters"));
+    // the shorthand of an inline pass macro, as asciidoctor's SubstitutionHints (lib/asciidoctor/substitutors.rb)
+    private static final Map<Character, String> PASS_SUB_HINTS = Map.of(
+            'a', "attributes",
+            'm', "macros",
+            'n', "normal",
+            'p', "post_replacements",
+            'q', "quotes",
+            'r', "replacements",
+            'c', "specialcharacters",
+            'v', "verbatim");
 
     private final Map<String, String> globalAttributes;
     private final Consumer<String> warning;
@@ -2215,7 +2228,7 @@ public class Parser {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
                                 // as asciidoctor, these macros keep the brackets as written, the renderer reads them
-                                final var rawContent = "stem".equals(type) || "latexmath".equals(type) ||
+                                final var rawContent = "stem".equals(type) || "latexmath".equals(type) || "pass".equals(type) ||
                                         "asciimath".equals(type) || "kbd".equals(type);
                                 // as for a link, an escaped reference in the target keeps its braces and loses its
                                 // backslash; a stem or kbd macro keeps what is written, so it is not touched
@@ -2238,7 +2251,11 @@ public class Parser {
                                     }
                                 }
 
-                                final var macro = new Macro(type, label, rawContent ? Map.of() : options, inlined);
+                                final var macro = new Macro(type, label,
+                                        "pass".equals(type) ?
+                                                resolvePassSubs(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2))) :
+                                                (rawContent ? Map.of() : options),
+                                        inlined);
                                 switch (macro.name()) {
                                     case "ifdef", "ifndef", "ifeval" -> elements.add(parseConditionalBlock(
                                             readConditional(macro, line.substring(i + 1, end), reader, currentAttributes),
@@ -3818,6 +3835,40 @@ public class Parser {
             return Map.of("", dropLegacyPassthroughMarkers(text));
         }
         return doParseOptions(text, "", true, false); // an inline list: no .role, #id or %option shorthand on the text
+    }
+
+    /**
+     * Resolves the target of an inline {@code pass:[]} macro, such as {@code q} or {@code q,a} or {@code specialchars},
+     * into the ordered set of inline substitutions to apply, as asciidoctor's {@code resolve_pass_subs} does. A blank
+     * target means no substitution (the content passes through as written); {@code none} too. Each value is a shorthand
+     * ({@code c, q, a, r, m, p, n, v}) or a group ({@code specialchars, normal, verbatim}); groups expand to their
+     * members and the result is kept in {@code PASS_SUBS_OPTION}, comma-separated, dropped when it would be empty.
+     */
+    private Map<String, String> resolvePassSubs(final String target) {
+        if (target.isBlank()) {
+            return Map.of();
+        }
+        final var resolved = new java.util.LinkedHashSet<String>();
+        for (final var key : target.split(",")) {
+            final var stripped = key.strip();
+            if (stripped.isEmpty()) {
+                continue;
+            }
+            final List<String> members;
+            if (stripped.length() == 1 && PASS_SUB_HINTS.containsKey(stripped.charAt(0))) {
+                members = SUB_GROUPS.getOrDefault(PASS_SUB_HINTS.get(stripped.charAt(0)), List.of(PASS_SUB_HINTS.get(stripped.charAt(0))));
+            } else {
+                members = SUB_GROUPS.getOrDefault(stripped, List.of(stripped));
+            }
+            for (final var member : members) {
+                if (NORMAL_SUBS.contains(member)) {
+                    resolved.add(member);
+                } else {
+                    warning.accept("invalid substitution for passthrough macro: " + stripped);
+                }
+            }
+        }
+        return resolved.isEmpty() ? Map.of() : Map.of(PASS_SUBS_OPTION, String.join(",", resolved));
     }
 
     private boolean isLink(final String link) {
