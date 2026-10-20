@@ -1,4 +1,6 @@
 = Asciidoc Java: model and visitors
+:minisite-nav-prev-label: Markdown renderer
+:minisite-nav-prev-link: asciidoc-java-markdown.html
 
 The parser of xref:asciidoc-java.adoc[Asciidoc Java] turns a document into a model of Java records, and a renderer is a `Visitor` that walks that model.
 This page is for the developer who reads the model, extends a renderer or writes one.
@@ -12,16 +14,28 @@ For example a `Table` holds its rows, its attributes and, read from `cols`, the 
 Includes are resolved by the parser, so the model holds the included elements and never an `include` macro.
 Conditionals stay in the model as `ConditionalBlock` elements, and each renderer writes the branch that holds with the attributes it knows.
 
-TIP: a `Document` and the parser are thread safe, a renderer is not; see the xref:asciidoc-java.adoc#_quick_start[quick start] for how to reuse each renderer.
+TIP: A `Document` and the parser are thread safe, a renderer is not; see the xref:asciidoc-java.adoc#_quick_start[quick start] for how to reuse each renderer.
 
 == Visiting the model
 
 `io.yupiik.asciidoc.renderer.Visitor<R>` has one method per element (`visitSection`, `visitParagraph`, `visitTable`, ...), `visit(Document)` for a whole document, `visitBody(Body)` for a body alone, and `result()` for what the visitor computed.
 The HTML and Markdown renderers are visitors whose result is a `String`.
-`DelegatingVisitor` forwards every call to another visitor, so a subclass overrides only the methods it needs.
+`DelegatingVisitor` wraps a visitor and forwards every call to it.
+The renderers call their own `visitX` methods while they walk a document, not the wrapper's, so an override on a `DelegatingVisitor` sees only the elements it is given directly; to change one construct of a renderer, subclass the renderer.
 
-Each construct is rendered by one `visitX` method, so a subclass changes a construct everywhere by overriding that method, inside admonitions, lists and tables included.
+Each construct is rendered by one `visitX` method, so a subclass of a renderer changes a construct everywhere by overriding that method, inside admonitions, lists and tables included.
+The HTML renderer writes the titles of sections, the floating titles, and the link texts and labels that hold markup with a fresh `AsciidoctorLikeHtmlRenderer` from `nested()`, and the entries of the table of contents with a fresh renderer too, so the overrides of a subclass do not apply there.
 Both renderers write a macro they have no method for in `onMissingMacro`, see xref:asciidoc-java-html.adoc#_unknown_macros[the HTML renderer] and xref:asciidoc-java-markdown.adoc#_unknown_macros_and_includes[the Markdown renderer]; the Markdown renderer also lets a subclass override `escapeText`, and the HTML renderer takes a `FontHandler` for the classes of an icon, see xref:asciidoc-java-html.adoc#_icons_and_icon_fonts[Icons and icon fonts].
+
+A subclass of the HTML renderer that writes `tooltip:foo[a hint]` as a `span` with a title:
+
+[source,java]
+----
+include::{asciidoc-java-examples}/DocumentationExamplesTest.java[tag=renderer-subclass,indent=0]
+----
+
+For the paragraph `Set tooltip:foo[a hint] here.` it writes `<p>Set <span title="a hint">foo</span> here.</p>`; the other unknown macros keep the default of `onMissingMacro`.
+The `name()` of a `Macro` is the word before the colon, its `label()` the target, and the text between the brackets its positional option, under the key `""` of `options()`.
 
 == Reading the model as the renderers do
 
@@ -38,7 +52,7 @@ A visitor of your own can read the model as the HTML and Markdown renderers do, 
 |Keeps the state of a rendering: the attributes of the document then the fallback ones, the text of a cross reference to each id, the ids the document links to, the sections of the table of contents and the footnotes. The renderer calls its `visit` and `visitBody` methods, then queries it while it writes; the state of the HTML renderer extends it with the flags of that output. Before any `visit` it reads the fallback attributes only, so a visitor can render a body alone.
 |===
 
-`new AsciidoctorLikeHtmlRenderer(configuration, sibling)` and `new GithubFlavoredMarkdownRenderer(configuration, sibling)` take a subclass of `VisitorSibling`, whose readings then apply to the renderer, to its state and to the renderers it creates for the section titles, the floating titles and the table cells; the table of contents renders its titles with the default `VisitorSibling`.
+`new AsciidoctorLikeHtmlRenderer(configuration, sibling)` and `new GithubFlavoredMarkdownRenderer(configuration, sibling)` take a subclass of `VisitorSibling`, whose readings then apply to the renderer, to its state and, for the HTML renderer, to the renderers `nested()` creates for titles and labels; the table of contents renders its titles with the default `VisitorSibling`.
 
 == Source positions
 
@@ -51,8 +65,9 @@ Where the parser evaluates a conditional while it reads, in the header and in a 
 
 [source,java]
 ----
-final var spans = new IdentityHashMap<Element, SourceSpan>(); <1>
-final var doc = parser.parse(myDocContent, new Parser.ParserContext(resolver, spans::put)); <2>
+include::{asciidoc-java-examples}/DocumentationExamplesTest.java[tag=source-positions,indent=0]
 ----
-<.> Elements are records and compare by value, so key the map by identity,
-<.> The listener is the second constructor argument; the one-argument constructor keeps working and tracks nothing.
+
+Elements are records and compare by value, so the map is keyed by identity.
+The listener is the second argument of the `ParserContext` constructor; the one-argument constructor keeps working and tracks nothing.
+For the document `= Doc`, a blank line, `First paragraph.`, a blank line and `Second paragraph.`, the span of the second paragraph has `startLine` and `endLine` 5 and the source `Second paragraph.`; `file` is `null` for a document parsed from a string.

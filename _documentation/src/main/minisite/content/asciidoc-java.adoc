@@ -2,39 +2,89 @@
 :minisite-index: 400
 :minisite-index-title: Asciidoc Java
 :minisite-index-icon: book
-:minisite-index-description: Asciidoc Java native parser.
+:minisite-index-description: AsciiDoc parser and renderers in plain Java.
+:minisite-nav-next-label: Supported syntax
+:minisite-nav-next-link: asciidoc-java-syntax.html
 
-`asciidoc-java` is an AsciiDoc parser and two renderers written in plain Java, without JRuby.
-It reads a document into a model you can walk, then renders that model as the HTML asciidoctor writes or as GitHub-flavored Markdown.
-It needs no JRuby and depends only on `ascii2svg`, so it embeds in any Java application and runs in a native image.
-It implements a large subset of AsciiDoc, with asciidoctor as the reference for what each construct gives.
+`asciidoc-java` is an AsciiDoc parser and two renderers written in plain Java.
+It reads a document into a model you can walk, then renders that model as the HTML Asciidoctor writes or as GitHub-flavored Markdown.
+It needs no JRuby and depends only on `ascii2svg`, an optional dependency needed for the `[a2s]` diagram blocks, so it embeds in any Java application and runs in a native image.
+It implements a large subset of AsciiDoc, with Asciidoctor as the reference for what each construct gives.
 
 The documentation of the module is split into pages:
 
-* xref:asciidoc-java-syntax.adoc[Supported syntax]: the AsciiDoc and Markdown constructs the parser reads, the attributes that change how it reads them, and the known differences from asciidoctor.
-* xref:asciidoc-java-html.adoc[HTML renderer]: `AsciidoctorLikeHtmlRenderer`, its options, the attributes it reads, icon fonts and slides.
-* xref:asciidoc-java-markdown.adoc[Markdown renderer]: `GithubFlavoredMarkdownRenderer` and what each construct becomes in Markdown.
-* xref:asciidoc-java-model.adoc[Model and visitors]: the parsed model, the `Visitor` contract, the readings the renderers share, source positions, and how to write your own renderer.
+// the [[id]] anchors keep the links to the sections of the 1.3.0 single page working
+* [[_syntax]][[_commonmark_syntax]][[_parser_attributes]]xref:asciidoc-java-syntax.adoc[Supported syntax]: the AsciiDoc and Markdown constructs the parser reads, the attributes that change how it reads them, and the known differences from Asciidoctor.
+* [[_html_renderer_configuration]]xref:asciidoc-java-html.adoc[HTML renderer]: `AsciidoctorLikeHtmlRenderer`, its options, the attributes it reads, icon fonts and slides.
+* [[_markdown_output]]xref:asciidoc-java-markdown.adoc[Markdown renderer]: `GithubFlavoredMarkdownRenderer` and what each construct becomes in Markdown.
+* [[_reading_the_model_in_a_visitor]][[_source_positions]]xref:asciidoc-java-model.adoc[Model and visitors]: the parsed model, the `Visitor` contract, the readings the renderers share, source positions, and how to write your own renderer.
 
 == Quick start
 
-Parsing and rendering take three objects: a `Parser`, the `Document` it returns, and a renderer that visits the document.
+The module is published with the other artifacts of this repository:
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>asciidoc-java</artifactId>
+  <version>${yupiik-tools.version}</version>
+</dependency>
+----
+
+`ascii2svg`, with the same group and version, is optional: add it for the `[a2s]` diagram blocks.
+
+Parsing and rendering take three objects: a `Parser`, the `Document` it returns for the text `content`, and a renderer that visits the document.
 
 [source,java]
 ----
-final var parser = new Parser(); <1>
-final var doc = parser.parse(myDocContent, new Parser.ParserContext(ContentResolver.of(Path.of("asciidoc/content")))); <2>
-final var renderer = new AsciidoctorLikeHtmlRenderer(); <3>
-renderer.visit(doc); <4>
-final var html = renderer.result(); <5>
+include::{asciidoc-java-examples}/DocumentationExamplesTest.java[tag=quickstart,indent=0]
 ----
-<.> Create a parser instance, it can be a singleton in an application,
-<.> Load the document model, the `ContentResolver` says where `include::[]` targets are read from,
-<.> Create a renderer, here the HTML one; its other constructors take a configuration, with attributes and options, and a `VisitorSibling`,
-<.> Visit the document,
-<.> Get back the output of the renderer, the HTML here.
 
-TIP: the `Document` instance is thread safe and can be reused across threads, and so is the parser. A renderer is not: the HTML renderer keeps its output, so create one per rendering; the Markdown renderer starts from an empty output at each `visit`, so one instance renders documents one after the other in one thread.
+The parser can be a singleton in an application.
+The `ContentResolver` says where the targets of `include::[]` are read from, the directory `base` here.
+The other constructors of the renderer take a configuration with attributes and options, see xref:asciidoc-java-html.adoc[HTML renderer], and a `VisitorSibling`, see xref:asciidoc-java-model.adoc#_reading_the_model_as_the_renderers_do[Reading the model as the renderers do].
+`result()` gives the output of the renderer.
+
+For this document:
+
+[source,asciidoc]
+----
+= Hello
+
+Hello *AsciiDoc* from Java.
+----
+
+`html` is the page:
+
+[source,html]
+----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <meta name="generator" content="Asciidoctor ">
+ <title>Hello</title>
+</head>
+<body class="article">
+ <div id="header">
+ <h1>Hello</h1>
+ </div>
+ <div id="content">
+ <div class="paragraph">
+ <p>Hello <strong>AsciiDoc</strong> from Java.</p>
+ </div>
+ </div>
+ <div id="footer">
+  <div id="footer-text">
+  </div>
+ </div>
+</body>
+</html>
+----
+
+TIP: The `Document` instance is thread safe and can be reused across threads, and so is the parser. A renderer is not: the HTML renderer keeps its output, so create one per rendering; the Markdown renderer starts from an empty output at each `visit`, so one instance renders documents one after the other in one thread.
 
 The same document renders to Markdown with `GithubFlavoredMarkdownRenderer` in place of the HTML renderer, see xref:asciidoc-java-markdown.adoc[Markdown renderer].
 
@@ -46,7 +96,7 @@ The same document renders to Markdown with `GithubFlavoredMarkdownRenderer` in p
 
 == Compatibility
 
-asciidoctor is the reference: when the parser or a renderer reads a construct, the result is meant to be what asciidoctor gives for the same input, and the expected outputs of the tests are written from it.
-The HTML renderer writes the markup asciidoctor's stylesheet expects, so that stylesheet applies to the output without changes, but byte-for-byte equality with asciidoctor is not a goal.
+Asciidoctor is the reference: when the parser or a renderer reads a construct, the result is meant to be what Asciidoctor gives for the same input, and the expected outputs of the tests are written from it.
+The HTML renderer writes the markup Asciidoctor's stylesheet expects, so that stylesheet applies to the output without changes, but byte-for-byte equality with Asciidoctor is not a goal.
 
-IMPORTANT: the AsciiDoc syntax is not 100% implemented yet. xref:asciidoc-java-syntax.adoc[Supported syntax] lists what the parser reads and the known differences from asciidoctor. If you miss a construct, open an issue or a pull request on the bugtracker.
+IMPORTANT: The AsciiDoc syntax is not 100% implemented yet. xref:asciidoc-java-syntax.adoc[Supported syntax] lists what the parser reads and the known differences from Asciidoctor. If you miss a construct, open an issue or a pull request on the bugtracker.
