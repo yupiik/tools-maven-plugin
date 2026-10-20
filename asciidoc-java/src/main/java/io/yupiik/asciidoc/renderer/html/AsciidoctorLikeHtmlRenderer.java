@@ -962,8 +962,10 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
 
             final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());
+            // a multi-style text which is inline content of a paragraph must not be re-wrapped in its own
+            // block <p>; it only gets one when it stands alone (isParagraph) or in a list/callout (parentNeedsP/inCallOut)
             final boolean wrap = useWrappers &&
-                    (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut || !element.options().isEmpty())));
+                    (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut)));
             final boolean useP = parentNeedsP || isParagraph || !state.inCallOut;
             if (wrap) {
                 builder.append(" <").append(useP ? "p" : "span");
@@ -972,8 +974,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
                     // style tags: static map + direct loop, no stream pipelines (this is the hottest per-text path)
             final var styles = element.style();
+            // as asciidoctor, a [#…]/#mark# span prefixed by any option ([red], [.role], [#id]...) is a
+            // <span>, only the bare #text# without a prefix is a <mark>
+            final boolean markAsSpan = !styles.isEmpty() && styles.get(0) == Text.Style.MARK && !element.options().isEmpty();
             if (!styles.isEmpty()) {
-                builder.append('<').append(STYLE_TAGS.get(styles.get(0)));
+                builder.append('<').append(markAsSpan ? "span" : STYLE_TAGS.get(styles.get(0)));
                 if (!wrap) {
                     writeCommonAttributes(element.options(), null);
                 }
@@ -984,7 +989,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             }
             builder.append(escape(element.value()));
             for (int si = styles.size() - 1; si >= 0; si--) {
-                builder.append("</").append(STYLE_TAGS.get(styles.get(si))).append('>');
+                builder.append("</").append(si == 0 && markAsSpan ? "span" : STYLE_TAGS.get(styles.get(si))).append('>');
             }
             if (wrap) {
                 builder.append("\n </").append(useP ? "p" : "span").append(">\n");
