@@ -1543,6 +1543,10 @@ public class Parser {
                 hardBreak = true;
                 line = line.substring(0, line.length() - 2);
             }
+            // asciidoctor runs its inline substitution on the paragraph with its lines joined, so an inline code span
+            // may open at the end of a wrapped line and close on a later one: pre-join such lines into one logical line
+            // (the line breaks become the single spaces asciidoctor folds them to) while a code span is left open
+            line = joinOpenCodeSpan(reader, line);
             onlyConditionalsSinceBreak = addLine(elements, parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options), onlyConditionalsSinceBreak);
             if (hardBreak) {
                 unwrapFirst(elements);
@@ -1554,6 +1558,59 @@ public class Parser {
             return p;
         }
         return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
+    }
+
+    // an inline code span may open at the end of a wrapped line of a paragraph and close on a later one, because asciidoctor
+    // runs its inline substitution on the paragraph with its lines already folded to a single space. every physical line is
+    // otherwise parsed on its own, so one leaving a code span open is joined with its following lines (the outer loop then
+    // skips them automatically) until the span closes or the paragraph ends. the join folds each line break to the single
+    // space asciidoctor shows between words. a single stray backtick, which opens a span that would never close, also joins
+    // the lines: that matches asciidoctor, where the fold to spaces is the same whether or not a span was really open.
+    private String joinOpenCodeSpan(final Reader reader, String line) {
+        while (hasOpenCodeSpan(line)) {
+            final var next = reader.nextLine();
+            if (next == null || next.isBlank()) {
+                if (next != null) { // hand the blank line that ends the paragraph back to the loop
+                    reader.rewind();
+                }
+                break;
+            }
+            line = stripTrailingSpaces(line) + " " + next.stripLeading();
+        }
+        return line;
+    }
+
+    private String stripTrailingSpaces(final String line) {
+        int end = line.length();
+        while (end > 0 && line.charAt(end - 1) == ' ') {
+            end--;
+        }
+        return end == line.length() ? line : line.substring(0, end);
+    }
+
+    // whether line leaves an inline code span open, i.e. its backticks do not pair up. a backslash-escaped backtick is a
+    // literal, and the `+...+` passthrough an opening backtick leads with is span content, so it is skipped whole; this is
+    // close to, but deliberately not the full, inline scan (a double-backtick behaved as two pairs, as it does elsewhere).
+    private boolean hasOpenCodeSpan(final String line) {
+        boolean open = false;
+        for (int i = 0; i < line.length(); i++) {
+            if (line.charAt(i) != '`') {
+                continue;
+            }
+            if (i > 0 && line.charAt(i - 1) == '\\') { // `\`` escaped
+                continue;
+            }
+            if (!open && i + 1 < line.length() && line.charAt(i + 1) == '+') { // the passthrough right after the opener is content
+                final var passthrough = passthroughAt(line, i + 1, line.length());
+                if (passthrough != null) { // the backtick opened the span, so the closure comes after the passthrough
+                    open = true;
+                    i = passthrough.end() - 1;
+                    continue;
+                }
+            }
+            open = !open;
+        }
+        return open;
     }
 
     // a conditional block sharing the paragraph with other elements holds inline elements, see withInlineChildren(), and

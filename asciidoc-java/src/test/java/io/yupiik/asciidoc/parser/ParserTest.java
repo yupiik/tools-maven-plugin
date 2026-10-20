@@ -4399,6 +4399,32 @@ class ParserTest {
     }
 
     @Test
+    void inlineCodeSpanWrappedAcrossALine() { // asciidoctor folds the paragraph's lines to spaces before its inline scan, so a span may close on a later line
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                use `WITH GRANT
+                OPTION` then end.
+                """.split("\n"))), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "use ", Map.of()),
+                new Code("WITH GRANT OPTION", Map.of(), true, List.of()),
+                new Text(List.of(), " then end.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void unmatchedBacktickStillFoldsAndKeepsTheFollowingLines() { // a span that never closes joins the lines the same way, and the paragraph ends cleanly
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                some ` literal
+                text on the next line
+
+                tail.
+                """.split("\n"))), null);
+        assertEquals(List.of( // the joined single text has no style, so its paragraph unwraps; the tail block still parses
+                new Text(List.of(), "some ` literal text on the next line", Map.of()),
+                new Text(List.of(), "tail.", Map.of())),
+                body.children());
+    }
+
+    @Test
     void markdownBoldStartingWithAListMarker() { // `1. ` is a list marker for a line, not inside a bold span
         final var body = new Parser().parseBody(new Reader(List.of("**1. Bold** text.")), null);
         assertEquals(List.of(new Paragraph(List.of(
