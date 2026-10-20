@@ -1910,6 +1910,75 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void passMacroInParagraph() {
+        assertRenderingContent("""
+                before pass:[<span style="color: #eee">foo</span>] after
+                """, """
+                 <div class="paragraph">
+                 <p>before <span style="color: #eee">foo</span> after</p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void passMacroSubstitutions() {
+        assertRenderingContent("""
+                :wip: WIP
+                c pass:c[<b>raw</b>]
+                q pass:q[plain *bold*]
+                a pass:a[{wip} only]
+                n pass:n[<b>&</b> *bold*]
+                m pass:m[text https://example.org]
+                """, """
+                 <div class="paragraph">
+                 <p>c &lt;b&gt;raw&lt;/b&gt; q plain <strong>bold</strong> a WIP only n &lt;b&gt;&amp;&lt;/b&gt; <strong>bold</strong> m text  <a href="https://example.org">https://example.org</a>
+                </p>
+                 </div>
+                """);
+    }
+
+    @Test
+    void passMacroInTableCell() {
+        assertRenderingContent("""
+                [cols="1,1"]
+                |===
+                |left pass:[<span style="color: #eee">foo</span>]
+                |right
+
+                |pass:q[cell *bold*]
+                |d
+                |===
+                """, """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-left">
+                left <span style="color: #eee">foo</span>    </th>
+                    <th class="tableblock halign-left">
+                right    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                cell <strong>bold</strong></p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                d</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
     void table() {
         assertRenderingContent("""
                 [cols="1,1"]

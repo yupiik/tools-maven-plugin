@@ -40,6 +40,7 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
@@ -1058,7 +1059,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case "menu" -> "**" + (label.isBlank() ?
                     options.getOrDefault("", "").strip() :
                     label.strip() + (options.get("") != null && !options.get("").isBlank() ? " > " + options.get("").strip() : "")) + "**";
-            case "pass" -> options.getOrDefault("", ""); // the label holds the substitutions, pass:q[...]
+            case "pass" -> pass(label, macro); // the passthrough content, with the substitutions linked by the inline pass target
             case "icon" -> icon(macro, options);
             case "include" -> throw unresolvedInclude(macro);
             case "indexterm" -> ""; // indexterm:[...] only feeds the index, asciidoctor shows nothing either
@@ -1068,6 +1069,20 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case "ifdef", "ifndef", "ifeval", "endif" -> preprocessorDirective(macro);
             default -> onMissingMacro(macro);
         };
+    }
+
+    /**
+     * An inline {@code pass} macro: its content with the substitutions its target picks. Markdown reads the same marks
+     * as AsciiDoc (emphasis, strike, links), so the quotes and macros substitutions leave the content mostly as
+     * written, and only the attributes substitution is resolved here, as for the other macros; the special characters
+     * stay as written since Markdown passes raw HTML through to the output.
+     */
+    protected String pass(final String label, final Macro macro) {
+        final var subs = macro.options().get(Parser.PASS_SUBS_OPTION);
+        if (subs == null || subs.isBlank() || !List.of(subs.split(",")).contains("attributes")) {
+            return label;
+        }
+        return sibling.substitute(label, context());
     }
 
     /**
