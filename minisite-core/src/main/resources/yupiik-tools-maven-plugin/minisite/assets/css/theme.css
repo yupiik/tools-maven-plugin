@@ -998,6 +998,11 @@ img { max-width: 100%; height: auto; }
 
 .page-content-body li { margin: 4px 0; }
 
+.page-content-body dt.hdlist1,
+.page-content-body td.hdlist1 {
+    font-weight: bold;
+}
+
 .page-content-body blockquote {
     margin: 0 0 16px;
     padding: 8px 20px;
