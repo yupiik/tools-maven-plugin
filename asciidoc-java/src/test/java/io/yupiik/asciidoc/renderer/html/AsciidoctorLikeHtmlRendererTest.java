@@ -224,7 +224,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="sectionbody">
                  <div class="paragraph metadata">
                  <p><span class="mr-2 category-release"><span class="icon"><i class="fas fa-gift"></i></span></span>,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html" class="metadata-authors">Francois Papon</a>
-                , <mark class="metadata-published">2023-09-26</mark>, <mark class="metadata-readingtime">49 sec read</mark></p>
+                , <span class="metadata-published">2023-09-26</span>, <span class="metadata-readingtime">49 sec read</span></p>
                  </div>
                  </div>
                  </div>
@@ -3218,6 +3218,20 @@ class AsciidoctorLikeHtmlRendererTest {
                         " </div>\n");
     }
 
+    @Test
+    void inlineMarkWithRoleRendersAsSpan() {
+        // a #…# span with a role prefix is a <span>, a bare one stays a <mark>
+        assertRenderingContent(
+                "[red]#*in\u00e9vitable*# = fin.",
+                " <div class=\"paragraph\">\n" +
+                        " <p><span class=\"red\"><strong>in&eacute;vitable</strong></span> = fin.</p>\n" +
+                        " </div>\n");
+        assertRenderingContent(
+                "#in\u00e9vitable# = fin.",
+                " <div class=\"paragraph\">\n" +
+                        " <p><mark>in&eacute;vitable</mark> = fin.</p>\n" +
+                        " </div>\n");
+    }
     @Test
     void markdownStrikethrough() {
         assertRenderingContent(

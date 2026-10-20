@@ -1055,6 +1055,20 @@ class ParserTest {
     }
 
     @Test
+    void inlineMarkWithRole() {
+        // a #…# span prefixed by a role keeps the MARK style, and a bare positional role is read as a role
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "Where did all the ", Map.of()),
+                        new Text(List.of(MARK), "cores", Map.of("role", "underline")),
+                        new Text(List.of(), " go? ", Map.of()),
+                        new Text(List.of(MARK, BOLD), "in\u00e9vitable", Map.of("role", "red")),
+                        new Text(List.of(), " = fin.", Map.of())
+                ), Map.of())),
+                new Parser().parseBody(new Reader(List.of("Where did all the [.underline]#cores# go? [red]#*in\u00e9vitable*# = fin.")), null).children());
+    }
+
+    @Test
     void parseParagraphMultiline() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 Mark my words, #automation is essential#.

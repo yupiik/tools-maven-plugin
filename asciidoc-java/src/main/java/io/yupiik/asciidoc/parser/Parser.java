@@ -3274,7 +3274,7 @@ public class Parser {
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = line.substring(i + 1, end);
         final var sub = parseLine(enclosingDocument, null, content, resolver, currentAttributes, true);
-        final var opts = options != null ? parseOptions(options) : Map.<String, String>of();
+        final var opts = options != null ? inlineRoleOptions(options) : Map.<String, String>of();
         if (sub.size() == 1 && sub.get(0) instanceof Text t) {
             if (isAnchor(t)) {
                 collector.add(t);
@@ -3326,6 +3326,19 @@ public class Parser {
             return new Text(styles, text, opts);
         }
         return new Text(styles, text, options); // todo: check nested links, email - without escaping
+    }
+
+    // the bracket prefix of an inline marker, [red]#…#, [.role]#…# or [[id]]#…#, is parsed like a block
+    // attribute line: as asciidoctor a bare positional token ([red]) is a role here, so it is promoted from
+    // the empty positional key (kept for the block-level style) to the role before the inline text is written.
+    private Map<String, String> inlineRoleOptions(final String options) {
+        final var parsed = parseStyleShorthands(options);
+        if (parsed.containsKey("") && !parsed.containsKey("role")) {
+            final var result = new HashMap<>(parsed);
+            addRole(result, result.remove(""));
+            return result;
+        }
+        return parsed;
     }
 
     private Map<String, String> parseOptions(final String options) {
