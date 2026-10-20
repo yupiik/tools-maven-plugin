@@ -122,6 +122,7 @@ public final class Generate {
         });
         configuration.setAttributes(Map.ofEntries(
                 Map.entry("partialsdir", doc + "/content/_partials"),
+                Map.entry("asciidoc-java-examples", doc.resolve("../../../../asciidoc-java/src/test/java/io/yupiik/asciidoc").normalize().toString()),
                 // the left menu of every page, the titles and icons of the top level come from the pages
                 Map.entry("minisite-menu-1", "/mojos.html"),
                 Map.entry("minisite-menu-2", "/cli.html"),
