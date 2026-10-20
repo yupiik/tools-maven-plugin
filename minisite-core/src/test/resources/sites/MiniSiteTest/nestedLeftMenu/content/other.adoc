@@ -1,0 +1,6 @@
+= Other
+:minisite-index: 200
+:minisite-index-title: Other
+:minisite-index-icon: robot
+
+Another page.

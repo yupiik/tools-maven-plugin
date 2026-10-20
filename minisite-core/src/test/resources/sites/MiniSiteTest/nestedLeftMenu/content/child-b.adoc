@@ -1,0 +1,6 @@
+= Second child
+:minisite-index: 120
+:minisite-index-title: Second
+:minisite-index-parent: parent.html
+
+The second child.

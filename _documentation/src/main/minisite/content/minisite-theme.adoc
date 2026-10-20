@@ -47,7 +47,7 @@ The layout is composed of the following default templates:
 |`page-title.hb`|The page `<h1>` heading block.
 |`page-content.hb`|The main content column: breadcrumb, title and the `.page-content-body` that receives the rendered Asciidoctor content and the previous/next navigation.
 |`left-menu.hb`|Optional left navigation column rendered when the left menu is enabled.
-|`left-menu-item.hb`|Single entry of the left navigation.
+|`left-menu-item.hb`|Single entry of the left navigation; `{{{children}}}` writes, as a nested list, the pages whose `minisite-index-parent` attribute names this entry.
 |`index-item.hb`|One tile (card) of an automatically generated index page.
 |`index-content.hb`|The index page layout: heading, intro and the docs overview grid.
 |`page-footer-nav.hb`|Previous/next pagination navigation block.

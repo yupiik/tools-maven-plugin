@@ -1,4 +1,7 @@
 = Asciidoc Java: HTML renderer
+:minisite-index: 420
+:minisite-index-title: HTML renderer
+:minisite-index-parent: asciidoc-java.html
 
 `AsciidoctorLikeHtmlRenderer` renders the model the parser gives (see xref:asciidoc-java.adoc[Asciidoc Java]) as the HTML asciidoctor writes, so asciidoctor's stylesheet and the minisite themes apply to the output without changes.
 Byte-for-byte equality with asciidoctor is not a goal; the structure and the classes are.

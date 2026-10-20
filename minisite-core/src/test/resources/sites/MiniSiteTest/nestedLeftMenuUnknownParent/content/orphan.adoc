@@ -1,0 +1,5 @@
+= Orphan
+:minisite-index: 100
+:minisite-index-parent: missing.html
+
+A page whose parent does not exist.

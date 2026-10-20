@@ -1,0 +1,5 @@
+= Grandchild
+:minisite-index: 111
+:minisite-index-parent: child-a.html
+
+A page under a child page.

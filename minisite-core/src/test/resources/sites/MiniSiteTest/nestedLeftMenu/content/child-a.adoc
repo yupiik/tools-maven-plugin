@@ -1,0 +1,6 @@
+= First child
+:minisite-index: 110
+:minisite-index-title: First
+:minisite-index-parent: /parent.html
+
+The first child.

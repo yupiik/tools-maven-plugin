@@ -1,4 +1,7 @@
 = Asciidoc Java: supported syntax
+:minisite-index: 410
+:minisite-index-title: Supported syntax
+:minisite-index-parent: asciidoc-java.html
 
 This page lists what the `asciidoc-java` parser reads, grouped by the part of a document it belongs to.
 asciidoctor is the reference: where a construct has several readings, the parser takes asciidoctor's, and the notes below say so when the detail matters.
