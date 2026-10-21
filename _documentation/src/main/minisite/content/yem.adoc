@@ -2,24 +2,24 @@
 :minisite-index: 600
 :minisite-index-title: YEM
 :minisite-index-icon: robot
-:minisite-index-description: Yupiik Environment manager
+:minisite-index-description: Yupiik Environment Manager.
 
 [abstract]
-Setting up dev environment can be a nightmare.
+Setting up a development environment can be difficult.
 _yem_ intends to make it easier.
 
 == Inspiration
 
-_yem_ is inspired from SDKMan, Chocolatey and other alternatives.
+_yem_ is inspired by SDKMan, Chocolatey and other alternatives.
 The main differences are:
 
-* _yem_ does not come with a remote storage but it tries to reuse existing ones - priviledging immutable one when possible (compared to SDKMan where you can loose the version you picked),
-* _yem_ intends to be portable (linux/windows at least),
+* _yem_ does not come with a remote storage but tries to reuse existing ones, favoring immutable ones when possible (compared to SDKMan, where you can lose the version you picked),
+* _yem_ intends to be portable (Linux/Windows at least),
 * _yem_ is extensible if needed (new source or tool/distribution).
 
 == Configuration
 
-IMPORTANT: the atomic configuration is listed there but used on the command line you must ensure to prefix any option by `-` and replace dots by `-`. Example: `central.base` becomes `--central-base`.
+IMPORTANT: The configuration keys are listed here; on the command line, prefix each one with `--` and replace its dots with `-`. For example, `central.base` becomes `--central-base`.
 
 include::{partialsdir}/generated/documentation.yem.adoc[lines=4..-1]
 
@@ -33,7 +33,7 @@ include::{partialsdir}/generated/commands.yem.adoc[]
 
 == Auto-path
 
-A bit like SDKMan, _yem_ supports to initialize an environment from a file but with some differences.
+A bit like SDKMan, _yem_ can initialize an environment from a file, with some differences.
 
 The file must be a `properties` file.
 Each tool/distribution setup has several properties:
@@ -47,41 +47,41 @@ prefix.envVarName = xxxx <4>
 prefix.addToPath = [true|false] <5>
 prefix.failOnMissing = [true|false] <6>
 prefix.installIfMissing = [true|false] <7>
-prefix.toolName = 1.2.3 <8>
+prefix.toolName = xxxx <8>
 ----
-<.> Version of the tool to install, using `relaxed` option it can be a version prefix (`21.` for ex),
-<.> Provider to use to resolve the tool, if you want to force `zulu` provider instead of using SDKMan to install Java versions for example,
-<.> Should version be matched exactly or the first matching one be used,
-<.> When `addToPath` is `true` (default) the environment name to setup for this tool - deduced from tool name otherwise, generally `uppercase(tool)_HOME` with dot replaced by underscores,
-<.> Should the `PATH` be set too - note that when it is the case `YEM_ORIGINAL_PATH` is set too allowing to reset `PATH` when exiting the folder,
-<.> Should the execution fail if a tool is missing (mainly for debug purposes),
-<.> Should tools be installed automatically when missing - CI friendly,
+<.> Version of the tool to install, with the `relaxed` option it can be a version prefix (`21.` for example),
+<.> Provider used to resolve the tool, if you want to force `zulu` provider instead of using SDKMan to install Java versions for example,
+<.> Whether the version is matched exactly or the first matching one is used,
+<.> The name of the environment variable to set up for this tool, by default `uppercase(prefix)_HOME` with dots replaced by underscores,
+<.> Whether the `PATH` is set too; when it is, `YEM_ORIGINAL_PATH` is also set, which allows resetting `PATH` when leaving the folder,
+<.> Whether the execution fails if a tool is missing (mainly for debugging),
+<.> Whether tools are installed automatically when missing, CI friendly,
 <.> If your prefix does not match the tool name, the tool name to use.
 
-Only the `version` property is required of `prefix` matches a tool name.
-You can get as much group of properties as needed tools (one for java 11, one for java 17, one for maven 4 etc...).
+Only the `version` property is required if `prefix` matches a tool name.
+You can define as many groups of properties as you need tools (one for Java 11, one for Java 17, one for Maven 4, etc.).
 
 == Alias support
 
 The `run` command supports aliases.
-They globally use a `.yemrc` file as for `env` command but support additional properties.
+They use a `.yemrc` file, as the `env` command does, but support additional properties.
 
 These additional properties must match the pattern `xxx.alias = yyyy` where `xxx` is an alias name and `yyyy` a command.
-The usage of `yem run -- xxxx` will be equivalent to run `yyyy` command (can have arguments predefined) in the context of the `.yemrc` file, including the environment - Java, Apache Maven etc...
+Running `+yem run -- xxxx+` is equivalent to running the `yyyy` command (which can have predefined arguments) in the context of the `.yemrc` file, including the environment: Java, Apache Maven, etc.
 
 == TIP
 
-If you need to see more logs from _yem_ you can add the following system properties: `-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST`.
+If you need to see more logs from _yem_, you can add the following system properties: `-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager  -Dio.yupiik.logging.jul.handler.StandardHandler.level=FINEST -Dio.yupiik.level=FINEST`.
 
 You can also force some default configuration (typically central `gavs` or `offlineMode`) in `~/.yupiik/yem/rc`.
-If you don't want this global file to be taken into account temporarly (or not) you can set the environment variable `YEM_DISABLE_GLOBAL_RC_FILE` to `true`.
+If you don't want this global file to be taken into account, temporarily or not, you can set the environment variable `YEM_DISABLE_GLOBAL_RC_FILE` to `true`.
 
 == Shell/Bash setup
 
-Yem is portable but we detail there only shell setup.
+_yem_ is portable, but this section only details the shell setup.
 
-The idea is to leverage `env` command.
-Add to your global `~/.bashrc` (or `~/.profile`) configuration the following line:
+The idea is to use the `env` command.
+Add the following lines to your global `~/.bashrc` (or `~/.profile`) configuration:
 
 [source,bash]
 ----
@@ -98,7 +98,7 @@ yem_env
 ----
 
 --
-TIP: if you don't use zsh shell you can simplify it:
+TIP: If you don't use zsh, you can simplify it:
 
 [source,bash]
 ----
@@ -111,4 +111,4 @@ yem_env
 ----
 --
 
-TIP: it is also recommended to set some default versions in `~/.yupiik/yem/rc`
+TIP: It is also recommended to set some default versions in `~/.yupiik/yem/rc`.

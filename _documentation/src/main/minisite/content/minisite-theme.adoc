@@ -24,7 +24,7 @@ The syntax is a subset of handlebars:
 The `{{...}}`/`{{{...}}}` sequences you write in the minisite *templates* (`.hb` files) are handlebars and are rendered by the engine.
 In contrast, the paragraphs and blocks of a page's AsciiDoc source are converted to HTML by the Asciidoctor renderer and then inserted via `{{{body}}}` without being re-parsed, so a literal `{{name}}` or `{{{name}}}` you write in a page body (for example when documenting handlebars) is preserved as-is and does not need to be escaped.
 
-NOTE: the old `{$yupiik.minisite.openbracket$}` escape (and the `TemplateSubstitutor` that rendered it back) is no longer active, so you don't need it and you should not rely on it: it is not processed anymore since the Asciidoctor renderer preserves literal `{{...}}` in page text.
+NOTE: The old `{$yupiik.minisite.openbracket$}` escape (and the `TemplateSubstitutor` that rendered it back) is no longer active, so you don't need it and you should not rely on it: it is not processed anymore since the Asciidoctor renderer preserves literal `{{...}}` in page text.
 
 The values (the "model") are provided by the generator Java code.
 Most of them are dynamic (page title, body, breadcrumb, dates and so on).

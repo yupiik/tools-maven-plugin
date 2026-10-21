@@ -56,16 +56,16 @@ import static java.util.stream.Collectors.toMap;
                 Simple extensible generic static generator.
                 
                 Base concept is to create a _context_ based on _ContextContributors_
-                and pass this context to some handlebars template to render a text file (can be a HTML or not content).
+                and pass this context to some handlebars template to render a text file (HTML or any other content).
                 
                 A `ContextContributor` must implement `io.yupiik.tools.generator.generic.contributor.ContextContributor` interface
                 and register itself in Yupiik Fusion IoC using a `FusionModule` `ServiceLoader` registration.
                 
-                Similarly, `io.yupiik.tools.generator.generic.helper.Helper` can be registered as a fusion bean to add helpers to the
+                Similarly, `io.yupiik.tools.generator.generic.helper.Helper` can be registered as a Fusion bean to add helpers to the
                 rendering context in addition to the default ones.
                 
-                TIP: it can also be used to generate a static javascript site dataset - the site being built elsewhere with `rsbuild`, `esbuild` or any friend
-                     and the generate just used to aggregate data and dump them as json using `toJson` helper.
+                TIP: It can also be used to generate a static JavaScript site dataset - the site being built elsewhere with `rsbuild`, `esbuild` or a similar tool
+                     and the generator just used to aggregate data and dump them as JSON using the `toJson` helper.
                 
                 == Contributors
                 

@@ -26,7 +26,7 @@ image:https://img.shields.io/maven-central/v/io.yupiik.maven/yupiik-tools-maven-
 
 A set of goals at Yupiik colors and easing automation.
 
-IMPORTANT: documentation is available online at https://yupiik.io/tools-maven-plugin/.
+IMPORTANT: Documentation is available online at https://yupiik.io/tools-maven-plugin/.
 
 Plugin definition:
 
@@ -43,7 +43,9 @@ TIP: `yupiik-tools-cli` enables to run the slides and minisite tools without mav
 
 == Goals
 
-IMPORTANT: you can also consult out link:_documentation/yupiik-tools-maven-plugin.adoc[generated] documentation, it will contain a more exhaustive content.
+IMPORTANT: You can also consult our link:https://yupiik.io/tools-maven-plugin/mojo/yupiik-tools-maven-plugin.html[generated] documentation, which is more complete.
+
+The plugin, like every module of this repository, requires Java 17.
 
 === Git Report
 
@@ -106,7 +108,7 @@ FULL_MESSAGE:: renders commit full message.
 
 ===== TIP
 
-TIP: this goal can be chained with PDF one to render the log in one command (adjust the version, the sample uses the minimal one):
+TIP: This goal can be chained with the `pdf` goal to render the log in one command (adjust the version, the sample uses the minimal one):
 [source,bash]
 ----
 mvn \
@@ -114,7 +116,7 @@ mvn \
   io.yupiik.maven:yupiik-tools-maven-plugin:1.0.23-SNAPSHOT:pdf \
   -Dyupiik.workDir=work \
   -Dyupiik.git-report.dotGit=/path/to/project/.git \
-  -Dyupiik.git-report.target=log.adoc
+  -Dyupiik.git-report.target=log.adoc \
   -Dyupiik.pdf.source=log.adoc \
   -Dyupiik.pdf.target=.
 ----
@@ -132,7 +134,7 @@ Simplest setup is to define the plugin and create a file `src/main/pdf/index.ado
 
 TIP: `watch-pdf` goal exists and just keeps re-rendering your `adoc` to `pdf` when something changed in the source directories. You can exit it with `Ctrl+C` command.
 
-TIP: some default roles are defined in the theme and can be used to color the icons (`icon:xxx[role=<name>]`).
+TIP: Some default roles are defined in the theme and can be used to color the icons (`icon:xxx[role=<name>]`).
 Here are the default ones:
 [source,yaml]
 ----
@@ -207,7 +209,7 @@ This formula (jmath:_[a + b]) is cool.
 
 ==== Use without a pom.xml
 
-IMPORTANT: this feature is available from version 1.0.22.
+IMPORTANT: This feature is available from version 1.0.22.
 
 [source,bash]
 ----
@@ -235,7 +237,7 @@ You can also pass in HTTP mode with:
 mvn yupiik-tools:serve-slides
 ----
 
-TIP: to convert slides to PDF, you can use decktape. Launch the slides HTTP server and then run `docker run --rm -t --net=host -v $PWD:/slides astefanutti/decktape http://localhost:4200 slides.pdf`.
+TIP: To convert slides to PDF, you can use decktape. Launch the slides HTTP server and then run `docker run --rm -t --net=host -v $PWD:/slides astefanutti/decktape http://localhost:4200 slides.pdf`.
 
 ==== Theme
 
@@ -274,7 +276,7 @@ The other roles are `.y-violet`, `.y-green`, `.y-light` and `.y-dark`. A `shout`
 = Make it *count*
 ----
 
-TIP: inside a `shout` slide, wrap the words to highlight with `[.accent]#...#`, and use a small `kicker` label above any slide heading with `[.kicker]#...#'.
+TIP: Inside a `shout` slide, wrap the words to highlight with `[.accent]#...#`, and use a small `kicker` label above any slide heading with `[.kicker]#...#`.
 
 The title slide uses the navy gradient with the Yupiik symbol watermark, a white title, a colored subtitle and the author block (name, position, organization, twitter handle) themed to match. The Yupiik symbol is also rendered as a discreet watermark at the bottom-left of every content slide (from `background.bespoke.svg`).
 
@@ -299,7 +301,7 @@ To extend the theme, pass a custom css with `customCss` - it is appended to the 
 Audit mojo uses the fact the plugins are "Maven aware" to generate an audit report inheriting from PDF mojo.
 It uses the same configuration but works on a reactor.
 
-TIP: it is recommended to set `source` relative to multiple module dir and not project basedir since this one can be random.
+TIP: It is recommended to set `source` relative to the multi-module directory and not to the project basedir, since the basedir can vary.
 
 Here is a sample execution from the CLI:
 
@@ -334,7 +336,7 @@ A more complete example to skip a module, skip some plugins and ensure dependenc
 
 Report will be in `/tmp/report/report.pdf`.
 
-NOTE: report does not have to be in the project ;).
+NOTE: Report does not have to be in the project ;).
 
 Here is a sample report:
 
@@ -356,8 +358,6 @@ Here is a sample report:
 
 Minisite enables to render a static website with a generic Yupiik template or a custom one with some configuration.
 It comes with its companion serve goal to have a live preview.
-
-TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 you can use `minisite-core` module with `exec-maven-plugin` since version 1.1.1.
 
 [source,sh]
 ----
@@ -405,18 +405,18 @@ TIP: as all plugins it requires Java 11 but if you want to use it with Java 8 yo
 |gravatar|GravatarConfiguration|-|-|An object where gravatar URL pattern can be configured. Default is equivalent to: `<gravatar><url>https://www.gravatar.com/avatar/%s?d=identicon&size=40</url></gravatar>`.
 |====
 
-TIP: most of texts can be deduced from `logText` and `indexSubTitle` so ensure to set these two to contextualize your minisite.
+TIP: Most texts can be deduced from `logText` and `indexSubTitle`, so make sure to set these two to contextualize your minisite.
 
-The configuration also supports a `ftp` entry if you want to upload to a FTP server the generated website:
+The configuration also supports an `ftp` entry if you want to upload the generated website to an FTP server:
 
-[options="header",cols="1,m,m,m,1"]
+[options="header",cols="1,m,2"]
 |====
 |Name|Type|Description
 |username|String|Username if serverId is not set.
 |password|String|Password if serverId is not set.
 |serverId|String|ServerID to use to get username/password from settings.xml.
-|url|String|FTP url (`ftp://host:port/dir`).
-|ignore|boolean|Enables to set a maven variable to ignore it conditionally.
+|url|String|FTP URL (`ftp://host:port/dir`).
+|ignore|boolean|Whether the execution is skipped; lets you set it from a Maven variable.
 |====
 
 The configuration also supports a `git` entry if you want to upload to a Git branch the generated website (like `gh-pages`):
@@ -424,19 +424,19 @@ The configuration also supports a `git` entry if you want to upload to a Git bra
 [options="header",cols="1,m,2"]
 |====
 |Name|Type|Description
-|branch|String|Git branch to update (default to `refs/heads/gh-pages`).
-|username|String|Username if serverId is not set.
-|password|String|Password if serverId is not set.
-|serverId|String|ServerID to use to get username/password from settings.xml - default to `project.scm.url`. If not set it fallbacks on the git url host. If using a git url which is a SSH one, you can set passphrase and privateKey location in the server.
-|url|String|Git url.
-|ignore|boolean|Should the execution be skipped - enables to set a maven variable.
-|prefix|String|Prefix prepended to file in the git repo (ex: `public/`).
-|noJekyll|boolean|Will force a `.nojekyll` file presence if `true`.
-|envBase64SshKey|String|Environment variable the private key will be read as base64 encoded from - useful on CI. note that `<value>_PH` environment variable must contain the associated passphrase.
+|branch|String|Git branch to update (defaults to `refs/heads/gh-pages`).
+|username|String|Username, used when the server of `serverId` has no password.
+|password|String|Password, used when the server of `serverId` has no password.
+|serverId|String|Server id used to read the username and password from settings.xml; defaults to `project.scm.url`. If no server matches, the host of `project.scm.url` is tried; one of the two must match. With an SSH Git URL, you can set the passphrase and the privateKey location in the server.
+|url|String|Git URL.
+|ignore|boolean|Whether the execution is skipped; lets you set it from a Maven variable.
+|prefix|String|Prefix prepended to the files in the Git repository (ex: `public/`).
+|noJekyll|boolean|Writes a `.nojekyll` file when `true` (the default).
+|envBase64SshKey|String|Environment variable from which the base64-encoded private key is read, useful on CI; defaults to `YUPIIK_MINISITE_DEPLOY_KEY`. Note that the `<value>_PH` environment variable must contain the associated passphrase.
 |====
 
-The configuration also supports an experimental Atlassian Confluence export support.
-It only works using the default template and require a configuration similar to `git` or `ftp` exports:
+The configuration also supports an experimental export to Atlassian Confluence.
+It only works with the default template and requires a configuration similar to `git` or `ftp` exports:
 
 [source,xml]
 ----
@@ -458,7 +458,7 @@ It only works using the default template and require a configuration similar to 
               <confluence>
                 <ignore>false</ignore>
                 <url>https://base.atlassian.net/wiki/</url> <!-- for cloud, for an on premise instance the /wiki/ is not always needed -->
-                <authorization>Basic base64_value_of(your mail:your token)></authorization>
+                <authorization>Basic base64_value_of(your mail:your token)</authorization>
                 <space>YOURSPACE</space>
                 <skipIndex>false</skipIndex> <!-- if true, will skip all index.html files -->
               </confluence>
@@ -471,22 +471,22 @@ It only works using the default template and require a configuration similar to 
 </profile>
 ----
 
-IMPORTANT: the nested support of this exporter is very experimental, and we recommend you to keep only one level of `.adoc` files using it.
+IMPORTANT: The nested support of this exporter is very experimental, and we recommend that you keep only one level of `.adoc` files when using it.
 
 ===== Confluence Limitations
 
-* Assets are not uploaded so ensure to configure Asciidoctor to embed all assets in HTML,
-* It only works with the default theme since we extract metadata from there to enable to update the space,
-* To look nice, you can need to tune the Confluence space CSS to import admonitions, codeblocks, ... styling (can require some admin permissions).
+* Assets are not uploaded, so make sure to configure Asciidoctor to embed all assets in HTML,
+* It only works with the default theme, since metadata is extracted from it to update the space,
+* To look nice, you may need to tune the Confluence space CSS to import the styling of admonitions, code blocks, ... (this can require admin permissions).
 
 ===== Blog
 
-Blog is supported if pages contain at least one block metadata.
+The blog is supported if pages contain at least one blog attribute.
 Here is the list of available attributes you can use:
 
 * `:minisite-blog-published-date: yyyy-MM-dd`: when the page will be rendered (if not set it is always rendered).
-* `:minisite-blog-categories: c1,c2`: comma separated list of categories of this post
-* `:minisite-blog-authors: My, Myself`: comma separated list of author names
+* `:minisite-blog-categories: c1,c2`: comma-separated list of categories of this post.
+* `:minisite-blog-authors: My, Myself`: comma-separated list of author names.
 * `:minisite-blog-summary: Some short description.`: the summary of this post used on post list pages.
 
 Blog page example:
@@ -504,14 +504,14 @@ Bla bla
 
 ===== Pre-Action
 
-Pre actions enables to generate some content from the project.
-It is typically used to generate configuration from code or things like that.
-It uses the documentation module classpath.
-Actions must implement `Runnable` and can have some (public) constructor parameters (we use parameter names to match so ensure to enable `-parameters` in maven compiler plugin):
+Pre-actions generate content from the project.
+They are typically used to generate configuration from code or things like that.
+They use the documentation module classpath.
+Actions must implement `Runnable` and can have some (public) constructor parameters (parameters are matched by name, so make sure to enable `-parameters` in the Maven compiler plugin):
 
-* `configuration` (`Map<String, String>`): the action configuration, it enables to reuse it if needed or write generic actions
-* `sourceBase` (`Path`): the base directory you can generate `.adoc` into (generally where you sources are, tip: use `generated` folder to be able to exclude it in `.gitignore` if desired)
-* `outputBase` (`Path`): the base directory you can generate direct html assets
+* `configuration` (`Map<String, String>`): the action configuration; it lets you reuse it if needed or write generic actions
+* `sourceBase` (`Path`): the base directory you can generate `.adoc` into (generally where your sources are; tip: use a `generated` folder to be able to exclude it in `.gitignore` if desired)
+* `outputBase` (`Path`): the base directory where you can generate HTML assets directly
 
 ====== Maven Plugin
 
@@ -528,7 +528,7 @@ The configuration of this action is:
 
 ====== Copy
 
-Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination:
+Using `type=copy` (recommended) or `type=io.yupiik.maven.service.action.builtin.CopyFile` will copy a file from a source to a destination.
 It is typically useful for assets (`openapi.json` for example).
 
 . `from`: source file.
@@ -540,43 +540,43 @@ Using `type=jsonschema` (recommended) or `type=io.yupiik.maven.service.action.bu
 
 . `class`: the class to generate the schema from.
 . `to`: destination of the schema.
-. `type`: `JSON` for a raw JSON-Schema (default) or `ADOC` for a textual, asciidoctor output.
+. `type`: `JSON` for a raw JSON-Schema (default) or `ADOC` for a textual, AsciiDoc output.
 . `setClassAsTitle`: `true` to force object title to be the class name.
 . `useReflectionForDefaults`: `true` to force reflection to try to extract defaults of attributes.
-. `pretty` when type=JSON, should the JSON be prettified or not (default=true).
-. `levelPrefix` when type=ADOC, a title prefix (`==` for example), `=` by default.
-. `title` and `description` enable to set class title/description for its json schema. It is required for type=ADOC.
-. `annotationOnlyProvidesTheDescription` enable to never take the title from an annotation (`@Description(value)` case).
+. `pretty`: when type=JSON, whether the JSON is prettified (default=true).
+. `levelPrefix`: when type=ADOC, a title prefix (`==` for example), `=` by default.
+. `title` and `description`: the title and description of the class in its JSON schema. They are required for type=ADOC.
+. `annotationOnlyProvidesTheDescription`: `true` to never take the title from an annotation (`@Description(value)` case).
 
-NOTE: the model classes can use a custom `@Description(title,description)` annotation (note that `@Doc` is also supported and `value` method can be used instead of `description`).
+NOTE: The model classes can use a custom `@Description(title,description)` annotation (note that `@Doc` is also supported and the `value` method can be used instead of `description`).
 See `JsonDocExtractor` for more details.
 
 ====== OpenMetrics renderer
 
-Using `type=openmetrics2adoc` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc` will generate an asciidoctor form from an OpenMetrics export.
+Using `type=openmetrics2adoc` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.OpenMetricsToAsciidoc` will generate AsciiDoc from an OpenMetrics export.
 
-. `source`: path of the openmetrics dump.
-. `to`: destination of the asciidoc generated from `source`.
+. `source`: path of the OpenMetrics dump.
+. `to`: destination of the AsciiDoc generated from `source`.
 . `levelPrefix`: a prefix set before the part title (`== ` by default for a second level title).
-. `legend`: should tables have a legend (name of the metric), default to `true`.
-. `header`: prefix the whole rendering (enables to set a title and some options if needed).
+. `legend`: should tables have a legend (name of the metric), defaults to `true`.
+. `header`: prefix the whole rendering (lets you set a title and some options if needed).
 
 ====== Yupiik Batch simple-configuration renderer
 
-Using `type=simple-configuration` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator` will generate an asciidoctor from a configuration class passed in `class` `<configuration>` option.
+Using `type=simple-configuration` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.SimpleConfigurationGenerator` will generate AsciiDoc from the configuration class passed in the `class` `<configuration>` option.
 
 . `class`: root configuration fully qualified name.
-. `output`: where to generate the `.adoc` to.
+. `output`: where to generate the `.adoc`.
 
 ====== Replace string in file
 
-Using `type=replace-in-file` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile` will rewrite a text file replacing a string by another one.
+Using `type=replace-in-file` (recommended) or `type=io.yupiik.tools.minisite.action.builtin.ReplaceInFile` will rewrite a text file, replacing a string with another one.
 
 . `source`: file to rewrite.
 . `token`: text to replace.
 . `replacement`: text replacing `token`.
 
-TIP: using `regex{xxx}` as `token` will use a java regex to do the replacement.
+TIP: Using `regex{xxx}` as `token` will use a Java regex to do the replacement.
 
 ===== Example
 
@@ -608,18 +608,18 @@ TIP: using `regex{xxx}` as `token` will use a java regex to do the replacement.
 
 ===== Page attributes
 
-Some specific attributes enables to customize the generation. Here is their list:
+Some specific attributes customize the generation:
 
-* `minisite-skip=[true|false]` enables to skip a `.adoc` rendering even if not in `_partials` directory.
-* `minisite-path=<string>` enables to force the relative path of the file, for example a file name foo-bar.adoc with the attribute `minisite-path` set to `foo/bar.html` will output a `foo/bar.html` file instead of `foo-bar.html`. Note however it does not rewrite the links to ensure to use `link:.....html[]` instead of `ref` to link this page then.
-* `minisite-highlightjs-skip` enables to not setup highlight.js for the page (useful with swagger-ui for example).
+* `minisite-skip` skips the rendering of an `.adoc` file even when it is not in the `_partials` directory, whatever its value.
+* `minisite-path=<string>` forces the relative path of the output file: for example, a file named `foo-bar.adoc` with the attribute `minisite-path` set to `foo/bar.html` is written to `foo/bar.html` instead of `foo-bar.html`. Note that links are not rewritten, so link to this page with `+link:.....html[]+` instead of `xref`.
+* `minisite-highlightjs-skip` disables highlight.js for the page (useful with swagger-ui for example).
 
 ===== Index generation
 
-To include a page in the index it must contain `minisite-index` attribute.
+To include a page in the index, give it the `minisite-index` attribute.
 Its value is the order of the entry in the index tiles.
 
-TIP: ensure to not use `1`, `2`, `3`, ... but rather `100`, `200`, ... to easily insert an item later.
+TIP: Use `100`, `200`, ... rather than `1`, `2`, `3`, ..., so that an item is easy to insert later.
 
 * `minisite-index-title` attribute enables to override link text.
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
@@ -631,7 +631,7 @@ Fetch versions of the defined artifacts on a nexus and ensures it is set as gith
 
 Name: `synchronize-github-releases`.
 
-TIP: if you use maven central you need to await for the synchronization to run this goal, using directly OSS sonatype release repository avoids it.
+TIP: If you use Maven Central, wait for the synchronization before running this goal; using the OSS Sonatype release repository directly avoids the wait.
 
 ==== Configuration
 
@@ -710,7 +710,7 @@ Name: `cucumber2asciidoc`.
 
 ==== Configuration
 
-[options="header",cols="1,m,2"]
+[options="header",cols="1,m,m,2"]
 |====
 |Name|Type|Property|Description
 |source|File|yupiik.cucumber.source|Input JSON file or directory path containing report files (cucumber JSON format) - matched by their `.json` extension. Default: `${project.build.directory/cucumber-reports/`.
@@ -747,7 +747,7 @@ Name: `cucumber2asciidoc`.
 
 Then run `mvn yupiik-tools:cucumber2asciidoc`.
 
-TIP: indeed it can be chained with `yupiik-tools:pdf`.
+TIP: It can be chained with `yupiik-tools:pdf`.
 
 === Bash CLI Skeleton
 
@@ -769,23 +769,23 @@ mvn yupiik-tools:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/pat
 |generateHelloWorldCommand|boolean|yupiik.script-cli-skeleton.generateHelloWorldCommand|Should a default command be added or not.
 |====
 
-TIP: can be used on a pomless project: `mvn io.yupiik.maven:yupiik-tools-maven-plugin:<version>:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project` (version >= 1.0.26).
+TIP: It can be used on a pomless project: `mvn io.yupiik.maven:yupiik-tools-maven-plugin:<version>:script-cli-skeleton -Dyupiik.script-cli-skeleton.directory=/path/to/script-project` (version >= 1.0.26).
 
 ==== Usage
 
 To add a command:
 
-. Create an `index.sh` containing the command script in `commands` folder
-. (optional) create a `commands/<your command name>/_cli/help.txt` file containing the help description.
+. Create an `index.sh` containing the command script in the `commands` folder.
+. (Optional) Create a `commands/<your command name>/_cli/help.txt` file containing the help description.
 
 == Maven Asciidoctor Macro
 
-The project adds asciidoc macros to get back some maven build information.
-Note that it must be executed in the right lifecycle phase if using some project metadata (plugin does not require any resolution to be usable standalone).
+The project adds AsciiDoc macros that read some Maven build information.
+Note that the mojo that renders the document must run in the right lifecycle phase when a macro uses project metadata (the plugin does not require any resolution, so it can be used standalone).
 
 === maven_dependencies
 
-Enables to list the project dependencies.
+This macro lists the project dependencies.
 
 ==== Usage
 
@@ -809,13 +809,13 @@ Scope can be:
 - system_only
 - runtime_only
 
-The optional attribute `groupId` is also supported and take a list (comma separated) of groupId to include.
+The optional attribute `groupId` is also supported; it takes a comma-separated list of groupIds to include.
 
 == Yupiik OSS extension
 
-This extension sets up the equivalent of a parent pom but enables to inherit or not from another parent and to benefit from upgrades for free.
+This extension sets up the equivalent of a parent pom but lets you inherit, or not, from another parent and get plugin upgrades by changing only the extension version.
 
-It is configured in the root project through maven properties:
+It is configured in the root project through Maven properties:
 
 [source,xml]
 ----
@@ -823,14 +823,15 @@ It is configured in the root project through maven properties:
   <!-- REQUIRED: enable the extension -->
   <yupiik.oss.enabled>true</yupiik.oss.enabled>
   <!-- OPTIONAL: defaults -->
-  <yupiik.oss.java.version>11</yupiik.oss.enabled>
-  <yupiik.oss.encoding>UTF-8</yupiik.oss.enabled>
-  <yupiik.oss.javadoc.doclint>none</yupiik.oss.enabled>
-  <yupiik.oss..sign.skip>none</yupiik.oss.enabled>
+  <yupiik.oss.java.version>11</yupiik.oss.java.version>
+  <yupiik.oss.encoding>UTF-8</yupiik.oss.encoding>
+  <yupiik.oss.javadoc.doclint>none</yupiik.oss.javadoc.doclint>
 </properties>
 ----
 
-Just enabling this extension will upgrade a few plugin, enforce the encoding and java version, enforce license check and much more.
+`yupiik.oss.sign.skip` set to `true` skips the signature and `false` forces it; without it, the artifacts are signed only when the `release` profile of the pom is active, which is why the example below declares an empty one.
+
+Just enabling this extension upgrades a few plugins, enforces the encoding and Java version, enforces the license check and much more.
 
 See `io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead` for details.
 
@@ -869,7 +870,7 @@ See `io.yupiik.maven.extension.YupiikOSSExtension.afterProjectsRead` for details
 
 == Inline pom contributor extension
 
-It enables to put in each module a `YupiikContributor.java` file which will be compiled and executed in `afterProjectRead(MavenSession)` callback.
+It lets you put a `YupiikContributor.java` file in each module, which is compiled and executed in the `afterProjectsRead(MavenSession)` callback.
 
 Example:
 
@@ -888,7 +889,7 @@ public class YupiikContributor extends AbstractMavenLifecycleParticipant {
 }
 ----
 
-This enables to programmatically handle the pom (mainly intended for plugins since dependencies are not synchronized in maven poms when contributed this way).
+This lets you handle the pom programmatically (mainly intended for plugins since dependencies are not synchronized in Maven poms when contributed this way).
 
 To enable it, enable the related extension:
 
@@ -905,4 +906,4 @@ To enable it, enable the related extension:
 </build>
 ----
 
-TIP: see `io.yupiik.maven.extension.YupiikOSSExtension` for a more complex participant example.
+TIP: See `io.yupiik.maven.extension.YupiikOSSExtension` for a more complex participant example.
