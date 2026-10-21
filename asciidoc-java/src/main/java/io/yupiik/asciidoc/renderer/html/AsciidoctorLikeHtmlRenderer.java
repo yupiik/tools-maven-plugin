@@ -894,7 +894,17 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         });
     }
 
-    private void visitListElements(final List<Element> element, final Map<String, String> listOptions) {
+    /**
+     * Runs {@code run} with {@code next} pushed onto the current element chain, restoring the previous chain
+     * afterwards (see {@link State#stackChain}). Exposed as a renderer-level method so a subclass in another
+     * package can drive the content stack through {@code this} (a {@code protected static} nested {@link State}
+     * field is not accessible through the inherited {@code this.state} reference from another package).
+     */
+    protected void stackChain(final List<Element> next, final Runnable run) {
+        state.stackChain(next, run);
+    }
+
+    protected void visitListElements(final List<Element> element, final Map<String, String> listOptions) {
         final var isChecklist = listOptions.containsKey("checklist");
         final var isInteractive = listOptions.containsKey("interactive");
         for (final var elt : element) {
@@ -979,24 +989,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(">\n");
             }
                     // style tags: static map + direct loop, no stream pipelines (this is the hottest per-text path)
-            final var styles = element.style();
-            // as asciidoctor, a [#…]/#mark# span prefixed by any option ([red], [.role], [#id]...) is a
-            // <span>, only the bare #text# without a prefix is a <mark>
-            final boolean markAsSpan = !styles.isEmpty() && styles.get(0) == Text.Style.MARK && !element.options().isEmpty();
-            if (!styles.isEmpty()) {
-                builder.append('<').append(markAsSpan ? "span" : STYLE_TAGS.get(styles.get(0)));
-                if (!wrap) {
-                    writeCommonAttributes(element.options(), null);
-                }
-                builder.append('>');
-                for (int si = 1; si < styles.size(); si++) {
-                    builder.append('<').append(STYLE_TAGS.get(styles.get(si))).append('>');
-                }
-            }
-            builder.append(escape(element.value()));
-            for (int si = styles.size() - 1; si >= 0; si--) {
-                builder.append("</").append(si == 0 && markAsSpan ? "span" : STYLE_TAGS.get(styles.get(si))).append('>');
-            }
+            writeStyledText(element, !wrap);
             if (wrap) {
                 builder.append("\n </").append(useP ? "p" : "span").append(">\n");
             }
@@ -1005,6 +998,35 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 builder.append(" </div>\n");
             }
         });
+    }
+
+    /**
+     * Writes the inline (styled) content of a text element - the style spans and the escaped value - without the
+     * surrounding block wrappers ({@code <p>}, {@code div.paragraph}). Reused by the slides renderer to emit
+     * inline text in the deck body.
+     *
+     * @param element              the text to render.
+     * @param writeCommonAttributes whether to write the element role/id/class attributes on the first style span.
+     */
+    protected void writeStyledText(final Text element, final boolean writeCommonAttributes) {
+        final var styles = element.style();
+        // as asciidoctor, a [#…]/#mark# span prefixed by any option ([red], [.role], [#id]...) is a
+        // <span>, only the bare #text# without a prefix is a <mark>
+        final boolean markAsSpan = !styles.isEmpty() && styles.get(0) == Text.Style.MARK && !element.options().isEmpty();
+        if (!styles.isEmpty()) {
+            builder.append('<').append(markAsSpan ? "span" : STYLE_TAGS.get(styles.get(0)));
+            if (writeCommonAttributes) {
+                writeCommonAttributes(element.options(), null);
+            }
+            builder.append('>');
+            for (int si = 1; si < styles.size(); si++) {
+                builder.append('<').append(STYLE_TAGS.get(styles.get(si))).append('>');
+            }
+        }
+        builder.append(escape(element.value()));
+        for (int si = styles.size() - 1; si >= 0; si--) {
+            builder.append("</").append(si == 0 && markAsSpan ? "span" : STYLE_TAGS.get(styles.get(si))).append('>');
+        }
     }
 
     @Override
@@ -2600,7 +2622,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             sectionNumberCounters.clear();
         }
 
-        private void stackChain(final List<Element> next, final Runnable run) {
+        protected void stackChain(final List<Element> next, final Runnable run) {
             final var current = currentChain;
             try {
                 currentChain = next;
@@ -2612,7 +2634,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         // the children of an element which writes nothing of its own render in its place: it leaves the element stack
         // while they are visited, so they see its parent as theirs
-        private void stackChainInPlaceOf(final Element element, final List<Element> children, final Runnable run) {
+        protected void stackChainInPlaceOf(final Element element, final List<Element> children, final Runnable run) {
             final int top = lastElement.size() - 1;
             final boolean stacked = top >= 0 && lastElement.get(top) == element;
             if (stacked) {

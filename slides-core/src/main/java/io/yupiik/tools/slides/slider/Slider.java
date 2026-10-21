@@ -15,9 +15,6 @@
  */
 package io.yupiik.tools.slides.slider;
 
-import org.asciidoctor.AttributesBuilder;
-import org.asciidoctor.Options;
-
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -25,12 +22,13 @@ import java.util.stream.Stream;
 import static java.util.Locale.ROOT;
 
 public interface Slider {
-    default String extractCustomCss(final Options options) {
-        return String.valueOf(Map.class.cast(options.map().get("attributes")).get("customcss"));
+    default String extractCustomCss(final Map<String, Object> attributes) {
+        final var customCss = attributes.get("customcss");
+        return customCss == null ? null : String.valueOf(customCss);
     }
 
     default void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
-                             final Options options) {
+                             final Map<String, Object> attributes) {
         // no-op
     }
 
@@ -38,8 +36,8 @@ public interface Slider {
         return getClass().getSimpleName().replace("Slider", "").toLowerCase(ROOT);
     }
 
-    default AttributesBuilder append(AttributesBuilder builder) {
-        return builder;
+    default Map<String, Object> append(final Map<String, Object> attributes) {
+        return attributes;
     }
 
     default Stream<String> js() {

@@ -55,8 +55,25 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>asciidoc-java</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.asciidoctor</groupId>
-      <artifactId>asciidoctorj-diagram</artifactId>
+      <artifactId>asciidoctorj</artifactId>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jruby</groupId>
+          <artifactId>jruby</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.jruby</groupId>
+      <artifactId>jruby-complete</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.tomitribe</groupId>

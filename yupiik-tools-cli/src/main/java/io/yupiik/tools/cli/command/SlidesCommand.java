@@ -17,8 +17,11 @@ package io.yupiik.tools.cli.command;
 
 import io.yupiik.tools.cli.service.AsciidoctorConfigurationImpl;
 import io.yupiik.tools.cli.service.AsciidoctorProvider;
+import io.yupiik.tools.slides.JRubySlidesRenderer;
 import io.yupiik.tools.slides.Slides;
 import io.yupiik.tools.slides.SlidesConfiguration;
+import io.yupiik.tools.slides.SlidesRenderer;
+import io.yupiik.tools.slides.YupiikSlidesRenderer;
 import org.tomitribe.crest.api.Command;
 import org.tomitribe.crest.api.Default;
 import org.tomitribe.crest.api.Err;
@@ -47,32 +50,42 @@ public final class SlidesCommand {
                               @Option(value = "port", description = "Port when using watch/http mode.") @Default("4200") final int port,
                               @Option(value = "watchDelay", description = "Polling delay when using watch/http mode.") @Default("250") final int watchDelay,
                               @Option(value = "synchronizationFolders", description = "Folder to synchronize on rendeng.") final List<SlidesConfiguration.Synchronization> synchronizationFolders,
+                              @Option(value = "useYupiikAsciidoc", description = "Should the pure java Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one (default true, does not need asciidoctorj).") @Default("true") final boolean useYupiikAsciidoc,
                               @Out final PrintStream stdout,
                               @Err final PrintStream stderr,
                               final AsciidoctorProvider asciidoctorProvider) {
-        new Slides(SlidesConfiguration.builder()
-                .workDir(workdir)
-                .source(source)
-                .targetDirectory(target)
-                .templateDirs(templateDirs)
-                .attributes(attributes)
-                .customCss(customCss)
-                .customScripts(customScripts)
-                .mode(mode)
-                .slider(slider)
-                .asciidoctor(asciidoctorProvider.get(
-                        new AsciidoctorConfigurationImpl(workdir.resolve("gem"), customGems, List.of("auto").equals(requires) ? null : requires, stdout, stderr),
-                        stdout, stderr, workdir, true))
-                .port(port)
-                .watchDelay(watchDelay)
-                .logInfo(s -> stdout.println("[INFO] " + s))
-                .logError(s -> stderr.println("[ERROR] " + s))
-                .logDebugWithException((s, e) -> {
-                })
-                .logDebug(s -> {
-                })
-                .synchronizationFolders(synchronizationFolders)
-                .build())
-                .run();
+        final SlidesRenderer renderer;
+        if (useYupiikAsciidoc) {
+            AsciidoctorProvider.prepareSlideResources(workdir);
+            renderer = new YupiikSlidesRenderer();
+        } else {
+            renderer = new JRubySlidesRenderer((org.asciidoctor.Asciidoctor) asciidoctorProvider.get(
+                    new AsciidoctorConfigurationImpl(workdir.resolve("gem"), customGems, List.of("auto").equals(requires) ? null : requires, stdout, stderr),
+                    stdout, stderr, workdir, true));
+        }
+        try (renderer) {
+            new Slides(SlidesConfiguration.builder()
+                    .workDir(workdir)
+                    .source(source)
+                    .targetDirectory(target)
+                    .templateDirs(templateDirs)
+                    .attributes(attributes)
+                    .customCss(customCss)
+                    .customScripts(customScripts)
+                    .mode(mode)
+                    .slider(slider)
+                    .renderer(renderer)
+                    .port(port)
+                    .watchDelay(watchDelay)
+                    .logInfo(s -> stdout.println("[INFO] " + s))
+                    .logError(s -> stderr.println("[ERROR] " + s))
+                    .logDebugWithException((s, e) -> {
+                    })
+                    .logDebug(s -> {
+                    })
+                    .synchronizationFolders(synchronizationFolders)
+                    .build())
+                    .run();
+        }
     }
 }

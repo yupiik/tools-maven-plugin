@@ -15,12 +15,11 @@
  */
 package io.yupiik.tools.slides.slider;
 
-import org.asciidoctor.Options;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -28,8 +27,8 @@ import static java.util.stream.Collectors.joining;
 public class BespokeSlider implements Slider {
     @Override
     public void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
-                            final Options options) {
-        doBespokePostProcess(path, customCss, scripts, new String[0], extractCustomCss(options));
+                            final Map<String, Object> attributes) {
+        doBespokePostProcess(path, customCss, scripts, new String[0], extractCustomCss(attributes));
     }
 
     protected void doBespokePostProcess(final Path path, final Path customCss, final String[] scripts,

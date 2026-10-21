@@ -15,14 +15,16 @@
  */
 package io.yupiik.tools.slides.slider;
 
-import org.asciidoctor.AttributesBuilder;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class RevealjsSlider implements Slider {
     @Override
-    public AttributesBuilder append(final AttributesBuilder builder) {
-        return builder
-                .attribute("revealjsdir", "//cdnjs.cloudflare.com/ajax/libs/reveal.js/3.8.0/")
-                .attribute("revealjs_theme", "black")
-                .attribute("revealjs_transition", "linear");
+    public Map<String, Object> append(final Map<String, Object> attributes) {
+        final Map<String, Object> copy = new LinkedHashMap<>(attributes);
+        copy.put("revealjsdir", "//cdnjs.cloudflare.com/ajax/libs/reveal.js/3.8.0/");
+        copy.put("revealjs_theme", "black");
+        copy.put("revealjs_transition", "linear");
+        return copy;
     }
 }

@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static java.util.Locale.ROOT;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -52,7 +53,7 @@ class SlidesMojoTest {
     @Test
     void renderReveal(@TempDir final Path temp) throws MojoExecutionException, IOException {
         final Path output = temp.resolve("output");
-        final String html = execute(output, "revealjs");
+        final String html = execute(output, "revealjs", false);
         Stream.of(
                 "<link rel=\"stylesheet\" href=\"css/yupiik.revealjs.css\">",
                 "<div class=\"reveal\">")
@@ -62,7 +63,7 @@ class SlidesMojoTest {
     @Test
     void renderBespoke(@TempDir final Path temp) throws MojoExecutionException, IOException {
         final Path output = temp.resolve("output");
-        final String html = execute(output, "bespoke");
+        final String html = execute(output, "bespoke", false);
         Stream.of(
                 "<article class=\"deck\">",
                 "<h1>My Awesome Presentation</h1>",
@@ -70,22 +71,40 @@ class SlidesMojoTest {
                 .forEach(it -> assertTrue(html.contains(it), () -> "Not in '" + html + "':\n\n'" + it + "'"));
     }
 
-    private String execute(final Path output, final String slider) throws MojoExecutionException, IOException {
+    @Test
+    void renderBespokeNative(@TempDir final Path temp) throws MojoExecutionException, IOException {
+        final Path output = temp.resolve("output");
+        final String html = execute(output, "bespoke", true);
+        Stream.of(
+                "<article class=\"deck\">",
+                "<section class=\"title\" data-title=\"\">",
+                "<h1>My Awesome Presentation</h1>",
+                ">First Topic</h2>",
+                "<section class=\"dark\">",
+                "<link rel=\"stylesheet\" href=\"css/")
+                .forEach(it -> assertTrue(html.contains(it), () -> "Not in '" + html + "':\n\n'" + it + "'"));
+        assertFalse(html.contains("sect1"));
+    }
+
+    private String execute(final Path output, final String slider, final boolean preferYupiikAsciidoc)
+            throws MojoExecutionException, IOException {
         final Path outputHtml = output.resolve(slider + ".html");
         if (Files.exists(output)) { // rerunning a test without clean
             Files.delete(output);
         }
-        newMojo(asciidoctor, output, slider).execute();
+        newMojo(asciidoctor, output, slider, preferYupiikAsciidoc).execute();
         assertTrue(Files.exists(outputHtml));
         return String.join("_n", Files.readAllLines(outputHtml));
     }
 
-    private SlidesMojo newMojo(final AsciidoctorInstance asciidoctor, final Path output, final String slider) {
+    private SlidesMojo newMojo(final AsciidoctorInstance asciidoctor, final Path output, final String slider,
+                               final boolean preferYupiikAsciidoc) {
         final SlidesMojo mojo = new SlidesMojo();
         mojo.setSource(new File("src/test/resources/src/main/slides/" + slider + ".adoc"));
         mojo.setTargetDirectory(output.toFile());
         mojo.setWorkDir(new File("../slides-core/target/classes/slides-core"));
         mojo.setAsciidoctor(asciidoctor);
+        mojo.setPreferYupiikAsciidoc(preferYupiikAsciidoc);
         mojo.setSlider(SlidesConfiguration.SliderType.valueOf(slider.toUpperCase(ROOT)));
         mojo.setMode(SlidesConfiguration.Mode.DEFAULT);
         mojo.setLog(new SystemStreamLog());
