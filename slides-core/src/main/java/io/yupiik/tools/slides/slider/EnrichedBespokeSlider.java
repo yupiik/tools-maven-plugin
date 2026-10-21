@@ -15,15 +15,14 @@
  */
 package io.yupiik.tools.slides.slider;
 
-import org.asciidoctor.Options;
-
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public class EnrichedBespokeSlider extends BespokeSlider {
     @Override
     public void postProcess(final Path path, final Path customCss, final Path target, final String[] scripts,
-                            final Options options) {
+                            final Map<String, Object> attributes) {
         doBespokePostProcess(
                 path, customCss, Stream.concat(
                         Stream.of(scripts),
@@ -32,7 +31,7 @@ public class EnrichedBespokeSlider extends BespokeSlider {
                 new String[]{
                         "//unpkg.com/bespoke-progress@1.0.0/dist/bespoke-progress.min.js"
                 },
-                extractCustomCss(options));
+                extractCustomCss(attributes));
     }
 
     @Override

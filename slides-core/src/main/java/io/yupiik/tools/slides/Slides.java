@@ -20,14 +20,7 @@ import io.yupiik.tools.common.watch.Watch;
 import io.yupiik.tools.slides.slider.RevealjsSlider;
 import io.yupiik.tools.slides.slider.Slider;
 import lombok.RequiredArgsConstructor;
-import org.asciidoctor.Asciidoctor;
-import org.asciidoctor.Attributes;
-import org.asciidoctor.AttributesBuilder;
-import org.asciidoctor.Options;
-import org.asciidoctor.OptionsBuilder;
-import org.asciidoctor.SafeMode;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -36,6 +29,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,21 +46,22 @@ public class Slides implements Runnable {
     @Override
     public void run() {
         final var slider = configuration.getSlider().getSupplier().get();
-        doRun(slider, createOptions(slider), configuration.getAsciidoctor());
+        final var renderer = configuration.getRenderer();
+        doRun(slider, renderer, createRendering(slider));
     }
 
-    private void doRun(final Slider slider, final Options options, final Asciidoctor adoc) {
+    private void doRun(final Slider slider, final SlidesRenderer renderer, final SlidesRenderer.Rendering rendering) {
         final var mode = getMode();
         switch (mode) {
             case DEFAULT:
-                render(options, adoc, slider);
+                render(renderer, rendering, slider);
                 break;
             case SERVE:
                 final AtomicReference<StaticHttpServer> server = new AtomicReference<>();
-                final Watch<Options, Asciidoctor> watch = new Watch<>(
+                final Watch<SlidesRenderer.Rendering, SlidesRenderer> watch = new Watch<>(
                         configuration.getLogInfo(), configuration.getLogDebug(), configuration.getLogDebugWithException(), configuration.getLogError(),
-                        getWatchedPath(), options, adoc, configuration.getWatchDelay(),
-                        (o, a) -> render(o, a, slider), () -> onFirstRender(server.get()));
+                        getWatchedPath(), rendering, renderer, configuration.getWatchDelay(),
+                        (r, rn) -> render(rn, r, slider), () -> onFirstRender(server.get()));
                 final StaticHttpServer staticHttpServer = new StaticHttpServer(
                         configuration.getLogInfo(), (m, e) -> configuration.getLogError().accept(m),
                         configuration.getPort(), configuration.getTargetDirectory(),
@@ -78,8 +73,8 @@ public class Slides implements Runnable {
             case WATCH:
                 new Watch<>(
                         configuration.getLogInfo(), configuration.getLogDebug(), configuration.getLogDebugWithException(), configuration.getLogError(),
-                        getWatchedPath(), options, adoc, configuration.getWatchDelay(),
-                        (o, a) -> render(o, a, slider), () -> onFirstRender(null))
+                        getWatchedPath(), rendering, renderer, configuration.getWatchDelay(),
+                        (r, rn) -> render(rn, r, slider), () -> onFirstRender(null))
                         .run();
                 break;
             default:
@@ -141,8 +136,8 @@ public class Slides implements Runnable {
         // no-op
     }
 
-    private synchronized void render(final Options options, final Asciidoctor adoc, final Slider slider) {
-        adoc.convertFile(configuration.getSource().toFile(), options);
+    private synchronized void render(final SlidesRenderer renderer, final SlidesRenderer.Rendering rendering, final Slider slider) {
+        renderer.render(rendering);
         if (configuration.getSynchronizationFolders() != null) {
             configuration.getSynchronizationFolders().forEach(s -> {
                 final Path root = s.getSource().toPath();
@@ -184,11 +179,11 @@ public class Slides implements Runnable {
         }
         slider.postProcess(
                 toOutputPath(), configuration.getCustomCss(),
-                configuration.getTargetDirectory(), configuration.getCustomScripts(), options);
+                configuration.getTargetDirectory(), configuration.getCustomScripts(), rendering.getAttributes());
         configuration.getLogInfo().accept("Rendered '" + configuration.getSource().getFileName() + "'");
     }
 
-    private Options createOptions(final Slider slider) {
+    private SlidesRenderer.Rendering createRendering(final Slider slider) {
         // ensure js is copied
         slider.js().forEach(js -> stage(configuration.getWorkDir().resolve(js).normalize(), "js/"));
 
@@ -199,38 +194,36 @@ public class Slides implements Runnable {
         // copy favicon
         stage(configuration.getWorkDir().resolve("slides/favicon.ico").normalize(), "img/");
 
-        // finally create the options now the target folder is ready
-        AttributesBuilder attribute = Attributes.builder()
-                .linkCss(false)
-                .dataUri(true)
-                .attribute("stem")
-                .attribute("favicon", "img/favicon.ico")
-                .attribute("source-highlighter", "highlightjs")
-                .attribute("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1")
-                .attribute("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css")
-                .attribute("customcss", findCss(slider))
-                .attribute("partialsdir", configuration.getSource().getParent().resolve("_partials").toAbsolutePath().normalize().toString())
-                .attribute("imagesdir", configuration.getSource().getParent().resolve("images").toAbsolutePath().normalize().toString());
+        // build the renderer-agnostic attributes map now the target folder is ready
+        final Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("linkcss", "false");
+        attributes.put("data-uri", "true");
+        attributes.put("stem", "");
+        attributes.put("favicon", "img/favicon.ico");
+        attributes.put("source-highlighter", "highlightjs");
+        attributes.put("highlightjsdir", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1");
+        attributes.put("highlightjs-theme", "//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/idea.min.css");
+        attributes.put("customcss", findCss(slider));
+        attributes.put("partialsdir", configuration.getSource().getParent().resolve("_partials").toAbsolutePath().normalize().toString());
+        attributes.put("imagesdir", configuration.getSource().getParent().resolve("images").toAbsolutePath().normalize().toString());
         if (configuration.getAttributes() != null && !configuration.getAttributes().isEmpty()) {
-            configuration.getAttributes().forEach(attribute::attribute);
+            attributes.putAll(configuration.getAttributes());
         }
-        final OptionsBuilder base = Options.builder()
-                .safe(SafeMode.UNSAFE)
-                .backend(slider.backend())
-                .inPlace(false)
-                .toDir(configuration.getTargetDirectory().toFile())
-                .mkDirs(true)
-                .toFile(toOutputPath().toFile())
-                .baseDir(configuration.getSource().getParent().toAbsolutePath().normalize().toFile())
-                .attributes(slider.append(attribute).build());
+        final var finalAttributes = slider.append(attributes);
 
         final Path builtInTemplateDir = configuration.getWorkDir().resolve("slides/template." + slider.templateDir());
-        if (configuration.getTemplateDirs() == null) {
-            base.templateDirs(builtInTemplateDir.toFile());
-        } else {
-            base.templateDirs(Stream.of(builtInTemplateDir, configuration.getTemplateDirs()).filter(Files::exists).map(Path::toFile).toArray(File[]::new));
+        return new SlidesRenderer.Rendering(
+                configuration.getSource(), toOutputPath(),
+                configuration.getSource().getParent().toAbsolutePath().normalize(),
+                configuration.getWorkDir(), configuration.getTargetDirectory(),
+                templateDir(slider, builtInTemplateDir), slider.backend(), finalAttributes);
+    }
+
+    private Path templateDir(final Slider slider, final Path builtInTemplateDir) {
+        if (configuration.getTemplateDirs() != null && Files.exists(configuration.getTemplateDirs())) {
+            return configuration.getTemplateDirs();
         }
-        return base.build();
+        return builtInTemplateDir;
     }
 
     private void stage(final Path src, final String outputFolder) {

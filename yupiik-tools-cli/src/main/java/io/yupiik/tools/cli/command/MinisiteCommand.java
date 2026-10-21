@@ -80,7 +80,7 @@ public final class MinisiteCommand {
                                 @Option(value = "preActions", description = "PreAction to execute in properties format (type and configuration as keys, configuration value being properties again).") final List<PreAction> preActions,
                                 @Option(value = "llmChatEnabled", description = "Enable LLM chat on the site.") @Default("false") final boolean llmChatEnabled,
                                 @Option(value = "llmModelId", description = "WebLLM model identifier.") @Default("Llama-3.2-3B-Instruct-q4f16_1-MLC") final String llmModelId,
-                                @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one.") final boolean useYupiikAsciidoc,
+                                @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one (default true, does not need asciidoctorj).") @Default("true") final boolean useYupiikAsciidoc,
                                 @Option(value = "createADefault404Page", description = "If `true` a `404.html` will be generated with the minisite theme - useful on github pages for example.") final boolean createADefault404Page,
                                 @Option(value = "createRobotsTxt", description = "If `true` a `robots.txt` will be generated.") final boolean createRobotsTxt,
                                 @Option(value = "createLlmsTxt", description = "If `true` a `llms.txt` will be generated.") final boolean createLlmsTxt,
@@ -107,7 +107,7 @@ public final class MinisiteCommand {
                 .projectName(name == null ? artifactId : name)
                 .projectArtifactId(artifactId == null ? name : artifactId)
                 .asciidoc(useYupiikAsciidoc ? new YupiikAsciidoc() : new AsciidoctorAsciidoc((conf, fn) -> {
-                    final var asciidoctor = asciidoctorProvider.get(conf, stdout, stderr, workdir, false);
+                    final var asciidoctor = (org.asciidoctor.Asciidoctor) asciidoctorProvider.get(conf, stdout, stderr, workdir, false);
                     fn.apply(asciidoctor);
                     return asciidoctor;
                 }))

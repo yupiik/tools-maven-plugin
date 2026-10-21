@@ -71,6 +71,7 @@
     <dependency>
       <groupId>org.asciidoctor</groupId>
       <artifactId>asciidoctorj</artifactId>
+      <scope>provided</scope>
       <exclusions>
         <exclusion>
           <groupId>org.jruby</groupId>
@@ -81,6 +82,7 @@
     <dependency>
       <groupId>org.jruby</groupId>
       <artifactId>jruby-complete</artifactId>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>

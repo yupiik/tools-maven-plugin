@@ -17,8 +17,10 @@ package io.yupiik.maven.mojo;
 
 import io.yupiik.maven.service.AsciidoctorInstance;
 import io.yupiik.tools.common.http.StaticHttpServer;
+import io.yupiik.tools.slides.JRubySlidesRenderer;
 import io.yupiik.tools.slides.Slides;
 import io.yupiik.tools.slides.SlidesConfiguration;
+import io.yupiik.tools.slides.SlidesRenderer;
 import lombok.Setter;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -36,7 +38,7 @@ public class SlidesMojo extends BaseMojo {
      * While this is likely faster to bootstrap and render it is not as complete as asciidoctor as of today
      * and requires to run at least on Java 17.
      */
-    @Parameter(property = "yupiik.minisite.preferYupiikAsciidoc", defaultValue = "false")
+    @Parameter(property = "yupiik.slides.preferYupiikAsciidoc", defaultValue = "false")
     private boolean preferYupiikAsciidoc;
 
     /**
@@ -110,16 +112,55 @@ public class SlidesMojo extends BaseMojo {
 
     @Override
     public void doExecute() {
-        asciidoctor.withAsciidoc(this, asciidoctor -> {
-            new Slides(createBaseConfiguration().asciidoctor(asciidoctor).build()) {
-                @Override
-                protected void onFirstRender(final StaticHttpServer server) {
-                    super.onFirstRender(server);
-                    SlidesMojo.this.onFirstRender(server);
+        if (preferYupiikAsciidoc) {
+            final var renderer = createYupiikRenderer();
+            if (renderer != null) {
+                try (renderer) {
+                    runWithRenderer(renderer);
                 }
-            }.run();
+                return;
+            }
+        }
+        asciidoctor.withAsciidoc(this, adoc -> {
+            runWithRenderer(new JRubySlidesRenderer(adoc));
             return null;
         });
+    }
+
+    private void runWithRenderer(final SlidesRenderer renderer) {
+        new Slides(createBaseConfiguration().renderer(renderer).build()) {
+            @Override
+            protected void onFirstRender(final StaticHttpServer server) {
+                super.onFirstRender(server);
+                SlidesMojo.this.onFirstRender(server);
+            }
+        }.run();
+    }
+
+    /**
+     * Tries to load the pure java slides renderer. Returns null (and warns) if it is not on the
+     * classpath (eg. asciidoc-java missing), mirroring {@link MiniSiteMojo#createAsciidoc}.
+     */
+    protected SlidesRenderer createYupiikRenderer() {
+        try {
+            return SlidesMojo.class.getClassLoader()
+                    .loadClass("io.yupiik.tools.slides.YupiikSlidesRenderer")
+                    .asSubclass(SlidesRenderer.class)
+                    .getConstructor()
+                    .newInstance();
+        } catch (final Error | Exception cnfe) {
+            getLog().warn("Can't use asciidoctor-java for slides, switching to asciidoctorj over JRuby,\n" +
+                    "if you want this behavior add as yupiik-tools-maven-plugin the following dependency and ensure to run on java >= 17:\n" +
+                    "\n" +
+                    " <dependencies>\n" +
+                    "   <dependency>\n" +
+                    "     <groupId>io.yupiik.maven</groupId>\n" +
+                    "     <artifactId>asciidoc-java</artifactId>\n" +
+                    "     <version>${yupiik-tools.version}</version>\n" +
+                    "   </dependency>\n" +
+                    " </dependencies>", cnfe);
+            return null;
+        }
     }
 
     protected SlidesConfiguration.SlidesConfigurationBuilder createBaseConfiguration() {

@@ -20,7 +20,6 @@ import io.yupiik.tools.slides.slider.EnrichedBespokeSlider;
 import io.yupiik.tools.slides.slider.RevealjsSlider;
 import io.yupiik.tools.slides.slider.Slider;
 import lombok.*;
-import org.asciidoctor.Asciidoctor;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -49,7 +48,7 @@ public class SlidesConfiguration {
     private Map<String, Object> attributes;
     private List<Synchronization> synchronizationFolders;
     private int watchDelay;
-    private Asciidoctor asciidoctor;
+    private SlidesRenderer renderer;
     private Consumer<String> logInfo;
     private Consumer<String> logDebug;
     private BiConsumer<String, Throwable> logDebugWithException;
