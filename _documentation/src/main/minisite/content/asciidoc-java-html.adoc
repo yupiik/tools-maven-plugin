@@ -2,6 +2,11 @@
 
 `AsciidoctorLikeHtmlRenderer` renders the model the parser gives (see xref:asciidoc-java.adoc[Asciidoc Java]) as the HTML asciidoctor writes, so asciidoctor's stylesheet and the minisite themes apply to the output without changes.
 Byte-for-byte equality with asciidoctor is not a goal; the structure and the classes are.
+The role and the id of a block go on the block element, as in asciidoctor: `[source,xml,role=primary]` gives `<div class="listingblock primary">`.
+The `supportDataAttributes` option adds the `data-` attributes of the block there too.
+A stylesheet or a script written for asciidoctor's output, such as the tabs of the Quarkus guides, then selects the block as `.listingblock.primary`.
+A code block is wrapped in `<pre class="highlightjs highlight"><code class="language-<lang> hljs">`, and in `<code class="hljs">` when a `[listing]` block has no language.
+Asciidoctor writes a bare `<pre>` there; the renderer keeps the `<code>` tag because the minisite theme selects `pre > code` for its copy button and its highlighting.
 
 == Usage
 

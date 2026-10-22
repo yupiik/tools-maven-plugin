@@ -5301,9 +5301,9 @@ class AsciidoctorLikeHtmlRendererTest {
                         "      </tbody>\n" +
                         "  </table>\n" +
                         " </div>\n" +
-                        " <div class=\"listingblock\">\n" +
+                        " <div class=\"listingblock\" id=\"main\">\n" +
                         " <div class=\"content\">\n" +
-                        " <pre class=\"highlightjs highlight\"><code class=\"language-java hljs\" id=\"main\" data-lang=\"java\">run();\n" +
+                        " <pre class=\"highlightjs highlight\"><code class=\"language-java hljs\" data-lang=\"java\">run();\n" +
                         "</code></pre>\n" +
                         " </div>\n" +
                         " </div>\n" +
@@ -5906,6 +5906,106 @@ class AsciidoctorLikeHtmlRendererTest {
     @Test
     void textWithAColonAndBracketsIsNotAMacro() { // 'Time' used to be read as a macro name, so the default mode failed on the line
         assertRenderingContent("Time: 10:00 [foo] bar", " <div class=\"paragraph\">\n <p>\nTime: 10:00 [foo] bar\n </p>\n </div>\n");
+    }
+
+    @Test
+    void codeBlockRoleOnTheListingBlock() { // asciidoctor writes the role and the id on the block, not on <code>; a [listing] without a language keeps <code class="hljs"> for the minisite copy button
+        assertRenderingContent("""
+                        [source,xml,role="primary asciidoc-tabs-target-sync-cli"]
+                        ----
+                        <a/>
+                        ----
+
+                        .Build
+                        [source#build.secondary,gradle]
+                        ----
+                        run()
+                        ----
+
+                        [source,java]
+                        ----
+                        plain();
+                        ----
+
+                        [listing,role=plain-listing]
+                        ----
+                        $ ls
+                        ----
+
+                        [listing%linenums]
+                        ----
+                        $ ls
+                        ----
+
+                        [role=lit]
+                        ....
+                        literal
+                        ....
+                        """,
+                """
+                         <div class="listingblock primary asciidoc-tabs-target-sync-cli">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;a/&gt;
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="listingblock secondary" id="build">
+                          <div class="title">Build</div>
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-gradle hljs" data-lang="gradle">run()
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">plain();
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="listingblock plain-listing">
+                         <div class="content">
+                         <pre class="highlightjs highlight"><code class="hljs">$ ls
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="listingblock">
+                         <div class="content">
+                         <pre class="highlightjs highlight linenums"><code class="hljs" data-linenums="true"><span class="linenums">1</span>$ ls
+                        </code></pre>
+                         </div>
+                         </div>
+                         <div class="literalblock lit">
+                         <div class="content">
+                         <pre>literal</pre>
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void codeBlockDataAttributesOnTheListingBlock() { // supportDataAttributes, true by default, forwards them with the role and the id
+        final var adoc = """
+                [source,java,data-line=3]
+                ----
+                run();
+                ----
+                """;
+        assertRenderingContent(adoc, """
+                 <div class="listingblock" data-line="3">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">run();
+                </code></pre>
+                 </div>
+                 </div>
+                """);
+        assertRenderingContent(adoc, """
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">run();
+                </code></pre>
+                 </div>
+                 </div>
+                """, null, c -> c.setSupportDataAttributes(false));
     }
 
     private void assertRenderingContent(final String adoc, final String html) {

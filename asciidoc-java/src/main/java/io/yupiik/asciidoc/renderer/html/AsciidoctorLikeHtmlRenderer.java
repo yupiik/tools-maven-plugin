@@ -1057,13 +1057,19 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         final var isListing = lang != null || "source".equals(style) || "listing".equals(style);
         if (isListing) {
-            builder.append(" <div class=\"listingblock\">\n");
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "listingblock" + (c == null ? "" : ' ' + c));
+            builder.append(">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
             final var linenums = sibling.hasOption(element.options(), "linenums");
             builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append("\">");
-            builder.append("<code");
-            writeCommonAttributes(element.options(), c -> (lang != null ? "language-" + lang + (c != null ? ' ' + c : "") : c) + " hljs");
+            // the minisite theme selects `pre > code` for its copy button and its highlighting, so a [listing] keeps the tag
+            builder.append("<code class=\"");
+            if (lang != null) {
+                builder.append("language-").append(lang).append(' ');
+            }
+            builder.append("hljs\"");
             if (lang != null) {
                 builder.append(" data-lang=\"").append(lang).append("\"");
             }
@@ -1096,7 +1102,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("</code></pre>\n </div>\n </div>\n");
         } else {
             final var nowrap = sibling.hasOption(element.options(), "nowrap") || state.nowrap;
-            builder.append(" <div class=\"literalblock\">\n");
+            builder.append(" <div");
+            writeCommonAttributes(element.options(), c -> "literalblock" + (c == null ? "" : ' ' + c));
+            builder.append(">\n");
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
             builder.append(" <pre").append(nowrap ? " class=\"nowrap\"" : "").append(">");
