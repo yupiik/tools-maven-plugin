@@ -133,18 +133,24 @@ public class PDFMojo extends BaseMojo {
 
                     @Override
                     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        String name = null;
-                        if (!adocOnly || (name = file.getFileName().toString()).endsWith(".adoc")) {
-                            if (includes != null || excludes != null) {
-                                if (name == null) {
-                                    name = file.getFileName().toString();
-                                }
-                                if (includes != null ? !includes.contains(name) : excludes.contains(name)) {
-                                    getLog().debug("'" + file + "' excluded");
-                                    return super.visitFile(file, attrs);
-                                }
+                        if (!adocOnly || file.getFileName().toString().endsWith(".adoc")) {
+                            final String name = file.getFileName().toString();
+                            // Maven injects an empty list [] when yupiik.pdf.includes/excludes is not
+                            // configured, so an empty list means "no restriction"; otherwise every file
+                            // would be excluded and no PDF produced. Includes wins over excludes.
+                            final boolean accept;
+                            if (includes != null && !includes.isEmpty()) {
+                                accept = includes.contains(name);
+                            } else if (excludes != null && !excludes.isEmpty()) {
+                                accept = !excludes.contains(name);
+                            } else {
+                                accept = true;
                             }
-                            onFile.accept(file);
+                            if (accept) {
+                                onFile.accept(file);
+                            } else {
+                                getLog().debug("'" + file + "' excluded");
+                            }
                         }
                         return super.visitFile(file, attrs);
                     }
@@ -159,10 +165,19 @@ public class PDFMojo extends BaseMojo {
 
     private void doRender(final Path src, final Options options, final Asciidoctor adoc) {
         try {
-            options.setToFile(targetDirectory.toPath().toAbsolutePath()
+            final String toFile = targetDirectory.toPath().toAbsolutePath()
                     .resolve(src.getFileName().toString().replaceFirst(".adoc$", ".pdf"))
-                    .toString());
-            adoc.convert(String.join("\n", Files.readAllLines(src)), options);
+                    .toString();
+            options.setToFile(toFile);
+            try {
+                adoc.convert(String.join("\n", Files.readAllLines(src)), options);
+            } catch (final RuntimeException e) {
+                throw new IllegalStateException("PDF conversion failed for '" + src + "': " + e, e);
+            }
+            if (!Files.exists(Path.of(toFile))) {
+                throw new IllegalStateException("PDF was not produced for '" + src + "' at '" + toFile
+                        + "'. The asciidoctor-pdf converter did not run or did not register.");
+            }
             getLog().info("Rendered '" + src.getFileName() + "'");
         } catch (final IOException e) {
             throw new IllegalStateException(e);
