@@ -80,6 +80,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ParserTest {
+    private static final Table.ColumnSpec DEFAULT_COLUMN = new Table.ColumnSpec(1, null, null, 1, null);
+
     @Test
     public void doubleDollarAndQuotingForMacro() {
         final var body = new Parser()
@@ -1341,7 +1343,7 @@ class ParserTest {
                         new Code("run();\n", Map.of("language", "java", "title", " Spaced title "), false, List.of()),
                         new Table(
                                 List.of(List.of(new Text(List.of(), "Name", Map.of()), new Text(List.of(), "Value", Map.of()))),
-                                Map.of("role", "configuration-reference", "cols", "1,1")),
+                                Map.of("role", "configuration-reference", "cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN)),
                         new Macro("image", "logo.png", Map.of("", "Quarkus logo", "width", "100"), false)),
                 body.children());
     }
@@ -3211,7 +3213,7 @@ class ParserTest {
                         List.of(
                                 new Text(List.of(), "Cell in column 1, row 3", Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 3", Map.of()))
-                ), Map.of("cols", "1,1"))),
+                ), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 body.children());
     }
 
@@ -3258,7 +3260,7 @@ class ParserTest {
                         List.of(
                                 new Text(List.of(), "Cell in column 1, row 2", Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 2", Map.of()))
-                ), Map.of("cols", "1a,1"))),
+                ), Map.of("cols", "1a,1"), List.of(new Table.ColumnSpec(1, null, null, 1, "a"), DEFAULT_COLUMN))),
                 new Parser().parseBody(new Reader(table), null).children());
         assertEquals( // keep-paragraphs=false gives the model of the versions before it
                 List.of(new Table(List.of(
@@ -3271,7 +3273,7 @@ class ParserTest {
                         List.of(
                                 new Text(List.of(), "Cell in column 1, row 2", Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 2", Map.of()))
-                ), Map.of("cols", "1a,1"))),
+                ), Map.of("cols", "1a,1"), List.of(new Table.ColumnSpec(1, null, null, 1, "a"), DEFAULT_COLUMN))),
                 new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(table), null).children());
     }
 
@@ -3298,7 +3300,7 @@ class ParserTest {
                         List.of(
                                 new Text(List.of(), "Cell in column 1, row 3", Map.of()),
                                 new Text(List.of(), "Cell in column 2, row 3", Map.of()))
-                ), Map.of("cols", "1,1"))),
+                ), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 body.children());
     }
 
@@ -3321,7 +3323,7 @@ class ParserTest {
                         List.of(
                                 new Text(List.of(), "Blue", Map.of()),
                                 new Text(List.of(), "fish | turtle", Map.of()))
-                ), Map.of("cols", "1,1"))),
+                ), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 body.children());
     }
 
@@ -3387,7 +3389,7 @@ class ParserTest {
                                 new Text(List.of(), "Row header", Map.of("role", "header")),
                                 new Text(List.of(), "plain", Map.of()),
                                 new Text(List.of(BOLD), "default", Map.of()))
-                ), Map.of("cols", "3*"))),
+                ), Map.of("cols", "3*"), List.of(new Table.ColumnSpec(3, null, null, 1, null)))),
                 body.children());
     }
 
@@ -3409,7 +3411,80 @@ class ParserTest {
                                 new Text(List.of(), "same", Map.of()),
                                 new Text(List.of(), "same", Map.of()),
                                 new Text(List.of(), "same", Map.of()))
-                ), Map.of("cols", "3*"))),
+                ), Map.of("cols", "3*"), List.of(new Table.ColumnSpec(3, null, null, 1, null)))),
+                body.children());
+    }
+
+    @Test
+    void parseColumnSpecs() { // asciidoctor's ColumnSpecRx: [multiplier*][<^>][.<^>][width][style], a record which is not one is dropped
+        final var parser = new Parser();
+        assertEquals(List.of(new Table.ColumnSpec(3, null, null, 1, null)), parser.parseColumnSpecs("3")); // as 3*
+        assertEquals(List.of(new Table.ColumnSpec(1, null, null, 3, null)), parser.parseColumnSpecs("03"));
+        assertEquals(List.of(), parser.parseColumnSpecs(""));
+        assertEquals(List.of(), parser.parseColumnSpecs("0"));
+        assertEquals(List.of(DEFAULT_COLUMN), parser.parseColumnSpecs("0*1,1")); // asciidoctor: no column for 0*1
+        assertEquals(List.of(new Table.ColumnSpec(1, "center", null, 1, null), DEFAULT_COLUMN), parser.parseColumnSpecs("^.,1")); // the vertical marker after the dot is optional in asciidoctor
+        assertEquals(List.of(new Table.ColumnSpec(1, "center", null, 10, null), new Table.ColumnSpec(1, null, null, 90, null)), parser.parseColumnSpecs("^.10,90"));
+        assertEquals(List.of(DEFAULT_COLUMN, new Table.ColumnSpec(1, null, null, 2, null)), parser.parseColumnSpecs("1;2"));
+        assertEquals(List.of(new Table.ColumnSpec(2, null, null, 1, null), DEFAULT_COLUMN), parser.parseColumnSpecs("2*;1"));
+        assertEquals(
+                List.of(new Table.ColumnSpec(1, null, "middle", 10, null), new Table.ColumnSpec(1, null, null, 90, null)),
+                parser.parseColumnSpecs(".^10,90"));
+        assertEquals(
+                List.of(
+                        new Table.ColumnSpec(2, "center", "middle", 10, "a"),
+                        new Table.ColumnSpec(1, null, null, Table.ColumnSpec.AUTOWIDTH, null),
+                        new Table.ColumnSpec(1, null, null, 15, null),
+                        new Table.ColumnSpec(1, "right", "top", 1, null), // v is a letter, not a style of asciidoctor 2
+                        DEFAULT_COLUMN),
+                parser.parseColumnSpecs("2*^.^10a, ~,15%,>.<v,foo,1^,"));
+    }
+
+    @Test
+    void tableColumnOfACell() { // a multiplier covers as many columns, and the parser fills the cells by column count
+        final var table = (Table) new Parser().parseBody(new Reader(List.of("""
+                [cols="2*^.^10a,>90"]
+                |===
+                |a
+                |b
+                |c
+                |d
+                |===
+                """.split("\n"))), null).children().get(0);
+        assertEquals(List.of(new Table.ColumnSpec(2, "center", "middle", 10, "a"), new Table.ColumnSpec(1, "right", null, 90, null)), table.columns());
+        assertEquals(table.columns().get(0), table.column(0));
+        assertEquals(table.columns().get(0), table.column(1));
+        assertEquals(table.columns().get(1), table.column(2));
+        assertNull(table.column(3));
+        assertEquals(2, table.elements().size(), "three columns, so the four cells make two rows");
+        assertEquals(3, table.elements().get(0).size());
+        assertEquals(1, table.elements().get(1).size());
+        assertEquals(Map.of("cols", "2*^.^10a,>90"), table.options());
+
+        final var legacy = new Table(table.elements(), table.options());
+        assertEquals(List.of(), legacy.columns());
+        assertNull(legacy.column(0));
+        assertEquals(List.of(), new Table(table.elements(), table.options(), null).columns());
+    }
+
+    @Test
+    void tableColumnSpecifierStyles() { // the style letter follows the alignment and the width of a column specifier
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [cols="^.^10m,90a"]
+                |===
+
+                |port |The *HTTP* port
+                |===
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Table(List.of(
+                        List.of(
+                                new Code("port", Map.of(), true, List.of()),
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "The ", Map.of()),
+                                        new Text(List.of(BOLD), "HTTP", Map.of()),
+                                        new Text(List.of(), " port", Map.of())), Map.of()))
+                ), Map.of("noheader-option", "", "cols", "^.^10m,90a"), List.of(new Table.ColumnSpec(1, "center", "middle", 10, "m"), new Table.ColumnSpec(1, null, null, 90, "a")))),
                 body.children());
     }
 
@@ -3428,7 +3503,7 @@ class ParserTest {
                         List.of(new Text(List.of(), "data", Map.of()), new Text(List.of(), "x", Map.of())),
                         List.of(new Text(List.of(), "this is", Map.of()), new Text(List.of(BOLD), "b", Map.of())),
                         List.of(new Text(List.of(), "x a|y", Map.of()), new Text(List.of(), "z", Map.of()))
-                ), Map.of("cols", "2*"))),
+                ), Map.of("cols", "2*"), List.of(new Table.ColumnSpec(2, null, null, 1, null)))),
                 body.children());
     }
 
@@ -3475,7 +3550,7 @@ class ParserTest {
                                                 new Text(List.of(), "one", Map.of()),
                                                 new Text(List.of(), "two", Map.of())), Map.of())), Map.of("role", "description"))), Map.of()),
                                 new Text(List.of(), "int", Map.of()))
-                ), Map.of("cols", "2,1", "noheader-option", ""))),
+                ), Map.of("cols", "2,1", "noheader-option", ""), List.of(new Table.ColumnSpec(1, null, null, 2, null), DEFAULT_COLUMN))),
                 new Parser().parseBody(new Reader(table), null).children());
         assertEquals( // keep-paragraphs=false gives the model of the versions before it
                 List.of(new Table(List.of(
@@ -3494,7 +3569,7 @@ class ParserTest {
                                                 new Text(List.of(), "one", Map.of()),
                                                 new Text(List.of(), "two", Map.of())), Map.of())), Map.of("role", "description"))), Map.of()),
                                 new Text(List.of(), "int", Map.of()))
-                ), Map.of("cols", "2,1", "noheader-option", ""))),
+                ), Map.of("cols", "2,1", "noheader-option", ""), List.of(new Table.ColumnSpec(1, null, null, 2, null), DEFAULT_COLUMN))),
                 new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(table), null).children());
     }
 
@@ -3514,7 +3589,7 @@ class ParserTest {
                                 new Text(List.of(), "x", Map.of()),
                                 new Text(List.of(), "y", Map.of())),
                         List.of(new Text(List.of(), "z", Map.of()), new Text(List.of(), "w", Map.of()))
-                ), Map.of("cols", "3*"))),
+                ), Map.of("cols", "3*"), List.of(new Table.ColumnSpec(3, null, null, 1, null)))),
                 body.children());
     }
 
@@ -3538,13 +3613,13 @@ class ParserTest {
         final List<Element> postgresql = List.of(new Text(List.of(), "postgresql", Map.of()), new Text(List.of(), "PgDriver", Map.of()));
         final List<Element> db2 = List.of(new Text(List.of(), "db2", Map.of()), new Text(List.of(), "DB2Driver", Map.of()));
         assertEquals( // the attribute of the parser hides the row
-                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"))),
+                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 new Parser(Map.of("no-db2", "")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
         assertEquals( // an attribute entry before the table hides the row
-                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"))),
+                List.of(new Table(List.of(header, postgresql), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 new Parser().parseBody(new Reader(List.of((":no-db2:\n\n" + table).split("\n"))), null).children());
         assertEquals( // the attribute is not set: the row stays, without the directive lines
-                List.of(new Table(List.of(header, postgresql, db2), Map.of("cols", "1,1"))),
+                List.of(new Table(List.of(header, postgresql, db2), Map.of("cols", "1,1"), List.of(DEFAULT_COLUMN, DEFAULT_COLUMN))),
                 new Parser().parseBody(new Reader(List.of(table.split("\n"))), null).children());
     }
 
@@ -3667,12 +3742,12 @@ class ParserTest {
         assertEquals(
                 List.of(new Table(List.of(
                         List.<Element>of(new Text(List.of(), "Before shown after", Map.of()), second),
-                        third), Map.of("cols", "1a,1"))),
+                        third), Map.of("cols", "1a,1"), List.of(new Table.ColumnSpec(1, null, null, 1, "a"), DEFAULT_COLUMN))),
                 new Parser(Map.of("foo", "")).parseBody(new Reader(List.of(table.split("\n"))), null).children());
         assertEquals(
                 List.of(new Table(List.of(
                         List.<Element>of(new Text(List.of(), "Before after", Map.of()), second),
-                        third), Map.of("cols", "1a,1"))),
+                        third), Map.of("cols", "1a,1"), List.of(new Table.ColumnSpec(1, null, null, 1, "a"), DEFAULT_COLUMN))),
                 new Parser().parseBody(new Reader(List.of(table.split("\n"))), null).children());
     }
 
@@ -3689,7 +3764,7 @@ class ParserTest {
         assertEquals(
                 List.of(new Table(List.of(List.of(new UnOrderedList(List.of(
                         new Text(List.of(), "one", Map.of()),
-                        new Text(List.of(), "two", Map.of())), Map.of("colspan", "2")))), Map.of("cols", "2*"))),
+                        new Text(List.of(), "two", Map.of())), Map.of("colspan", "2")))), Map.of("cols", "2*"), List.of(new Table.ColumnSpec(2, null, null, 1, null)))),
                 body.children());
     }
 

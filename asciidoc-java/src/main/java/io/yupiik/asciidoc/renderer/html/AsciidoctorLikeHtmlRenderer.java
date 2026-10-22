@@ -80,7 +80,6 @@ import static io.yupiik.asciidoc.model.Element.ElementType.UNORDERED_LIST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ROOT;
 import static java.util.Map.entry;
-import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
@@ -1182,20 +1181,36 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
         if (!element.elements().isEmpty()) { // has row(s)
             final var firstRow = element.elements().get(0);
-            final var cols = ofNullable(element.options().get("cols"))
-                    .map(it -> Stream.of(it.split(",")).map(this::extractNumbers).toList())
-                    .orElse(List.of());
-            final var haligns = ofNullable(element.options().get("cols"))
-                    .map(it -> Stream.of(it.split(",")).map(String::strip).map(this::extractAlignment).toList())
-                    .orElse(List.of());
+            final var columns = element.columns();
 
             builder.append("  <colgroup>\n");
             if (autowidth) {
                 IntStream.range(0, firstRow.size()).forEach(i -> builder.append("   <col>\n"));
             } else {
-                final int totalWeight = cols.stream().mapToInt(Integer::intValue).sum();
-                final int pc = (int) (100. / Math.max(1, totalWeight));
-                IntStream.range(0, cols.size()).forEach(i -> builder.append("   <col style=\"width: ").append(cols.get(i) * pc).append("%;\">\n"));
+                long totalWidth = 0;
+                int columnCount = 0;
+                boolean autowidthColumn = false;
+                for (final var column : columns) {
+                    columnCount += column.multiplier();
+                    if (column.width() == Table.ColumnSpec.AUTOWIDTH) {
+                        autowidthColumn = true;
+                    } else {
+                        totalWidth += (long) column.width() * column.multiplier();
+                    }
+                }
+                for (final var column : columns) {
+                    for (int i = 0; i < column.multiplier(); i++) {
+                        if (column.width() == Table.ColumnSpec.AUTOWIDTH) {
+                            builder.append("   <col>\n");
+                        } else {
+                            // as asciidoctor: next to an autowidth column (~) widths summing to 100 at most are percentages,
+                            // else each width is its share of their sum, and widths which are all zero spread the table evenly
+                            final int width = autowidthColumn && totalWidth <= 100 ? column.width() :
+                                    totalWidth == 0 ? 100 / columnCount : (int) (100L * column.width() / totalWidth);
+                            builder.append("   <col style=\"width: ").append(width).append("%;\">\n");
+                        }
+                    }
+                }
             }
             builder.append("  </colgroup>\n");
 
@@ -1207,8 +1222,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                 state.inTableHeaderRow = true;
                 int colIdx = 0;
                 for (final var it : firstRow) {
-                    final var halign = cellHalign(it, colIdx, haligns);
-                    writeTableCell("th", it, halign, "halign-" + halign);
+                    final var column = element.column(colIdx);
+                    final var halign = cellHalign(it, column);
+                    writeTableCell("th", it, halign, alignmentClasses(halign, cellValign(it, column)));
                     colIdx++;
                 }
                 state.inTableHeaderRow = inTableHeaderRow;
@@ -1223,8 +1239,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
                     builder.append("   <tr>\n");
                     int colIdx = 0;
                     for (final var col : row) {
-                        final var halign = cellHalign(col, colIdx, haligns);
-                        writeTableCell("header".equals(getCellOptions(col).get("role")) ? "th" : "td", col, halign, "halign-" + halign);
+                        final var column = element.column(colIdx);
+                        final var halign = cellHalign(col, column);
+                        writeTableCell("header".equals(getCellOptions(col).get("role")) ? "th" : "td", col, halign, alignmentClasses(halign, cellValign(col, column)));
                         colIdx++;
                     }
                     builder.append("   </tr>\n");
@@ -2007,17 +2024,23 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         }
     }
 
+    /**
+     * Writes a cell, {@code baseClass} holding its alignment classes ({@code halign-left valign-middle}) from its
+     * specifier or its column, see {@link #alignmentClasses(String, String)}; {@code halign} is the horizontal one
+     * alone, kept for the subclasses which compose their own classes, and the vertical alignment of the cell
+     * specifier is added when {@code baseClass} has none, as before.
+     */
     protected void writeTableCell(final String tagName, final Element cell,
                                   final String halign, final String baseClass) {
         final var cellOptions = getCellOptions(cell);
-        final var valign = cellOptions.get("valign");
         final var colspan = cellOptions.get("colspan");
         final var rowspan = cellOptions.get("rowspan");
-        var classes = "tableblock " + baseClass;
-        if (valign != null) {
-            classes += " valign-" + valign;
+        final var valign = cellOptions.get("valign");
+        builder.append("    <").append(tagName).append(" class=\"tableblock ").append(baseClass);
+        if (valign != null && (baseClass == null || !baseClass.contains("valign-"))) {
+            builder.append(" valign-").append(valign);
         }
-        builder.append("    <").append(tagName).append(" class=\"").append(classes).append("\"");
+        builder.append('"');
         if (colspan != null) {
             builder.append(" colspan=\"").append(colspan).append('"');
         }
@@ -2144,13 +2167,39 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         return copy;
     }
 
-    // the alignment of the cell specifier (^|), else the one of the column (cols="^")
-    private String cellHalign(final Element cell, final int column, final List<String> columnHaligns) {
+    /**
+     * @param cell   a cell.
+     * @param column the specifier of its column, {@link Table#column(int)}, {@code null} when the table has none for it.
+     * @return the horizontal alignment of the cell specifier ({@code ^|}), else the one of the column ({@code cols="^"}), else {@code left}.
+     */
+    protected String cellHalign(final Element cell, final Table.ColumnSpec column) {
         final var halign = getCellOptions(cell).get("halign");
         if (halign != null) {
             return halign;
         }
-        return column < columnHaligns.size() ? columnHaligns.get(column) : "left";
+        return column == null || column.halign() == null ? "left" : column.halign();
+    }
+
+    /**
+     * @param cell   a cell.
+     * @param column the specifier of its column, {@link Table#column(int)}, {@code null} when the table has none for it.
+     * @return the vertical alignment of the cell specifier ({@code .^|}), else the one of the column ({@code cols=".^"}), {@code null} for none.
+     */
+    protected String cellValign(final Element cell, final Table.ColumnSpec column) {
+        final var valign = getCellOptions(cell).get("valign");
+        if (valign != null) {
+            return valign;
+        }
+        return column == null ? null : column.valign();
+    }
+
+    /**
+     * @param halign the horizontal alignment of a cell, {@link #cellHalign(Element, Table.ColumnSpec)}.
+     * @param valign the vertical one, {@link #cellValign(Element, Table.ColumnSpec)}, {@code null} for none.
+     * @return the alignment classes of the cell, {@code halign-left} or {@code halign-left valign-middle}.
+     */
+    protected String alignmentClasses(final String halign, final String valign) {
+        return valign == null ? "halign-" + halign : "halign-" + halign + " valign-" + valign;
     }
 
     // the parser puts the span, the alignment and the style of a cell in the options of its element, whatever it is
@@ -2432,31 +2481,6 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         fontHandler = null;
         if (resolver != null) {
             resolver.close();
-        }
-    }
-
-    private String extractAlignment(final String col) {
-        if (col.contains("^")) {
-            return "center";
-        }
-        if (col.contains(">")) {
-            return "right";
-        }
-        return "left";
-    }
-
-    private int extractNumbers(final String col) {
-        int i = 0;
-        while (col.length() > i && Character.isDigit(col.charAt(i))) {
-            i++;
-        }
-        try {
-            if (i == 0) {
-                return 1;
-            }
-            return Integer.parseInt(col.substring(0, i));
-        } catch (final NumberFormatException nfe) {
-            return 1;
         }
     }
 

@@ -8,6 +8,7 @@ This page is for the developer who reads the model, extends a renderer or writes
 `Parser.parse` returns a `Document`: a `Header` (the title, the authors, the revision and the attribute entries) and a `Body`, the list of its elements.
 Every element is a record of `io.yupiik.asciidoc.model` implementing `Element`: `Section`, `Paragraph`, `Text`, `Code`, `Listing`, `Link`, `Macro`, `Anchor`, `UnOrderedList`, `OrderedList`, `DescriptionList`, `Table`, `Admonition`, `Quote`, `OpenBlock`, `PassthroughBlock`, `ConditionalBlock`, `FloatingTitle`, `Attribute`, `LineBreak`, `PageBreak` and `HorizontalRule`. `Author` and `Revision` belong to the `Header`, and a `CallOut` holds the number and the text of one callout of a `Code` block.
 A record carries data only: the parser reads the source once, and the renderers read the model without parsing again.
+For example a `Table` holds its rows, its attributes and, read from `cols`, the specifier of each column (`Table.ColumnSpec`: the multiplier, the alignments, the width and the style letter, as written), and `Table.column(index)` gives the specifier of a column, a multiplier covering as many columns; a `Table` built with the two-argument constructor has no column specifiers and renders as a table without `cols`.
 Includes are resolved by the parser, so the model holds the included elements and never an `include` macro.
 Conditionals stay in the model as `ConditionalBlock` elements, and each renderer writes the branch that holds with the attributes it knows.
 

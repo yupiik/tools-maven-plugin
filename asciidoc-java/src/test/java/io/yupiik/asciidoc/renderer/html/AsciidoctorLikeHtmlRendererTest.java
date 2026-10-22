@@ -22,6 +22,7 @@ import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Macro;
+import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
@@ -4240,6 +4241,306 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void tableColumnVerticalAlignment() { // the generated configuration tables: in cols="80,.^10,.^10" the .^ is a vertical alignment and 10 the width
+        assertRenderingContent("""
+                [.configuration-reference.searchable, cols="80,.^10,.^10"]
+                |===
+
+                h|Configuration property
+                h|Type
+                h|Default
+
+                a|[[quarkus-http-port]] [.property-path]##link:#quarkus-http-port[`quarkus.http.port`]##
+
+                [.description]
+                --
+                The HTTP port.
+                --
+                |int
+                |`8080`
+                |===
+                """, """
+                 <table class="tableblock frame-all grid-all stretch configuration-reference searchable">
+                  <colgroup>
+                   <col style="width: 80%;">
+                   <col style="width: 10%;">
+                   <col style="width: 10%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <th class="tableblock halign-left">
+                <p class="tableblock">
+                Configuration property</p>
+                    </th>
+                    <th class="tableblock halign-left valign-middle">
+                <p class="tableblock">
+                Type</p>
+                    </th>
+                    <th class="tableblock halign-left valign-middle">
+                <p class="tableblock">
+                Default</p>
+                    </th>
+                   </tr>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <div class="content">
+                 <div class="paragraph">
+                <a id="quarkus-http-port"></a>
+                  <a href="#quarkus-http-port" class="property-path"><code>quarkus.http.port</code></a>
+                 </div>
+                 <div class="openblock description">
+                  <div class="content description">
+                The HTTP port.  </div>
+                 </div>
+                </div>
+                    </td>
+                    <td class="tableblock halign-left valign-middle">
+                <p class="tableblock">
+                int</p>
+                    </td>
+                    <td class="tableblock halign-left valign-middle">
+                <p class="tableblock">
+                <code>8080</code></p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableBuiltWithoutColumns() { // a Table built with the two-argument constructor, as before the column specifiers, renders as a table without cols
+        final var parsed = (Table) new Parser().parseBody(new Reader(List.of("""
+                [cols="^.^10,>90"]
+                |===
+
+                |a |b
+                |===
+                """.split("\n"))), null).children().get(0);
+        final var legacy = new Table(parsed.elements(), parsed.options());
+        assertEquals(Map.of("cols", "^.^10,>90", "noheader-option", ""), legacy.options());
+        assertEquals(List.of(), legacy.columns());
+
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        renderer.visitBody(new Body(List.of(legacy)));
+        assertEquals("""
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                a</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                b</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """, renderer.result());
+
+        final var withColumns = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration().setAttributes(Map.of("noheader", "true")));
+        withColumns.visitBody(new Body(List.of(parsed)));
+        assertEquals("""
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 10%;">
+                   <col style="width: 90%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-center valign-middle">
+                <p class="tableblock">
+                a</p>
+                    </td>
+                    <td class="tableblock halign-right">
+                <p class="tableblock">
+                b</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """, withColumns.result());
+    }
+
+    @Test
+    void tableCellAlignmentOverridesColumnAlignment() { // cols=".^,>.<" aligns the cells of each column, the specifier of a cell (^.>|, <|) wins
+        assertRenderingContent("""
+                [cols=".^,>.<"]
+                |===
+                |Name |Value
+
+                ^.>|port <|8080
+                |===
+                """, """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-left valign-middle">
+                Name    </th>
+                    <th class="tableblock halign-right valign-top">
+                Value    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-center valign-bottom">
+                <p class="tableblock">
+                port</p>
+                    </td>
+                    <td class="tableblock halign-left valign-top">
+                <p class="tableblock">
+                8080</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableColumnMultiplierAlignment() { // cols="3*^" is three centered columns, not one column holding the alignment
+        assertRenderingContent("""
+                [cols="3*^"]
+                |===
+                |A |B |C
+
+                |1 |2 |3
+                |===
+                """, """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 33%;">
+                   <col style="width: 33%;">
+                   <col style="width: 33%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-center">
+                A    </th>
+                    <th class="tableblock halign-center">
+                B    </th>
+                    <th class="tableblock halign-center">
+                C    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-center">
+                <p class="tableblock">
+                1</p>
+                    </td>
+                    <td class="tableblock halign-center">
+                <p class="tableblock">
+                2</p>
+                    </td>
+                    <td class="tableblock halign-center">
+                <p class="tableblock">
+                3</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableAutowidthColumn() { // cols="~,1": as asciidoctor, the ~ column has no width and the other widths are percentages
+        assertRenderingContent("""
+                [cols="~,1"]
+                |===
+                |Name |Description
+
+                |port |The HTTP port
+                |===
+                """, """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col>
+                   <col style="width: 1%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-left">
+                Name    </th>
+                    <th class="tableblock halign-left">
+                Description    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                port</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                The HTTP port</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
+    void tableColumnWidthsAreSharesOfTheirSum() { // as asciidoctor: 15%,15% is two halves, all-zero widths spread evenly, and next to a ~ column widths summing above 100 are shares too
+        final var twoHalves = """
+                  <colgroup>
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                a</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                b</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """;
+        assertRenderingContent("[cols=\"15%,15%\"]\n|===\n\n|a |b\n|===\n", " <table class=\"tableblock frame-all grid-all stretch\">\n" + twoHalves);
+        assertRenderingContent("[cols=\"0,0\"]\n|===\n\n|a |b\n|===\n", " <table class=\"tableblock frame-all grid-all stretch\">\n" + twoHalves);
+        assertRenderingContent("[cols=\"~,60,60\"]\n|===\n\n|a |b |c\n|===\n", """
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col>
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
+                  </colgroup>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                a</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                b</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                c</p>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                """);
+    }
+
+    @Test
     void bibliographyEntry() {
         assertRenderingContent("See [[[ref]]] for details.",
                 " <div class=\"paragraph\">\n" +
@@ -4503,7 +4804,9 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("[cols=\"3*\"]\n|===\n\nh|Name ^|Value .>|Note\n\n2+a|\n* one\n* two\n>|right\n|===", """
                  <table class="tableblock frame-all grid-all stretch">
                   <colgroup>
-                   <col style="width: 99%;">
+                   <col style="width: 33%;">
+                   <col style="width: 33%;">
+                   <col style="width: 33%;">
                   </colgroup>
                   <tbody>
                    <tr>
@@ -4554,7 +4857,8 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("[cols=\"2*\",options=\"noheader\"]\n|===\n|`code` and *bold*\na|NOTE: an admonition\n\n|\nh|link:https://example.com[Example]\n\n|first `code`\n\nsecond *bold*\na|[.myrole]\nSome *text*\n|===", """
                  <table class="tableblock frame-all grid-all stretch">
                   <colgroup>
-                   <col style="width: 100%;">
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
                   </colgroup>
                   <tbody>
                    <tr>
@@ -4614,7 +4918,10 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("[cols=\"4*\",options=\"header\"]\n|===\n^|Centered h|Header style |Name `code` |\n|a |b |c |d\n|===", """
                  <table class="tableblock frame-all grid-all stretch">
                   <colgroup>
-                   <col style="width: 100%;">
+                   <col style="width: 25%;">
+                   <col style="width: 25%;">
+                   <col style="width: 25%;">
+                   <col style="width: 25%;">
                   </colgroup>
                   <thead>
                    <tr>
