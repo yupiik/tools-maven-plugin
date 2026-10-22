@@ -58,7 +58,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -891,9 +890,9 @@ public class Parser {
                              final ContentResolver resolver,
                              final Map<String, String> currentAttributes,
                              final String token) {
-        final var columnStyles = ofNullable(options)
+        final var columns = ofNullable(options)
                 .map(o -> o.get("cols"))
-                .map(this::parseColumnStyles)
+                .map(this::parseColumnSpecs)
                 .orElse(List.of());
 
         final var lines = new ArrayList<String>();
@@ -915,7 +914,7 @@ public class Parser {
             tableOptions.put("noheader-option", "");
         }
 
-        final var cells = new TableCells(enclosingDocument, columnStyles, reader, resolver, currentAttributes);
+        final var cells = new TableCells(enclosingDocument, columns, reader, resolver, currentAttributes);
         int firstLine = 0;
         while (firstLine < lines.size() && lines.get(firstLine).isEmpty()) {
             firstLine++;
@@ -1001,47 +1000,43 @@ public class Parser {
         if (!cells.row.isEmpty()) { // asciidoctor drops an incomplete last row with an error, its cells are kept here
             cells.rows.add(cells.row);
         }
-        return new Table(cells.rows, Map.copyOf(tableOptions));
+        return new Table(cells.rows, Map.copyOf(tableOptions), columns);
     }
 
-    // the style of each column, from the cols attribute: "a" (asciidoc), "e", "s", "l", "m", "h" or "d" (default)
-    private List<String> parseColumnStyles(final String cols) {
+    /**
+     * Reads the {@code cols} attribute of a table as asciidoctor does: its records, separated by commas (or by semicolons
+     * when there is no comma), are column specifiers, see {@link #parseColumnSpec(String)}. A record which is not one is
+     * dropped, as asciidoctor does, and a number alone, {@code cols="3"}, is that many default columns, as {@code 3*}.
+     *
+     * @param cols the value of the {@code cols} attribute.
+     * @return the specifier of each record, in order, each one with its multiplier as written.
+     */
+    protected List<Table.ColumnSpec> parseColumnSpecs(final String cols) {
         final var specs = cols.replace(" ", "");
-        if (!specs.isEmpty() && specs.chars().allMatch(Character::isDigit)) { // cols="3"
-            return Collections.nCopies(Integer.parseInt(specs), "d");
+        if (specs.isEmpty()) {
+            return List.of();
         }
-        final var styles = new ArrayList<String>();
-        for (final var spec : specs.split(specs.contains(",") || !specs.contains(";") ? "," : ";", -1)) {
-            final int star = spec.indexOf('*');
-            final int count = star > 0 && spec.substring(0, star).chars().allMatch(Character::isDigit) ? Integer.parseInt(spec.substring(0, star)) : 1;
-            final var style = columnStyle(count > 1 || star == 0 ? spec.substring(star + 1) : spec);
-            for (int i = 0; i < count; i++) {
-                styles.add(style);
+        if ((specs.length() == 1 || specs.charAt(0) != '0') && digitsEnd(specs, 0) == specs.length()) { // "03" is one column of width 3
+            final int count = Integer.parseInt(specs);
+            return count == 0 ? List.of() : List.of(new Table.ColumnSpec(count, null, null, 1, null));
+        }
+        final var columns = new ArrayList<Table.ColumnSpec>();
+        for (final var record : specs.split(specs.contains(",") ? "," : ";", -1)) {
+            final var column = parseColumnSpec(record);
+            if (column != null && column.multiplier() > 0) { // 0*1 is no column, as asciidoctor
+                columns.add(column);
             }
         }
-        return styles;
+        return columns;
     }
 
-    private String columnStyle(final String spec) {
-        if (spec.contains("a")) {
-            return "a";
+    // the index after the digits at from, from itself when there is none
+    private int digitsEnd(final String value, final int from) {
+        int i = from;
+        while (i < value.length() && Character.isDigit(value.charAt(i))) {
+            i++;
         }
-        if (spec.contains("e")) {
-            return "e";
-        }
-        if (spec.contains("s")) {
-            return "s";
-        }
-        if (spec.contains("l")) {
-            return "l";
-        }
-        if (spec.contains("m")) {
-            return "m";
-        }
-        if (spec.contains("h")) {
-            return "h";
-        }
-        return "d";
+        return i;
     }
 
     private Element parseCell(final Path enclosingDocument, final String style, final List<String> lines, final Reader parent,
@@ -1088,15 +1083,13 @@ public class Parser {
     }
 
     private boolean isSpanOnly(final String value) {
-        int i = value.startsWith(".") ? 1 : 0;
-        final int digits = i;
-        while (i < value.length() && Character.isDigit(value.charAt(i))) {
-            i++;
-        }
+        final int digits = value.startsWith(".") ? 1 : 0;
+        final int i = digitsEnd(value, digits);
         return i > digits && i == value.length() - 1 && value.charAt(i) == '+';
     }
 
-    // asciidoctor cell specifier (CellSpecStartRx): [factor*|colspan.rowspan+][halign][.valign][style], null when the value is not one
+    // a cell specifier, the text before a separator, as asciidoctor reads it: an optional span (2+, .3+, 2.3+) or
+    // multiplier (2*), then the alignments and the style letter, for example 2.3+^.>a; null when the text is not one
     private CellSpec parseCellSpec(final String value) {
         final int length = value.length();
         int colspan = 1;
@@ -1104,17 +1097,11 @@ public class Parser {
         int repeat = 1;
         int i = 0;
 
-        int j = 0;
-        while (j < length && Character.isDigit(value.charAt(j))) {
-            j++;
-        }
+        int j = digitsEnd(value, 0);
         final var first = value.substring(0, j);
         var second = "";
         if (j < length && value.charAt(j) == '.') {
-            int k = j + 1;
-            while (k < length && Character.isDigit(value.charAt(k))) {
-                k++;
-            }
+            final int k = digitsEnd(value, j + 1);
             second = value.substring(j + 1, k);
             j = k;
         }
@@ -1128,29 +1115,99 @@ public class Parser {
             i = j + 1;
         }
 
-        String halign = null;
-        String valign = null;
-        if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
-            halign = alignment(value.charAt(i), "left", "center", "right");
+        final int alignments = i;
+        i = alignmentsEnd(value, alignments);
+        final int alignmentsEnd = i;
+
+        String style = null;
+        if (i < length && value.charAt(i) >= 'a' && value.charAt(i) <= 'z') {
+            style = cellStyle(value.charAt(i));
             i++;
-            if (i < length && value.charAt(i) == '.') {
-                i++;
-                if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
-                    valign = alignment(value.charAt(i), "top", "middle", "bottom");
+        }
+        return i == length ?
+                new CellSpec(colspan, rowspan, repeat, halign(value, alignments, alignmentsEnd), valign(value, alignments, alignmentsEnd), style, false) :
+                null;
+    }
+
+    // a record of cols, as asciidoctor reads it: an optional multiplier (2*), then the alignments, an optional width
+    // (10, 10% or ~ for autowidth) and the style letter, for example 2*^.^10a; null when the record is not one
+    private Table.ColumnSpec parseColumnSpec(final String value) {
+        final int length = value.length();
+        int multiplier = 1;
+        int i = digitsEnd(value, 0);
+        if (i > 0 && i < length && value.charAt(i) == '*') {
+            multiplier = Integer.parseInt(value, 0, i, 10);
+            i++;
+        } else {
+            i = 0; // digits without a star are the width, read after the alignments
+        }
+
+        final int alignments = i;
+        i = alignmentsEnd(value, alignments);
+        final int alignmentsEnd = i;
+
+        int width = 1;
+        if (i < length && value.charAt(i) == '~') {
+            width = Table.ColumnSpec.AUTOWIDTH;
+            i++;
+        } else {
+            final int digits = i;
+            i = digitsEnd(value, digits);
+            if (i > digits) {
+                width = Integer.parseInt(value, digits, i, 10);
+                if (i < length && value.charAt(i) == '%') {
                     i++;
                 }
             }
-        } else if (i + 1 < length && value.charAt(i) == '.' && "<^>".indexOf(value.charAt(i + 1)) >= 0) {
-            valign = alignment(value.charAt(i + 1), "top", "middle", "bottom");
-            i += 2;
         }
 
         String style = null;
         if (i < length && value.charAt(i) >= 'a' && value.charAt(i) <= 'z') {
-            style = "adehlmsv".indexOf(value.charAt(i)) >= 0 ? String.valueOf(value.charAt(i)) : null;
+            style = cellStyle(value.charAt(i));
             i++;
         }
-        return i == length ? new CellSpec(colspan, rowspan, repeat, halign, valign, style, false) : null;
+        return i == length ?
+                new Table.ColumnSpec(multiplier, halign(value, alignments, alignmentsEnd), valign(value, alignments, alignmentsEnd), width, style) :
+                null;
+    }
+
+    // the alignments shared by the cell and the column specifiers, from the index given: the horizontal one (<, ^, >),
+    // the vertical one (.<, .^, .>) or both (^.>); returns the index after them, the alignments themselves being read
+    // from the characters by halign and valign, so a specifier allocates nothing here
+    private int alignmentsEnd(final String value, final int from) {
+        final int length = value.length();
+        int i = from;
+        if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
+            i++;
+            if (i < length && value.charAt(i) == '.') {
+                i++;
+                if (i < length && "<^>".indexOf(value.charAt(i)) >= 0) {
+                    i++;
+                }
+            }
+        } else if (i + 1 < length && value.charAt(i) == '.' && "<^>".indexOf(value.charAt(i + 1)) >= 0) {
+            i += 2;
+        }
+        return i;
+    }
+
+    // the horizontal alignment of the alignments between from and end, null when they set none
+    private String halign(final String value, final int from, final int end) {
+        return from < end && value.charAt(from) != '.' ? alignment(value.charAt(from), "left", "center", "right") : null;
+    }
+
+    // the vertical alignment of the alignments between from and end, the marker after the dot, null when they set none
+    private String valign(final String value, final int from, final int end) {
+        if (end - from < 2) {
+            return null;
+        }
+        final int dot = value.charAt(from) == '.' ? from : from + 1;
+        return dot + 1 < end ? alignment(value.charAt(dot + 1), "top", "middle", "bottom") : null;
+    }
+
+    // asciidoctor's TableCellStyles; another lowercase letter is read but sets no style
+    private String cellStyle(final char letter) {
+        return "adehlms".indexOf(letter) >= 0 ? String.valueOf(letter) : null;
     }
 
     private String alignment(final char marker, final String start, final String center, final String end) {
@@ -1165,7 +1222,7 @@ public class Parser {
     // the cells of a psv table put into rows by column count, as asciidoctor Table::ParserContext does
     private final class TableCells {
         private final Path enclosingDocument;
-        private final List<String> columnStyles;
+        private final List<Table.ColumnSpec> columns;
         private final ContentResolver resolver;
         private final Map<String, String> currentAttributes;
         private final List<List<Element>> rows = new ArrayList<>();
@@ -1175,19 +1232,39 @@ public class Parser {
         private List<Element> row = new ArrayList<>();
         private int columnCount;
         private int columnVisits;
+        private int columnIndex; // the column specifier of the next cell, and the columns of it already filled
+        private int columnUsed;
         private int lineNumber = -1;
         private boolean cellOpen;
 
         private final Reader parent;
 
-        private TableCells(final Path enclosingDocument, final List<String> columnStyles, final Reader parent,
+        private TableCells(final Path enclosingDocument, final List<Table.ColumnSpec> columns, final Reader parent,
                            final ContentResolver resolver, final Map<String, String> currentAttributes) {
             this.parent = parent;
             this.enclosingDocument = enclosingDocument;
-            this.columnStyles = columnStyles;
+            this.columns = columns;
             this.resolver = resolver;
             this.currentAttributes = currentAttributes;
-            this.columnCount = columnStyles.isEmpty() ? -1 : columnStyles.size();
+            int count = 0;
+            for (final var column : columns) {
+                count += column.multiplier();
+            }
+            this.columnCount = count == 0 ? -1 : count;
+        }
+
+        // the specifier of the column the next cell fills, the cells being added in order, null when cols has none for it
+        private Table.ColumnSpec nextColumn() {
+            while (columnIndex < columns.size()) {
+                final var column = columns.get(columnIndex);
+                if (columnUsed < column.multiplier()) {
+                    columnUsed++;
+                    return column;
+                }
+                columnIndex++;
+                columnUsed = 0;
+            }
+            return null;
         }
 
         private void closeOpenCell(final CellSpec next) {
@@ -1203,7 +1280,7 @@ public class Parser {
             buffer.setLength(0);
             final var spec = specs.isEmpty() ? CellSpec.NONE : specs.poll(); // no leading separator: asciidoctor recovers the same way
             for (int i = 1; i <= spec.repeat(); i++) {
-                row.add(createCell(text, spec, row.size()));
+                row.add(createCell(text, spec, nextColumn()));
                 if (spec.rowspan() > 1 && !spec.legacy()) {
                     for (int r = 1; r < spec.rowspan(); r++) {
                         while (activeRowspans.size() <= r) {
@@ -1220,6 +1297,8 @@ public class Parser {
                         columnCount = columnVisits;
                     }
                     columnVisits = 0;
+                    columnIndex = 0;
+                    columnUsed = 0;
                     row = new ArrayList<>();
                     activeRowspans.remove(0);
                     if (activeRowspans.isEmpty()) {
@@ -1230,8 +1309,8 @@ public class Parser {
             cellOpen = false;
         }
 
-        private Element createCell(final String text, final CellSpec spec, final int column) {
-            final var style = spec.style() != null ? spec.style() : (column < columnStyles.size() ? columnStyles.get(column) : null);
+        private Element createCell(final String text, final CellSpec spec, final Table.ColumnSpec column) {
+            final var style = spec.style() != null ? spec.style() : (column == null ? null : column.style());
             final String content;
             if ("a".equals(style) || "l".equals(style)) { // as asciidoctor: the leading line feeds go, the indentation of the first line stays
                 final var trailingStripped = text.stripTrailing();
@@ -1338,13 +1417,10 @@ public class Parser {
 
         final var hasAlignment = alignmentOptions.stream().anyMatch(Predicate.not(String::isEmpty));
         final var tableOptions = new LinkedHashMap<>(options == null ? Map.of() : options);
-        if (hasAlignment) {
-            tableOptions.put("cols", String.join(",", alignmentOptions));
-        } else {
-            tableOptions.put("cols", Stream.generate(() -> "1").limit(numCols).collect(joining(",")));
-        }
+        final var cols = hasAlignment ? String.join(",", alignmentOptions) : Stream.generate(() -> "1").limit(numCols).collect(joining(","));
+        tableOptions.put("cols", cols);
         tableOptions.put("header-option", "");
-        return new Table(rows, Map.copyOf(tableOptions));
+        return new Table(rows, Map.copyOf(tableOptions), parseColumnSpecs(cols));
     }
 
     private List<String> parsePipeRow(final String line) {

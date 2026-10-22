@@ -76,7 +76,7 @@ With an empty `:idprefix:` and `:idseparator: -`, `== Vert.x and the Getting-sta
 == Tables
 
 * Tables (`|===`) with cell specifiers before `|`: a span (`2+`, `.2+` or `2.3+`), a duplication factor (`3*`), an alignment (`^`, `>` or `.^`) and a style (`a`, `d`, `e`, `h`, `l`, `m` or `s`), at the start of a line or after a blank. The cells are put into rows by column count.
-* The header option, `autowidth`, `stripes` and the column alignments of `cols`.
+* The header option, `autowidth`, `stripes` and the column specifiers of `cols`, read as in asciidoctor: a multiplier (`3*`), a horizontal alignment (`<`, `^` or `>`), a vertical alignment (`.<`, `.^` or `.>`), a width (`10`, `10%` or `~` for an autowidth column) and a style letter, in that order, so `cols="80,.^10,.^10"` is three columns of widths 80%, 10% and 10% whose two last columns center their cells vertically (`valign-middle`). A specifier that does not have this form is dropped, as asciidoctor does.
 * Markdown pipe tables (`|---|`).
 * A conditional inside a table is evaluated while the rows are read, see <<_includes_and_conditionals,Includes and conditionals>>.
 
