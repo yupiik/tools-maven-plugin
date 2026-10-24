@@ -1,0 +1,5 @@
+= Parent
+:minisite-menu-1: /parent.html
+:minisite-menu-1-1: /child.html
+
+The parent.

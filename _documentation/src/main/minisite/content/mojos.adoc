@@ -309,6 +309,34 @@ TIP: Use `100`, `200`, ... rather than `1`, `2`, `3`, ..., so that an item is ea
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
 * `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
 
+=== Left menu
+
+The left menu of a page is defined by `minisite-menu-<position>` attributes, read from the `attributes` of the plugin configuration, else from the page attributes, with both engines.
+A configuration attribute wins over the page attribute of the same name, as Asciidoctor does for the attributes set by the API, unless its value ends with `@` (`/docs.html@`), which lets the page override it; so a site usually defines one menu in the configuration, and the page headers complete it or define it when the configuration has none.
+The value of an entry is the path of its target from the site root, with or without the `.html` extension when it names a page, or a URL (`https://...`), which is linked as written:
+
+[source,asciidoc]
+----
+:minisite-menu-1: /getting-started.html
+:minisite-menu-1-title: Getting Started
+:minisite-menu-1-icon: home
+:minisite-menu-1-1: /installation.html
+:minisite-menu-1-2: /configuration.html
+:minisite-menu-2: /guides.html
+----
+
+[options="header",cols="1,3"]
+|===
+|Attribute|Meaning
+|`minisite-menu-<n>`|A top level entry, numbered from 1. `minisite-menu-<n>-<m>` is an entry under it, numbered from 1 again, at any depth. The entries are read until the first missing number, so a gap in the numbering ends the list, and an attribute which is not a position is ignored.
+|`minisite-menu-<position>-title`|The text of the entry, by default the `minisite-index-title` attribute or the title of the target page, or the value itself when it is not a page of the `content` folder.
+|`minisite-menu-<position>-icon`|The font awesome icon of the entry (`home` or `fa-home`), by default the icon of the target page (its `minisite-index-icon` attribute) for a top level entry; a nested entry, or an entry which is not a page, has no icon unless this attribute sets one.
+|`minisite-left-menu-prefix`|Written before each entry starting with a slash: with `/docs`, the entry `/getting-started.html` links to `/docs/getting-started.html`. Alone, without `minisite-menu-1`, it defines no menu.
+|===
+
+The `left-menu.hb` template gets `listItems`, the entries rendered with `left-menu-item.hb`, and `items`, the entries as a list a custom template can iterate with `{{#each items}}`: each one has `href`, `text`, `title`, `icon`, `items` (the entries under it) and `children` (these entries rendered as a nested list), plus the model of the page it links to.
+A page without `minisite-menu-1` shows the menu built from the `minisite-index` attributes of the pages, which is deprecated, logs a warning and gives the template `listItems` only.
+
 === Theme and templates
 
 The minisite default templates are rendered with a link:https://handlebarsjs.com/[handlebars]-like engine so they can be `.hb` files.
