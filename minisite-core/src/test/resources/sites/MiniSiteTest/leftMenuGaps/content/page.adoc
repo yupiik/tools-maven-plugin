@@ -1,0 +1,8 @@
+= Page
+:minisite-menu-1: /page.html
+:minisite-menu-1-1-title: Orphan
+:minisite-menu-3: /page.html
+:minisite-menu-3-title: After a gap
+:minisite-menu-x: /page.html
+
+A page whose menu has a gap, a title without its entry and an attribute which is not a position.

@@ -120,7 +120,22 @@ public final class Generate {
         configuration.setActionClassLoader(() -> new ClassLoader(Thread.currentThread().getContextClassLoader()) {
             // avoid it to be closed too early by wrapping it in a not URLCLassLoader
         });
-        configuration.setAttributes(Map.of("partialsdir", doc + "/content/_partials"));
+        configuration.setAttributes(Map.ofEntries(
+                Map.entry("partialsdir", doc + "/content/_partials"),
+                // the left menu of every page, the titles and icons of the top level come from the pages
+                Map.entry("minisite-menu-1", "/mojos.html"),
+                Map.entry("minisite-menu-2", "/cli.html"),
+                Map.entry("minisite-menu-3", "/asciidoc-java.html"),
+                Map.entry("minisite-menu-3-1", "/asciidoc-java-syntax.html"),
+                Map.entry("minisite-menu-3-1-title", "Supported syntax"),
+                Map.entry("minisite-menu-3-2", "/asciidoc-java-html.html"),
+                Map.entry("minisite-menu-3-2-title", "HTML renderer"),
+                Map.entry("minisite-menu-3-3", "/asciidoc-java-markdown.html"),
+                Map.entry("minisite-menu-3-3-title", "Markdown renderer"),
+                Map.entry("minisite-menu-3-4", "/asciidoc-java-model.html"),
+                Map.entry("minisite-menu-3-4-title", "Model and visitors"),
+                Map.entry("minisite-menu-4", "/ascii2svg.html"),
+                Map.entry("minisite-menu-5", "/yem.html")));
         configuration.setAsciidoc(new YupiikAsciidoc());
         configuration.setAsciidoctorConfiguration(new AsciidoctorConfiguration() {
             @Override

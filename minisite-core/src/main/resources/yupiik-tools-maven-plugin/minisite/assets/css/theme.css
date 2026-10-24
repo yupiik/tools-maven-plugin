@@ -397,6 +397,33 @@ img { max-width: 100%; height: auto; }
     border-left-color: var(--brand);
 }
 
+.page-navigation-left li > ul > li > a {
+    display: block;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font-size: 0.85rem;
+    border-left: 2px solid transparent;
+}
+
+.page-navigation-left li > ul > li > a:hover {
+    color: var(--text);
+    background: var(--surface-2);
+    text-decoration: none;
+    border-left-color: var(--brand);
+}
+
+.page-navigation-left li > ul > li > a i {
+    width: 18px;
+    text-align: center;
+    margin-right: 6px;
+    color: var(--muted);
+}
+
+.page-navigation-left li > ul > li > a i[class=""] {
+    display: none;
+}
+
 .page-navigation-left > ul > li > a i {
     width: 18px;
     text-align: center;
@@ -1439,6 +1466,13 @@ select:focus-visible, textarea:focus-visible {
         padding: 3px 0;
     }
     .page-navigation-left li { flex-shrink: 0; }
+    /* the strip lists the child pages after their parent, in the same row */
+    .page-navigation-left li:has(> ul),
+    .page-navigation-left li > ul { display: flex; flex-direction: row; gap: 6px; margin-left: 0; }
+    .page-navigation-left li > ul > li { flex-shrink: 0; padding-left: 0; border-left: 0; }
+    .page-navigation-left li > ul > li::before,
+    .page-navigation-left li > ul > li::after { display: none; }
+    .page-navigation-left li > ul > li > a { padding: 8px 12px; font-size: 0.8rem; }
     .page-navigation-left > ul > li > a { padding: 8px 12px; font-size: 0.8rem; }
     .page-content { padding: 24px 18px 32px; }
     .header-inner { padding: 0 16px; gap: 8px; }

@@ -1,0 +1,6 @@
+= Child
+:minisite-left-menu-prefix: /docs/
+:minisite-menu-1: /parent
+:minisite-menu-1-1: /child.html
+
+The child page.

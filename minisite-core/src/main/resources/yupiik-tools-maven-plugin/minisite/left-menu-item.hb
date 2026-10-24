@@ -2,4 +2,4 @@
     <a title="{{{title}}}" href="{{{href}}}">
         <i class="{{{icon}}}"></i>{{{text}}}
     </a>
-</li>
+{{{children}}}</li>
