@@ -72,8 +72,8 @@ They are exposed to templates either as static HTML or as HTML gated behind a bo
 |`search.hb`|The search button in the header (`{{#if search}}`).
 |`searchModal.hb`|The search modal dialog (`{{#if searchModal}}`).
 |`blogLink.hb`|The blog link in the header (`{{#if blogLink}}`).
-|`highlightJsCss.hb`|The highlight.js stylesheet link (`{{#if highlightJsCss}}`).
-|`highlightJs.hb`|The highlight.js script tag (`{{#if highlightJs}}`), including the optional copy-to-clipboard button.
+|`highlightJsCss.hb`|The bundled `css/syntax-highlighting.css` link (`{{#if highlightJsCss}}`) - a highlight.js token theme integrated with the minisite palette.
+|`highlightJs.hb`|The highlight.js script tag (`{{#if highlightJs}}`) - highlight.js v11 plus the optional copy-to-clipboard button.
 |`llmChatCss.hb`|LLM chat stylesheet link (`{{#if llmChat}}`).
 |`llmChatScripts.hb`|The LLM chat widget markup and scripts (`{{#if llmChat}}`).
 |====
@@ -116,7 +116,7 @@ The following keys are available in all page templates when applicable:
 == Theme colors and light/dark mode
 
 The theme uses CSS variables defined on `:root`, overridden by `:root[data-theme='light']` and `:root[data-theme='dark']`.
-The `data-theme` attribute is set on the `<html>` element and persisted in the `yupiik-theme` localStorage key; an inline script in `header.hb` applies it before first paint to avoid a flicker, and the toggle button in `menu.hb` switches it in `footer-end.hb`.
+The optional `data-theme` attribute on the `<html>` element is persisted in the `yupiik-theme` localStorage key; an inline script in `header.hb` applies it before first paint to avoid a flicker, and the toggle button in `menu.hb` switches it in `footer-end.hb`.
 
 The palette is derived from the yupiik.com brand:
 
@@ -129,11 +129,24 @@ The palette is derived from the yupiik.com brand:
 |`--brand-blue-dark`|`#056EBB`
 |====
 
-The bundled template starts in light mode. A saved visitor preference is applied before first paint, and the header toggle switches between light and dark mode.
-Custom templates can omit `data-theme` to follow the operating system preference via `prefers-color-scheme`.
+The bundled template follows the operating system's color scheme by default: with no `data-theme` attribute on `<html>`, the `@media (prefers-color-scheme: dark)` block applies the dark variables automatically.
+A saved visitor preference (from the header toggle) is applied before first paint via the inline script in `header.hb`, and always wins over the OS preference.
 Override `--bg`, `--surface`, `--text`, `--brand`, `--ring` and the other semantic variables in a stylesheet loaded through `customHead`.
 Set them on `:root[data-theme='light']` and `:root[data-theme='dark']` to customize each mode.
 Alternatively, provide your own `css/theme.css` asset to replace the bundled stylesheet.
+
+=== Code blocks and syntax highlighting
+
+Code blocks keep a dark canvas in both light and dark modes (the canvas color comes from `--pre-bg`, which is a dark tone even on light pages, like GitHub or VS Code dark syntax on a light page).
+
+The highlight.js token colors live in a dedicated, overridable stylesheet: `css/syntax-highlighting.css`.
+It defines the `--sh-*` variables on `:root` (plus small `:root[data-theme='light']` / `:root[data-theme='dark']` contrast tweaks) and applies them to the highlight.js token classes (`hljs-keyword`, `hljs-string`, `hljs-comment`, and so on).
+The palette is seeded from the yupiik brand accents (blue, purple, green) so highlighted code reads "on-brand" instead of a generic third-party palette.
+Override any single token by providing your own `css/syntax-highlighting.css` asset (same mechanism as `theme.css`) or by re-declaring the `--sh-*` variables on `:root` / `:root[data-theme='...']` through a stylesheet loaded via `customHead`.
+
+highlight.js v11 is loaded from a CDN by the `highlightJs.hb` partial and applied only to `.page-content-body` code blocks.
+When `addCodeCopyButton` is enabled (default), each `pre` also gets a copy button anchored to its top-right corner: an icon-only button revealed on hover/focus that swaps to a green checkmark briefly after copying, fully theme-aware in both light and dark modes.
+
 The header and footer use a dark neutral frame with a blue accent in both modes.
 On smaller screens, the left menu becomes a horizontal navigation strip and the right table of contents is hidden.
 The table of contents uses clickable rows without bullets, with indented tree branches connecting child headings to their parents.

@@ -34,6 +34,7 @@ class MiniSiteTest {
                           final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
         new MiniSite(builder
                 .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog fixture for the assets
+                .addCodeCopyButton(true)
                 .build())
                 .run();
         asserts.assertThat(files -> {
@@ -42,6 +43,21 @@ class MiniSiteTest {
             assertFalse(css.contains(".justify-content-center"), css);
             assertFalse(css.contains(".row > .col-lg-4 {\n    flex: none;"), css);
             assertFalse(css.contains("max-width: none"), css);
+
+            // bundled, overridable syntax highlighting theme (probably brand tokens + dark/light aware)
+            final String syntaxCss = files.get("css/syntax-highlighting.css");
+            assertTrue(syntaxCss.contains("--sh-keyword"), syntaxCss);
+            assertTrue(syntaxCss.contains("--sh-comment"), syntaxCss);
+            assertTrue(syntaxCss.contains("--brand-purple"), syntaxCss);
+            assertTrue(syntaxCss.contains(":root[data-theme='dark']"), syntaxCss);
+            assertTrue(syntaxCss.contains(".page-content-body .hljs-keyword"), syntaxCss);
+
+            // generated page wires the local syntax css and the highlight.js v11 + copy button
+            final String page = files.get("blog1.html");
+            assertTrue(page.contains("css/syntax-highlighting.css"), page);
+            assertTrue(page.contains("@highlightjs/cdn-assets@11.11.2/highlight.min.js"), page);
+            assertTrue(page.contains("copy-code-button"), page);
+            assertTrue(page.contains("hljs.highlightElement"), page);
         });
     }
 
@@ -146,7 +162,7 @@ class MiniSiteTest {
                         "blog/category/simple/index.html", "blog/category/simple/page-1.html",
                         "blog/index.html", "blog/page-1.html", "blog/page-2.html",
                         "blog1.html", "blog2.html", "blog3.html",
-                        "css/theme.css", "images/logo.svg", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
+                        "css/syntax-highlighting.css", "css/theme.css", "images/logo.svg", "index.html", "js/minisite.js", "search.json", "sitemap.xml"),
                 files.keySet().stream().sorted().collect(toList())));
         asserts.assertContains("blog/page-1.html", "" +
                 "<div class=\"card shadow-sm\">\n" +
@@ -227,7 +243,7 @@ class MiniSiteTest {
         asserts.assertThat(files -> assertEquals(
                 List.of(
                         "404.html", "blog/category/index.html", "blog/category/others/index.html", "blog/category/others/page-1.html",
-                        "blog/index.html", "blog/page-1.html", "blog/post.html", "css/theme.css", "images/logo.svg", "index.html",
+                        "blog/index.html", "blog/page-1.html", "blog/post.html", "css/syntax-highlighting.css", "css/theme.css", "images/logo.svg", "index.html",
                         "js/minisite.js", "llms.txt", "page.html", "search.json", "sitemap.xml"),
                 files.keySet().stream().sorted().collect(toList())));
         asserts.assertContains("llms.txt", "" +

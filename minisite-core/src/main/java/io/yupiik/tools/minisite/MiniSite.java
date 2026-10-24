@@ -691,6 +691,7 @@ public class MiniSite implements Runnable {
         if (configuration.isUseDefaultAssets()) {
             Stream.of(
                             "yupiik-tools-maven-plugin/minisite/assets/css/theme.css",
+                            "yupiik-tools-maven-plugin/minisite/assets/css/syntax-highlighting.css",
                             "yupiik-tools-maven-plugin/minisite/assets/js/minisite.js",
                             "yupiik-tools-maven-plugin/minisite/assets/images/logo.svg")
                     .forEach(resource -> {
