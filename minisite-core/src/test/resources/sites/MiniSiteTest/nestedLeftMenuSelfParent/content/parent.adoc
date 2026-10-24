@@ -1,0 +1,5 @@
+= Parent
+:minisite-index: 100
+:minisite-index-parent: parent.html
+
+A page under itself.

@@ -25,6 +25,7 @@ import java.util.Map;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
@@ -121,6 +122,96 @@ class MiniSiteTest {
         asserts.assertContains("page.html", "<a href=\"/custom\">Custom</a>");
         asserts.assertContains("page.html", "<script src=\"/js/site.js\"></script>");
         asserts.assertNotContains("page.html", "{{base}}");
+    }
+
+    @Test
+    void nestedLeftMenu(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                        final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder.build()).run();
+        asserts.assertContains("other.html", "    <ul>\n" +
+                "<li>\n" +
+                "    <a title=\"Parent\" href=\"/parent.html\">\n" +
+                "        <i class=\"fas fa-book\"></i>Parent\n" +
+                "    </a>\n" +
+                "<ul>\n" +
+                "<li>\n" +
+                "    <a title=\"First child\" href=\"/child-a.html\">\n" +
+                "        <i class=\"fas fa-download\"></i>First\n" +
+                "    </a>\n" +
+                "</li><li>\n" +
+                "    <a title=\"Second child\" href=\"/child-b.html\">\n" +
+                "        <i class=\"fas fa-download\"></i>Second\n" +
+                "    </a>\n" +
+                "</li></ul>\n" +
+                "</li><li>\n" +
+                "    <a title=\"Other\" href=\"/other.html\">\n" +
+                "        <i class=\"fas fa-robot\"></i>Other\n" +
+                "    </a>\n" +
+                "</li>\n" +
+                "    </ul>\n");
+        asserts.assertThat(files -> {
+            final String index = files.get("index.html");
+            assertTrue(index.contains("Parent"), index);
+            assertFalse(index.contains("First"), index);
+            assertFalse(index.contains("Second"), index);
+        });
+    }
+
+    @Test
+    void nestedLeftMenuDisabled(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/nestedLeftMenu")) // same pages, no left menu
+                .templateAddLeftMenu(false)
+                .build())
+                .run();
+        asserts.assertThat(files -> {
+            final String index = files.get("index.html");
+            assertTrue(index.contains("First"), index);
+            assertTrue(index.contains("Second"), index);
+        });
+    }
+
+    @Test
+    void nestedLeftMenuUnknownParent(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: " +
+                "/orphan.html names /missing.html, which is not a rendered page with the minisite-index attribute" +
+                " (the value is the path of its HTML file from the site root, such as asciidoc-java.html)", error.getMessage());
+    }
+
+    @Test
+    void nestedLeftMenuGrandchild(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: " +
+                "/grand.html names /child-a.html, which is itself under another page; the menu has one level of children", error.getMessage());
+    }
+
+    @Test
+    void nestedLeftMenuCustomItemTemplate(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: the left-menu-item template does not write {{{children}}}", error.getMessage());
+    }
+
+    @Test
+    void nestedLeftMenuSelfParent(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: /parent.html names itself", error.getMessage());
+    }
+
+    @Test
+    void nestedLeftMenuChildWithoutIndex(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: " +
+                "/child.html has no minisite-index attribute to order it under /parent.html", error.getMessage());
+    }
+
+    @Test
+    void nestedLeftMenuSkippedParent(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Invalid minisite-index-parent attribute: " +
+                "/child-a.html names /parent.html, which is not a rendered page with the minisite-index attribute" +
+                " (the value is the path of its HTML file from the site root, such as asciidoc-java.html)", error.getMessage());
     }
 
     @Test

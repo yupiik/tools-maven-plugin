@@ -308,6 +308,7 @@ TIP: Use `100`, `200`, ... rather than `1`, `2`, `3`, ..., so that an item is ea
 * `minisite-index-title` attribute enables to override link text.
 * `minisite-index-icon` attribute enables to override font awesome icon (without `fa-` prefix).
 * `minisite-index-description` attribute enables to override the text in the index tile for the page entry.
+* `minisite-index-parent` attribute, set to the path from the site root of another page with `minisite-index` (`asciidoc-java.html`), lists the page under that page in the left menu instead of at its top level, and, when the left menu is enabled, keeps it out of the index tiles; `minisite-index` then orders the pages under the same parent. The menu has one level of children. With the left menu enabled, a path that names no such page (a page with `minisite-skip` included), a parent that is itself under another page, a page without `minisite-index`, or a custom `left-menu-item.hb` that does not write `{{{children}}}` fails the generation before any page is written.
 
 === Theme and templates
 

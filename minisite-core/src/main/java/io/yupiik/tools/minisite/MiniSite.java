@@ -87,6 +87,12 @@ public class MiniSite implements Runnable {
     private final Urlifier urlifier = new Urlifier();
     private final Handlebars handlebars;
 
+    /**
+     * Page attribute naming, from the site root, the path of the page (with {@code minisite-index}) under which the left
+     * menu lists this page.
+     */
+    public static final String MINISITE_INDEX_PARENT = "minisite-index-parent";
+
     // default theme fragments shipped on classpath under yupiik-tools-maven-plugin/minisite/_partials/
     private static final List<String> DEFAULT_THEME_PARTIALS = List.of(
             "search", "searchModal", "blogLink", "highlightJs", "highlightJsCss", "llmChatCss", "llmChatScripts");
@@ -282,15 +288,108 @@ public class MiniSite implements Runnable {
         final String template = findPageTemplate(templatesDir, "left-menu");
         final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
         final Path output = configuration.getTarget();
-        final String listItems = findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
+        final Map<String, List<Map.Entry<Page, Path>>> children = new HashMap<>();
+        findMenuPages(files).forEach(page -> {
+            final String parent = page.getKey().attributes.get(MINISITE_INDEX_PARENT);
+            if (parent != null) {
+                children.computeIfAbsent(toParentPath(parent), k -> new ArrayList<>()).add(page);
+            }
+        });
+        final String listItems = findIndexPages(files)
+                .map(page -> {
+                    final List<Map.Entry<Page, Path>> pageChildren = children.get(page.getKey().relativePath);
+                    return pageChildren == null ?
+                            toMenuItem(output, page, itemTemplate) :
+                            toMenuItem(output, page, itemTemplate, pageChildren);
+                })
+                .collect(joining());
         return handlebars.render(template, Map.of("listItems", listItems));
     }
 
+    /**
+     * With the left menu enabled, fails before any page is rendered when a page names with {@code minisite-index-parent}
+     * a path that is not a rendered top-level page with {@code minisite-index}, when the page has no
+     * {@code minisite-index} itself, or when the {@code left-menu-item} template does not write {@code children}.
+     *
+     * @param pages the pages of the site.
+     */
+    protected void validateMenuParents(final Collection<Page> pages) {
+        if (!configuration.isTemplateAddLeftMenu()) {
+            return;
+        }
+        final Map<String, Page> indexed = new HashMap<>();
+        final List<Page> children = new ArrayList<>();
+        for (final Page page : pages) {
+            if (page.attributes.get("minisite-skip") != null) {
+                continue;
+            }
+            if (page.attributes.get("minisite-index") != null) {
+                indexed.put(page.relativePath, page);
+            }
+            if (page.attributes.get(MINISITE_INDEX_PARENT) != null) {
+                children.add(page);
+            }
+        }
+        if (children.isEmpty()) {
+            return;
+        }
+        final List<String> errors = new ArrayList<>();
+        if (!findPageTemplate(getTemplatesDir(), "left-menu-item").contains("{{{children}}}")) {
+            errors.add("the left-menu-item template does not write {{{children}}}");
+        }
+        for (final Page page : children) {
+            final String parent = page.attributes.get(MINISITE_INDEX_PARENT);
+            final String path = toParentPath(parent);
+            final Page parentPage = indexed.get(path);
+            if (page.attributes.get("minisite-index") == null) {
+                errors.add(page.relativePath + " has no minisite-index attribute to order it under " + path);
+            } else if (path.equals(page.relativePath)) {
+                errors.add(page.relativePath + " names itself");
+            } else if (parentPage == null) {
+                errors.add(page.relativePath + " names " + path + ", which is not a rendered page with the minisite-index attribute" +
+                        " (the value is the path of its HTML file from the site root, such as asciidoc-java.html)");
+            } else if (parentPage.attributes.get(MINISITE_INDEX_PARENT) != null) {
+                errors.add(page.relativePath + " names " + path + ", which is itself under another page; the menu has one level of children");
+            }
+        }
+        if (!errors.isEmpty()) {
+            errors.sort(null);
+            throw new IllegalArgumentException("Invalid " + MINISITE_INDEX_PARENT + " attribute: " + String.join(", ", errors));
+        }
+    }
+
+    /**
+     * @param parent the value of a {@code minisite-index-parent} attribute.
+     * @return the page path it names, from the site root, with a leading slash as {@link Page} paths have.
+     */
+    protected String toParentPath(final String parent) {
+        final String path = parent.strip();
+        return path.startsWith("/") ? path : '/' + path;
+    }
+
     protected String toMenuItem(final Path output, final Map.Entry<Page, Path> it, final String template) {
+        return toMenuItem(output, it, template, List.of());
+    }
+
+    /**
+     * @param children the pages whose {@code minisite-index-parent} attribute names this page, written as a nested list
+     *                 in the {@code children} variable of the item template.
+     */
+    protected String toMenuItem(final Path output, final Map.Entry<Page, Path> it, final String template,
+                                final List<Map.Entry<Page, Path>> children) {
         final Map<String, Object> model = buildInterpolationModel(it.getKey(), null, null, k -> null);
         model.put("title", toLinkTitle(it.getKey()));
         model.put("text", getTitle(it.getKey()));
         model.put("href", configuration.getSiteBase() + '/' + output.relativize(it.getValue()));
+        if (children.isEmpty()) {
+            model.put("children", "");
+        } else {
+            final StringBuilder nested = new StringBuilder("<ul>\n");
+            for (final Map.Entry<Page, Path> child : children) {
+                nested.append(toMenuItem(output, child, template));
+            }
+            model.put("children", nested.append("</ul>\n").toString());
+        }
         return handlebars.render(template, model);
     }
 
@@ -593,9 +692,18 @@ public class MiniSite implements Runnable {
         return content.replace("<minisite-menu-placeholder/>\n", "");
     }
 
+    /**
+     * @return the pages of the index tiles: the pages with {@code minisite-index}, except, when the left menu is enabled,
+     * the pages it lists under another page with {@code minisite-index-parent}.
+     */
     protected Stream<Map.Entry<Page, Path>> findIndexPages(final Map<Page, Path> htmls) {
+        final Stream<Map.Entry<Page, Path>> pages = findMenuPages(htmls);
+        return configuration.isTemplateAddLeftMenu() ? pages.filter(p -> p.getKey().attributes.get(MINISITE_INDEX_PARENT) == null) : pages;
+    }
+
+    protected Stream<Map.Entry<Page, Path>> findMenuPages(final Map<Page, Path> htmls) {
         return htmls.entrySet().stream()
-                .filter(p -> p.getKey().attributes.containsKey("minisite-index"))
+                .filter(p -> p.getKey().attributes.get("minisite-index") != null)
                 .sorted(comparing(p -> Integer.parseInt(String.valueOf(p.getKey().attributes.get("minisite-index")).trim())));
     }
 
@@ -631,6 +739,7 @@ public class MiniSite implements Runnable {
             }
         }
         final Collection<Page> pages = findPages(asciidoctor, options);
+        validateMenuParents(pages);
         Function<Page, String> template = null;
         boolean hasBlog = false;
         List<String> categories = emptyList();

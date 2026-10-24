@@ -1,0 +1,6 @@
+= Parent
+:minisite-index: 100
+:minisite-index-title: Parent
+:minisite-index-icon: book
+
+The parent.

@@ -1,0 +1,4 @@
+= Child
+:minisite-index-parent: parent.html
+
+A child page without minisite-index.
