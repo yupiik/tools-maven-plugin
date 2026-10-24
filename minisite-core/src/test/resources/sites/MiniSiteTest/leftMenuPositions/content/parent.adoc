@@ -1,0 +1,5 @@
+= Parent
+:minisite-index: 100
+:minisite-index-title: Parent
+
+The parent.
