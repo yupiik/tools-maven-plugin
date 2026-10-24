@@ -102,6 +102,7 @@ public class MiniSiteConfiguration {
     @Builder.Default
     private boolean llmChatEnabled = false;
     private String llmModelId = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
+    @Builder.Default
     private boolean addCodeCopyButton = true;
     @Builder.Default
     private boolean createADefault404Page = true;

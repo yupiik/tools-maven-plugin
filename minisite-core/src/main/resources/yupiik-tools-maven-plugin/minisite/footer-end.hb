@@ -23,8 +23,14 @@
         var root = document.documentElement;
         var toggle = document.getElementById('theme-toggle');
         if (toggle) {
+            function currentDark() {
+                var stored = root.getAttribute('data-theme');
+                if (stored === 'light' || stored === 'dark') return stored === 'dark';
+                // no explicit attribute yet: follow the OS preference
+                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
             toggle.addEventListener('click', function () {
-                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                var next = currentDark() ? 'light' : 'dark';
                 root.setAttribute('data-theme', next);
                 try { localStorage.setItem('yupiik-theme', next); } catch (e) {}
             });

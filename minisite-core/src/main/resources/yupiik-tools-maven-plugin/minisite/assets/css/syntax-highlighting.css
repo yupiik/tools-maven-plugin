@@ -1,0 +1,153 @@
+/* ============================================================================ */
+/* Yupiik Minisite syntax highlighting                                         */
+/* highlight.js token theme integrated with the minisite default theme.         */
+/*                                                                              */
+/* The code canvas stays DARK in both light and dark modes (the minisite        */
+/* already derives --pre-bg / --pre-text from a dark palette in both modes), so */
+/* this file defines ONE shared token palette seeded from the yupiik brand      */
+/* accents (blue, purple, green) that reads well on both canvas blacks.         */
+/*                                                                              */
+/* Override any token by providing your own css/syntax-highlighting.css asset   */
+/* (same mechanism as css/theme.css) or by re-declaring the --sh-* variables    */
+/* on :root / :root[data-theme='...'] in a stylesheet loaded through customHead.*/
+/* ============================================================================ */
+
+:root {
+    /* token palette (shared; reads on the dark --pre-bg canvas of both modes) */
+    --sh-background: var(--pre-bg);
+    --sh-foreground: var(--pre-text);
+
+    --sh-keyword: color-mix(in srgb, var(--brand-purple) 80%, var(--pre-bg));
+    --sh-keyword-subst: var(--sh-foreground);
+    --sh-built-in: #e5c07b;         /* amber, common for builtins         */
+    --sh-type: #e5c07b;             /* classes / types                    */
+    --sh-string: color-mix(in srgb, var(--brand-green) 64%, var(--pre-bg));
+    --sh-string-escape: color-mix(in srgb, var(--brand-blue) 86%, var(--pre-bg));
+    --sh-regexp: var(--sh-keyword);
+    --sh-number: #d19a66;           /* orange, readable on dark           */
+    --sh-literal: color-mix(in srgb, var(--brand-blue) 86%, var(--pre-bg));
+    --sh-title: color-mix(in srgb, var(--brand-blue) 90%, var(--pre-bg));
+    --sh-attr: #d19a66;             /* attributes / node attrs            */
+    --sh-attribute: color-mix(in srgb, var(--brand-blue) 70%, var(--pre-bg));
+    --sh-name: color-mix(in srgb, var(--brand-blue) 90%, var(--pre-bg));
+    --sh-selector-class: #e5c07b;   /* .class selectors                   */
+    --sh-selector-id: color-mix(in srgb, var(--brand-blue) 90%, var(--pre-bg));
+    --sh-selector-pseudo: #d19a66;  /* :pseudo selectors                  */
+    --sh-addition: var(--sh-string); /* diff additions (green)            */
+    --sh-deletion: #e06c75;         /* diff deletions (red)               */
+    --sh-variable: #e06c75;         /* variables                          */
+    --sh-params: var(--sh-foreground);
+    --sh-comment: #5c6370;          /* muted slate (gray-500 family)      */
+    --sh-comment-quote: var(--sh-comment);
+    --sh-comment-doctag: #5c6370;
+    --sh-operator: #56b6c2;         /* cyan, keeps operators visible      */
+    --sh-punctuation: var(--gray-500);
+    --sh-meta: color-mix(in srgb, var(--brand-blue) 62%, var(--pre-bg));
+    --sh-quote: #98c379;            /* blockquote emphasis                */
+    --sh-section: var(--sh-title);
+    --sh-mark: #e5c07b;             /* highlight mark                     */
+    --sh-symbol: #e5c07b;
+    --sh-doctag: var(--sh-keyword);
+    --sh-selector-tag: var(--sh-keyword);  /* tag selectors as keyword     */
+    --sh-emphasis: italic;
+    --sh-strong: bold;
+    --sh-link: var(--sh-title);
+    --sh-code: var(--sh-string);
+    --sh-bullet: var(--sh-title);
+    --sh-interpolation: var(--sh-foreground);
+    --sh-selection-bg: color-mix(in srgb, var(--brand-blue) 28%, var(--pre-bg));
+}
+
+/* Small per-mode contrast deltas. The two mode canvases are different blacks
+   (#20242c light vs #0d1117 dark), so a couple of muted tokens get a tiny
+   nudge to stay legible; everything else is shared. */
+:root[data-theme='light'] {
+    --sh-comment: #5d6b77;
+    --sh-literal: #3aa0bf;
+}
+
+:root[data-theme='dark'] {
+    --sh-comment: #7a8290;
+}
+
+/* System preference fallback (no explicit theme selected). */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --sh-comment: #7a8290;
+    }
+}
+
+/* ============================================================================ */
+/* Token application (scoped to the minisite content code blocks)               */
+/* ============================================================================ */
+
+.page-content-body pre.highlight code,
+.page-content-body pre code.hljs,
+.page-content-body pre code {
+    color: var(--sh-foreground);
+}
+
+.page-content-body .hljs {
+    background: transparent;
+    color: inherit;
+}
+
+.page-content-body .hljs::selection,
+.page-content-body code::selection {
+    background: var(--sh-selection-bg);
+}
+
+.page-content-body .hljs-comment,
+.page-content-body .hljs-quote { color: var(--sh-comment); font-style: italic; }
+.page-content-body .hljs-meta { color: var(--sh-meta); }
+.page-content-body .hljs-doctag { color: var(--sh-doctag); }
+
+.page-content-body .hljs-keyword,
+.page-content-body .hljs-selector-tag,
+.page-content-body .hljs-subst { color: var(--sh-keyword); }
+.page-content-body .hljs-keyword { font-weight: 600; }
+
+.page-content-body .hljs-built_in,
+.page-content-body .hljs-type { color: var(--sh-built-in); }
+
+.page-content-body .hljs-string,
+.page-content-body .hljs-regexp,
+.page-content-body .hljs-addition,
+.page-content-body .hljs-attribute { color: var(--sh-string); }
+.page-content-body .hljs-string .hljs-subst { color: var(--sh-string); }
+.page-content-body .hljs-string .hljs-escape { color: var(--sh-string-escape); }
+
+.page-content-body .hljs-number,
+.page-content-body .hljs-literal { color: var(--sh-number); }
+.page-content-body .hljs-literal { color: var(--sh-literal); }
+
+.page-content-body .hljs-title,
+.page-content-body .hljs-section,
+.page-content-body .hljs-name,
+.page-content-body .hljs-bullet { color: var(--sh-title); }
+.page-content-body .hljs-title.function_,
+.page-content-body .hljs-title.class_ { color: var(--sh-title); }
+
+.page-content-body .hljs-attr,
+.page-content-body .hljs-symbol,
+.page-content-body .hljs-selector-class { color: var(--sh-selector-class); }
+.page-content-body .hljs-selector-id { color: var(--sh-selector-id); }
+.page-content-body .hljs-selector-pseudo,
+.page-content-body .hljs-selector-attr { color: var(--sh-selector-pseudo); }
+
+.page-content-body .hljs-variable,
+.page-content-body .hljs-template-variable { color: var(--sh-variable); }
+
+.page-content-body .hljs-params,
+.page-content-body .hljs-title.class_,
+.page-content-body .hljs-property { color: var(--sh-params); }
+
+.page-content-body .hljs-operator,
+.page-content-body .hljs-punctuation { color: var(--sh-operator); }
+.page-content-body .hljs-punctuation { color: var(--sh-punctuation); }
+
+.page-content-body .hljs-emphasis { font-style: var(--sh-emphasis); }
+.page-content-body .hljs-strong { font-weight: var(--sh-strong); }
+.page-content-body .hljs-link { color: var(--sh-link); text-decoration: underline; }
+.page-content-body .hljs-meta .hljs-keyword { color: var(--sh-keyword); }
+.page-content-body .hljs-code { color: var(--sh-code); }

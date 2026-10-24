@@ -299,6 +299,12 @@ img { max-width: 100%; height: auto; }
 :root[data-theme='light'] .icon-sun { display: none; }
 :root[data-theme='light'] .icon-moon { display: block; }
 
+/* No explicit attribute: follow the operating system preference (default). */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .icon-sun { display: block; }
+    :root:not([data-theme='light']) .icon-moon { display: none; }
+}
+
 /* social links rendered from generated extension points (ul.social-list / anchors) */
 .social-list {
     list-style: none;
@@ -1025,11 +1031,14 @@ img { max-width: 100%; height: auto; }
 }
 
 .page-content-body pre {
+    position: relative;
     margin: 0 0 16px;
-    padding: 24px;
+    padding: 28px 24px 24px;
     background: var(--pre-bg);
     color: var(--pre-text);
+    border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--border));
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 0.88rem;
@@ -1044,30 +1053,62 @@ img { max-width: 100%; height: auto; }
     font-size: inherit;
 }
 
-/* highlight.js themes - default is atom-one-dark; light theme override */
-:root[data-theme='light'] .page-content-body .hljs {
-    background: var(--pre-bg);
+/* Copy code button injected inside `pre`, anchored top-right, hover-revealed. */
+.copy-code-button {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pre-text) 14%, transparent);
     color: var(--pre-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
-/* copy code button injected by minisite.js */
-.copy-code-button {
-    position: relative;
-    float: right;
-    margin-top: -6px;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    z-index: 2;
+.page-content-body pre:hover .copy-code-button,
+.copy-code-button:focus-visible {
+    opacity: 0.6;
 }
 
 .copy-code-button:hover {
-    color: var(--text);
-    border-color: var(--gray-400);
+    opacity: 1;
+    background: color-mix(in srgb, var(--pre-text) 26%, transparent);
+}
+
+.copy-code-button.is-copied {
+    opacity: 1;
+}
+
+.copy-code-button svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.copy-code-button .copy-check {
+    display: none;
+    stroke: var(--brand-green-dark);
+}
+
+.copy-code-button.is-copied .copy-glyph {
+    display: none;
+}
+
+.copy-code-button.is-copied .copy-check {
+    display: block;
 }
 
 /* admonitions (Docusaurus-style: tinted card, accent left border, top header strip) */
