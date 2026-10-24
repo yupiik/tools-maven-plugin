@@ -39,6 +39,7 @@ import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -56,6 +57,8 @@ import static java.util.stream.Collectors.joining;
  * from the {@link ConditionalBlock.Context} the visitor passes, see {@link VisitorState#context()}.
  */
 public class VisitorSibling {
+    private static final String HEX = "0123456789ABCDEF";
+
     // asciidoctor's INTRINSIC_ATTRIBUTES, with its values
     private static final Map<String, String> INTRINSIC_ATTRIBUTES = Map.ofEntries(
             Map.entry("startsb", "["), Map.entry("endsb", "]"), Map.entry("vbar", "|"), Map.entry("caret", "^"),
@@ -647,6 +650,48 @@ public class VisitorSibling {
     }
 
     /**
+     * @return the query asciidoctor appends to a {@code mailto:} link from the subject and the body of its text,
+     * {@code mailto:a@b.c[Text, Subject, Body]}, as {@code ?subject=Subject&body=Body} percent-encoded; an empty
+     * string for another link or a text without them. A body without a subject, {@code mailto:a@b.c[Text, role=x, Body]},
+     * gives no query: asciidoctor reads the body only after a subject (and fails on {@code [Text,,Body]}).
+     */
+    public String mailtoQuery(final Link link) {
+        if (link.url() == null || !link.url().startsWith("mailto:") || link.options() == null) {
+            return "";
+        }
+        final var subject = link.options().get("subject");
+        if (subject == null) {
+            return "";
+        }
+        final var query = new StringBuilder("?subject=").append(encodeUriComponent(subject));
+        final var body = link.options().get("body");
+        if (body != null) {
+            query.append("&body=").append(encodeUriComponent(body));
+        }
+        return query.toString();
+    }
+
+    /**
+     * @return the value percent-encoded like asciidoctor's {@code encode_uri_component}, applied to the raw text (asciidoctor
+     * encodes the HTML-escaped text and writes {@code %26amp%3B} for an ampersand): the unreserved characters of
+     * RFC 3986 (letters, digits, {@code -}, {@code .}, {@code _}, {@code ~}) stay, each other byte of the UTF-8
+     * form becomes {@code %XX}.
+     */
+    protected String encodeUriComponent(final String value) {
+        final var encoded = new StringBuilder(value.length() + 8);
+        for (final byte b : value.getBytes(StandardCharsets.UTF_8)) {
+            final char c = (char) (b & 0xff);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                    c == '-' || c == '.' || c == '_' || c == '~') {
+                encoded.append(c);
+            } else {
+                encoded.append('%').append(HEX.charAt((b >> 4) & 0xf)).append(HEX.charAt(b & 0xf));
+            }
+        }
+        return encoded.toString();
+    }
+
+    /**
      * @return where asciidoctor places the table of contents: {@code auto} (at the top), {@code preamble} or
      * {@code macro} (at the {@code toc::[]} macro); {@code null} when the document has no {@code toc} attribute.
      */
@@ -933,11 +978,11 @@ public class VisitorSibling {
     public String imageAlt(final Macro macro, final String target) {
         final var options = options(macro.options());
         var alt = options.get("alt");
-        if (alt == null || alt.isBlank()) {
+        if (alt == null || (!alt.isEmpty() && alt.isBlank())) { // alt="" is the empty alt of a decorative image, as asciidoctor writes it; a blank one falls back as before
             alt = options.get("");
-        }
-        if (alt == null || alt.isBlank()) {
-            alt = defaultAlt(target);
+            if (alt == null || alt.isBlank()) {
+                alt = defaultAlt(target);
+            }
         }
         return alt.strip();
     }

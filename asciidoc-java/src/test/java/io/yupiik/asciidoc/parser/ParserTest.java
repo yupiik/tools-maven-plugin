@@ -125,17 +125,17 @@ class ParserTest {
     }
 
     @Test
-    void singleQuotedValueEdgeCases() { // an empty value sets nothing, and an escaped quote closes nothing, as in asciidoctor
+    void singleQuotedValueEdgeCases() { // an empty value is kept, as asciidoctor's AttributeList (alt="" marks a decorative image; it set nothing before), and an escaped quote closes nothing, as in asciidoctor
         final var body = new Parser().parseBody("[role='']\nA.\n\n[title='It\\'s,role=x]\nB.", new Parser.ParserContext(null));
         assertEquals(
                 List.of(
-                        new Text(List.of(), "A.", Map.of()),
+                        new Text(List.of(), "A.", Map.of("role", "")),
                         new Text(List.of(), "B.", Map.of("title", "'It\\'s", "role", "x"))),
                 body.children());
     }
 
     @Test
-    void textAfterAClosingSingleQuoteIsNotTheStyle() { // as asciidoctor, [title='It's'] gives the title It, and the block keeps its style
+    void textAfterAClosingSingleQuoteIsNotTheStyle() { // as asciidoctor, [title='It's'] gives the title It, the s' after the quote is the next positional value, which sets nothing after a named attribute, and the block keeps its style
         final var body = new Parser().parseBody("[title='It's',role=x]\n====\na\n====", new Parser.ParserContext(null));
         assertEquals(
                 List.of(new OpenBlock(List.of(new Text(List.of(), "a", Map.of())), Map.of("role", "x", "title", "It", "", "example"))),
@@ -178,6 +178,84 @@ class ParserTest {
                 hello
                 """, new Parser.ParserContext(null));
         assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "50%,x", "title", ""))), body.children());
+    }
+
+    @Test
+    void positionalValuesAreNumberedAcrossNamedOnes() { // as asciidoctor's AttributeList: [role=x,Text] has no style (Text was the style before) and the value sets nothing, name= sets an empty value (it was the style before), a last quote is text
+        final var context = new Parser.ParserContext(null);
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("role", "x"))),
+                new Parser().parseBody("[role=x,Text]\nhello", context).children());
+        for (final var bare : List.of(", noheader", ", noheader, footer")) { // bare values after a named attribute are no options, so the table keeps its header (asciidoctor ignores them)
+            assertEquals(
+                    new Parser().parseBody("[cols=\"1,1\"]\n|===\n|a|b\n\n|c|d\n|===", context).children(),
+                    new Parser().parseBody("[cols=\"1,1\"" + bare + "]\n|===\n|a|b\n\n|c|d\n|===", context).children(), bare);
+        }
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("x", "", "title", "y", "z", ""))),
+                new Parser().parseBody("[x=,title=y,z=]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("title", "\""))),
+                new Parser().parseBody("[title=\"]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a", "opts", "\""))),
+                new Parser().parseBody("[a,\"]\nhello", context).children());
+    }
+
+    @Test
+    void shorthandsAreReadInAValueStartingWithAMarker() { // never in a named value, so cols="15%,15%" keeps its percents, nor in a plain value, so 50% stays; a later shorthand value is this parser's extension of asciidoctor's style-only rule
+        final var context = new Parser.ParserContext(null);
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("role", "r", "opt-option", ""))),
+                new Parser().parseBody("[.r%opt]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("role", "stretch", "autowidth-option", ""))),
+                new Parser().parseBody("[%autowidth.stretch]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("id", "myid", "opt-option", ""))),
+                new Parser().parseBody("[%opt#myid]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("id", "io.yupiik.test.MyObject"))),
+                new Parser().parseBody("[#io.yupiik.test.MyObject]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("id", "a.b", "c-option", "", "role", "d"))),
+                new Parser().parseBody("[#a.b%c.d]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a", "opts", "50%"))),
+                new Parser().parseBody("[a, 50%]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a"))),
+                new Parser().parseBody("[a,$$$$]\nhello", context).children());
+        assertEquals( // cols= holds no column, as asciidoctor, and the model drops it so the renderers see none
+                new Parser().parseBody("|===\n|a|b\n|c|d\n|===", context).children(),
+                new Parser().parseBody("[cols=]\n|===\n|a|b\n|c|d\n|===", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "NOTE\t#x"))), // a tab is a blank too, so the value is no shorthand (asciidoctor reads none either, and writes the tab as a space)
+                new Parser().parseBody("[NOTE\t#x]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "text", Map.of("role", "x", "citetitle", "Source"))), // the second positional key of a quote, numbered across the named one as asciidoctor
+                new Parser().parseBody("[quote, role=x, Source]\ntext", context).children());
+        assertEquals(List.of(new Text(List.of(), "text", Map.of("role", "quoteblock", "attribution", "Author", "citetitle", "Source, Inc."))), // a quoted citetitle keeps its comma
+                new Parser().parseBody("[quote, Author, \"Source, Inc.\"]\ntext", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a", "opts", "b"))), // a "" before a later value holds its slot and joins no option
+                new Parser().parseBody("[a,\"\",b]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "text", Map.of("role", "quoteblock", "citetitle", "Cite"))), // the "" holds the attribution slot, as asciidoctor numbers it, and sets nothing
+                new Parser().parseBody("[quote, \"\", Cite]\ntext", context).children());
+        for (final var empty : List.of("[\"\"]\nhello", "[\"\", role=x]\n====\na\n====", "[source,\"\"]\n----\nx\n----")) { // a quoted "" on a block line sets nothing, as before (asciidoctor has no style for [""] either, but keeps an empty language for [source,""])
+            assertEquals(new Parser().parseBody(empty.replace("\"\", ", "").replace(",\"\"", "").replace("[\"\"]\n", ""), context).children(),
+                    new Parser().parseBody(empty, context).children(), empty);
+        }
+        assertEquals(List.of(new Code("x\n", Map.of("language", "java", "nowrap-option", ""), false, List.of())),
+                new Parser().parseBody("[source,java,%nowrap]\n----\nx\n----", context).children());
+        assertEquals(
+                new Parser().parseBody("[NOTE#x]\nhello", context).children(),
+                new Parser().parseBody("[NOTE#x ]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("opt-option", "", "opts", "java"))),
+                new Parser().parseBody("[%opt,java]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a \", 50%, x"))),
+                new Parser().parseBody("[\"a \\\", 50%, x\"]\nhello", context).children());
+        assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a b%c"))),
+                new Parser().parseBody("[a b%c]\nhello", context).children());
+        assertEquals(List.of(new Code("x\n", Map.of("language", "java", "linenums-option", ""), false, List.of())),
+                new Parser().parseBody("[source%linenums,java]\n----\nx\n----", context).children());
+        assertEquals(Map.of("", "example", "collapsible-option", "", "open-option", ""),
+                ((OpenBlock) new Parser().parseBody("[%collapsible%open]\n====\nx\n====", context).children().get(0)).options());
+    }
+
+    @Test
+    void mailtoTextReadsTheSubjectAndTheBody() { // as asciidoctor, the second and third positional values of a mailto: text
+        assertEquals(
+                List.of(new Link("mailto:a@b.c",
+                        new Text(List.of(), "Text", Map.of("", "Text", "nowrap", "true", "subject", "Subject here", "body", "Body here")),
+                        Map.of("subject", "Subject here", "body", "Body here"))),
+                new Parser().parseBody("mailto:a@b.c[Text, Subject here, Body here]", new Parser.ParserContext(null)).children());
     }
 
     // crd-ref-docs uses this kind of formatting
@@ -4813,6 +4891,18 @@ class ParserTest {
                     default -> Optional.empty();
                 });
         assertEquals(List.of(new Text(List.of(), "included content", Map.of())), body.children());
+    }
+
+    @Test
+    void includeWithAnEmptyLeveloffsetOrIndentIsIncludedAsWritten() { // as asciidoctor; name= sets an empty value, which these options read as their default
+        final ContentResolver resolver = (ref, encoding) -> switch (ref) {
+            case "snippet.adoc" -> Optional.of(List.of("== Inc", "", "text"));
+            default -> Optional.empty();
+        };
+        final var expected = new Parser().parseBody(new Reader(List.of("include::snippet.adoc[]")), resolver).children();
+        for (final var options : List.of("leveloffset=", "indent=", "encoding=", "lines=", "tag=", "opts=", "leveloffset=,indent=,encoding=")) {
+            assertEquals(expected, new Parser().parseBody(new Reader(List.of("include::snippet.adoc[" + options + "]")), resolver).children(), options);
+        }
     }
 
     @Test

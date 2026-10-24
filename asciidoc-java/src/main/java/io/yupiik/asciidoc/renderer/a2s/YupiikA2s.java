@@ -33,11 +33,21 @@ public final class YupiikA2s {
         }
         return IMPL.toSvg(
                 content,
-                Integer.parseInt(options.getOrDefault("tabWidth", "8")),
+                intOption(options, "tabWidth", 8),
                 Boolean.parseBoolean(options.getOrDefault("blur", "false")),
-                options.getOrDefault("font", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace"),
-                Integer.parseInt(options.getOrDefault("scaleX", "9")),
-                Integer.parseInt(options.getOrDefault("scaleX", "16")));
+                stringOption(options, "font", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace"),
+                intOption(options, "scaleX", 9),
+                intOption(options, "scaleY", 16));
+    }
+
+    // an option without a value, tabWidth= or font=, is the default, as the parser reads name= as the empty string
+    private static int intOption(final Map<String, String> options, final String name, final int defaultValue) {
+        return Integer.parseInt(stringOption(options, name, Integer.toString(defaultValue)));
+    }
+
+    private static String stringOption(final Map<String, String> options, final String name, final String defaultValue) {
+        final var value = options.get(name);
+        return value == null || value.isEmpty() ? defaultValue : value;
     }
 
     public static boolean isAvailable() {
