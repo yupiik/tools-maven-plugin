@@ -15,13 +15,18 @@
  */
 package io.yupiik.tools.generator.generic.helper.impl;
 
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class UppercaseTest {
     @Test
     void eval() {
-        assertEquals("UPPER", new Uppercase().apply("upper"));
+        assertEquals(new SafeString("UPPER"), new Uppercase().apply(new HelperContext(List.of("upper"), Map.of())));
     }
 }

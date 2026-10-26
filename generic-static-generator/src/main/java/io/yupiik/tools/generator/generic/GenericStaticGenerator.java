@@ -21,6 +21,7 @@ import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
 import io.yupiik.fusion.framework.handlebars.HandlebarsCompiler;
 import io.yupiik.fusion.framework.handlebars.compiler.accessor.MapAccessor;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
 import io.yupiik.tools.generator.generic.contributor.ContextContributor;
 import io.yupiik.tools.generator.generic.contributor.ContributorRegistry;
 import io.yupiik.tools.generator.generic.contributor.thread.LazyScheduledExecutor;
@@ -63,6 +64,24 @@ import static java.util.stream.Collectors.toMap;
                 
                 Similarly, `io.yupiik.tools.generator.generic.helper.Helper` can be registered as a Fusion bean to add helpers to the
                 rendering context in addition to the default ones.
+                A helper gets the `HelperContext` of fusion-handlebars: its arguments, its `key=value` arguments and, when it is called as
+                `{{#name}}...{{/name}}`, the renderer of the block; `value(context)` reads its argument as the built-in `lowercase`, `uppercase`,
+                `truncate` and `toJson` helpers do.
+                These built-in helpers return a `SafeString`, which `{{name}}` and `{{name value}}` write as is; fusion-handlebars HTML-escapes
+                any other result of these two forms, and writes the result of `{{{name value}}}` or of a block call as is.
+                A `Helper` compiled for the `Function<Object, String>` contract of earlier releases must be recompiled:
+                it still runs, but it gets the `HelperContext` as its argument, so it writes the text of that `HelperContext`,
+                HTML-escaped, instead of its usual output.
+                In a sub-expression, the result of a built-in helper is a `SafeString` object, so `eq`, `not`, `default` and `if`
+                do not compare or test its text: `{{#eq (lowercase v) "abc"}}` is false for `v=ABC`.
+                The template can also use the helpers of the engine, such as `eq`, `and`, `or`, `not` and `default`,
+                see link:https://www.yupiik.io/fusion/handlebars.html[fusion-handlebars].
+                A value whose name is also a helper, such as `time` or `default`, is read with `this`: `{{this.time}}`.
+                A template is also affected by the other changes that link:https://www.yupiik.io/fusion/handlebars.html#_breaking_changes[fusion-handlebars 1.2.0 lists],
+                such as the context of a `{{#name}}...{{/name}}` block, which is now the value of `name`: `{{#data}}{{some}}{{/data}}` reads `data.some`.
+                
+                On the command line, every option takes a value, and a value that starts with `-` is written after `=`,
+                as in `--template='- {{name}}'`.
                 
                 TIP: It can also be used to generate a static JavaScript site dataset - the site being built elsewhere with `rsbuild`, `esbuild` or a similar tool
                      and the generator just used to aggregate data and dump them as JSON using the `toJson` helper.
@@ -78,7 +97,7 @@ import static java.util.stream.Collectors.toMap;
 public class GenericStaticGenerator implements Runnable {
     private final GenericStaticGeneratorConfiguration configuration;
     private final List<ContextContributor> contributors;
-    private final Map<String, Function<Object, String>> helpers;
+    private final Map<String, Function<HelperContext, Object>> helpers;
 
     public GenericStaticGenerator(final GenericStaticGeneratorConfiguration configuration,
                                   final ContributorRegistry contributorRegistry,
