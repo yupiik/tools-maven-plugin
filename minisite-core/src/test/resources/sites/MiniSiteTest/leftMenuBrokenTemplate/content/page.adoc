@@ -1,0 +1,4 @@
+= Page
+:minisite-menu-1: /page.html
+
+A page with a menu.
