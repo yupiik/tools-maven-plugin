@@ -73,6 +73,27 @@ class MiniSiteTest {
     }
 
     @Test
+    void gravatarHelper(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final MiniSiteConfiguration configuration = builder.build();
+        final MiniSite miniSite = new MiniSite(configuration);
+        final Path output = configuration.getTarget();
+        final Map.Entry<MiniSite.Page, Path> post = Map.entry(
+                new MiniSite.Page("blog/post.adoc", "foomissing", Map.of("minisite-blog-gravatar", "foo@example.com"), ""),
+                output.resolve("blog/post.html"));
+        assertEquals(
+                "<img src=\"https://www.gravatar.com/avatar/b9481baee2c0a9976ac1b0d6dc9aa276?d=identicon&size=40\">",
+                miniSite.toMenuItem(output, post, "<img src=\"{{gravatar title}}\">"));
+        final String image = "<img src=\"https://www.gravatar.com/avatar/b48def645758b95537d4424c84d1a9ff?d=identicon&size=40\">";
+        assertEquals(image, miniSite.toMenuItem(output, post, "<img src=\"{{{gravatar}}}\">"));
+        assertEquals(image, miniSite.toMenuItem(output, post, "<img src=\"{{gravatar}}\">"));
+
+        final Map.Entry<MiniSite.Page, Path> page = Map.entry(
+                new MiniSite.Page("page.adoc", "Page", Map.of(), ""),
+                output.resolve("page.html"));
+        assertEquals("<img src=\"\">", miniSite.toMenuItem(output, page, "<img src=\"{{{gravatar}}}\">"));
+    }
+
+    @Test
     void pageNotFound404(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                          final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         new MiniSite(builder.createADefault404Page(true).build()).run();

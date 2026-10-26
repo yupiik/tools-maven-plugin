@@ -42,6 +42,7 @@ public class GenericStaticGeneratorMojo extends AbstractMojo {
 
     /**
      * Handlebars template to render once the context is built.
+     * The Generic Site Generator page describes its helpers and the template changes of fusion-handlebars 1.2.
      */
     @Parameter(property = "yupiik.generic-static-generator.template", required = true)
     private String template;
