@@ -1,0 +1,5 @@
+= Other
+:minisite-menu-1: /docs/
+:minisite-menu-2: /docs/other.html
+
+Another page.

@@ -1,5 +1,7 @@
 = Parent
 :minisite-menu-1: /parent.html
 :minisite-menu-1-1: /child.html
+:minisite-menu-2: https://yupiik.io
+:minisite-menu-2-title: Yupiik
 
 The parent.

@@ -181,7 +181,7 @@ public class MiniSite implements Runnable {
                                                       final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                       final boolean withLeftMenuIfConfigured,
                                                       final Map<Page, Path> files,
-                                                      final Map<Path, String> leftMenus,
+                                                      final Map<Path, Supplier<String>> leftMenus,
                                                       final Function<String, String> postProcessor,
                                                       final Function<String, String> customInterpolations,
                                                       final Function<Page, String> footerNavTemplate) {
@@ -209,8 +209,8 @@ public class MiniSite implements Runnable {
                         attrs, body));
                 final String rendered;
                 if (configuration.isTemplateAddLeftMenu() && withLeftMenuIfConfigured && content.contains("<minisite-menu-placeholder/>")) {
-                    final String own = leftMenus.get(html); // the page defines its menu with minisite-menu-<position> attributes
-                    rendered = content.replace("<minisite-menu-placeholder/>", own != null ? own : leftMenu(files, page));
+                    final Supplier<String> own = leftMenus.get(html); // the page defines its menu with minisite-menu-<position> attributes
+                    rendered = content.replace("<minisite-menu-placeholder/>", own != null ? own.get() : leftMenu(files, page));
                 } else if (configuration.isTemplateAddLeftMenu()) {
                     rendered = dropLeftMenu(content);
                 } else {
@@ -345,21 +345,23 @@ public class MiniSite implements Runnable {
      * page attributes, else from the configuration attributes, attribute by attribute.
      * A page without {@code minisite-menu-1} keeps the menu of {@link #leftMenu(Map)}, built from the {@code minisite-index}
      * attributes, whose template model has {@code listItems} only.
-     * The menus are built once the page index is complete, since an entry reads the title and the icon of its page, and
-     * {@link #render} writes them in the {@code <minisite-menu-placeholder/>} of each page, and the legacy menu for the other pages.
+     * The entries are built once the page index is complete, since an entry reads the title and the icon of its page, and
+     * each page renders its menu when {@link #render} writes it in its {@code <minisite-menu-placeholder/>}, so the rendering
+     * runs on the page workers; the other pages get the legacy menu.
      *
      * @param files       the pages and their output file.
      * @param pagesByPath the pages by relative path.
-     * @return the menu of each page defining one, by output file.
+     * @return the rendering of the menu of each page defining one, by output file.
      */
-    protected Map<Path, String> leftMenus(final Map<Page, Path> files, final Map<String, Page> pagesByPath) {
+    protected Map<Path, Supplier<String>> leftMenus(final Map<Page, Path> files, final Map<String, Page> pagesByPath) {
         final Path templatesDir = getTemplatesDir();
         final String template = findPageTemplate(templatesDir, "left-menu");
         final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
         final boolean nestedEntriesRendered = !template.contains("listItems") || itemTemplate.contains("children") || itemTemplate.contains("items");
         final Map<String, Object> globalAttributes = ofNullable(configuration.getAttributes()).orElseGet(Map::of);
-        final Map<Map.Entry<String, List<MenuEntry>>, String> rendered = new HashMap<>(); // the pages sharing a menu render it once
-        final Map<Path, String> menus = new HashMap<>();
+        final String siteBase = menuSiteBase();
+        final Map<Map.Entry<String, List<MenuEntry>>, List<Map<String, Object>>> models = new HashMap<>(); // the pages sharing a menu build its items once
+        final Map<Path, Supplier<String>> menus = new HashMap<>();
         final List<String> legacy = new ArrayList<>();
         boolean nestedEntriesDropped = false;
         for (final Map.Entry<Page, Path> file : files.entrySet()) {
@@ -384,9 +386,13 @@ public class MiniSite implements Runnable {
                 nestedEntriesDropped = hasChildren(entries);
             }
             final String prefix = attributes.apply("minisite-left-menu-prefix");
-            menus.put(file.getValue(), rendered.computeIfAbsent(
-                    entry(prefix == null ? "" : prefix, entries),
-                    key -> leftMenu(entries, prefix, pagesByPath, template, itemTemplate)));
+            final Map.Entry<String, List<MenuEntry>> menu = entry(withoutTrailingSlash(prefix == null ? "" : prefix.trim()), entries);
+            final List<Map<String, Object>> items = models.computeIfAbsent(menu, key -> {
+                final List<Map<String, Object>> built = menuItems(key.getValue(), key.getKey(), siteBase, pagesByPath);
+                leftMenu(built, "", siteBase, template, itemTemplate); // a broken template fails here, before the parallel rendering
+                return built;
+            });
+            menus.put(file.getValue(), () -> leftMenu(items, page.relativePath, siteBase, template, itemTemplate));
         }
         if (nestedEntriesDropped) {
             configuration.getAsciidoctorConfiguration().warn().accept(
@@ -442,66 +448,133 @@ public class MiniSite implements Runnable {
     }
 
     /**
-     * Renders the left menu of a page. The {@code left-menu} template gets the entries as {@code items}, each one being
-     * the model of {@link #toMenuItem(MenuEntry, String, Map, String, Function)}, and {@code listItems}, the entries
-     * rendered with the {@code left-menu-item} template when the template reads it.
+     * Builds the models of the entries of a menu, each one being the model of
+     * {@link #toMenuItem(MenuEntry, String, String, Map, Function)}, shared by the pages using the menu.
      *
      * @param entries      the entries of the menu.
-     * @param prefix       the {@code minisite-left-menu-prefix} attribute, written before the entries starting with a slash, or {@code null}.
+     * @param prefix       the {@code minisite-left-menu-prefix} attribute without its trailing slash, or an empty string.
+     * @param siteBase     the site base without its trailing slash.
      * @param pagesByPath  the pages of the site by path.
+     * @return the models of the entries.
+     */
+    protected List<Map<String, Object>> menuItems(final List<MenuEntry> entries, final String prefix, final String siteBase,
+                                                  final Map<String, Page> pagesByPath) {
+        final List<Map<String, Object>> items = new ArrayList<>(entries.size());
+        for (final MenuEntry entry : entries) {
+            items.add(toMenuItem(entry, prefix, siteBase, pagesByPath, this::getIcon));
+        }
+        return items;
+    }
+
+    /**
+     * Renders the left menu of a page. The {@code left-menu} template gets {@code siteBase}, the entries as {@code items},
+     * and {@code listItems}, the entries rendered with the {@code left-menu-item} template when the template reads it.
+     * The entry of the page has {@code active} set to {@code true}, as the legacy menu does, and a template tests it with
+     * {@code {{#if active}}...{{/if}}}.
+     *
+     * @param items        the models of the entries, shared by the pages using the menu.
+     * @param pagePath     the path of the page the menu is rendered for, from the site root ({@code /docs/child.html}).
+     * @param siteBase     the site base without its trailing slash.
      * @param template     the {@code left-menu} template.
      * @param itemTemplate the {@code left-menu-item} template.
      * @return the rendered menu.
      */
-    protected String leftMenu(final List<MenuEntry> entries, final String prefix, final Map<String, Page> pagesByPath,
+    protected String leftMenu(final List<Map<String, Object>> items, final String pagePath, final String siteBase,
                               final String template, final String itemTemplate) {
-        final String trimmed = prefix == null ? "" : prefix.trim();
-        final String base = trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
-        final List<Map<String, Object>> items = new ArrayList<>(entries.size());
-        for (final MenuEntry entry : entries) {
-            items.add(toMenuItem(entry, base, pagesByPath, itemTemplate, this::getIcon));
-        }
+        final List<Map<String, Object>> pageItems = withActive(items, pagePath, itemTemplate);
         final Map<String, Object> model = new HashMap<>();
-        model.put("items", items);
-        model.put("listItems", (Supplier<String>) () -> renderMenuItems(items, itemTemplate));
+        model.put("siteBase", siteBase);
+        model.put("items", pageItems);
+        model.put("listItems", (Supplier<String>) () -> renderMenuItems(pageItems, itemTemplate));
         return handlebars.render(template, model);
     }
 
     /**
-     * Builds the model of one entry for the {@code left-menu-item} template: the model of the page it links to, with
-     * {@code href}, {@code text}, {@code title} and {@code icon}, {@code items}, the models of the entries under it,
-     * and {@code children}, these entries rendered as a nested list when the template reads it.
-     * An entry starting with a slash is a path from the site root, so it gets the site base and the prefix; any other
+     * Copies the models of the entries for one page, each copy carrying {@code active}, {@code true} for the entry whose
+     * {@code path} is the path of the page, at every level, and {@code children} rendering the copies of the entries under it.
+     *
+     * @param items    the shared models of the entries.
+     * @param pagePath the path of the page the menu is rendered for, from the site root.
+     * @param template the {@code left-menu-item} template.
+     * @return the copied models.
+     */
+    protected List<Map<String, Object>> withActive(final List<Map<String, Object>> items, final String pagePath, final String template) {
+        final List<Map<String, Object>> copies = new ArrayList<>(items.size());
+        for (final Map<String, Object> item : items) {
+            final Map<String, Object> copy = new HashMap<>(item);
+            @SuppressWarnings("unchecked")
+            final List<Map<String, Object>> children = withActive((List<Map<String, Object>>) item.get("items"), pagePath, template);
+            copy.put("active", pagePath.equals(item.get("path")));
+            copy.put("items", children);
+            copy.put("children", childrenList(children, template));
+            copies.add(copy);
+        }
+        return copies;
+    }
+
+    /**
+     * @param children the models of the entries under one entry.
+     * @param template the {@code left-menu-item} template.
+     * @return the {@code children} value of the entry: the nested list, rendered when the template reads it.
+     */
+    protected Supplier<String> childrenList(final List<Map<String, Object>> children, final String template) {
+        return () -> children.isEmpty() ? "" : "<ul>\n" + renderMenuItems(children, template) + "</ul>\n";
+    }
+
+    /**
+     * @return the site base without its trailing slash, so that a path starting with a slash can follow it.
+     */
+    protected String menuSiteBase() {
+        final String siteBase = configuration.getSiteBase();
+        return siteBase == null ? "" : withoutTrailingSlash(siteBase);
+    }
+
+    protected String withoutTrailingSlash(final String value) {
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    /**
+     * Builds the model of one entry: the model of the page it links to, with
+     * {@code path} (the prefix and the target, with {@code .html} when the page is found that way, or the URL as written),
+     * {@code siteBase} (empty for an entry linked as written), {@code href} ({@code siteBase} then {@code path}),
+     * {@code text}, {@code title} and {@code icon}, and {@code items}, the models of the entries under it;
+     * {@link #withActive(List, String, String)} adds {@code active} and {@code children} for the {@code left-menu-item} template.
+     * An entry starting with a slash is a path from the site root, so it gets the site base and the prefix, and names
+     * its page with or without {@code .html} ({@code /} and {@code /docs/} name the {@code index.html} there); any other
      * entry ({@code https://...}) is linked as written.
      *
      * @param entry       the entry.
      * @param prefix      the {@code minisite-left-menu-prefix} attribute without its trailing slash, or an empty string.
+     * @param siteBase    the site base without its trailing slash.
      * @param pagesByPath the pages of the site by path.
-     * @param template    the {@code left-menu-item} template.
      * @param defaultIcon the icon of an entry without {@code -icon}: the icon of its page at the top level, none below nor for a target which is not a page.
      * @return the model.
      */
-    protected Map<String, Object> toMenuItem(final MenuEntry entry, final String prefix, final Map<String, Page> pagesByPath,
-                                             final String template, final Function<Page, String> defaultIcon) {
+    protected Map<String, Object> toMenuItem(final MenuEntry entry, final String prefix, final String siteBase,
+                                             final Map<String, Page> pagesByPath, final Function<Page, String> defaultIcon) {
         final boolean fromRoot = entry.target().startsWith("/");
         final String written = fromRoot ? prefix + entry.target() : entry.target();
         final Page asWritten = pagesByPath.get(written);
-        final Page withExtension = asWritten == null ? pagesByPath.get(written + ".html") : null; // /getting-started names /getting-started.html
-        final String path = withExtension == null ? written : written + ".html";
+        // /getting-started names /getting-started.html and /docs/ names /docs/index.html
+        final String completed = written.endsWith("/") ? written + "index.html" : written + ".html";
+        final Page withExtension = asWritten == null ? pagesByPath.get(completed) : null;
+        final String path = withExtension == null ? written : completed;
         final Page target = asWritten != null ? asWritten : withExtension;
         final String text = entry.title() != null ? entry.title() : target != null ? getTitle(target) : entry.target();
         final Page page = target != null ? target : new Page(path, text, Map.of(), null);
         final List<Map<String, Object>> children = new ArrayList<>(entry.children().size());
         for (final MenuEntry child : entry.children()) {
-            children.add(toMenuItem(child, prefix, pagesByPath, template, it -> ""));
+            children.add(toMenuItem(child, prefix, siteBase, pagesByPath, it -> ""));
         }
         final Map<String, Object> model = buildInterpolationModel(page, null, null, k -> null);
         model.put("title", toLinkTitle(page));
         model.put("text", text);
-        model.put("href", fromRoot ? configuration.getSiteBase() + path : path);
+        final String base = fromRoot ? siteBase : ""; // an entry linked as written gets no site base
+        model.put("path", path);
+        model.put("siteBase", base);
+        model.put("href", base + path);
         model.put("icon", entry.icon() != null ? toIcon(entry.icon()) : target != null ? defaultIcon.apply(target) : "");
         model.put("items", children);
-        model.put("children", (Supplier<String>) () -> children.isEmpty() ? "" : "<ul>\n" + renderMenuItems(children, template) + "</ul>\n");
         return model;
     }
 
@@ -521,7 +594,11 @@ public class MiniSite implements Runnable {
         final var model = buildInterpolationModel(it.getKey(), null, null, k -> null);
         model.put("title", toLinkTitle(it.getKey()));
         model.put("text", getTitle(it.getKey()));
-        model.put("href", configuration.getSiteBase() + '/' + output.relativize(it.getValue()));
+        final String siteBase = menuSiteBase();
+        final String path = '/' + output.relativize(it.getValue()).toString().replace(File.separatorChar, '/');
+        model.put("path", path);
+        model.put("siteBase", siteBase);
+        model.put("href", siteBase + path);
         model.put("active", currentPage != null && Objects.equals(currentPage.relativePath, it.getKey().relativePath));
         return handlebars.render(template, model);
     }
@@ -867,7 +944,7 @@ public class MiniSite implements Runnable {
         Function<Page, String> template = null;
         boolean hasBlog = false;
         List<String> categories = emptyList();
-        final Map<Path, String> leftMenus = new HashMap<>();
+        final Map<Path, Supplier<String>> leftMenus = new HashMap<>();
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
             final Function<Page, String> footerNavTemplate = loadNavTemplates();
@@ -1155,12 +1232,12 @@ public class MiniSite implements Runnable {
 
     /**
      * @param pagesByPath receives the page by relative path, next to {@code files}.
-     * @param leftMenus   the menus of the pages defining one with {@code minisite-menu-<position>} attributes, by output file,
-     *                    read when the page is rendered, so it can be filled after this call and before the rendering.
+     * @param leftMenus   the rendering of the menu of the pages defining one with {@code minisite-menu-<position>} attributes,
+     *                    by output file, read when the page is rendered, so it can be filled after this call and before the rendering.
      */
     protected Consumer<Function<Page, String>> onVisitedFile(final Page page, final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                              final Map<Page, Path> files, final Map<String, Page> pagesByPath,
-                                                             final Map<Path, String> leftMenus,
+                                                             final Map<Path, Supplier<String>> leftMenus,
                                                              final OffsetDateTime now, final List<BlogPage> blog,
                                                              final Function<Page, String> footerNavTemplate) {
         if (page.attributes.containsKey("minisite-skip")) {

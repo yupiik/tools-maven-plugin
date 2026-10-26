@@ -36,6 +36,7 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
@@ -170,27 +171,47 @@ class MiniSiteTest {
                 Map.entry("minisite-menu-4-title", "GitHub"));
 
     private void assertLeftMenuPositions(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
-        final String menu = "    <ul>\n" +
+        // the same menu on each page, the entry of the page being active, none on a page which is not an entry
+        asserts.assertContains("other.html", leftMenuPositions("", "/other.html"));
+        asserts.assertContains("child-a.html", leftMenuPositions("", "/child-a.html"));
+        asserts.assertContains("extra.html", leftMenuPositions("", "/extra.html"));
+        asserts.assertNotContains("extra.html", "aria-current");
+        asserts.assertThat(files -> { // the index tiles still come from minisite-index
+            final String index = files.get("index.html");
+            assertTrue(index.contains("Parent"), index);
+            assertTrue(index.contains("Other"), index);
+            assertFalse(index.contains("First child"), index);
+            assertFalse(index.contains("Second child"), index);
+        });
+    }
+
+    /**
+     * @param siteBase   the site base written before the entries from the root.
+     * @param activePath the path of the page the menu is rendered for.
+     * @return the menu of the leftMenuPositions site for that page.
+     */
+    private String leftMenuPositions(final String siteBase, final String activePath) {
+        return "    <ul>\n" +
                 "<li>\n" +
-                "    <a title=\"Parent\" href=\"/parent.html\">\n" +
+                "    <a title=\"Parent\" href=\"" + siteBase + "/parent.html\"" + current("/parent.html", activePath) + ">\n" +
                 "        <i class=\"fas fa-book\"></i>Parent\n" +
                 "    </a>\n" +
                 "<ul>\n" +
                 "<li>\n" +
-                "    <a title=\"First child\" href=\"/child-a.html\">\n" +
+                "    <a title=\"First child\" href=\"" + siteBase + "/child-a.html\"" + current("/child-a.html", activePath) + ">\n" +
                 "        <i class=\"\"></i>First\n" +
                 "    </a>\n" +
                 "</li><li>\n" +
-                "    <a title=\"Second child\" href=\"/child-b.html\">\n" +
+                "    <a title=\"Second child\" href=\"" + siteBase + "/child-b.html\"" + current("/child-b.html", activePath) + ">\n" +
                 "        <i class=\"fas fa-file\"></i>Second child\n" +
                 "    </a>\n" +
                 "</li></ul>\n" +
                 "</li><li>\n" +
-                "    <a title=\"Other\" href=\"/other.html\">\n" +
+                "    <a title=\"Other\" href=\"" + siteBase + "/other.html\"" + current("/other.html", activePath) + ">\n" +
                 "        <i class=\"fas fa-robot\"></i>Other\n" +
                 "    </a>\n" +
                 "</li><li>\n" +
-                "    <a title=\"API\" href=\"/api/index.html?v=2\">\n" +
+                "    <a title=\"API\" href=\"" + siteBase + "/api/index.html?v=2\">\n" +
                 "        <i class=\"fas fa-code\"></i>API\n" +
                 "    </a>\n" +
                 "</li><li>\n" +
@@ -199,15 +220,35 @@ class MiniSiteTest {
                 "    </a>\n" +
                 "</li>\n" +
                 "    </ul>\n";
-        asserts.assertContains("other.html", menu);
-        asserts.assertContains("child-a.html", menu);
-        asserts.assertThat(files -> { // the index tiles still come from minisite-index
-            final String index = files.get("index.html");
-            assertTrue(index.contains("Parent"), index);
-            assertTrue(index.contains("Other"), index);
-            assertFalse(index.contains("First child"), index);
-            assertFalse(index.contains("Second child"), index);
-        });
+    }
+
+    private String current(final String path, final String activePath) {
+        return path.equals(activePath) ? " aria-current=\"page\"" : "";
+    }
+
+    @Test
+    void leftMenuSiteBaseTrailingSlash(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                       final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a site base ending with a slash does not give a double slash before the path
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuPositions"))
+                .siteBase("http://localhost:4200/")
+                .attributes(MENU)
+                .build())
+                .run();
+        asserts.assertContains("other.html", leftMenuPositions("http://localhost:4200", "/other.html"));
+        asserts.assertNotContains("other.html", "4200//parent.html");
+    }
+
+    @Test
+    void leftMenuHome(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                      final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // an entry ending with a slash names the index.html of that folder, so the page is found and marked
+        new MiniSite(builder.build()).run();
+        final String home = "    <a title=\"Docs home\" href=\"/docs/index.html\"";
+        asserts.assertContains("docs/index.html", home + " aria-current=\"page\">\n        <i class=\"fas fa-download\"></i>Docs home\n");
+        asserts.assertContains("docs/other.html", home + ">\n");
+        asserts.assertContains("docs/other.html", "    <a title=\"Other\" href=\"/docs/other.html\" aria-current=\"page\">\n");
     }
 
     @Test
@@ -220,19 +261,21 @@ class MiniSiteTest {
                 .build())
                 .run();
         asserts.assertContains("docs/child.html", "<a title=\"Yupiik\" href=\"https://yupiik.io\">");
-        final String menu = "<li>\n" +
-                "    <a title=\"Parent\" href=\"/docs/parent.html\">\n" +
+        final String parent = "<li>\n" +
+                "    <a title=\"Parent\" href=\"/docs/parent.html\"";
+        final String middle = ">\n" +
                 "        <i class=\"fas fa-download\"></i>Global\n" +
                 "    </a>\n" +
                 "<ul>\n" +
                 "<li>\n" +
-                "    <a title=\"Child\" href=\"/docs/child.html\">\n" +
+                "    <a title=\"Child\" href=\"/docs/child.html\"";
+        final String child = ">\n" +
                 "        <i class=\"\"></i>Child\n" +
                 "    </a>\n" +
                 "</li></ul>\n" +
                 "</li>";
-        asserts.assertContains("docs/child.html", menu);
-        asserts.assertContains("docs/parent.html", menu);
+        asserts.assertContains("docs/child.html", parent + middle + " aria-current=\"page\"" + child);
+        asserts.assertContains("docs/parent.html", parent + " aria-current=\"page\"" + middle + child);
     }
 
     @Test
@@ -250,6 +293,26 @@ class MiniSiteTest {
     }
 
     @Test
+    void leftMenuBrokenTemplate(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the menu is rendered once before the parallel rendering, so a broken template fails the build
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Missing {{/if}} at index 18'", error.getMessage());
+    }
+
+    @Test
+    void leftMenuLegacySiteBaseTrailingSlash(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                             final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the legacy menu gets the site base without its trailing slash too
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuLegacy"))
+                .siteBase("http://localhost:4200/")
+                .build())
+                .run();
+        asserts.assertContains("first.html", "    <a title=\"First\" href=\"http://localhost:4200/first.html\" aria-current=\"page\">\n");
+        asserts.assertNotContains("first.html", "4200//first.html");
+    }
+
+    @Test
     void leftMenuLegacy(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         final List<String> warnings = warnings(builder);
@@ -261,9 +324,9 @@ class MiniSiteTest {
                 "Pages without minisite-menu-1 attribute:\n" +
                 "- /first.html\n" +
                 "- /second.html\n"), warnings);
-        asserts.assertContains("first.html", "    <ul>\n" +
+        asserts.assertContains("first.html", "    <ul>\n" + // the legacy menu marks the entry of the page too
                 "<li>\n" +
-                "    <a title=\"First\" href=\"/first.html\">\n" +
+                "    <a title=\"First\" href=\"/first.html\" aria-current=\"page\">\n" +
                 "        <i class=\"fas fa-download\"></i>First\n" +
                 "    </a>\n" +
                 "</li><li>\n" +
@@ -290,13 +353,10 @@ class MiniSiteTest {
     void leftMenuGaps(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                       final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         new MiniSite(builder.build()).run();
-        // minisite-menu-3 comes after a gap, minisite-menu-1-1-title has no minisite-menu-1-1 and minisite-menu-x is not a position
+        // minisite-menu-3 comes after a gap, minisite-menu-1-1-title has no minisite-menu-1-1 and minisite-menu-x is not a position;
+        // the custom left-menu-item template of the site marks the entry of the page with eq, rendered through listItems
         asserts.assertContains("page.html", "    <ul>\n" +
-                "<li>\n" +
-                "    <a title=\"Page\" href=\"/page.html\">\n" +
-                "        <i class=\"fas fa-download\"></i>Page\n" +
-                "    </a>\n" +
-                "</li>\n" +
+                "<li class='current'><a href=\"/page.html\">Page</a></li>\n" +
                 "    </ul>\n");
         asserts.assertNotContains("page.html", "After a gap");
         asserts.assertNotContains("page.html", "Orphan");
@@ -305,9 +365,12 @@ class MiniSiteTest {
     @Test
     void leftMenuCustomItemTemplate(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                                     final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
-        // a custom left-menu template reading the entries as a model instead of the rendered listItems
-        new MiniSite(builder.build()).run();
-        asserts.assertContains("parent.html", "<nav><a href=\"/parent.html\">Parent</a><a class=\"sub\" href=\"/child.html\">Child</a></nav>");
+        // a custom left-menu template reading the entries as a model instead of the rendered listItems,
+        // building the links from siteBase and path and marking the entry of the page with active
+        new MiniSite(builder.siteBase("/root/").build()).run();
+        asserts.assertContains("parent.html", "<nav data-base=\"/root\"><a class='active' href=\"/root/parent.html\">Parent</a><a class=\"sub\" href=\"/root/child.html\">Child</a>\n" + // the engine writes a line feed between two iterations of a loop
+                "<a href=\"https://yupiik.io\">Yupiik</a></nav>");
+        asserts.assertContains("child.html", "<nav data-base=\"/root\"><a href=\"/root/parent.html\">Parent</a><a class=\"sub active\" href=\"/root/child.html\">Child</a></nav>");
     }
 
     @Test

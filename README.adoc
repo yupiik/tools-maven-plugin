@@ -629,7 +629,7 @@ TIP: Use `100`, `200`, ... rather than `1`, `2`, `3`, ..., so that an item is ea
 
 The left menu of a page is defined by `minisite-menu-<position>` attributes, read from the page attributes, else from the `attributes` of the plugin configuration, with both engines.
 A page attribute wins over the configuration attribute of the same name, so a site usually defines one menu in the configuration and a page can change an entry of it in its header (with the Asciidoctor engine, the configuration attributes are locked by Asciidoctor itself unless their value ends with `@`, as for any attribute set by the API).
-The value of an entry is the path of its target from the site root, with or without the `.html` extension when it names a page, or a URL (`https://...`), which is linked as written:
+The value of an entry is the path of its target from the site root, with or without the `.html` extension when it names a page (`/docs/` names `/docs/index.html` when the `content` folder has that page; the generated home page is not a page of the menu), or a URL (`https://...`), which is linked as written:
 
 [source,asciidoc]
 ----
@@ -650,7 +650,22 @@ The value of an entry is the path of its target from the site root, with or with
 |`minisite-left-menu-prefix`|Written before each entry starting with a slash: with `/docs`, the entry `/getting-started.html` links to `/docs/getting-started.html`. Alone, without `minisite-menu-1`, it defines no menu.
 |===
 
-The `left-menu.hb` template gets `listItems`, the entries rendered with `left-menu-item.hb`, and `items`, the entries as a list a custom template can iterate with `{{#each items}}`: each one has `href`, `text`, `title`, `icon`, `items` (the entries under it) and `children` (these entries rendered as a nested list), plus the model of the page it links to.
+The `left-menu.hb` template gets `siteBase` (below), `listItems`, the entries rendered with `left-menu-item.hb`, and `items`, the entries as a list a custom template can iterate with `{{#each items}}`.
+Each entry has the model of the page it links to, plus these keys:
+
+[options="header",cols="1,3"]
+|===
+|Key|Value
+|`path`|The link target without the site base: the prefix and the entry, with `.html` added when the page is found that way (`index.html` for an entry ending with a slash), or the URL as written.
+|`siteBase`|The site base without its trailing slash, empty for an entry linked as written. The `siteBase` of the page templates is the configured value as written.
+|`href`|`siteBase` then `path`.
+|`active`|`true` for the entry of the page being rendered, at every level, as for the legacy menu.
+|`text`, `title`, `icon`|The text, the link title and the icon of the entry.
+|`items`|The entries under this one, as a list.
+|`children`|These entries rendered as a nested list with `left-menu-item.hb`.
+|===
+
+The default `left-menu-item.hb` builds the link with `{{{siteBase}}}{{{path}}}` and marks the entry of the page with `{{#if active}} aria-current="page"{{/if}}`, which the default theme highlights.
 A page without `minisite-menu-1` shows the menu built from the `minisite-index` attributes of the pages, which is deprecated, logs a warning and gives the template `listItems` only.
 
 === Synchronize Releases
