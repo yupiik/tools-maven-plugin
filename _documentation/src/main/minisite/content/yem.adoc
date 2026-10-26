@@ -26,6 +26,7 @@ include::{partialsdir}/generated/documentation.yem.adoc[lines=4..-1]
 == CLI
 
 The command line uses spaces between option and value: `yem install --tool java --version 21.0.2`.
+A boolean option takes its value like any other option: `yem unset --all true` works, while `yem unset --all` stops _yem_ with an error.
 
 === Commands
 

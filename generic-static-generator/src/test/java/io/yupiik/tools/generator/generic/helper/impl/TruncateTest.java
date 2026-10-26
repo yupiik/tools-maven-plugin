@@ -15,25 +15,28 @@
  */
 package io.yupiik.tools.generator.generic.helper.impl;
 
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TruncateTest {
     @Test
     void small() {
-        assertEquals("all", new Truncate().apply(List.of("all", 3)));
+        assertEquals(new SafeString("all"), new Truncate().apply(new HelperContext(List.of("all", 3), Map.of())));
     }
 
     @Test
     void exact() {
-        assertEquals("...", new Truncate().apply(List.of("long", 3)));
+        assertEquals(new SafeString("..."), new Truncate().apply(new HelperContext(List.of("long", 3), Map.of())));
     }
 
     @Test
     void truncated() {
-        assertEquals("to...", new Truncate().apply(List.of("too long", 5)));
+        assertEquals(new SafeString("to..."), new Truncate().apply(new HelperContext(List.of("too long", 5), Map.of())));
     }
 }
