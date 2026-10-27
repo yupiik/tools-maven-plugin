@@ -98,6 +98,25 @@ public class MiniSite implements Runnable {
                 "gravatar", o -> ofNullable(o).map(String::valueOf).map(it -> gravatar.toUrl(configuration.getGravatar(), it)).orElse("")));
     }
 
+    private record PageRef(String location, String name) {
+    }
+
+    private static Predicate<PageRef> ignoredPage(final String pattern) {
+        final Predicate<String> matcher;
+        if (pattern.startsWith("regex:")) {
+            matcher = Pattern.compile(pattern.substring("regex:".length())).asMatchPredicate();
+        } else if (pattern.startsWith("prefix:")) {
+            final String value = pattern.substring("prefix:".length());
+            matcher = s -> s.startsWith(value);
+        } else {
+            matcher = pattern::equals;
+        }
+        // a slash in the value targets the (target-relative, '/'-normalized) location, otherwise the file name
+        return pattern.contains("/") ?
+                ref -> matcher.test(ref.location()) :
+                ref -> matcher.test(ref.name());
+    }
+
     @Override
     public void run() {
         executePreActions();
@@ -751,28 +770,14 @@ public class MiniSite implements Runnable {
         }
 
         if (hasSearch()) {
-            final Predicate<String> ignoredPages = configuration.getNotIndexedPages() == null || configuration.getNotIndexedPages().isEmpty() ?
-                    s -> false :
-                    configuration.getNotIndexedPages().stream()
-                            .map(it -> {
-                                if (it.startsWith("regex:")) {
-                                    return Pattern.compile(it.substring("regex:".length())).asMatchPredicate();
-                                }
-                                if (it.startsWith("prefix:")) {
-                                    final String value = it.substring("prefix:".length());
-                                    return (Predicate<String>) s -> s.startsWith(value);
-                                }
-                                return (Predicate<String>) it::equals;
-                            })
-                            .reduce(s -> false, Predicate::or);
+            final Predicate<PageRef> ignoredPages = configuration.getNotIndexedPages().stream()
+                    .map(MiniSite::ignoredPage)
+                    .reduce(p -> false, Predicate::or);
             final InvertedIndexService indexer = new InvertedIndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
                 final String location = configuration.getTarget().relativize(path).toString().replace(File.separatorChar, '/');
                 final String name = path.getFileName().toString();
-                if ((location.startsWith("blog/") && (name.startsWith("page-") || name.equals("index.html"))) || ignoredPages.test(name)) {
-                    return false;
-                }
-                return true;
+                return !ignoredPages.test(new PageRef(location, name));
             }), output.resolve(configuration.getSearchIndexName()));
         }
         if (configuration.getRssFeedFile() != null) {
