@@ -421,6 +421,14 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter
     private List<String> notIndexedPages;
 
+    /**
+     * Number of threads used to render pages (and blog pages) concurrently.
+     * {@code -1} uses virtual threads when available (otherwise the common pool), {@code 0} renders sequentially,
+     * {@code &gt; 0} uses a fixed thread pool of that size.
+     */
+    @Parameter(property = "yupiik.minisite.renderingThreads", defaultValue = "-1")
+    private int renderingThreads;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -531,6 +539,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .templatePrefixes(templatePrefixes)
                 .templateAddLeftMenu(templateAddLeftMenu)
                 .templateSuffixes(templateSuffixes)
+                .renderingThreads(renderingThreads)
                 .preActions(preActions == null ? null : preActions.stream()
                         .map(it -> {
                             final var copy = new PreAction();

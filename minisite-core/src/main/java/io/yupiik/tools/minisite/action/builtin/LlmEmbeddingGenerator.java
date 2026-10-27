@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 // Generates the documentation embeddings consumed by the in-browser LLM chat (see the
@@ -57,14 +58,29 @@ public class LlmEmbeddingGenerator implements Runnable {
     private final Path sourceBase;
     private final Path outputBase;
     private final int maxLength;
+    private final Predicate<String> ignoredName;
 
     public LlmEmbeddingGenerator(final Map<String, String> configuration,
                                  final Path sourceBase,
                                  final Path outputBase) {
+        this(configuration, sourceBase, outputBase, s -> false);
+    }
+
+    /**
+     * @param ignoredName predicate over the HTML file name; pages matching it are not embedded. Wired from
+     *                    {@code notIndexedPages} so pages excluded from search/index (e.g. mass-generated detail
+     *                    pages) are also skipped by the CPU-heavy embedding pass instead of being parsed and embedded
+     *                    for nothing.
+     */
+    public LlmEmbeddingGenerator(final Map<String, String> configuration,
+                                 final Path sourceBase,
+                                 final Path outputBase,
+                                 final Predicate<String> ignoredName) {
         checkModel();
         this.sourceBase = sourceBase;
         this.outputBase = outputBase;
         this.maxLength = Integer.parseInt(configuration.getOrDefault("maxLength", "128"));
+        this.ignoredName = ignoredName == null ? s -> false : ignoredName;
     }
 
     private static void checkModel() {
@@ -135,6 +151,9 @@ public class LlmEmbeddingGenerator implements Runnable {
 
     private boolean isIgnored(final Path file) {
         final var name = file.getFileName().toString();
+        if (ignoredName.test(name)) {
+            return true;
+        }
         if (name.equals("404.html") || name.startsWith("page-")) {
             return true;
         }

@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -64,6 +66,9 @@ public class AsciidoctorAsciidoc implements Asciidoc {
 
     private static class AsciidoctorInstance implements AsciidocInstance {
         private final Asciidoctor instance;
+        // the same JRuby Asciidoctor instance is shared across concurrent worker threads: convert/load are not
+        // thread-safe, so serialize them on this instance with a lock rather than an intrinsic monitor.
+        private final Lock lock = new ReentrantLock();
 
         private AsciidoctorInstance(final Asciidoctor a) {
             this.instance = a;
@@ -71,18 +76,28 @@ public class AsciidoctorAsciidoc implements Asciidoc {
 
         @Override
         public Header header(final String content, final Object options) {
-            final Document header = instance.load(content, (Options) options);
-            return new Header(header.getTitle(), header.getAttributes().entrySet().stream()
-                    .collect(toMap(Map.Entry::getKey, e -> e.getValue() instanceof Collection ?
-                            ((List<?>) e.getValue()).stream().map(String::valueOf).collect(joining(",")) :
-                            String.valueOf(e.getValue()))));
+            lock.lock();
+            try {
+                final Document header = instance.load(content, (Options) options);
+                return new Header(header.getTitle(), header.getAttributes().entrySet().stream()
+                        .collect(toMap(Map.Entry::getKey, e -> e.getValue() instanceof Collection ?
+                                ((List<?>) e.getValue()).stream().map(String::valueOf).collect(joining(",")) :
+                                String.valueOf(e.getValue()))));
+            } finally {
+                lock.unlock();
+            }
         }
 
         @Override
         public String convert(final String content, final Object options) {
-            return instance.convert(content, options == null ?
-                    Options.builder().safe(UNSAFE).backend("html5").inPlace(false).standalone(false).build() :
-                    (Options) options);
+            lock.lock();
+            try {
+                return instance.convert(content, options == null ?
+                        Options.builder().safe(UNSAFE).backend("html5").inPlace(false).standalone(false).build() :
+                        (Options) options);
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }
