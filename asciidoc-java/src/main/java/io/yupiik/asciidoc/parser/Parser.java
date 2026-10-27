@@ -379,7 +379,7 @@ public class Parser {
     }
 
     private boolean holdsBlank(final String value) { // a space or a tab, the blanks of asciidoctor's AttributeList
-        return value.indexOf(' ') >= 0 || value.indexOf('\t') >= 0;
+        return value.contains(" ") || value.contains("\t");
     }
 
     private int firstIndexOf(final String value, final String characters) {
@@ -908,13 +908,8 @@ public class Parser {
                              final Map<String, String> currentAttributes,
                              final String token) {
         final var tableOptions = new HashMap<>(options == null ? Map.of() : options);
-        final var cols = tableOptions.get("cols");
-        if (cols != null && cols.isBlank()) { // cols= specifies no column, as asciidoctor, so the renderers see none either
-            tableOptions.remove("cols");
-        }
-        final var columns = ofNullable(tableOptions.get("cols"))
-                .map(this::parseColumnSpecs)
-                .orElse(List.of());
+        final var cols = tableOptions.get("cols"); // cols= gives no column, as asciidoctor
+        final var columns = cols == null ? List.<Table.ColumnSpec>of() : parseColumnSpecs(cols);
 
         final var lines = new ArrayList<String>();
         String next;
@@ -2310,9 +2305,9 @@ public class Parser {
                                 optionsPrefix = optionsPrefix.substring(2);
                                 offset = 2;
                             }
-                            final boolean link = isLink(optionsPrefix);
+                            final boolean directLink = isDirectLink(optionsPrefix);
                             // the macros whose text follows asciidoctor's link text rules: link:, xref:, a bare link and mailto:
-                            final boolean linkText = link || optionsPrefix.startsWith("link:") || optionsPrefix.startsWith("xref:");
+                            final boolean linkText = directLink || optionsPrefix.startsWith("link:") || optionsPrefix.startsWith("xref:");
                             if (linkText) { // a nested macro, link:url[image:a.png[alt]], keeps its brackets
                                 end = linkTextEnd(line, i, end, currentAttributes);
                             }
@@ -2320,7 +2315,7 @@ public class Parser {
                             final var options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip(), linkText);
 
                             final int macroMarker = optionsPrefix.indexOf(":");
-                            if (macroMarker > 0 && !link) {
+                            if (macroMarker > 0 && !directLink) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
                                 // as asciidoctor, these macros keep the brackets as written, the renderer reads them
@@ -2444,7 +2439,7 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var content = line.substring(i + 1, end);
-                        if (isLink(content)) { // this looks like a bad practise but can happen
+                        if (isDirectLink(content)) { // this looks like a bad practise but can happen
                             final var link = unwrapElementIfPossible(parseParagraph(
                                     enclosingDocument, new Reader(List.of(content)), Map.of(), resolver, Map.of(), false));
                             if (link instanceof Link l) {
@@ -3174,10 +3169,8 @@ public class Parser {
         }
 
         final var indent = macro.options().get("indent");
-        if (indent != null && !indent.isEmpty()) { // indent= is no indent, as asciidoctor
-            final int value = Integer.parseInt(indent);
-            final var noIndent = String.join("\n", content).stripIndent();
-            content = List.of((value > 0 ? noIndent.indent(value) : noIndent).split("\n"));
+        if (indent != null) {
+            content = adjustIndentation(content, indent.isEmpty() ? 0 : Integer.parseInt(indent)); // as asciidoctor, indent= is indent=0
         }
 
         if (parse) {
@@ -3185,6 +3178,30 @@ public class Parser {
         }
         // as for a parsed include, the includes of the included content are relative to it
         return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
+    }
+
+    // the smallest indentation of the non-blank lines is removed from each line, then the requested indentation is added
+    // to the non-blank ones; the blank lines in between stay empty and the trailing ones are dropped, since the parser
+    // does not trim the blank lines at the end of a code block as asciidoctor does
+    private List<String> adjustIndentation(final List<String> lines, final int indent) {
+        int end = lines.size();
+        while (end > 0 && lines.get(end - 1).isBlank()) {
+            end--;
+        }
+        int blockIndent = Integer.MAX_VALUE;
+        for (int i = 0; i < end; i++) {
+            final var line = lines.get(i);
+            if (!line.isBlank()) {
+                blockIndent = Math.min(blockIndent, line.length() - line.stripLeading().length());
+            }
+        }
+        final var prefix = indent > 0 ? " ".repeat(indent) : "";
+        final var adjusted = new ArrayList<String>(end);
+        for (int i = 0; i < end; i++) {
+            final var line = lines.get(i);
+            adjusted.add(line.isBlank() ? "" : prefix + line.substring(blockIndent).stripTrailing());
+        }
+        return adjusted;
     }
 
     private int findSectionLevel(final String line) {
@@ -3870,39 +3887,43 @@ public class Parser {
             return parseOptions(text);
         }
         if (prefix.startsWith(MAILTO)) {
-            return holdsOutsideOpaqueRuns(text, ',') ?
+            return containsOutsideMacrosAndPassthroughs(text, ",") ?
                     doParseOptions(text, MAILTO_TEXT_KEYS, false) :
                     Map.of("", dropLegacyPassthroughMarkers(text));
         }
-        return holdsOutsideOpaqueRuns(text, '=') ?
+        return containsOutsideMacrosAndPassthroughs(text, "=") ?
                 doParseOptions(text, STYLE_KEYS, false) :
                 Map.of("", dropLegacyPassthroughMarkers(text));
     }
 
-    // whether the text holds the character outside its opaque runs, as image:a.png[alt=x] in a link text
-    private boolean holdsOutsideOpaqueRuns(final String text, final char c) {
-        if (text.indexOf(c) < 0) {
+    // whether the link text contains the separator, a one-character string such as "," or "=", outside its nested
+    // macros and passthroughs: in link:https://x.io[image:a.png[alt=x]], the '=' belongs to the image, so the link text
+    // is not an attribute list
+    private boolean containsOutsideMacrosAndPassthroughs(final String text, final String separator) {
+        if (!text.contains(separator)) {
             return false;
         }
-        if (text.indexOf('[') < 0 && text.indexOf('+') < 0) { // no run starts without them, see opaqueRunEnd
+        if (!text.contains("[") && !text.contains("+")) { // no macro or passthrough starts without them, see macroOrPassthroughEnd
             return true;
         }
+        final char c = separator.charAt(0);
         for (int i = 0; i < text.length(); i++) {
             if (text.charAt(i) == c) {
                 return true;
             }
-            final int runEnd = opaqueRunEnd(text, i);
-            if (runEnd > 0) {
-                i = runEnd;
+            final int nestedEnd = macroOrPassthroughEnd(text, i);
+            if (nestedEnd > 0) {
+                i = nestedEnd;
             }
         }
         return false;
     }
 
-    // the last index of an opaque run of a link text starting at the index: the brackets of a nested macro,
-    // image:a.png[alt,width=100], or a passthrough, +text+, ++text++ or +++text+++ as passthroughAt reads them, which
-    // asciidoctor substitutes before it reads the link, so their ',', '=' and ']' are not the text's; -1 when no run starts there
-    private int opaqueRunEnd(final String text, final int i) {
+    // the last index of the nested macro or the passthrough of a link text starting at the index: the brackets of a
+    // nested macro, image:a.png[alt,width=100], or a passthrough, +text+, ++text++ or +++text+++ as passthroughAt reads
+    // them, which asciidoctor substitutes before it reads the link, so their ',', '=' and ']' are not the text's; -1 when
+    // none starts there
+    private int macroOrPassthroughEnd(final String text, final int i) {
         if (text.charAt(i) == '[') {
             return closingBracket(text, i + 1);
         }
@@ -3927,36 +3948,36 @@ public class Parser {
     // '[' is text, so link:url[a [b] c] ends at the first ']', as asciidoctor's "a [b". A bare URL nested in the text
     // keeps its brackets too, where asciidoctor, reading URLs and links in one pass, ends the text at the URL's ']'
     private int linkTextEnd(final String line, final int open, final int firstClose, final Map<String, String> currentAttributes) {
-        boolean mayHoldRun = false; // a run starts at a '[' or a '+' only, see opaqueRunEnd
-        for (int i = open + 1; i < firstClose && !mayHoldRun; i++) {
+        boolean mayHoldNested = false; // a macro or a passthrough starts at a '[' or a '+' only, see macroOrPassthroughEnd
+        for (int i = open + 1; i < firstClose && !mayHoldNested; i++) {
             final char c = line.charAt(i);
-            mayHoldRun = c == '[' || c == '+';
+            mayHoldNested = c == '[' || c == '+';
         }
-        if (!mayHoldRun) {
+        if (!mayHoldNested) {
             return firstClose;
         }
         int end = firstClose;
         final int colon = line.indexOf(':', open + 1); // a nested macro needs a colon before its '['
         for (int i = open + 1; i < end; i++) {
-            final int runEnd = opaqueRunEnd(line, i);
-            if (runEnd < 0 || (line.charAt(i) == '[' && (colon < 0 || colon > i || macroStart(line, open + 1, i, currentAttributes) < 0))) {
+            final int nestedEnd = macroOrPassthroughEnd(line, i);
+            if (nestedEnd < 0 || (line.charAt(i) == '[' && (colon < 0 || colon > i || macroStart(line, open + 1, i, currentAttributes) < 0))) {
                 continue;
             }
-            if (runEnd >= end) { // the run holds the ']' taken as the end, so the text goes on to the next one
+            if (nestedEnd >= end) { // the macro or passthrough holds the ']' taken as the end, so the text goes on to the next one
                 if (line.charAt(i) == '+') { // a passthrough closed after another macro or link, https://x.io[C++] and https://y.io[C++], would swallow it: the text ends here
-                    for (int bracket = line.indexOf('[', end + 1); bracket >= 0 && bracket < runEnd; bracket = line.indexOf('[', bracket + 1)) {
+                    for (int bracket = line.indexOf('[', end + 1); bracket >= 0 && bracket < nestedEnd; bracket = line.indexOf('[', bracket + 1)) {
                         if (macroStart(line, end + 1, bracket, currentAttributes) >= 0) {
                             return end;
                         }
                     }
                 }
-                final int next = closingBracket(line, runEnd + 1);
-                if (next < 0) { // the run has the only ']': the text ends there
+                final int next = closingBracket(line, nestedEnd + 1);
+                if (next < 0) { // the macro or passthrough has the only ']': the text ends there
                     return end;
                 }
                 end = next;
             }
-            i = runEnd;
+            i = nestedEnd;
         }
         return end;
     }
@@ -3995,7 +4016,8 @@ public class Parser {
         return resolved.isEmpty() ? Map.of() : Map.of(PASS_SUBS_OPTION, String.join(",", resolved));
     }
 
-    private boolean isLink(final String link) {
+    // a URL written as it is, https://x.io[text] or mailto:a@b.c[text], where link:https://x.io[text] is a link: macro
+    private boolean isDirectLink(final String link) {
         return hasLinkScheme(link) || link.startsWith(MAILTO);
     }
 
@@ -4149,11 +4171,11 @@ public class Parser {
             } else if (c == ',') {
                 firstNamed = flushAttribute(map, positional, key, value, inKey, false, firstNamed);
                 inKey = true;
-            } else if (!block && (c == '[' || c == '+')) { // a nested macro or a passthrough is one run, with the ',' and '=' it holds
-                final int runEnd = opaqueRunEnd(options, i);
-                if (runEnd > 0) {
-                    current.append(options, i, runEnd + 1);
-                    i = runEnd;
+            } else if (!block && (c == '[' || c == '+')) { // a nested macro or a passthrough is read whole, with the ',' and '=' it holds
+                final int nestedEnd = macroOrPassthroughEnd(options, i);
+                if (nestedEnd > 0) {
+                    current.append(options, i, nestedEnd + 1);
+                    i = nestedEnd;
                 } else {
                     current.append(c);
                 }

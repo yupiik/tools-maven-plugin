@@ -24,7 +24,8 @@ import java.util.Map;
  * @param elements the rows, each one the list of its cells.
  * @param options  the attributes of the block, {@code cols} included as written.
  * @param columns  the column specifiers read from {@code cols}, each one as written with its multiplier; empty when the
- *                 table has no {@code cols} attribute or when the table was built with {@link #Table(List, Map)}.
+ *                 table has no {@code cols} attribute, when {@code cols} gives no column, as {@code cols=}, or when the
+ *                 table was built with {@link #Table(List, Map)}.
  */
 public record Table(List<List<Element>> elements, Map<String, String> options, List<ColumnSpec> columns) implements Element {
     public Table {

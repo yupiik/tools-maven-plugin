@@ -215,9 +215,11 @@ class ParserTest {
                 new Parser().parseBody("[a, 50%]\nhello", context).children());
         assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "a"))),
                 new Parser().parseBody("[a,$$$$]\nhello", context).children());
-        assertEquals( // cols= holds no column, as asciidoctor, and the model drops it so the renderers see none
-                new Parser().parseBody("|===\n|a|b\n|c|d\n|===", context).children(),
-                new Parser().parseBody("[cols=]\n|===\n|a|b\n|c|d\n|===", context).children());
+        final var noCols = (Table) new Parser().parseBody("|===\n|a|b\n|c|d\n|===", context).children().get(0);
+        for (final var cols : List.of("[cols=]", "[cols=\"\"]")) { // no column, as asciidoctor, and the value kept as written
+            assertEquals(List.of(new Table(noCols.elements(), Map.of("cols", ""), List.of())),
+                    new Parser().parseBody(cols + "\n|===\n|a|b\n|c|d\n|===", context).children(), cols);
+        }
         assertEquals(List.of(new Text(List.of(), "hello", Map.of("", "NOTE\t#x"))), // a tab is a blank too, so the value is no shorthand (asciidoctor reads none either, and writes the tab as a space)
                 new Parser().parseBody("[NOTE\t#x]\nhello", context).children());
         assertEquals(List.of(new Text(List.of(), "text", Map.of("role", "x", "citetitle", "Source"))), // the second positional key of a quote, numbered across the named one as asciidoctor
@@ -4894,14 +4896,42 @@ class ParserTest {
     }
 
     @Test
-    void includeWithAnEmptyLeveloffsetOrIndentIsIncludedAsWritten() { // as asciidoctor; name= sets an empty value, which these options read as their default
+    void includeWithAnEmptyOptionOtherThanIndentIsIncludedAsWritten() { // as asciidoctor; name= sets an empty value, which these options read as their default
         final ContentResolver resolver = (ref, encoding) -> switch (ref) {
             case "snippet.adoc" -> Optional.of(List.of("== Inc", "", "text"));
             default -> Optional.empty();
         };
         final var expected = new Parser().parseBody(new Reader(List.of("include::snippet.adoc[]")), resolver).children();
-        for (final var options : List.of("leveloffset=", "indent=", "encoding=", "lines=", "tag=", "opts=", "leveloffset=,indent=,encoding=")) {
+        for (final var options : List.of("leveloffset=", "encoding=", "lines=", "tag=", "opts=", "leveloffset=,encoding=")) {
             assertEquals(expected, new Parser().parseBody(new Reader(List.of("include::snippet.adoc[" + options + "]")), resolver).children(), options);
+        }
+    }
+
+    @Test
+    void includeWithIndentEndingWithABlankLine() { // as asciidoctor: the blank last line does not keep the indentation, and the code block does not end with it
+        final ContentResolver resolver = (ref, encoding) -> switch (ref) {
+            case "blank.txt" -> Optional.of(List.of("    a", "", "      b", ""));
+            default -> Optional.empty();
+        };
+        final var expected = Map.of(
+                "indent=0", "a\n\n  b\n",
+                "indent=", "a\n\n  b\n",
+                "indent=2", "  a\n\n    b\n");
+        expected.forEach((options, code) -> assertEquals(List.of(new Code(code, Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("----", "include::blank.txt[" + options + "]", "----")), resolver).children(), options));
+    }
+
+    @Test
+    void includeWithAnEmptyIndentRemovesTheIndentation() { // as asciidoctor, which reads indent= as indent=0
+        final ContentResolver resolver = (ref, encoding) -> switch (ref) {
+            case "snippet.txt" -> Optional.of(List.of("    a", "      b"));
+            default -> Optional.empty();
+        };
+        assertEquals(List.of(new Code("    a\n      b\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("----", "include::snippet.txt[]", "----")), resolver).children());
+        for (final var options : List.of("indent=", "indent=\"\"", "indent=0", "leveloffset=,indent=,encoding=")) {
+            assertEquals(List.of(new Code("a\n  b\n", Map.of(), false, List.of())),
+                    new Parser().parseBody(new Reader(List.of("----", "include::snippet.txt[" + options + "]", "----")), resolver).children(), options);
         }
     }
 
