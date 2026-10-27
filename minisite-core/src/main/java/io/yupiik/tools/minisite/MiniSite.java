@@ -15,6 +15,8 @@
  */
 package io.yupiik.tools.minisite;
 
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import io.yupiik.tools.minisite.action.builtin.LlmEmbeddingGenerator;
 import io.yupiik.tools.minisite.handlebars.Handlebars;
 import io.yupiik.tools.minisite.language.Asciidoc;
@@ -94,8 +96,23 @@ public class MiniSite implements Runnable {
     public MiniSite(final MiniSiteConfiguration configuration) {
         this.configuration = configuration;
         this.configuration.fixConfig();
-        this.handlebars = new Handlebars(discoverPartials(), Map.of(
-                "gravatar", o -> ofNullable(o).map(String::valueOf).map(it -> gravatar.toUrl(configuration.getGravatar(), it)).orElse("")));
+        this.handlebars = new Handlebars(discoverPartials(), Map.of("gravatar", this::toGravatarUrl));
+    }
+
+    /**
+     * The {@code gravatar} helper: the gravatar URL of a mail. Since fusion-handlebars 1.2.0, a bare
+     * {@code {{{gravatar}}}} calls this helper with the model, so a model gives its {@code gravatar} value, the
+     * documented key of the blog pages.
+     *
+     * @param context the helper call, with the mail or the model.
+     * @return the URL.
+     */
+    Object toGravatarUrl(final HelperContext context) {
+        final Object value = handlebars.value(context);
+        if (value instanceof Map) {
+            return new SafeString(Objects.toString(((Map<?, ?>) value).get("gravatar"), ""));
+        }
+        return new SafeString(gravatar.toUrl(configuration.getGravatar(), String.valueOf(value)));
     }
 
     @Override

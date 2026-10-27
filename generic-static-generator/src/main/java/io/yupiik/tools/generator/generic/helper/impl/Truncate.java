@@ -16,6 +16,8 @@
 package io.yupiik.tools.generator.generic.helper.impl;
 
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import io.yupiik.tools.generator.generic.helper.Helper;
 import io.yupiik.tools.generator.generic.helper.HelperDocumentation;
 
@@ -30,15 +32,16 @@ public class Truncate implements Helper {
     }
 
     @Override
-    public String apply(final Object o) {
-        if (o instanceof List<?> l && l.size() == 2 && l.get(1) instanceof Number ml) {
+    public Object apply(final HelperContext context) {
+        final var value = value(context);
+        if (value instanceof List<?> l && l.size() == 2 && l.get(1) instanceof Number ml) {
             final var s = String.valueOf(l.get(0));
             final var maxLength = ml.intValue();
             if (s.length() > maxLength && maxLength >= 3) {
-                return s.substring(0, maxLength - 3) + "...";
+                return new SafeString(s.substring(0, maxLength - 3) + "...");
             }
-            return s;
+            return new SafeString(s);
         }
-        return String.valueOf(o);
+        return new SafeString(String.valueOf(value));
     }
 }

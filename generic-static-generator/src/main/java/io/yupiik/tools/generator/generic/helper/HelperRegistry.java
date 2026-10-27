@@ -16,6 +16,7 @@
 package io.yupiik.tools.generator.generic.helper;
 
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
 
 import java.util.List;
 import java.util.Map;
@@ -26,14 +27,14 @@ import static java.util.stream.Collectors.toMap;
 
 @ApplicationScoped
 public class HelperRegistry {
-    private final Map<String, Function<Object, String>> helpers;
+    private final Map<String, Function<HelperContext, Object>> helpers;
 
     public HelperRegistry(final List<Helper> helpers) {
         this.helpers = helpers == null ? null /*proxy*/ : helpers.stream()
                 .collect(toMap(Helper::name, identity()));
     }
 
-    public Map<String, Function<Object, String>> helpers() {
+    public Map<String, Function<HelperContext, Object>> helpers() {
         return helpers;
     }
 }
