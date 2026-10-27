@@ -410,6 +410,13 @@ public class MiniSiteMojo extends BaseMojo {
 
     /**
      * List of pages to ignore in search.json when search is enabled, typically useful if you create an all in one page.
+     * Each value can be a plain equality, a {@code prefix:} or a {@code regex:} pattern. A pattern whose value contains a
+     * slash ({@code /}) is matched against the target-relative location of the page (using {@code /} as separator),
+     * otherwise it is matched against the page file name only, e.g. {@code regex:blog\p{Digit}.html} for `blog1.html`,
+     * {@code prefix:blog/} or {@code blog/index.html} for the `blog/index.html` page.
+     * Unless the {@code -default} marker is present, the built-in defaults ({@code prefix:blog/page-} and
+     * {@code blog/index.html}) are prepended to the configured values to keep the blog listing and pagination pages out
+     * of the index. Add {@code -default} to remove those defaults and rely on your own entries only.
      */
     @Parameter
     private List<String> notIndexedPages;

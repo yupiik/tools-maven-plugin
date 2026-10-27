@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -126,7 +127,7 @@ class MiniSiteTest {
     @Test
     void notIndexedPages(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
                          final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
-        // ignore blog pages and keep index.html only
+        // the user pattern removes the root blog*.html files while the inherited defaults keep the blog index and pagination out
         new MiniSite(builder
                 .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
                 .notIndexedPages(List.of("regex:blog\\p{Digit}.html"))
@@ -137,18 +138,69 @@ class MiniSiteTest {
             assertTrue(searchJson.contains("\"u\":\"/index.html\""), "should contain index.html URL");
             assertTrue(searchJson.contains("\"t\":\"Test Site\""), "should contain Test Site title");
             assertTrue(searchJson.contains("\"i\":"), "should contain inverted index");
-            // only one document should be indexed
-            assertEquals(1, countOccurrences(searchJson, "\"u\":"), "should have exactly 1 doc");
+            // nested blog listing pages are now indexed (default only covers root blog index/pagination)
+            assertEquals(List.of(
+                            "/blog/author/index.html", "/blog/author/romain-manni-bucau/index.html",
+                            "/blog/author/romain-manni-bucau/page-1.html", "/blog/category/index.html",
+                            "/blog/category/others/index.html", "/blog/category/others/page-1.html",
+                            "/blog/category/simple/index.html", "/blog/category/simple/page-1.html",
+                            "/index.html"),
+                    indexedUrls(searchJson));
         });
     }
 
-    private static int countOccurrences(final String text, final String pattern) {
-        int count = 0, idx = 0;
-        while ((idx = text.indexOf(pattern, idx)) >= 0) {
-            count++;
-            idx += pattern.length();
-        }
-        return count;
+    @Test
+    void notIndexedPagesDefaultsOnly(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                     final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // no user patterns: the inherited defaults keep the root blog index and pagination out of the search index
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
+                .build()).run();
+        asserts.assertThat(files -> {
+            final String searchJson = files.get("search.json");
+            assertTrue(searchJson.contains("\"u\":\"/blog1.html\""), "root blog post should be indexed: " + searchJson);
+            assertFalse(searchJson.contains("\"u\":\"/blog/index.html\""), "blog index should be excluded: " + searchJson);
+            assertFalse(searchJson.contains("\"u\":\"/blog/page-1.html\""), "blog pagination should be excluded: " + searchJson);
+        });
+    }
+
+    @Test
+    void notIndexedPagesDefaultOptOut(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                      final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // "-default" removes the inherited defaults: the blog index and pagination are now indexed
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
+                .notIndexedPages(List.of("-default"))
+                .build()).run();
+        asserts.assertThat(files -> {
+            final String searchJson = files.get("search.json");
+            assertTrue(searchJson.contains("\"u\":\"/blog/index.html\""), "blog index should now be indexed: " + searchJson);
+            assertTrue(searchJson.contains("\"u\":\"/blog/page-1.html\""), "blog pagination should now be indexed: " + searchJson);
+        });
+    }
+
+    @Test
+    void notIndexedPagesLocationPatterns(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a pattern containing '/' (prefix:blog/) targets the target-relative location, excluding all blog/* pages
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/blog")) // reuse blog for this test
+                .notIndexedPages(List.of("-default", "prefix:blog/"))
+                .build()).run();
+        asserts.assertThat(files -> {
+            final String searchJson = files.get("search.json");
+            // blog1.html is at the root with no slash so it stays indexed
+            assertTrue(searchJson.contains("\"u\":\"/blog1.html\""), "root blog post should remain indexed: " + searchJson);
+            assertFalse(searchJson.contains("\"u\":\"/blog/\""), "no blog/* location should be indexed: " + searchJson);
+        });
+    }
+
+    private static List<String> indexedUrls(final String searchJson) {
+        return Pattern.compile("\"u\":\"([^\"]*)\"")
+                .matcher(searchJson)
+                .results()
+                .map(m -> m.group(1))
+                .collect(toList());
     }
 
     @Test

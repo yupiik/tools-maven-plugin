@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +50,15 @@ import static lombok.AccessLevel.PRIVATE;
 @NoArgsConstructor
 @AllArgsConstructor(access = PRIVATE)
 public class MiniSiteConfiguration {
+    /**
+     * Default patterns for the not-indexed pages, applied unless the configured list
+     * contains the {@code -default} marker. They exclude the blog listing/pagination pages
+     * from the search index.
+     */
+    public static final List<String> DEFAULT_NOT_INDEXED_PAGES = List.of(
+            "prefix:blog/page-", // blog pagination pages
+            "blog/index.html"); // blog index
+
     private Supplier<ClassLoader> actionClassLoader;
     private Path source;
     private Path target;
@@ -115,6 +125,21 @@ public class MiniSiteConfiguration {
         }
         if (blogCategoriesCustomizations == null) {
             blogCategoriesCustomizations = Map.of();
+        }
+        // the defaults are inherited unless the user explicitly opts out with the "-default" marker
+        if (notIndexedPages == null) {
+            notIndexedPages = DEFAULT_NOT_INDEXED_PAGES;
+        } else {
+            final boolean skipDefaults = notIndexedPages.contains("-default");
+            final List<String> user = notIndexedPages.stream().filter(it -> !"-default".equals(it)).toList();
+            if (skipDefaults) {
+                notIndexedPages = user;
+            } else {
+                final List<String> merged = new ArrayList<>(DEFAULT_NOT_INDEXED_PAGES.size() + user.size());
+                merged.addAll(DEFAULT_NOT_INDEXED_PAGES);
+                merged.addAll(user);
+                notIndexedPages = List.copyOf(merged);
+            }
         }
 
         if (blogPublicationDate == null) {
