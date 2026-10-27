@@ -278,7 +278,8 @@ class LlmEmbeddingGeneratorTest {
         Files.writeString(work.resolve("guide.html"), html);
 
         // emulates the prefix:pt- notIndexedPages used for generated detail pages
-        final var gen = new LlmEmbeddingGenerator(Map.of(), work, work, name -> name.startsWith("pt-"));
+        final var gen = new LlmEmbeddingGenerator(Map.of(), work, work,
+                p -> p.getFileName().toString().startsWith("pt-"));
         final var chunks = gen.extractChunks();
 
         assertFalse(chunks.stream().anyMatch(c -> c.url.startsWith("/pt-")),
