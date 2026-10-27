@@ -58,16 +58,16 @@ public class LlmEmbeddingGenerator implements Runnable {
     private final Path sourceBase;
     private final Path outputBase;
     private final int maxLength;
-    private final Predicate<String> ignoredName;
+    private final Predicate<Path> ignoredFile;
 
     public LlmEmbeddingGenerator(final Map<String, String> configuration,
                                  final Path sourceBase,
                                  final Path outputBase) {
-        this(configuration, sourceBase, outputBase, s -> false);
+        this(configuration, sourceBase, outputBase, p -> false);
     }
 
     /**
-     * @param ignoredName predicate over the HTML file name; pages matching it are not embedded. Wired from
+     * @param ignoredFile predicate over the HTML file; pages matching it are not embedded. Wired from
      *                    {@code notIndexedPages} so pages excluded from search/index (e.g. mass-generated detail
      *                    pages) are also skipped by the CPU-heavy embedding pass instead of being parsed and embedded
      *                    for nothing.
@@ -75,12 +75,12 @@ public class LlmEmbeddingGenerator implements Runnable {
     public LlmEmbeddingGenerator(final Map<String, String> configuration,
                                  final Path sourceBase,
                                  final Path outputBase,
-                                 final Predicate<String> ignoredName) {
+                                 final Predicate<Path> ignoredFile) {
         checkModel();
         this.sourceBase = sourceBase;
         this.outputBase = outputBase;
         this.maxLength = Integer.parseInt(configuration.getOrDefault("maxLength", "128"));
-        this.ignoredName = ignoredName == null ? s -> false : ignoredName;
+        this.ignoredFile = ignoredFile == null ? p -> false : ignoredFile;
     }
 
     private static void checkModel() {
@@ -150,10 +150,10 @@ public class LlmEmbeddingGenerator implements Runnable {
     }
 
     private boolean isIgnored(final Path file) {
-        final var name = file.getFileName().toString();
-        if (ignoredName.test(name)) {
+        if (ignoredFile.test(file)) {
             return true;
         }
+        final var name = file.getFileName().toString();
         if (name.equals("404.html") || name.startsWith("page-")) {
             return true;
         }
