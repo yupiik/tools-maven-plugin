@@ -55,6 +55,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -171,6 +180,7 @@ public class MiniSite implements Runnable {
     protected Consumer<Function<Page, String>> render(final Page page, final Path html,
                                                       final Asciidoc.AsciidocInstance asciidoctor, final Object options,
                                                       final boolean withLeftMenuIfConfigured,
+                                                      final Map<Page, Path> files,
                                                       final Function<String, String> postProcessor,
                                                       final Function<String, String> customInterpolations,
                                                       final Function<Page, String> footerNavTemplate) {
@@ -196,7 +206,16 @@ public class MiniSite implements Runnable {
                         '/' + configuration.getTarget().relativize(html).toString().replace(File.separatorChar, '/'),
                         ofNullable(page.title).orElseGet(() -> getTitle(options)),
                         attrs, body));
-                Files.writeString(html, postProcessor.apply(withLeftMenuIfConfigured || !configuration.isTemplateAddLeftMenu() ? content : dropLeftMenu(content)));
+                final String rendered;
+                if (configuration.isTemplateAddLeftMenu() && withLeftMenuIfConfigured && content.contains("<minisite-menu-placeholder/>")) {
+                    final var menu = leftMenu(files, page);
+                    rendered = content.replace("<minisite-menu-placeholder/>", menu);
+                } else if (configuration.isTemplateAddLeftMenu()) {
+                    rendered = dropLeftMenu(content);
+                } else {
+                    rendered = content;
+                }
+                Files.writeString(html, postProcessor.apply(rendered));
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -297,19 +316,36 @@ public class MiniSite implements Runnable {
     }
 
     protected String leftMenu(final Map<Page, Path> files) {
-        final Path templatesDir = getTemplatesDir();
-        final String template = findPageTemplate(templatesDir, "left-menu");
-        final String itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
-        final Path output = configuration.getTarget();
-        final String listItems = findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate)).collect(joining());
+        return leftMenu(files, null);
+    }
+
+    /**
+     * Renders the left menu. When {@code currentPage} is provided the matching item is marked active in the
+     * handlebars model ({@code active=true}), which enables per-page menu templates (e.g. highlight the current page)
+     * without a second write pass over all rendered files.
+     *
+     * @param files       the rendered pages to draw the menu from.
+     * @param currentPage the page currently rendered, or {@code null} for a static (global) menu.
+     */
+    protected String leftMenu(final Map<Page, Path> files, final Page currentPage) {
+        final var templatesDir = getTemplatesDir();
+        final var template = findPageTemplate(templatesDir, "left-menu");
+        final var itemTemplate = findPageTemplate(templatesDir, "left-menu-item");
+        final var output = configuration.getTarget();
+        final var listItems = findIndexPages(files).map(it -> toMenuItem(output, it, itemTemplate, currentPage)).collect(joining());
         return handlebars.render(template, Map.of("listItems", listItems));
     }
 
     protected String toMenuItem(final Path output, final Map.Entry<Page, Path> it, final String template) {
-        final Map<String, Object> model = buildInterpolationModel(it.getKey(), null, null, k -> null);
+        return toMenuItem(output, it, template, null);
+    }
+
+    protected String toMenuItem(final Path output, final Map.Entry<Page, Path> it, final String template, final Page currentPage) {
+        final var model = buildInterpolationModel(it.getKey(), null, null, k -> null);
         model.put("title", toLinkTitle(it.getKey()));
         model.put("text", getTitle(it.getKey()));
         model.put("href", configuration.getSiteBase() + '/' + output.relativize(it.getValue()));
+        model.put("active", currentPage != null && Objects.equals(currentPage.relativePath, it.getKey().relativePath));
         return handlebars.render(template, model);
     }
 
@@ -655,15 +691,24 @@ public class MiniSite implements Runnable {
         List<String> categories = emptyList();
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
-            final List<Consumer<Function<Page, String>>> pageToRender = new ArrayList<Consumer<Function<Page, String>>>();
+            final List<Consumer<Function<Page, String>>> pageToRender = new ArrayList<>();
             final Function<Page, String> footerNavTemplate = loadNavTemplates();
+            // Pre-pass: `files` and `blog` are fully populated (sequential) BEFORE the parallel render below.
+            // From here on they are only READ by the concurrent workers (never mutated), so publication is safe.
             pages.forEach(page -> pageToRender.add(onVisitedFile(page, asciidoctor, options, files, now, blog, footerNavTemplate)));
             hasBlog = (!blog.isEmpty() && configuration.isGenerateBlog());
             template = createTemplate(options, asciidoctor, hasBlog);
             final Function<Page, String> tpl = template;
-            pageToRender.forEach(it -> it.accept(tpl));
-            if (hasBlog) {
-                categories = generateBlog(blog, asciidoctor, options, template);
+            final var blogCategories = new AtomicReference<List<String>>(categories);
+            try (final var rendering = new RenderingExecutor(configuration.getRenderingThreads(), configuration.getAsciidoctorConfiguration().warn())) {
+                // page renders and blog generation can run concurrently on the shared executor.
+                pageToRender.forEach(it -> rendering.route(() -> executeInMinisiteClassLoader(() -> it.accept(tpl))));
+                if (hasBlog) {
+                    final var blogSnapshot = new ArrayList<>(blog);
+                    rendering.route(() -> executeInMinisiteClassLoader(() -> blogCategories.set(generateBlog(blogSnapshot, asciidoctor, options, tpl))));
+                }
+                rendering.await(); // wait for every page render and, when present, the blog generation
+                categories = blogCategories.get();
             }
         }
         if (configuration.isGenerateIndex()) {
@@ -681,28 +726,6 @@ public class MiniSite implements Runnable {
             try {
                 Files.write(output.resolve("sitemap.xml"), generateSiteMap(files).getBytes(StandardCharsets.UTF_8));
                 configuration.getAsciidoctorConfiguration().debug().accept("Generated sitemap.xml");
-            } catch (final IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-        if (configuration.isTemplateAddLeftMenu()) {
-            final String leftMenu = leftMenu(files);
-            try {
-                Files.walkFileTree(output, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-                        if (file.getFileName().toString().endsWith(".html")) {
-                            final List<String> lines = Files.readAllLines(file);
-                            final int toReplace = lines.indexOf("<minisite-menu-placeholder/>");
-                            if (toReplace >= 0) {
-                                configuration.getAsciidoctorConfiguration().debug().accept("Replacing left menu in " + file);
-                                lines.set(toReplace, leftMenu);
-                                Files.write(file, lines);
-                            }
-                        }
-                        return super.visitFile(file, attrs);
-                    }
-                });
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -770,9 +793,7 @@ public class MiniSite implements Runnable {
         }
 
         if (hasSearch()) {
-            final Predicate<PageRef> ignoredPages = configuration.getNotIndexedPages().stream()
-                    .map(MiniSite::ignoredPage)
-                    .reduce(p -> false, Predicate::or);
+            final Predicate<PageRef> ignoredPages = notIndexedPagesPredicate();
             final InvertedIndexService indexer = new InvertedIndexService();
             indexer.write(indexer.index(output, configuration.getSiteBase(), path -> {
                 final String location = configuration.getTarget().relativize(path).toString().replace(File.separatorChar, '/');
@@ -852,7 +873,13 @@ public class MiniSite implements Runnable {
 
         if (configuration.isLlmChatEnabled()) {
             try {
-                new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget()).run();
+                final Predicate<PageRef> ignoredPages = notIndexedPagesPredicate();
+                new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget(),
+                        file -> {
+                            final String location = configuration.getTarget().relativize(file).toString().replace(File.separatorChar, '/');
+                            return ignoredPages.test(new PageRef(location, file.getFileName().toString()));
+                        })
+                        .run();
             } catch (final RuntimeException e) {
                 configuration.getAsciidoctorConfiguration().error().accept("Failed to generate LLM embeddings: " + e.getMessage());
                 throw e;
@@ -963,7 +990,7 @@ public class MiniSite implements Runnable {
             };
         } else {
             return template -> {
-                render(page, out, asciidoctor, options, true, identity(), null, footerNavTemplate).accept(template);
+                render(page, out, asciidoctor, options, true, files, identity(), null, footerNavTemplate).accept(template);
                 configuration.getAsciidoctorConfiguration().debug().accept("Rendered " + page.relativePath + " to " + out);
             };
         }
@@ -1023,7 +1050,7 @@ public class MiniSite implements Runnable {
                             bp.page.title,
                             bp.page.attributes,
                             (configuration.isInjectBlogMeta() ? injectBlogMeta(bp) : bp.page.content) + "\n"),
-                    out, asciidoctor, options, false, this::markPageAsBlog, key -> {
+                    out, asciidoctor, options, false, null, this::markPageAsBlog, key -> {
                         switch (key) {
                             case "hasPreviousLinkClass":
                                 return "has-previous-link-" + (idx > 0);
@@ -1166,6 +1193,7 @@ public class MiniSite implements Runnable {
                                         .collect(joining("\n"))),
                 baseBlog.resolve(singular + "/index.html"), asciidoctor, options,
                 false,
+                null,
                 this::markPageAsBlog, null, p -> "").accept(template);
         return perCriteria.keySet();
     }
@@ -1235,6 +1263,7 @@ public class MiniSite implements Runnable {
                             Map.of(),
                             handlebars.render(contentTemplate, model)),
                     output, asciidoctor, options, false,
+                    null,
                     this::markPageAsBlog, null, p -> "").accept(template);
         });
 
@@ -1264,6 +1293,21 @@ public class MiniSite implements Runnable {
 
     protected boolean hasSearch() {
         return !"none".equals(configuration.getSearchIndexName()) && configuration.getSearchIndexName() != null;
+    }
+
+    /**
+     * Builds the predicate over a rendered page ({@link PageRef location/name}) for pages excluded from the
+     * search index and the LLM embedding pass ({@code notIndexedPages}, computed via {@link #ignoredPage(String)}).
+     * A single code path is shared by the search index and the LLM embedding generator so de-indexed pages are
+     * not embedded either.
+     */
+    protected Predicate<PageRef> notIndexedPagesPredicate() {
+        if (configuration.getNotIndexedPages() == null || configuration.getNotIndexedPages().isEmpty()) {
+            return p -> false;
+        }
+        return configuration.getNotIndexedPages().stream()
+                .map(MiniSite::ignoredPage)
+                .reduce(p -> false, Predicate::or);
     }
 
     protected Function<Page, String> loadNavTemplates() {
@@ -1496,6 +1540,116 @@ public class MiniSite implements Runnable {
 
     public Object createOptions() {
         return configuration.getAsciidoc().createOptions(configuration);
+    }
+
+    /**
+     * Owns the rendering executor based on the configured thread count and submits page/blog renders concurrently.
+     * Implements {@link AutoCloseable} so a {@code try}-with-resources can route tasks, wait for completion and
+     * release any service it created. Used for:
+     * <ul>
+     *   <li>{@code > 0} a fixed thread pool of that size (owned: shut down by {@link #close()});</li>
+     *   <li>{@code 0} sequential - each task runs inline on the caller thread via {@code Runnable::run};</li>
+     *   <li>{@code < 0} virtual threads when available, otherwise the shared {@link ForkJoinPool#commonPool()}
+     *       (the shared pool is not owned so it is never shut down).</li>
+     * </ul>
+     */
+    protected static final class RenderingExecutor implements AutoCloseable {
+        private final Executor executor;
+        private final ExecutorService owned;
+        private final Consumer<String> warn;
+        private final Lock lock = new ReentrantLock();
+        private final Condition pendingDone = lock.newCondition();
+        private int pending;
+
+        protected RenderingExecutor(final int threads, final Consumer<String> warn) {
+            this.warn = warn;
+            if (threads > 0) {
+                owned = Executors.newFixedThreadPool(threads);
+                executor = owned;
+            } else if (threads == 0) {
+                owned = null;
+                executor = Runnable::run; // sequential: each task runs on the caller thread
+            } else { // < 0: virtual threads when available, otherwise the shared common pool
+                owned = virtualThreadExecutorIfAvailable();
+                executor = owned == null ? ForkJoinPool.commonPool() : owned;
+            }
+        }
+
+        protected void route(final Runnable task) {
+            lock.lock();
+            try {
+                pending++;
+            } finally {
+                lock.unlock();
+            }
+            executor.execute(() -> {
+                try {
+                    task.run();
+                } finally {
+                    lock.lock();
+                    try {
+                        pending--;
+                        if (pending == 0) {
+                            pendingDone.signalAll();
+                        }
+                    } finally {
+                        lock.unlock();
+                    }
+                }
+            });
+        }
+
+        /** Blocks until every task routed so far has completed. */
+        protected void await() {
+            lock.lock();
+            try {
+                while (pending > 0) {
+                    try {
+                        pendingDone.await();
+                    } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Interrupted while awaiting minisite rendering", e);
+                    }
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        @Override
+        public void close() {
+            if (owned == null) {
+                return; // sequential or shared common pool: not owned, never shut down
+            }
+            owned.shutdown();
+            try {
+                if (!owned.awaitTermination(1, TimeUnit.DAYS)) {
+                    warn.accept("Minisite rendering did not terminate within 1 day");
+                }
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                owned.shutdownNow();
+            }
+        }
+    }
+
+    /**
+     * Returns a per-task virtual-thread executor on JDK 21+, or {@code null} when unavailable so the callers
+     * fall back to {@link ForkJoinPool#commonPool()}. Reflection is required because this module is compiled
+     * with a Java 8 source/target while virtual threads only exist on JDK 21+.
+     */
+    private static ExecutorService virtualThreadExecutorIfAvailable() {
+        try {
+            final var threadClass = Thread.class;
+            final var ofVirtual = threadClass.getMethod("ofVirtual");
+            if (ofVirtual.invoke(null) != null) { // Thread.ofVirtual() exists -> JDK 21+
+                final var factory = Executors.class.getMethod("newVirtualThreadPerTaskExecutor");
+                return (ExecutorService) factory.invoke(null);
+            }
+        } catch (final ReflectiveOperationException ignored) {
+            // not JDK 21+, fall back to the common pool
+        }
+        return null;
     }
 
     @RequiredArgsConstructor

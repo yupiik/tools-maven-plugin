@@ -107,6 +107,16 @@ public class MiniSiteConfiguration {
     private boolean injectBlogMeta;
     private String blogPublicationDate;
     private OffsetDateTime runtimeBlogPublicationDate;
+    /**
+     * Number of threads used to render pages and blog pages concurrently.
+     * <ul>
+     *   <li>{@code -1} (default): virtual threads when available, otherwise {@link java.util.concurrent.ForkJoinPool#commonPool()}.</li>
+     *   <li>{@code 0}: sequential rendering (previous behaviour), each page rendered on the calling thread.</li>
+     *   <li>{@code > 0}: a fixed thread pool of the given size.</li>
+     * </ul>
+     */
+    @Builder.Default
+    private int renderingThreads = -1;
     @Builder.Default
     private GravatarConfiguration gravatar = new GravatarConfiguration();
     @Builder.Default

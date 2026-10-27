@@ -18,14 +18,21 @@ package io.yupiik.tools.minisite;
 import io.yupiik.tools.minisite.test.MiniSiteConfigurationBuilderProvider;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
@@ -201,6 +208,109 @@ class MiniSiteTest {
                 .results()
                 .map(m -> m.group(1))
                 .collect(toList());
+    }
+
+    void renderingThreadsModes(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) throws Exception {
+        // same site rendered with -1 (virtual/common), 0 (sequential) and 2 (fixed) must produce identical output
+        final Path source = Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuActivePage");
+        final List<Integer> modes = List.of(-1, 0, 2);
+        final List<String> parities = new ArrayList<>();
+        for (final int mode : modes) {
+            final Path target = Paths.get("target/test-minisite-work/MiniSiteTest/renderingThreadsModes").resolve(String.valueOf(mode));
+            if (Files.exists(target)) {
+                try (final Stream<Path> walk = Files.walk(target)) {
+                    walk.forEach(p -> {
+                        try {
+                            Files.deleteIfExists(p);
+                        } catch (final IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    });
+                }
+            }
+            new MiniSite(builder
+                    .source(source)
+                    .target(target)
+                    .renderingThreads(mode)
+                    .build())
+                    .run();
+            parities.add(renderTree(target));
+        }
+        for (int i = 0; i < parities.size(); i++) {
+            for (int j = i + 1; j < parities.size(); j++) {
+                if (!parities.get(i).equals(parities.get(j))) {
+                    throw new AssertionError("renderingThreads mode " + modes.get(i) + " != " + modes.get(j));
+                }
+            }
+        }
+    }
+
+    /** Returns a stable textual representation of the rendered tree for comparison. */
+    private static String renderTree(final Path base) throws IOException {
+        final StringBuilder out = new StringBuilder();
+        try (final Stream<Path> walk = Files.walk(base)) {
+            walk.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".html") || p.getFileName().toString().endsWith(".json"))
+                    .sorted()
+                    .forEach(p -> {
+                        try {
+                            out.append(base.relativize(p).toString().replace(File.separatorChar, '/')).append('=')
+                                    .append(Files.readString(p)).append('\n');
+                        } catch (final IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    });
+        }
+        // normalize sitemap/timestamps that legitimately differ between runs to keep the comparison stable
+        return out.toString()
+                .replaceAll("(?is)(<lastmod>)[^<]*(</lastmod>)", "$1$2");
+    }
+
+    private static int countOccurrences(final String text, final String pattern) {
+        int count = 0, idx = 0;
+        while ((idx = text.indexOf(pattern, idx)) >= 0) {
+            count++;
+            idx += pattern.length();
+        }
+        return count;
+    }
+
+
+    @Test
+    void leftMenuActivePage(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                            final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuActivePage"))
+                .build())
+                .run();
+        asserts.assertThat(files -> {
+            // each page carries its own per-page left menu; the current page is marked active with a single write pass
+            final String pageA = files.get("a.html");
+            final String pageB = files.get("b.html");
+            assertNotNull(pageA, "a.html should be rendered");
+            assertNotNull(pageB, "b.html should be rendered");
+            // no second pass leftover placeholder
+            assertFalse(pageA.contains("<minisite-menu-placeholder/>"), pageA);
+            assertFalse(pageB.contains("<minisite-menu-placeholder/>"), pageB);
+            // a.html marks A active, B not; b.html marks B active, A not
+            assertTrue(hasItem(pageA, "a.html", "active"), pageA);
+            assertFalse(hasItem(pageA, "b.html", "active"), pageA);
+            assertFalse(hasItem(pageB, "a.html", "active"), pageB);
+            assertTrue(hasItem(pageB, "b.html", "active"), pageB);
+        });
+    }
+
+    /** true when exactly the item whose href ends with {@code page} carries the {@code active} class. */
+    private static boolean hasItem(final String html, final String page, final String clazz) {
+        final String marker = "href=\"/" + page + "\"";
+        final int href = html.indexOf(marker);
+        if (href < 0) {
+            return false;
+        }
+        final int open = html.lastIndexOf("<li", href);
+        final int close = html.indexOf('>', open);
+        final String liTag = open >= 0 && close > open ? html.substring(open, close) : "";
+        return clazz == null || clazz.isEmpty() ? !liTag.contains("active") : liTag.contains(clazz);
     }
 
     @Test

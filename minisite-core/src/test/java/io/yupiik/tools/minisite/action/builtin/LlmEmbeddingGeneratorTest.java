@@ -265,6 +265,28 @@ class LlmEmbeddingGeneratorTest {
         assertTrue(Files.exists(embedDir.resolve("chunk-0001.json")));
     }
 
+    @Test
+    void extractChunksShouldSkipNotIndexedPages(@TempDir final Path work) throws IOException {
+        final var html = """
+                <html><head><title>Detail</title></head>
+                <body><div class="page-content-body"><p>Detail sheet.</p></div></body>
+                </html>
+                """;
+
+        Files.writeString(work.resolve("pt-r2d2-foo.html"), html);
+        Files.writeString(work.resolve("pt-lab-bar.html"), html);
+        Files.writeString(work.resolve("guide.html"), html);
+
+        // emulates the prefix:pt- notIndexedPages used for generated detail pages
+        final var gen = new LlmEmbeddingGenerator(Map.of(), work, work, name -> name.startsWith("pt-"));
+        final var chunks = gen.extractChunks();
+
+        assertFalse(chunks.stream().anyMatch(c -> c.url.startsWith("/pt-")),
+                "pages matching the notIndexedPages predicate must be skipped from embedding");
+        assertTrue(chunks.stream().anyMatch(c -> c.url.startsWith("/guide.html")),
+                "pages NOT matching the predicate must still be embedded");
+    }
+
     private static double cosine(final float[] a, final float[] b) {
         double dot = 0;
         double na = 0;
