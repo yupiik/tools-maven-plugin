@@ -45,6 +45,8 @@ import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.internal.Reader;
+import io.yupiik.asciidoc.parser.internal.TextScanner;
+import io.yupiik.asciidoc.parser.internal.TextScanner.InlinePassthrough;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.parser.resolver.RelativeContentResolver;
 import lombok.Getter;
@@ -56,7 +58,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -174,10 +175,20 @@ public class Parser {
 
     private final Map<String, String> globalAttributes;
     private final Consumer<String> warning;
+    private final TextScanner scanner;
 
     public Parser(final Configuration configuration) {
+        this(configuration, new TextScanner());
+    }
+
+    /**
+     * @param configuration the parser configuration.
+     * @param scanner       the character scans of the lines, for an extension which changes a rule.
+     */
+    protected Parser(final Configuration configuration, final TextScanner scanner) {
         this.globalAttributes = configuration.getGlobalAttributes();
         this.warning = configuration.getWarning();
+        this.scanner = scanner;
     }
 
     /**
@@ -313,7 +324,7 @@ public class Parser {
             final var anchor = stripped.substring("[[".length(), stripped.length() - "]]".length());
             final int comma = anchor.indexOf(',');
             final var id = comma < 0 ? anchor : anchor.substring(0, comma);
-            if (isAnchorId(id)) {
+            if (scanner.isAnchorId(id)) {
                 final var reftext = comma < 0 ? "" : anchor.substring(comma + 1).strip();
                 return reftext.isEmpty() ? Map.of("id", id) : Map.of("id", id, "reftext", reftext);
             }
@@ -331,7 +342,7 @@ public class Parser {
         }
         final var first = (end < 0 ? options : options.substring(0, end)).strip();
         final int marker = firstIndexOf(first, SHORTHAND_MARKERS);
-        if (marker <= 0 || holdsBlank(first)) { // no style before the shorthand: doParseOptions reads it, in order with the other values
+        if (marker <= 0 || scanner.holdsBlank(first)) { // no style before the shorthand: doParseOptions reads it, in order with the other values
             return parseOptions(options);
         }
         final var shorthands = new HashMap<String, String>();
@@ -378,10 +389,6 @@ public class Parser {
         return SHORTHAND_MARKERS.indexOf(c) >= 0;
     }
 
-    private boolean holdsBlank(final String value) { // a space or a tab, the blanks of asciidoctor's AttributeList
-        return value.contains(" ") || value.contains("\t");
-    }
-
     private int firstIndexOf(final String value, final String characters) {
         for (int i = 0; i < value.length(); i++) {
             if (characters.indexOf(value.charAt(i)) >= 0) {
@@ -389,24 +396,6 @@ public class Parser {
             }
         }
         return -1;
-    }
-
-    // an anchor id starts with a letter, '_' or ':' and goes on with letters, digits, '_', '-', ':' or '.'
-    private boolean isAnchorId(final String id) {
-        if (id.isEmpty()) {
-            return false;
-        }
-        final char first = id.charAt(0);
-        if (!Character.isLetter(first) && first != '_' && first != ':') {
-            return false;
-        }
-        for (int i = 1; i < id.length(); i++) {
-            final char c = id.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '_' && c != '-' && c != ':' && c != '.') {
-                return false;
-            }
-        }
-        return true;
     }
 
     public Body parseBody(final String reader, final ParserContext context) {
@@ -643,10 +632,7 @@ public class Parser {
                 }
                 options = null;
             } else if (stripped.startsWith("#")) {
-                int level = 0;
-                while (level < stripped.length() && stripped.charAt(level) == '#') {
-                    level++;
-                }
+                int level = scanner.runLength(stripped, 0, '#');
                 if (level < stripped.length() && stripped.charAt(level) == ' ') {
                     level = Math.min(level, 6);
                     reader.setPreviousValue("=".repeat(level) + " " + stripped.substring(level).strip());
@@ -1002,10 +988,7 @@ public class Parser {
                     cells.specs.add(CellSpec.NONE);
                     cells.buffer.append(before);
                 } else {
-                    int textEnd = blank;
-                    while (textEnd > 0 && (before.charAt(textEnd - 1) == ' ' || before.charAt(textEnd - 1) == '\t')) {
-                        textEnd--;
-                    }
+                    final int textEnd = scanner.trailingBlanksStart(before, blank);
                     cells.specs.add(spec);
                     cells.buffer.append(before, 0, textEnd);
                 }
@@ -1369,24 +1352,6 @@ public class Parser {
         }
     }
 
-    private int nextUnescapedPipe(final String line, final int from) {
-        int idx = line.indexOf('|', from);
-        while (idx >= 0) {
-            int backslashes = 0;
-            int pos = idx - 1;
-            while (pos >= 0 && line.charAt(pos) == '\\') {
-                backslashes++;
-                pos--;
-            }
-            if (backslashes % 2 == 1) {
-                idx = line.indexOf('|', idx + 1);
-            } else {
-                break;
-            }
-        }
-        return idx;
-    }
-
     private Table parsePipeTable(final Path enclosingDocument, final Reader reader,
                                  final Map<String, String> options,
                                  final ContentResolver resolver,
@@ -1452,14 +1417,14 @@ public class Parser {
     private List<String> parsePipeRow(final String line) {
         final var cells = new ArrayList<String>();
         int last = 0;
-        int idx = nextUnescapedPipe(line, last);
+        int idx = scanner.nextUnescapedMarkdown(line, '|', last);
         while (idx >= 0) {
             final var cell = line.substring(last, idx).strip();
             if (!cell.isEmpty()) {
                 cells.add(cell.replace("\\|", "|"));
             }
             last = idx + 1;
-            idx = nextUnescapedPipe(line, last);
+            idx = scanner.nextUnescapedMarkdown(line, '|', last);
         }
         if (last < line.length()) {
             final var cell = line.substring(last).strip();
@@ -1682,7 +1647,7 @@ public class Parser {
     // space asciidoctor shows between words. a single stray backtick, which opens a span that would never close, also joins
     // the lines: that matches asciidoctor, where the fold to spaces is the same whether or not a span was really open.
     private String joinOpenCodeSpan(final Reader reader, String line) {
-        while (hasOpenCodeSpan(line)) {
+        while (scanner.hasOpenCodeSpan(line)) {
             final var next = reader.nextLine();
             if (next == null || next.isBlank()) {
                 if (next != null) { // hand the blank line that ends the paragraph back to the loop
@@ -1701,31 +1666,6 @@ public class Parser {
             end--;
         }
         return end == line.length() ? line : line.substring(0, end);
-    }
-
-    // whether line leaves an inline code span open, i.e. its backticks do not pair up. a backslash-escaped backtick is a
-    // literal, and the `+...+` passthrough an opening backtick leads with is span content, so it is skipped whole; this is
-    // close to, but deliberately not the full, inline scan (a double-backtick behaved as two pairs, as it does elsewhere).
-    private boolean hasOpenCodeSpan(final String line) {
-        boolean open = false;
-        for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) != '`') {
-                continue;
-            }
-            if (i > 0 && line.charAt(i - 1) == '\\') { // `\`` escaped
-                continue;
-            }
-            if (!open && i + 1 < line.length() && line.charAt(i + 1) == '+') { // the passthrough right after the opener is content
-                final var passthrough = passthroughAt(line, i + 1, line.length());
-                if (passthrough != null) { // the backtick opened the span, so the closure comes after the passthrough
-                    open = true;
-                    i = passthrough.end() - 1;
-                    continue;
-                }
-            }
-            open = !open;
-        }
-        return open;
     }
 
     // a conditional block sharing the paragraph with other elements holds inline elements, see withInlineChildren(), and
@@ -1993,7 +1933,7 @@ public class Parser {
 
             switch (c) {
                 case ':' -> // a macro colon has a name character before it and a target without any blank up to a '['
-                        inMacro = i > 0 && isMacroNameChar(line.charAt(i - 1)) && isMacroTarget(line, i + 1);
+                        inMacro = i > 0 && scanner.isMacroNameChar(line.charAt(i - 1)) && scanner.isMacroTarget(line, i + 1);
                 case '\\' -> { // escaping
                     if (start != i) {
                         flushText(elements, line.substring(start, i));
@@ -2018,91 +1958,21 @@ public class Parser {
                         }
                     }
                 }
-                case '*' -> {
-                    if (line.length() > i + 1 && line.charAt(i + 1) == '*') { // **bold** (Markdown)
-                        final int end = line.indexOf("**", i + 2);
+                case '*', '_' -> { // *bold* and _italic_ are constrained pairs, **bold** and __italic__ unconstrained ones, as in asciidoctor
+                    final var style = c == '*' ? BOLD : ITALIC;
+                    if (line.length() > i + 1 && line.charAt(i + 1) == c) {
+                        final int end = line.indexOf(c == '*' ? "**" : "__", i + 2);
                         if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                            addTextElements(enclosingDocument, line, i + 1, end, elements, BOLD, options, resolver, currentAttributes);
+                            final var options = flushTextBeforeMark(elements, line, start, i);
+                            addTextElements(enclosingDocument, line, i + 1, end, elements, style, options, resolver, currentAttributes);
                             i = end + 1;
                             start = end + 2;
                         }
                     } else {
-                        final int end = constrainedEnd(line, i, '*');
+                        final int end = scanner.constrainedEnd(line, i, c);
                         if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                            addTextElements(enclosingDocument, line, i, end, elements, BOLD, options, resolver, currentAttributes);
-                            i = end;
-                            start = end + 1;
-                        }
-                    }
-                }
-                case '_' -> {
-                    if (line.length() > i + 1 && line.charAt(i + 1) == '_') { // __italic__, unconstrained as in asciidoctor
-                        final int end = line.indexOf("__", i + 2);
-                        if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                            addTextElements(enclosingDocument, line, i + 1, end, elements, ITALIC, options, resolver, currentAttributes);
-                            i = end + 1;
-                            start = end + 2;
-                        }
-                    } else {
-                        final int end = constrainedEnd(line, i, '_');
-                        if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                            addTextElements(enclosingDocument, line, i, end, elements, ITALIC, options, resolver, currentAttributes);
+                            final var options = flushTextBeforeMark(elements, line, start, i);
+                            addTextElements(enclosingDocument, line, i, end, elements, style, options, resolver, currentAttributes);
                             i = end;
                             start = end + 1;
                         }
@@ -2110,43 +1980,17 @@ public class Parser {
                 }
                 case '~' -> {
                     if (line.length() > i + 1 && line.charAt(i + 1) == '~') { // ~~strikethrough~~ (Markdown)
-                        final int end = adjacentBlankAwareEnd(line, i, '~', "~~", i + 2);
+                        final int end = scanner.unconstrainedEnd(line, i, "~~", i + 2);
                         if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
+                            final var options = flushTextBeforeMark(elements, line, start, i);
                             addTextElements(enclosingDocument, line, i + 1, end, elements, STRIKETHROUGH, options, resolver, currentAttributes);
                             i = end + 1;
                             start = end + 2;
                         }
                     } else {
-                        final int end = adjacentBlankAwareEnd(line, i, '~');
+                        final int end = scanner.unconstrainedEnd(line, i, '~');
                         if (end > 0) {
-                            String options = null;
-                            if (i > 0 && ']' == line.charAt(i - 1)) {
-                                final int optionsStart = line.lastIndexOf('[', i - 1);
-                                if (optionsStart >= start) {
-                                    options = line.substring(optionsStart + 1, i - 1);
-                                    if (start < optionsStart) {
-                                        flushText(elements, line.substring(start, optionsStart));
-                                    }
-                                } else if (start < i) {
-                                    flushText(elements, line.substring(start, i));
-                                }
-                            } else if (start != i) {
-                                flushText(elements, line.substring(start, i));
-                            }
+                            final var options = flushTextBeforeMark(elements, line, start, i);
                             addTextElements(enclosingDocument, line, i, end, elements, SUB, options, resolver, currentAttributes);
                             i = end;
                             start = end + 1;
@@ -2154,22 +1998,9 @@ public class Parser {
                     }
                 }
                 case '^' -> {
-                    final int end = adjacentBlankAwareEnd(line, i, '^');
+                    final int end = scanner.unconstrainedEnd(line, i, '^');
                     if (end > 0) {
-                        String options = null;
-                        if (i > 0 && ']' == line.charAt(i - 1)) {
-                            final int optionsStart = line.lastIndexOf('[', i - 1);
-                            if (optionsStart >= start) {
-                                options = line.substring(optionsStart + 1, i - 1);
-                                if (start < optionsStart) {
-                                    flushText(elements, line.substring(start, optionsStart));
-                                }
-                            } else if (start < i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                        } else if (start != i) {
-                            flushText(elements, line.substring(start, i));
-                        }
+                        final var options = flushTextBeforeMark(elements, line, start, i);
                         addTextElements(enclosingDocument, line, i, end, elements, SUP, options, resolver, currentAttributes);
                         i = end;
                         start = end + 1;
@@ -2240,7 +2071,7 @@ public class Parser {
                             final var anchor = line.substring(i + 2, end);
                             final int comma = anchor.indexOf(',');
                             final var id = comma < 0 ? anchor : anchor.substring(0, comma);
-                            if (isAnchorId(id)) {
+                            if (scanner.isAnchorId(id)) {
                                 if (start != i) {
                                     flushText(elements, line.substring(start, i));
                                 }
@@ -2273,14 +2104,14 @@ public class Parser {
                             }
                         }
                     }
-                    int end = closingBracket(line, i + 1);
+                    int end = scanner.nextUnescaped(line, ']', i + 1);
 
                     if (end > 0 && (end == (line.length() - 1) || !isInlineOptionContentMarker(line.charAt(end + 1)))) { // check it is maybe a link
                         final int backward = macroStart(line, start, i, currentAttributes);
                         var offset = 0;
                         if (backward >= 0) { // start by assuming it a link then fallback on a macro
                             var optionsPrefix = line.substring(backward, i);
-                            final boolean escaped = backward > 0 && line.charAt(backward - 1) == '\\';
+                            final boolean escaped = scanner.isEscaped(line, backward);
                             if (optionsPrefix.startsWith("include:")) {
                                 // not an inline macro but a directive, as in asciidoctor: only a whole line is one,
                                 // anywhere else it stays text with its backslash, which only goes for an escaped whole line
@@ -2405,45 +2236,19 @@ public class Parser {
                         }
                     }
                 }
-                case '#' -> {
-                    int j;
-                    for (j = 1; j < line.length() - i; j++) {
-                        if (line.charAt(i + j) != '#') {
-                            break;
-                        }
-                    }
-                    j--;
-                    if (i + j == line.length()) {
-                        throw new IllegalStateException("You can't do a line of '#': " + line);
-                    }
-
-                    final var endString = j == 0 ? "#" : IntStream.rangeClosed(0, j).mapToObj(idx -> "#").collect(joining(""));
+                case '#' -> { // #mark#, or ##mark## with any number of signs, closed by the same run
+                    final int moreSigns = scanner.runLength(line, i + 1, '#');
+                    final var endString = moreSigns == 0 ? "#" : "#".repeat(moreSigns + 1);
                     final int end = line.indexOf(endString, i + endString.length());
                     if (end > 0) {
-                        // override options if set inline (todo: do it for all inline markers)
-                        String options = null;
-                        if (i > 0 && ']' == line.charAt(i - 1)) {
-                            final int optionsStart = line.lastIndexOf('[', i - 1);
-                            if (optionsStart >= start) {
-                                options = line.substring(optionsStart + 1, i - 1);
-                                // adjust indices to skip options
-                                if (start < optionsStart) {
-                                    flushText(elements, line.substring(start, optionsStart));
-                                }
-                            } else if (start < i) {
-                                flushText(elements, line.substring(start, i));
-                            }
-                        } else if (start < i) {
-                            flushText(elements, line.substring(start, i));
-                        }
-
+                        final var options = flushTextBeforeMark(elements, line, start, i);
                         addTextElements(enclosingDocument, line, i + endString.length() - 1, end, elements, MARK, options, resolver, currentAttributes);
                         start = end + endString.length();
                         i = start - 1;
                     }
                 }
                 case '`' -> {
-                    final var opening = openingPassthrough(line, i);
+                    final var opening = scanner.openingPassthrough(line, i);
                     final int end = line.indexOf('`', opening == null ? i + 1 : opening.end());
                     if (end > 0) {
                         if (start != i) {
@@ -2499,69 +2304,29 @@ public class Parser {
         return flattenTexts(elements);
     }
 
-    // the closing mark of a constrained pair, or -1 when the pair does not open or never closes.
-    // as in asciidoctor, a single * or _ opens only after a character that is not part of a word,
-    // and closes only before one, so snake_case_name and a*b*c keep their marks as text. the
-    // closing mark may not follow a space, and a mark that cannot close is skipped for the next one
-    private int constrainedEnd(final String line, final int markerStart, final char marker) {
-        if (markerStart > 0 && !opensConstrainedPair(line.charAt(markerStart - 1))) {
-            return -1;
-        }
-        if (markerStart + 1 >= line.length() || line.charAt(markerStart + 1) == ' ') {
-            return -1;
-        }
-        for (int end = line.indexOf(marker, markerStart + 1); end > 0; end = line.indexOf(marker, end + 1)) {
-            if (line.charAt(end - 1) == ' ') {
-                continue;
+    // the text before an inline mark goes to the elements and the [options] right before the mark, [.role]*bold*, are
+    // returned without their brackets, null when the mark has none; start is where the text not yet flushed begins
+    private String flushTextBeforeMark(final List<Element> elements, final String line, final int start, final int mark) {
+        if (mark > 0 && line.charAt(mark - 1) == ']') {
+            final int optionsStart = line.lastIndexOf('[', mark - 1);
+            if (optionsStart >= start) {
+                if (start < optionsStart) {
+                    flushText(elements, line.substring(start, optionsStart));
+                }
+                return line.substring(optionsStart + 1, mark - 1);
             }
-            if (end + 1 < line.length() && isWordCharacter(line.charAt(end + 1))) {
-                continue;
-            }
-            return end;
         }
-        return -1;
-    }
-
-    // asciidoctor also refuses to open a constrained pair after ';', ':' or '}'
-    private boolean opensConstrainedPair(final char previous) {
-        return !isWordCharacter(previous) && previous != ';' && previous != ':' && previous != '}';
-    }
-
-    private boolean isWordCharacter(final char c) {
-        return c == '_' || Character.isLetterOrDigit(c);
-    }
-
-    // the closing mark of a sub/sup (~, ^) or strikethrough (~~) pair, or -1 when the pair does not open or never closes.
-    // as in asciidoctor, their text must be continuous: the opening mark cannot be followed by a blank and the closing
-    // one cannot be preceded by one, so '~foo bar ~dummy' stays text whereas '~foo bar~ dummy' is subscript. unlike the
-    // constrained pairs, the marks stay unconstrained: they open and close inside words (H~2~O) and a mark that cannot
-    // close is just skipped for the next one
-    private int adjacentBlankAwareEnd(final String line, final int markerStart, final char marker) {
-        return adjacentBlankAwareEnd(line, markerStart, marker, String.valueOf(marker), markerStart + 1);
-    }
-
-    private int adjacentBlankAwareEnd(final String line, final int markerStart, final char marker, final String markerStr, final int from) {
-        if (markerStart + markerStr.length() >= line.length() || Character.isWhitespace(line.charAt(markerStart + markerStr.length()))) {
-            return -1;
+        if (start < mark) {
+            flushText(elements, line.substring(start, mark));
         }
-        for (int end = line.indexOf(markerStr, from); end > 0; end = line.indexOf(markerStr, end + 1)) {
-            if (Character.isWhitespace(line.charAt(end - 1))) {
-                continue;
-            }
-            return end;
-        }
-        return -1;
-    }
-
-    // a +text+, ++text++ or +++text+++ passthrough of a code span, its text sitting between start + signs and end - signs
-    private record InlinePassthrough(int start, int signs, int end) {
+        return null;
     }
 
     // the text of the code span line[from, to): the signs of its passthroughs go and the text between them stays as written,
     // `+{name}+` giving {name}, as asciidoctor extracts a passthrough before any other substitution; the rest loses the
     // backslash of an escaped reference since a code span gets no substitution later
     private String codeSpanText(final String line, final int from, final int to, final InlinePassthrough opening) {
-        final var passthroughs = passthroughs(line, from, to, opening);
+        final var passthroughs = scanner.passthroughs(line, from, to, opening);
         if (passthroughs.isEmpty()) {
             return unescapeAttributeReferences(line.substring(from, to));
         }
@@ -2573,91 +2338,6 @@ public class Parser {
             copied = passthrough.end();
         }
         return out.append(unescapeAttributeReferences(line.substring(copied, to))).toString();
-    }
-
-    // the indices of the passthroughs of the code spans of a line, whose attribute references stay as written, or null when it has none
-    private BitSet codeSpanPassthroughs(final String line) {
-        if (line.indexOf('+') < 0) {
-            return null;
-        }
-        BitSet indices = null;
-        for (int open = line.indexOf('`'); open >= 0; ) {
-            final var opening = openingPassthrough(line, open);
-            final int close = line.indexOf('`', opening == null ? open + 1 : opening.end());
-            if (close < 0) {
-                break;
-            }
-            for (final var passthrough : passthroughs(line, open + 1, close, opening)) {
-                if (indices == null) {
-                    indices = new BitSet(line.length());
-                }
-                indices.set(passthrough.start(), passthrough.end());
-            }
-            open = line.indexOf('`', close + 1);
-        }
-        return indices;
-    }
-
-    // the passthrough a code span opens with, or null: asciidoctor extracts a passthrough before it pairs the backticks, so the
-    // span ends at the first backtick after it and `+++a`b+++` is one span
-    private InlinePassthrough openingPassthrough(final String line, final int backtick) {
-        return backtick + 1 < line.length() && line.charAt(backtick + 1) == '+' ? passthroughAt(line, backtick + 1, line.length()) : null;
-    }
-
-    // the passthroughs of the code span content line[from, to), in order, opening being the one the span starts with when it does
-    private List<InlinePassthrough> passthroughs(final String line, final int from, final int to, final InlinePassthrough opening) {
-        List<InlinePassthrough> found = null;
-        if (opening != null) {
-            found = new ArrayList<>(2);
-            found.add(opening);
-        }
-        for (int i = line.indexOf('+', opening == null ? from : opening.end()); i >= 0 && i < to; i = line.indexOf('+', i + 1)) {
-            final var passthrough = passthroughAt(line, i, to);
-            if (passthrough == null) {
-                continue;
-            }
-            if (found == null) {
-                found = new ArrayList<>(2);
-            }
-            found.add(passthrough);
-            i = passthrough.end() - 1;
-        }
-        return found == null ? List.of() : found;
-    }
-
-    // the passthrough opening at start and closing before limit, as asciidoctor reads it (InlinePassMacroRx, then InlinePassRx):
-    // ++text++ and +++text+++ close at the next run of the same signs wherever it sits, +++ tried before ++; +text+ opens at the
-    // start of the line or after a character that is not part of a word, a ';' or a ':', has no blank next to its signs and
-    // closes before the end of the line or a character that is not part of a word. A backslash before the signs escapes the
-    // passthrough. null when no passthrough opens there
-    private InlinePassthrough passthroughAt(final String line, final int start, final int limit) {
-        if (start > 0 && line.charAt(start - 1) == '\\') {
-            return null;
-        }
-        int signs = 1;
-        while (signs < 3 && start + signs < limit && line.charAt(start + signs) == '+') {
-            signs++;
-        }
-        for (; signs > 1; signs--) {
-            final int end = line.indexOf(signs == 3 ? "+++" : "++", start + signs);
-            if (end >= 0 && end + signs <= limit) {
-                return new InlinePassthrough(start, signs, end + signs);
-            }
-        }
-        if ((start > 0 && !opensPassthrough(line.charAt(start - 1))) || start + 1 >= limit || Character.isWhitespace(line.charAt(start + 1))) {
-            return null;
-        }
-        for (int end = line.indexOf('+', start + 2); end > 0 && end < limit; end = line.indexOf('+', end + 1)) {
-            if (!Character.isWhitespace(line.charAt(end - 1)) && (end + 1 >= line.length() || !isWordCharacter(line.charAt(end + 1)))) {
-                return new InlinePassthrough(start, 1, end + 1);
-            }
-        }
-        return null;
-    }
-
-    // asciidoctor refuses to open a +passthrough+ after ';' or ':', where a constrained pair is also refused after '}'
-    private boolean opensPassthrough(final char previous) {
-        return !isWordCharacter(previous) && previous != ';' && previous != ':';
     }
 
     private boolean isInlineOptionContentMarker(final char c) {
@@ -2768,7 +2448,7 @@ public class Parser {
             return value;
         }
         final var matcher = ATTRIBUTE_VALUE.matcher(value);
-        final var passthroughs = codeSpanPassthroughs(value);
+        final var passthroughs = scanner.codeSpanPassthroughs(value);
         StringBuilder out = null;
         int copied = 0;
         while (matcher.find()) {
@@ -2781,7 +2461,7 @@ public class Parser {
                     if (out == null) {
                         out = new StringBuilder(value.length());
                     }
-                    final int start = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\' ? matcher.start() - 1 : matcher.start();
+                    final int start = scanner.isEscaped(value, matcher.start()) ? matcher.start() - 1 : matcher.start();
                     out.append(value, copied, start).append("\\{").append(escaped).append('}');
                     copied = matcher.end();
                 }
@@ -2817,7 +2497,7 @@ public class Parser {
                 if (out == null) {
                     out = new StringBuilder(value.length());
                 }
-                final int start = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\' ? matcher.start() - 1 : matcher.start();
+                final int start = scanner.isEscaped(value, matcher.start()) ? matcher.start() - 1 : matcher.start();
                 out.append(value, copied, start).append('{').append(name).append('}');
                 copied = matcher.end();
             }
@@ -2828,22 +2508,13 @@ public class Parser {
     // as asciidoctor AttributeReferenceRx: (\\)?{name(\\)?} with a name made of word characters and '-', escaped by either backslash
     private String escapedReferenceName(final String value, final Matcher matcher) {
         final var name = matcher.group("name");
-        final boolean escapedStart = matcher.start() > 0 && value.charAt(matcher.start() - 1) == '\\';
+        final boolean escapedStart = scanner.isEscaped(value, matcher.start());
         final boolean escapedEnd = name.endsWith("\\");
         if (!escapedStart && !escapedEnd) {
             return null;
         }
         final var plainName = escapedEnd ? name.substring(0, name.length() - 1) : name;
-        if (plainName.isEmpty() || !(Character.isLetterOrDigit(plainName.charAt(0)) || plainName.charAt(0) == '_')) {
-            return null;
-        }
-        for (int i = 1; i < plainName.length(); i++) {
-            final char c = plainName.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '_' && c != '-') {
-                return null;
-            }
-        }
-        return plainName;
+        return scanner.isAttributeReferenceName(plainName) ? plainName : null;
     }
 
     // a conditional directive as written, with its lines still unparsed: it is read once by readConditional() for the
@@ -2952,10 +2623,8 @@ public class Parser {
         }
         final int sep = stripped.indexOf("::");
         final var target = stripped.substring(sep + "::".length(), bracket);
-        for (int i = 0; i < target.length(); i++) {
-            if (Character.isWhitespace(target.charAt(i))) {
-                return null;
-            }
+        if (scanner.holdsWhitespace(target)) {
+            return null;
         }
         final boolean ifeval = stripped.startsWith("ifeval::");
         if (target.isEmpty() != ifeval) { // ifeval has no target, the two others need one
@@ -3217,8 +2886,7 @@ public class Parser {
 
     private int findSectionLevel(final String line) {
         final int sep = line.indexOf(' ');
-        return sep > 0 && IntStream.range(0, sep).allMatch(i -> line.charAt(i) == '=') ?
-                sep : -1;
+        return sep > 0 && scanner.runLength(line, 0, '=') == sep ? sep : -1;
     }
 
     private Optional<Admonition> parseAdmonition(final Path enclosingDocument,
@@ -3626,11 +3294,7 @@ public class Parser {
     private Heading parseHeading(final Path enclosingDocument, final Reader reader,
                                  final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var line = reader.skipCommentsAndEmptyLines();
-        int level = 0;
-        while (level < line.length() && line.charAt(level) == '=') {
-            level++;
-        }
-
+        int level = scanner.runLength(line, 0, '=');
         final var offset = currentAttributes.get("leveloffset");
         if (offset != null) {
             level += Integer.parseInt(offset);
@@ -3898,60 +3562,13 @@ public class Parser {
             return parseOptions(text);
         }
         if (prefix.startsWith(MAILTO)) {
-            return containsOutsideMacrosAndPassthroughs(text, ",") ?
+            return scanner.containsOutsideMacrosAndPassthroughs(text, ",") ?
                     doParseOptions(text, MAILTO_TEXT_KEYS, false) :
                     Map.of("", dropLegacyPassthroughMarkers(text));
         }
-        return containsOutsideMacrosAndPassthroughs(text, "=") ?
+        return scanner.containsOutsideMacrosAndPassthroughs(text, "=") ?
                 doParseOptions(text, STYLE_KEYS, false) :
                 Map.of("", dropLegacyPassthroughMarkers(text));
-    }
-
-    // whether the link text contains the separator, a one-character string such as "," or "=", outside its nested
-    // macros and passthroughs: in link:https://x.io[image:a.png[alt=x]], the '=' belongs to the image, so the link text
-    // is not an attribute list
-    private boolean containsOutsideMacrosAndPassthroughs(final String text, final String separator) {
-        if (!text.contains(separator)) {
-            return false;
-        }
-        if (!text.contains("[") && !text.contains("+")) { // no macro or passthrough starts without them, see macroOrPassthroughEnd
-            return true;
-        }
-        final char c = separator.charAt(0);
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == c) {
-                return true;
-            }
-            final int nestedEnd = macroOrPassthroughEnd(text, i);
-            if (nestedEnd > 0) {
-                i = nestedEnd;
-            }
-        }
-        return false;
-    }
-
-    // the last index of the nested macro or the passthrough of a link text starting at the index: the brackets of a
-    // nested macro, image:a.png[alt,width=100], or a passthrough, +text+, ++text++ or +++text+++ as passthroughAt reads
-    // them, which asciidoctor substitutes before it reads the link, so their ',', '=' and ']' are not the text's; -1 when
-    // none starts there
-    private int macroOrPassthroughEnd(final String text, final int i) {
-        if (text.charAt(i) == '[') {
-            return closingBracket(text, i + 1);
-        }
-        if (text.charAt(i) == '+') {
-            final var passthrough = passthroughAt(text, i, text.length());
-            return passthrough == null ? -1 : passthrough.end() - 1;
-        }
-        return -1;
-    }
-
-    // the first ']' at or after the index that no backslash escapes, or -1
-    private int closingBracket(final String line, final int from) {
-        int end = line.indexOf(']', from);
-        while (end > 0 && line.charAt(end - 1) == '\\') {
-            end = line.indexOf(']', end + 1);
-        }
-        return end;
     }
 
     // as asciidoctor, which substitutes the passthroughs, image:, icon: and the other macros before the links, a macro
@@ -3970,7 +3587,7 @@ public class Parser {
         int end = firstClose;
         final int colon = line.indexOf(':', open + 1); // a nested macro needs a colon before its '['
         for (int i = open + 1; i < end; i++) {
-            final int nestedEnd = macroOrPassthroughEnd(line, i);
+            final int nestedEnd = scanner.macroOrPassthroughEnd(line, i);
             if (nestedEnd < 0 || (line.charAt(i) == '[' && (colon < 0 || colon > i || macroStart(line, open + 1, i, currentAttributes) < 0))) {
                 continue;
             }
@@ -3982,7 +3599,7 @@ public class Parser {
                         }
                     }
                 }
-                final int next = closingBracket(line, nestedEnd + 1);
+                final int next = scanner.nextUnescaped(line, ']', nestedEnd + 1);
                 if (next < 0) { // the macro or passthrough has the only ']': the text ends there
                     return end;
                 }
@@ -4042,24 +3659,6 @@ public class Parser {
         return false;
     }
 
-    private boolean isMacroNameChar(final char c) { // asciidoctor's MacroNameRx: word characters and hyphens
-        return c == '_' || c == '-' || Character.isLetterOrDigit(c);
-    }
-
-    // the target of an inline macro runs from its colon to a '[' without any blank, as in asciidoctor's macro regexes
-    private boolean isMacroTarget(final String line, final int from) {
-        for (int i = from; i < line.length(); i++) {
-            final char c = line.charAt(i);
-            if (c == '[') {
-                return true;
-            }
-            if (Character.isWhitespace(c)) {
-                return false;
-            }
-        }
-        return false;
-    }
-
     /**
      * Finds where the inline macro closed by the {@code [} at {@code bracket} starts, or -1 when the text before the
      * bracket is not {@code name:target}: the target is the blank free run before the bracket up to its first colon
@@ -4077,7 +3676,7 @@ public class Parser {
         }
         for (int colon = line.indexOf(':', runStart); colon >= 0 && colon < bracket; colon = line.indexOf(':', colon + 1)) {
             int name = colon;
-            while (name > runStart && isMacroNameChar(line.charAt(name - 1))) {
+            while (name > runStart && scanner.isMacroNameChar(line.charAt(name - 1))) {
                 name--;
             }
             while (name < colon && line.charAt(name) == '-') { // a name starts with a word character
@@ -4100,18 +3699,12 @@ public class Parser {
             }
             for (int from = line.indexOf(macro, start); from >= 0 && from < runStart; from = line.indexOf(macro, from + 1)) {
                 final int colon = from + macro.length();
-                if (colon < runStart && line.charAt(colon) == ':' && isBlankTarget(line, colon + 1, bracket)) {
+                if (colon < runStart && line.charAt(colon) == ':' && scanner.isBlankTarget(line, colon + 1, bracket)) {
                     return from;
                 }
             }
         }
         return -1;
-    }
-
-    // as asciidoctor, such a target starts with a character which is neither a blank nor a colon and ends with a non blank
-    private boolean isBlankTarget(final String line, final int from, final int bracket) {
-        return from < bracket && line.charAt(from) != ':' && !Character.isWhitespace(line.charAt(from)) &&
-                !Character.isWhitespace(line.charAt(bracket - 1)) && line.indexOf('[', from) == bracket;
     }
 
     private boolean isHorizontalRule(final String stripped) {
@@ -4120,15 +3713,7 @@ public class Parser {
         }
         final var first = stripped.charAt(0);
         // ''' is the asciidoc thematic break, --- *** and ___ are the markdown ones
-        if (first != '-' && first != '*' && first != '_' && first != '\'') {
-            return false;
-        }
-        for (int i = 1; i < stripped.length(); i++) {
-            if (stripped.charAt(i) != first) {
-                return false;
-            }
-        }
-        return true;
+        return (first == '-' || first == '*' || first == '_' || first == '\'') && scanner.runLength(stripped, 1, first) == stripped.length() - 1;
     }
 
     // positionalKeys are asciidoctor's posattrs, the key of each positional value, the values being numbered across
@@ -4149,7 +3734,7 @@ public class Parser {
         for (int i = 0; i < options.length(); i++) {
             final char c = options.charAt(i);
             final var current = inKey ? key : value;
-            if (afterClosingQuote && c != ',' && c != ' ' && c != '\t') { // as asciidoctor's parse_attribute, other text after a closing quote is the next attribute
+            if (afterClosingQuote && c != ',' && !scanner.isBlank(c)) { // as asciidoctor's parse_attribute, other text after a closing quote is the next attribute
                 afterClosingQuote = false;
             }
             if (quote != 0) {
@@ -4177,26 +3762,23 @@ public class Parser {
                 // so the text of a macro the parser does not know, tooltip:x['hint' text], stays as written for the text mode of the renderers
                 quote = c;
                 quoteStart = i;
-            } else if (c == '=' && inKey && isAttributeName(key)) { // as asciidoctor, only a name is followed by '='
+            } else if (c == '=' && inKey && scanner.isAttributeName(key)) { // as asciidoctor, only a name is followed by '='
                 inKey = false;
             } else if (c == ',') {
                 firstNamed = flushAttribute(map, positional, key, value, inKey, false, firstNamed);
                 inKey = true;
             } else if (!block && (c == '[' || c == '+')) { // a nested macro or a passthrough is read whole, with the ',' and '=' it holds
-                final int nestedEnd = macroOrPassthroughEnd(options, i);
+                final int nestedEnd = scanner.macroOrPassthroughEnd(options, i);
                 if (nestedEnd > 0) {
                     current.append(options, i, nestedEnd + 1);
                     i = nestedEnd;
                 } else {
                     current.append(c);
                 }
-            } else if (c == ' ' || c == '\t') { // as asciidoctor, blanks around a name or a value are not part of it
-                int next = i + 1;
-                while (next < options.length() && (options.charAt(next) == ' ' || options.charAt(next) == '\t')) {
-                    next++;
-                }
+            } else if (scanner.isBlank(c)) { // as asciidoctor, blanks around a name or a value are not part of it
+                final int next = scanner.skipBlanks(options, i + 1);
                 if (!current.isEmpty() && next < options.length() && options.charAt(next) != ','
-                        && (options.charAt(next) != '=' || !(inKey && isAttributeName(current)))) { // "see a = b" keeps its blanks: a '=' after a non-name is text
+                        && (options.charAt(next) != '=' || !(inKey && scanner.isAttributeName(current)))) { // "see a = b" keeps its blanks: a '=' after a non-name is text
                     current.append(options, i, next);
                 }
                 i = next - 1;
@@ -4229,7 +3811,7 @@ public class Parser {
                 continue;
             }
             pos = unwrapped;
-            if (block && !pos.isEmpty() && isShorthandMarker(pos.charAt(0)) && !holdsBlank(pos)) { // a shorthand holds no blank, as asciidoctor's parse_style_attribute
+            if (block && !pos.isEmpty() && isShorthandMarker(pos.charAt(0)) && !scanner.holdsBlank(pos)) { // a shorthand holds no blank, as asciidoctor's parse_style_attribute
                 readShorthands(map, pos, 0);
                 continue;
             }
@@ -4250,21 +3832,6 @@ public class Parser {
             }
         }
         return map;
-    }
-
-    // asciidoctor's attribute name (NameRx): a word character, then word characters, '-' or '.'; anything else before a
-    // '=' is text. A '!' at the end is kept for the include directive's tag!=name negation, which this parser supports
-    private boolean isAttributeName(final StringBuilder key) {
-        if (key.isEmpty() || !isWordCharacter(key.charAt(0))) {
-            return false;
-        }
-        for (int i = 1; i < key.length(); i++) {
-            final char c = key.charAt(i);
-            if (!(isWordCharacter(c) || c == '-' || c == '.' || (c == '!' && i == key.length() - 1))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     // as asciidoctor, the roles of a '.name' shorthand are added to the role attribute, they do not replace it
