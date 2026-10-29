@@ -45,7 +45,8 @@ A visitor of your own can read the model as the HTML and Markdown renderers do, 
 The model does not keep the source text of the elements.
 To get it, for example to look each paragraph up in a translation file before rendering, register a `SourceListener` in the `ParserContext`.
 The parser calls it for each block-level element with a `SourceSpan`: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it.
-List items and table cells are read from their own reader, so their line numbers are relative to the item or cell.
+List items, table cells, callouts, description list entries and the content of quote, admonition, open and conditional blocks are read from their own reader, so their line numbers are relative to it.
+When a list item, a callout, an admonition block or an `a` cell holds a single paragraph with one child, the model keeps that child, a `Text` for example, and the listener gets the child, not the paragraph.
 Where the parser evaluates a conditional while it reads, in the header and in a table, an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included; a conditional nested in such a branch is read the same way, one level deep: a third level fails the parse with a message.
 
 [source,java]

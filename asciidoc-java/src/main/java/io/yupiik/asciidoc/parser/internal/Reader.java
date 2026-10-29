@@ -27,7 +27,7 @@ import java.util.List;
 public class Reader {
     private final List<String> lines;
     // the lines as read, kept only when a listener is set: setPreviousValue() rewrites a line with its attribute
-    // references substituted, and the parser reports the text before that substitution, see Parser#reportSource
+    // references substituted, and the parser reports the text before that substitution, see Parser#sourceSpan
     private final List<String> original;
     private final Path file;
     private final SourceListener listener;
