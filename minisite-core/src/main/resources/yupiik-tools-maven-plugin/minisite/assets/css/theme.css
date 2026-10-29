@@ -1404,7 +1404,7 @@ p.tableblock {
     border: 1px solid var(--border);
     border-radius: 12px;
 }
-.page-navigation-left a[aria-current='page'] {
+.page-navigation-left > ul > li > a[aria-current='page'] {
     color: var(--brand);
     background: color-mix(in srgb, var(--brand) 10%, var(--surface));
     border-left-color: var(--brand);
