@@ -1,0 +1,5 @@
+= A
+:minisite-index: 1
+:minisite-index-title: A
+
+Content A.

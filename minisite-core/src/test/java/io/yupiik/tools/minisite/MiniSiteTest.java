@@ -16,6 +16,7 @@
 package io.yupiik.tools.minisite;
 
 import io.yupiik.tools.minisite.test.MiniSiteConfigurationBuilderProvider;
+import org.jsoup.Jsoup;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -275,6 +276,31 @@ class MiniSiteTest {
         return count;
     }
 
+
+    @Test
+    void defaultLeftMenuActivePage(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                   final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/defaultLeftMenu"))
+                .build())
+                .run();
+        asserts.assertThat(files -> {
+            for (final var page : List.of("a", "b", "c")) {
+                final var html = files.get(page + ".html");
+                assertNotNull(html);
+                final var links = Jsoup.parse(html).select(".page-navigation-left > ul > li > a");
+                assertEquals(2, links.size(), html);
+                for (final var link : links) {
+                    if (link.attr("href").equals("/" + page + ".html")) {
+                        assertEquals("page", link.attr("aria-current"), html);
+                    } else {
+                        assertFalse(link.hasAttr("aria-current"), html);
+                    }
+                }
+                assertEquals(page.equals("c") ? 0 : 1, links.stream().filter(it -> it.hasAttr("aria-current")).count(), html);
+            }
+        });
+    }
 
     @Test
     void leftMenuActivePage(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
