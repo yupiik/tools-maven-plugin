@@ -19,9 +19,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import io.yupiik.tools.minisite.language.Asciidoc;
 import io.yupiik.tools.minisite.language.AsciidoctorAsciidoc;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -33,13 +35,19 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.logging.Logger;
 import org.asciidoctor.Asciidoctor;
 import org.junit.jupiter.api.Test;
 
 class RenderingThreadsTest {
     private static final Logger LOGGER = Logger.getLogger(RenderingThreadsTest.class.getName());
+    private static final List<String> ERRORS = new CopyOnWriteArrayList<>();
 
     @Test
     void pagesAndBlogParityAcrossThreadModes() throws IOException {
@@ -79,13 +87,122 @@ class RenderingThreadsTest {
         assertTrue(hasItem(pageB, "b.html", "active"), pageB);
     }
 
+    @Test
+    void pageFailuresFailTheRun() {
+        // left-menu-item.hb misses its {{/if}}, so both page renders throw, on a worker thread in the parallel modes
+        final Path source = Paths.get("target/test-classes/sites/MiniSiteTest/renderingFailure");
+        for (final int renderingThreads : List.of(0, 2, -1)) {
+            final String mode = "renderingThreads=" + renderingThreads;
+            final IllegalStateException failure = assertThrows(IllegalStateException.class, () -> render(source, renderingThreads), mode);
+            assertEquals("Minisite rendering failed, see the suppressed exceptions", failure.getMessage(), mode);
+            final Throwable[] pages = failure.getSuppressed();
+            assertEquals(2, pages.length, mode + ": " + List.of(pages));
+            for (final Throwable page : pages) {
+                assertTrue(page.getMessage().contains("Missing {{/if}}"), mode + ": " + page);
+            }
+        }
+    }
+
+    @Test
+    void onePageFailureKeepsTheOtherPages() {
+        // only b.adoc carries the :minisite-test-fail: attribute which makes the wrapped converter throw
+        final Path source = Paths.get("target/test-classes/sites/MiniSiteTest/renderingFailureOnePage");
+        for (final int renderingThreads : List.of(0, 2, -1)) {
+            final String mode = "renderingThreads=" + renderingThreads;
+            final Path work = newWorkDirectory(renderingThreads);
+            ERRORS.clear();
+            final IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> run(work, source, renderingThreads, RenderingThreadsTest::failingOnMarkedPages), mode);
+            final Throwable[] pages = failure.getSuppressed();
+            assertEquals(1, pages.length, mode + ": " + List.of(pages));
+            assertEquals("page marked minisite-test-fail", pages[0].getMessage(), mode);
+            assertEquals(List.of("Rendering failed: java.lang.IllegalArgumentException: page marked minisite-test-fail"), ERRORS, mode);
+            assertTrue(Files.exists(work.resolve("output/a.html")), mode + ": a.html must be rendered");
+            assertFalse(Files.exists(work.resolve("output/b.html")), mode + ": b.html must not be rendered");
+        }
+    }
+
+    @Test
+    void interruptedAwaitThrowsTheFailures() throws InterruptedException {
+        final CountDownLatch pageFailed = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final Throwable[] thrown = new Throwable[1];
+        final boolean[] interrupted = new boolean[1];
+        try (final MiniSite.RenderingExecutor executor = new MiniSite.RenderingExecutor(1, LOGGER::warning, error -> pageFailed.countDown())) {
+            executor.route(() -> {
+                throw new IllegalArgumentException("page");
+            });
+            assertTrue(pageFailed.await(30, TimeUnit.SECONDS), "the page failure must be recorded first");
+            executor.route(() -> {
+                try {
+                    release.await();
+                } catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            final Thread awaiting = new Thread(() -> {
+                try {
+                    executor.await();
+                } catch (final Throwable e) {
+                    thrown[0] = e;
+                }
+                interrupted[0] = Thread.currentThread().isInterrupted();
+            });
+            awaiting.start();
+            awaiting.interrupt();
+            awaiting.join(TimeUnit.SECONDS.toMillis(30));
+            release.countDown();
+        }
+        assertNotNull(thrown[0], "await() must throw when interrupted");
+        assertEquals("Minisite rendering failed, see the suppressed exceptions", thrown[0].getMessage());
+        final Throwable[] suppressed = thrown[0].getSuppressed();
+        assertEquals(2, suppressed.length, List.of(suppressed).toString());
+        assertEquals("page", suppressed[0].getMessage());
+        assertEquals(InterruptedException.class, suppressed[1].getClass());
+        assertTrue(interrupted[0], "the interrupt flag must be restored");
+    }
+
     private static Map<String, String> render(final Path source, final int renderingThreads) {
-        final Path work;
+        return collect(run(newWorkDirectory(renderingThreads), source, renderingThreads, UnaryOperator.identity()));
+    }
+
+    private static Path newWorkDirectory(final int renderingThreads) {
         try {
-            work = Files.createTempDirectory("minisite-rt-" + renderingThreads + "-");
+            return Files.createTempDirectory("minisite-rt-" + renderingThreads + "-");
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** Delegates to Asciidoctor, except that the conversion of a page holding {@code :minisite-test-fail:} throws. */
+    private static Asciidoc failingOnMarkedPages(final Asciidoc delegate) {
+        return new Asciidoc() {
+            @Override
+            public Object createOptions(final MiniSiteConfiguration configuration) {
+                return delegate.createOptions(configuration);
+            }
+
+            @Override
+            public <T> T withInstance(final AsciidoctorConfiguration asciidoctorConfiguration, final Function<AsciidocInstance, T> function) {
+                return delegate.withInstance(asciidoctorConfiguration, instance -> function.apply(new AsciidocInstance() {
+                    @Override
+                    public Header header(final String content, final Object options) {
+                        return instance.header(content, options);
+                    }
+
+                    @Override
+                    public String convert(final String content, final Object options) {
+                        if (content.contains(":minisite-test-fail:")) {
+                            throw new IllegalArgumentException("page marked minisite-test-fail");
+                        }
+                        return instance.convert(content, options);
+                    }
+                }));
+            }
+        };
+    }
+
+    private static Path run(final Path work, final Path source, final int renderingThreads, final UnaryOperator<Asciidoc> asciidoc) {
         final Path output = work.resolve("output");
         final Asciidoctor asciidoctor = Asciidoctor.Factory.create();
         final MiniSiteConfiguration config = MiniSiteConfiguration.builder()
@@ -115,7 +232,7 @@ class RenderingThreadsTest {
                 .projectName("test project")
                 .projectArtifactId("test-artifact")
                 .renderingThreads(renderingThreads)
-                .asciidoc(new AsciidoctorAsciidoc((c, a) -> a.apply(asciidoctor)))
+                .asciidoc(asciidoc.apply(new AsciidoctorAsciidoc((c, a) -> a.apply(asciidoctor))))
                 .asciidoctorConfiguration(new AsciidoctorConfiguration() {
                     @Override
                     public Path gems() {
@@ -149,12 +266,18 @@ class RenderingThreadsTest {
 
                     @Override
                     public Consumer<String> error() {
-                        return LOGGER::severe;
+                        return message -> {
+                            ERRORS.add(message);
+                            LOGGER.severe(message);
+                        };
                     }
                 })
                 .build();
         new MiniSite(config).run();
+        return output;
+    }
 
+    private static Map<String, String> collect(final Path output) {
         final Map<String, String> generated = new TreeMap<>();
         try {
             Files.walkFileTree(output, new SimpleFileVisitor<>() {

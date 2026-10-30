@@ -1,0 +1,6 @@
+= B
+:minisite-index: 2
+:minisite-index-title: B
+:minisite-test-fail: true
+
+Content B.
