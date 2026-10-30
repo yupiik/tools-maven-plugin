@@ -700,7 +700,9 @@ public class MiniSite implements Runnable {
             template = createTemplate(options, asciidoctor, hasBlog);
             final Function<Page, String> tpl = template;
             final var blogCategories = new AtomicReference<List<String>>(categories);
-            try (final var rendering = new RenderingExecutor(configuration.getRenderingThreads(), configuration.getAsciidoctorConfiguration().warn())) {
+            try (final var rendering = new RenderingExecutor(
+                    configuration.getRenderingThreads(),
+                    configuration.getAsciidoctorConfiguration().warn(), configuration.getAsciidoctorConfiguration().error())) {
                 // page renders and blog generation can run concurrently on the shared executor.
                 pageToRender.forEach(it -> rendering.route(() -> executeInMinisiteClassLoader(() -> it.accept(tpl))));
                 if (hasBlog) {
@@ -1557,12 +1559,15 @@ public class MiniSite implements Runnable {
         private final Executor executor;
         private final ExecutorService owned;
         private final Consumer<String> warn;
+        private final Consumer<String> error;
         private final Lock lock = new ReentrantLock();
         private final Condition pendingDone = lock.newCondition();
+        private final IllegalStateException failures = new IllegalStateException("Minisite rendering failed, see the suppressed exceptions");
         private int pending;
 
-        protected RenderingExecutor(final int threads, final Consumer<String> warn) {
+        protected RenderingExecutor(final int threads, final Consumer<String> warn, final Consumer<String> error) {
             this.warn = warn;
+            this.error = error;
             if (threads > 0) {
                 owned = Executors.newFixedThreadPool(threads);
                 executor = owned;
@@ -1585,6 +1590,9 @@ public class MiniSite implements Runnable {
             executor.execute(() -> {
                 try {
                     task.run();
+                } catch (final Throwable failure) {
+                    failures.addSuppressed(failure); // Throwable#addSuppressed is synchronized, so the workers can share it
+                    error.accept("Rendering failed: " + failure); // Maven prints the suppressed exceptions only with -e
                 } finally {
                     lock.lock();
                     try {
@@ -1599,7 +1607,11 @@ public class MiniSite implements Runnable {
             });
         }
 
-        /** Blocks until every task routed so far has completed. */
+        /**
+         * Blocks until every task routed so far has completed, then throws when any of them failed:
+         * one {@link IllegalStateException} whose suppressed exceptions are the failures of all the tasks.
+         * An interruption while waiting is added to the same exception.
+         */
         protected void await() {
             lock.lock();
             try {
@@ -1608,11 +1620,15 @@ public class MiniSite implements Runnable {
                         pendingDone.await();
                     } catch (final InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        throw new IllegalStateException("Interrupted while awaiting minisite rendering", e);
+                        failures.addSuppressed(e);
+                        throw failures;
                     }
                 }
             } finally {
                 lock.unlock();
+            }
+            if (failures.getSuppressed().length > 0) {
+                throw failures;
             }
         }
 
