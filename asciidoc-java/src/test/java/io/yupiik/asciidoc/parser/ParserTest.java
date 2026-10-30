@@ -5148,6 +5148,63 @@ class ParserTest {
     }
 
     @Test
+    void sourceListenerReportsTheElementKeptInsteadOfAParagraphAlone() { // a list item, an admonition or an 'a' cell made of one paragraph keeps its content only
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        final var body = new Parser().parseBody("""
+                * first item
+                * second item
+                on two lines
+                * third item
+                +
+                with a continuation
+
+                [NOTE]
+                ====
+                note text
+                ====
+
+                [cols="1a,1"]
+                |===
+                | cell one | cell two
+                |===
+
+                [source,java]
+                ----
+                int a; <1>
+                ----
+                <1> callout text
+                """, new Parser.ParserContext(null, spans::put));
+        final var list = (UnOrderedList) body.children().get(0);
+        assertEquals(new SourceSpan(null, 1, 1, "first item"), spans.get(list.children().get(0)));
+        assertEquals(new SourceSpan(null, 1, 2, "second item\non two lines"), spans.get(list.children().get(1)));
+        final var thirdItem = (Paragraph) list.children().get(2); // two paragraphs, both kept
+        assertEquals(new SourceSpan(null, 1, 1, "third item"), spans.get(thirdItem.children().get(0)));
+        assertEquals(new SourceSpan(null, 3, 3, "with a continuation"), spans.get(thirdItem.children().get(1)));
+        assertEquals(new SourceSpan(null, 1, 1, "note text"), spans.get(((Admonition) body.children().get(1)).content()));
+        final var table = (Table) body.children().get(2);
+        assertEquals(new SourceSpan(null, 1, 1, "cell one"), spans.get(table.elements().get(0).get(0)));
+        assertEquals(new SourceSpan(null, 1, 1, "cell two"), spans.get(table.elements().get(0).get(1)));
+        final var code = (Code) body.children().get(3);
+        assertEquals(new SourceSpan(null, 1, 1, "callout text"), spans.get(code.lineCallOuts().get(0).get(0).text()));
+        assertEquals(12, spans.size(), spans::toString); // the four blocks and their eight children, no replaced paragraph
+    }
+
+    @Test
+    void sourceListenerAfterAnIncludeOfAttributesOnlyInAListItem(@TempDir final Path work) throws IOException { // the include leaves no paragraph
+        Files.writeString(work.resolve("attrs.adoc"), ":x: y\n");
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        final var body = new Parser().parseBody("""
+                * include::attrs.adoc[]
+                +
+                second para
+                """, new Parser.ParserContext(ContentResolver.of(work), spans::put));
+        final var item = ((UnOrderedList) body.children().get(0)).children().get(0);
+        assertEquals(new Text(List.of(), "second para", Map.of()), item);
+        assertEquals(new SourceSpan(null, 3, 3, "second para"), spans.get(item));
+        assertEquals(2, spans.size(), spans::toString); // the list and its item
+    }
+
+    @Test
     void sourceListenerFollowsIncludes(@TempDir final Path work) throws IOException {
         Files.writeString(work.resolve("inc.adoc"), "included {v}\n");
         final var main = work.resolve("main.adoc");

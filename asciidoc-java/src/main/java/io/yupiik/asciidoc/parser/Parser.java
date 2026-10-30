@@ -581,11 +581,15 @@ public class Parser {
         Map<String, String> options = null;
         Matcher attributeMatcher;
         int spanStart = -1; // first line of the element(s) being parsed, 1-based, for the source listener
-        int spanFrom = elements.size(); // elements already reported to the source listener
+        final var listener = reader.getSourceListener();
+        final var spans = listener == null ? null : new ArrayList<SourceSpan>(8); // one per element, reported once the kept elements are known
         while (true) {
-            // report what the previous iteration added before the blank lines after it are skipped
-            reportSource(reader, elements, spanFrom, spanStart, reader.getLineNumber() - 1);
-            spanFrom = elements.size();
+            if (spans != null && spans.size() < elements.size()) { // the span of what the previous iteration added, before the blank lines after it are skipped
+                final var span = sourceSpan(reader, spanStart, reader.getLineNumber() - 1);
+                while (spans.size() < elements.size()) {
+                    spans.add(span);
+                }
+            }
             next = reader.skipCommentsAndEmptyLines();
             if (next == null) {
                 break;
@@ -649,7 +653,7 @@ public class Parser {
                     reader.rewind();
                 } else {
                     reader.rewind();
-                    elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
+                    addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                     options = null;
                 }
             } else if (stripped.startsWith("=")) {
@@ -681,7 +685,7 @@ public class Parser {
                         reader.rewind(); // back to current line
                     }
                     reader.rewind(); // back to paragraph start
-                    elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
+                    addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                     options = null;
                 }
             } else if (Objects.equals("++++", stripped)) {
@@ -730,17 +734,24 @@ public class Parser {
                 }
             } else {
                 reader.rewind();
-                elements.add(paragraphElement(parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs));
+                addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                 options = null;
             }
         }
-        final var parsed = elements.stream()
-                .filter(it -> !(it instanceof Paragraph p) || !p.children().isEmpty())
-                .toList();
-        if (keepParagraphs && parsed.size() == 1 && parsed.get(0) instanceof Paragraph p) { // alone, it is not a group
-            return List.of(unwrapElementIfPossible(p));
+        if (keepParagraphs && elements.size() == 1) { // alone, it is not a group
+            elements.set(0, unwrapElementIfPossible(elements.get(0)));
         }
-        return parsed;
+        if (spans != null) {
+            reportSource(listener, elements, spans);
+        }
+        return elements;
+    }
+
+    // a paragraph without content, as an include of attribute definitions only, is not an element
+    private void addParagraph(final List<Element> elements, final Paragraph paragraph, final boolean keepParagraphs) {
+        if (!paragraph.children().isEmpty()) {
+            elements.add(paragraphElement(paragraph, keepParagraphs));
+        }
     }
 
     // a paragraph holding one block (a list, an image block, ...) is still unwrapped, since only its block is kept
@@ -1530,7 +1541,7 @@ public class Parser {
             final var text = new StringBuilder(matcher.group("description"));
             readContinuation(reader, l -> CALLOUT.matcher(l).matches(), text);
 
-            final var elements = doParse(enclosingDocument, new Reader(List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
+            final var elements = doParse(enclosingDocument, subReader(reader, null, List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null) {
@@ -3805,9 +3816,9 @@ public class Parser {
         return attributes;
     }
 
-    private Element unwrapElementIfPossible(final Paragraph element) {
-        if (element.children().size() != 1) {
-            return element;
+    private Element unwrapElementIfPossible(final Element parsed) {
+        if (!(parsed instanceof Paragraph element) || element.children().size() != 1) {
+            return parsed;
         }
 
         final var first = element.children().get(0);
@@ -4465,13 +4476,26 @@ public class Parser {
     }
 
     /**
-     * Reports the elements added since {@code from} to the source listener of the reader, if any, with the lines
-     * {@code startLine} to {@code endLine} (1-based, inclusive) as they were read, trailing blank lines excluded.
+     * Reports the elements the model keeps to the source listener, each with the span of the same index:
+     * the one of the element it was parsed from, so an element unwrapped from a paragraph gets the span of the paragraph.
+     * A {@code null} span, no line to report, is not reported.
      */
-    protected void reportSource(final Reader reader, final List<Element> elements, final int from, final int startLine, final int endLine) {
-        final var listener = reader.getSourceListener();
-        if (listener == null || from >= elements.size() || startLine < 1) {
-            return;
+    protected void reportSource(final SourceListener listener, final List<Element> elements, final List<SourceSpan> spans) {
+        for (int i = 0; i < elements.size(); i++) {
+            final var span = spans.get(i);
+            if (span != null) {
+                listener.onElement(elements.get(i), span);
+            }
+        }
+    }
+
+    /**
+     * @return the lines {@code startLine} to {@code endLine} (1-based, inclusive) as they were read, trailing blank lines
+     * excluded, or {@code null} when there is no line to report.
+     */
+    protected SourceSpan sourceSpan(final Reader reader, final int startLine, final int endLine) {
+        if (startLine < 1) {
+            return null;
         }
         final var lines = reader.getOriginalLines();
         int end = Math.min(endLine, lines.size());
@@ -4479,12 +4503,9 @@ public class Parser {
             end--;
         }
         if (end < startLine) {
-            return;
+            return null;
         }
-        final var span = new SourceSpan(reader.getFile(), startLine, end, String.join("\n", lines.subList(startLine - 1, end)));
-        for (final var element : elements.subList(from, elements.size())) {
-            listener.onElement(element, span);
-        }
+        return new SourceSpan(reader.getFile(), startLine, end, String.join("\n", lines.subList(startLine - 1, end)));
     }
 
     /**
