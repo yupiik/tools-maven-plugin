@@ -73,14 +73,14 @@ public class Watch<O, A> implements Runnable {
                 lastModified.set(currentLM);
                 if (checksCount.getAndIncrement() > 0) {
                     logDebug.accept("Change detected, re-rendering");
-                    renderer.accept(options, adoc);
+                    reRender(options, adoc);
                     checksCount.set(0);
                 } else {
                     logDebug.accept("Change detected, waiting another iteration to ensure it is fully refreshed");
                 }
             } else if (checksCount.get() > 0) {
                 logDebug.accept("Change detected, re-rendering");
-                renderer.accept(options, adoc);
+                reRender(options, adoc);
                 checksCount.set(0);
             } else {
                 logDebug.accept("No change");
@@ -92,6 +92,19 @@ public class Watch<O, A> implements Runnable {
             service.awaitTermination(2, SECONDS);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Renders after a change or a refresh command: a failure is logged and the watch goes on, because the
+     * scheduler drops a periodic task which throws, which would stop the live rendering without any message.
+     */
+    private void reRender(final O options, final A adoc) {
+        try {
+            renderer.accept(options, adoc);
+        } catch (final RuntimeException re) {
+            logError.accept("Re-rendering failed, waiting for the next change: " + re);
+            logDebugWithException.accept("Re-rendering failed", re);
         }
     }
 
@@ -107,7 +120,7 @@ public class Watch<O, A> implements Runnable {
                     case "":
                     case "r":
                     case "refresh":
-                        renderer.accept(options, adoc);
+                        reRender(options, adoc);
                         break;
                     case "exit":
                     case "quit":
