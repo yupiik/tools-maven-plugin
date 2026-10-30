@@ -15,6 +15,8 @@
  */
 package io.yupiik.tools.minisite;
 
+import io.yupiik.tools.common.asciidoctor.AsciidoctorConfiguration;
+import io.yupiik.tools.minisite.language.YupiikAsciidoc;
 import io.yupiik.tools.minisite.test.MiniSiteConfigurationBuilderProvider;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -33,6 +36,7 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MiniSiteConfigurationBuilderProvider
@@ -129,6 +133,301 @@ class MiniSiteTest {
         asserts.assertContains("page.html", "<a href=\"/custom\">Custom</a>");
         asserts.assertContains("page.html", "<script src=\"/js/site.js\"></script>");
         asserts.assertNotContains("page.html", "{{base}}");
+    }
+
+    @Test
+    void leftMenuPositions(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                           final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final List<String> warnings = warnings(builder);
+        new MiniSite(builder.attributes(MENU).build()).run();
+        assertEquals(List.of(), warnings);
+        assertLeftMenuPositions(asserts);
+    }
+
+    @Test
+    void leftMenuPositionsYupiikAsciidoc(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                        final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuPositions")) // same site, the other engine
+                .attributes(MENU)
+                .asciidoc(new YupiikAsciidoc())
+                .build())
+                .run();
+        assertLeftMenuPositions(asserts);
+    }
+
+    private static final Map<String, Object> MENU = Map.ofEntries(
+                Map.entry("minisite-menu-1", "/parent.html"),
+                Map.entry("minisite-menu-1-icon", "fa-book"),
+                Map.entry("minisite-menu-1-1", "/child-a.html"),
+                Map.entry("minisite-menu-1-1-title", "First"),
+                Map.entry("minisite-menu-1-2", "/child-b"),
+                Map.entry("minisite-menu-1-2-icon", "file"),
+                Map.entry("minisite-menu-2", "/other.html"),
+                Map.entry("minisite-menu-3", "/api/index.html?v=2"),
+                Map.entry("minisite-menu-3-title", "API"),
+                Map.entry("minisite-menu-3-icon", "code"),
+                Map.entry("minisite-menu-4", "https://github.com/yupiik/tools-maven-plugin"),
+                Map.entry("minisite-menu-4-title", "GitHub"));
+
+    private void assertLeftMenuPositions(final MiniSiteConfigurationBuilderProvider.Asserts asserts) {
+        // the same menu on each page, the entry of the page being active, none on a page which is not an entry
+        asserts.assertContains("other.html", leftMenuPositions("", "/other.html"));
+        asserts.assertContains("child-a.html", leftMenuPositions("", "/child-a.html"));
+        asserts.assertContains("extra.html", leftMenuPositions("", "/extra.html"));
+        asserts.assertNotContains("extra.html", "aria-current");
+        asserts.assertThat(files -> { // the index tiles still come from minisite-index
+            final String index = files.get("index.html");
+            assertTrue(index.contains("Parent"), index);
+            assertTrue(index.contains("Other"), index);
+            assertFalse(index.contains("First child"), index);
+            assertFalse(index.contains("Second child"), index);
+        });
+    }
+
+    /**
+     * @param siteBase   the site base written before the entries from the root.
+     * @param activePath the path of the page the menu is rendered for.
+     * @return the menu of the leftMenuPositions site for that page.
+     */
+    private String leftMenuPositions(final String siteBase, final String activePath) {
+        return "    <ul>\n" +
+                "<li>\n" +
+                "    <a title=\"Parent\" href=\"" + siteBase + "/parent.html\"" + current("/parent.html", activePath) + ">\n" +
+                "        <i class=\"fas fa-book\"></i>Parent\n" +
+                "    </a>\n" +
+                "<ul>\n" +
+                "<li>\n" +
+                "    <a title=\"First child\" href=\"" + siteBase + "/child-a.html\"" + current("/child-a.html", activePath) + ">\n" +
+                "        <i class=\"\"></i>First\n" +
+                "    </a>\n" +
+                "</li><li>\n" +
+                "    <a title=\"Second child\" href=\"" + siteBase + "/child-b.html\"" + current("/child-b.html", activePath) + ">\n" +
+                "        <i class=\"fas fa-file\"></i>Second child\n" +
+                "    </a>\n" +
+                "</li></ul>\n" +
+                "</li><li>\n" +
+                "    <a title=\"Other\" href=\"" + siteBase + "/other.html\"" + current("/other.html", activePath) + ">\n" +
+                "        <i class=\"fas fa-robot\"></i>Other\n" +
+                "    </a>\n" +
+                "</li><li>\n" +
+                "    <a title=\"API\" href=\"" + siteBase + "/api/index.html?v=2\">\n" +
+                "        <i class=\"fas fa-code\"></i>API\n" +
+                "    </a>\n" +
+                "</li><li>\n" +
+                "    <a title=\"GitHub\" href=\"https://github.com/yupiik/tools-maven-plugin\">\n" +
+                "        <i class=\"\"></i>GitHub\n" +
+                "    </a>\n" +
+                "</li>\n" +
+                "    </ul>\n";
+    }
+
+    private String current(final String path, final String activePath) {
+        return path.equals(activePath) ? " aria-current=\"page\"" : "";
+    }
+
+    @Test
+    void leftMenuSiteBaseTrailingSlash(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                       final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a site base ending with a slash does not give a double slash before the path
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuPositions"))
+                .siteBase("http://localhost:4200/")
+                .attributes(MENU)
+                .build())
+                .run();
+        asserts.assertContains("other.html", leftMenuPositions("http://localhost:4200", "/other.html"));
+        asserts.assertNotContains("other.html", "4200//parent.html");
+    }
+
+    @Test
+    void leftMenuHome(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                      final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // an entry ending with a slash names the index.html of that folder, so the page is found and marked
+        new MiniSite(builder.build()).run();
+        final String home = "    <a title=\"Docs home\" href=\"/docs/index.html\"";
+        asserts.assertContains("docs/index.html", home + " aria-current=\"page\">\n        <i class=\"fas fa-download\"></i>Docs home\n");
+        asserts.assertContains("docs/other.html", home + ">\n");
+        asserts.assertContains("docs/other.html", "    <a title=\"Other\" href=\"/docs/other.html\" aria-current=\"page\">\n");
+    }
+
+    @Test
+    void leftMenuPrefix(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                        final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the attributes of the page headers, with the prefix written with and without its trailing slash, completed
+        // attribute by attribute by the configuration ones: the first title and the second entry come from the configuration
+        new MiniSite(builder
+                .attributes(Map.of("minisite-menu-1-title", "Global", "minisite-menu-2", "https://yupiik.io", "minisite-menu-2-title", "Yupiik"))
+                .build())
+                .run();
+        asserts.assertContains("docs/child.html", "<a title=\"Yupiik\" href=\"https://yupiik.io\">");
+        final String parent = "<li>\n" +
+                "    <a title=\"Parent\" href=\"/docs/parent.html\"";
+        final String middle = ">\n" +
+                "        <i class=\"fas fa-download\"></i>Global\n" +
+                "    </a>\n" +
+                "<ul>\n" +
+                "<li>\n" +
+                "    <a title=\"Child\" href=\"/docs/child.html\"";
+        final String child = ">\n" +
+                "        <i class=\"\"></i>Child\n" +
+                "    </a>\n" +
+                "</li></ul>\n" +
+                "</li>";
+        asserts.assertContains("docs/child.html", parent + middle + " aria-current=\"page\"" + child);
+        asserts.assertContains("docs/parent.html", parent + " aria-current=\"page\"" + middle + child);
+    }
+
+    @Test
+    void leftMenuPageWinsYupiikAsciidoc(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                       final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a page attribute wins over the configuration one (with asciidoctor the configuration attributes are locked by asciidoctor itself)
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuPrefix"))
+                .attributes(Map.of("minisite-menu-1", "/elsewhere.html", "minisite-menu-1-title", "Elsewhere"))
+                .asciidoc(new YupiikAsciidoc())
+                .build())
+                .run();
+        asserts.assertContains("docs/child.html", "<a title=\"Parent\" href=\"/docs/parent.html\">\n        <i class=\"fas fa-download\"></i>Elsewhere\n");
+        asserts.assertNotContains("docs/child.html", "elsewhere.html");
+    }
+
+    @Test
+    void leftMenuBrokenTemplate(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the menu is rendered once before the parallel rendering, so a broken template fails the build
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> new MiniSite(builder.build()).run());
+        assertEquals("Missing {{/if}} at index 18'", error.getMessage());
+    }
+
+    @Test
+    void leftMenuLegacySiteBaseTrailingSlash(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                             final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the legacy menu gets the site base without its trailing slash too
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuLegacy"))
+                .siteBase("http://localhost:4200/")
+                .build())
+                .run();
+        asserts.assertContains("first.html", "    <a title=\"First\" href=\"http://localhost:4200/first.html\" aria-current=\"page\">\n");
+        asserts.assertNotContains("first.html", "4200//first.html");
+    }
+
+    @Test
+    void leftMenuLegacy(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                        final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final List<String> warnings = warnings(builder);
+        new MiniSite(builder.build()).run();
+        assertEquals(List.of("The left menu built from the minisite-index attributes is deprecated, define it with these attributes, " +
+                "in the attributes of the minisite configuration or in a file included in the header of each page:\n" +
+                ":minisite-menu-1: /first.html\n" +
+                ":minisite-menu-2: /second.html\n" +
+                "Pages without minisite-menu-1 attribute:\n" +
+                "- /first.html\n" +
+                "- /second.html\n"), warnings);
+        asserts.assertContains("first.html", "    <ul>\n" + // the legacy menu marks the entry of the page too
+                "<li>\n" +
+                "    <a title=\"First\" href=\"/first.html\" aria-current=\"page\">\n" +
+                "        <i class=\"fas fa-download\"></i>First\n" +
+                "    </a>\n" +
+                "</li><li>\n" +
+                "    <a title=\"Second\" href=\"/second.html\">\n" +
+                "        <i class=\"fas fa-download\"></i>Second\n" +
+                "    </a>\n" +
+                "</li>\n" +
+                "    </ul>\n");
+    }
+
+    @Test
+    void leftMenuPrefixInConfiguration(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                       final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a prefix alone, without minisite-menu-1, defines no menu
+        new MiniSite(builder
+                .source(Paths.get("target/test-classes/sites/MiniSiteTest/leftMenuLegacy"))
+                .attributes(Map.of("minisite-left-menu-prefix", "/docs"))
+                .build())
+                .run();
+        asserts.assertContains("first.html", "    <a title=\"Second\" href=\"/second.html\">\n");
+    }
+
+    @Test
+    void leftMenuGaps(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                      final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        new MiniSite(builder.build()).run();
+        // minisite-menu-3 comes after a gap, minisite-menu-1-1-title has no minisite-menu-1-1 and minisite-menu-x is not a position;
+        // the custom left-menu-item template of the site marks the entry of the page with eq, rendered through listItems
+        asserts.assertContains("page.html", "    <ul>\n" +
+                "<li class='current'><a href=\"/page.html\">Page</a></li>\n" +
+                "    </ul>\n");
+        asserts.assertNotContains("page.html", "After a gap");
+        asserts.assertNotContains("page.html", "Orphan");
+    }
+
+    @Test
+    void leftMenuCustomItemTemplate(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                    final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // a custom left-menu template reading the entries as a model instead of the rendered listItems,
+        // building the links from siteBase and path and marking the entry of the page with active
+        new MiniSite(builder.siteBase("/root/").build()).run();
+        asserts.assertContains("parent.html", "<nav data-base=\"/root\"><a class='active' href=\"/root/parent.html\">Parent</a><a class=\"sub\" href=\"/root/child.html\">Child</a>\n" + // the engine writes a line feed between two iterations of a loop
+                "<a href=\"https://yupiik.io\">Yupiik</a></nav>");
+        asserts.assertContains("child.html", "<nav data-base=\"/root\"><a href=\"/root/parent.html\">Parent</a><a class=\"sub active\" href=\"/root/child.html\">Child</a></nav>");
+    }
+
+    @Test
+    void leftMenuOldItemTemplate(final MiniSiteConfigurationBuilderProvider.Asserts asserts,
+                                 final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        // the left-menu-item template of the previous releases has no {{{children}}}, the nested entries are not rendered
+        final List<String> warnings = warnings(builder);
+        new MiniSite(builder.build()).run();
+        assertEquals(List.of("The left-menu-item template writes neither {{{children}}} nor the items, the nested menu entries are not rendered"), warnings);
+        asserts.assertContains("parent.html", "<li>\n" +
+                "    <a title=\"Parent\" href=\"/parent.html\">\n" +
+                "        <i class=\"fas fa-download\"></i>Parent\n" +
+                "    </a>\n" +
+                "</li>");
+        asserts.assertNotContains("parent.html", "child.html");
+    }
+
+    private List<String> warnings(final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
+        final AsciidoctorConfiguration delegate = builder.build().getAsciidoctorConfiguration();
+        final List<String> warnings = new ArrayList<>();
+        builder.asciidoctorConfiguration(new AsciidoctorConfiguration() {
+            @Override
+            public Path gems() {
+                return delegate.gems();
+            }
+
+            @Override
+            public String customGems() {
+                return delegate.customGems();
+            }
+
+            @Override
+            public List<String> requires() {
+                return delegate.requires();
+            }
+
+            @Override
+            public Consumer<String> info() {
+                return delegate.info();
+            }
+
+            @Override
+            public Consumer<String> debug() {
+                return delegate.debug();
+            }
+
+            @Override
+            public Consumer<String> warn() {
+                return warnings::add;
+            }
+
+            @Override
+            public Consumer<String> error() {
+                return delegate.error();
+            }
+        });
+        return warnings;
     }
 
     @Test

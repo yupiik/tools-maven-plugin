@@ -1,0 +1,1 @@
+<nav data-base="{{{siteBase}}}">{{#each items}}<a{{#if active}} class='active'{{/if}} href="{{{siteBase}}}{{{path}}}">{{{text}}}</a>{{#each items}}<a class="sub{{#if active}} active{{/if}}" href="{{{siteBase}}}{{{path}}}">{{{text}}}</a>{{/each}}{{/each}}</nav>
