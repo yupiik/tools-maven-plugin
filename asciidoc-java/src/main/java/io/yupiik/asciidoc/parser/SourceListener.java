@@ -21,6 +21,8 @@ import io.yupiik.asciidoc.model.Element;
  * Called by the parser for each block-level element it builds, with the source the element was read from.
  * Register it with {@link Parser.ParserContext#ParserContext(io.yupiik.asciidoc.parser.resolver.ContentResolver, SourceListener)}.
  * Elements are records and compare by value, so a listener that keeps them keys its map by identity.
+ * A table cell is reported after its content; a plain text cell is its own content, so it is reported twice,
+ * the lines of the cell first, then the lines of the table, and a map keeps the last.
  */
 @FunctionalInterface
 public interface SourceListener {

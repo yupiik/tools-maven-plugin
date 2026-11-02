@@ -909,6 +909,7 @@ public class Parser {
         final var columns = cols == null ? List.<Table.ColumnSpec>of() : parseColumnSpecs(cols);
 
         final var lines = new ArrayList<String>();
+        final var sourceTracking = reader.getSourceListener() == null ? null : new TableSourceTracking(reader);
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
             if (rereadConditionalLines(next, reader, currentAttributes)) { // the cells never see the directives
@@ -916,6 +917,9 @@ public class Parser {
             }
             if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
                 lines.add(next.stripTrailing());
+                if (sourceTracking != null) {
+                    sourceTracking.onKeptLine();
+                }
             }
         }
 
@@ -926,12 +930,15 @@ public class Parser {
             tableOptions.put("noheader-option", "");
         }
 
-        final var cells = new TableCells(enclosingDocument, columns, reader, resolver, currentAttributes);
+        final var cells = new TableCells(enclosingDocument, columns, reader, sourceTracking, resolver, currentAttributes);
         int firstLine = 0;
         while (firstLine < lines.size() && lines.get(firstLine).isEmpty()) {
             firstLine++;
         }
         for (int i = firstLine; i < lines.size(); i++) {
+            if (sourceTracking != null) {
+                sourceTracking.onCellLine(i);
+            }
             var line = lines.get(i);
             boolean lineStartsWithSeparator = false;
             if (i > firstLine && line.isEmpty()) {
@@ -1247,10 +1254,12 @@ public class Parser {
         private boolean cellOpen;
 
         private final Reader parent;
+        private final TableSourceTracking sourceTracking; // null without source listener
 
         private TableCells(final Path enclosingDocument, final List<Table.ColumnSpec> columns, final Reader parent,
-                           final ContentResolver resolver, final Map<String, String> currentAttributes) {
+                           final TableSourceTracking sourceTracking, final ContentResolver resolver, final Map<String, String> currentAttributes) {
             this.parent = parent;
+            this.sourceTracking = sourceTracking;
             this.enclosingDocument = enclosingDocument;
             this.columns = columns;
             this.resolver = resolver;
@@ -1288,6 +1297,9 @@ public class Parser {
             final var text = buffer.toString();
             buffer.setLength(0);
             final var spec = specs.isEmpty() ? CellSpec.NONE : specs.poll(); // no leading separator: asciidoctor recovers the same way
+            if (sourceTracking != null) {
+                sourceTracking.onCellClose();
+            }
             for (int i = 1; i <= spec.repeat(); i++) {
                 row.add(createCell(text, spec, nextColumn()));
                 if (spec.rowspan() > 1 && !spec.legacy()) {
@@ -1348,7 +1360,61 @@ public class Parser {
             if (spec.valign() != null) {
                 cellOptions.put("valign", spec.valign());
             }
-            return withCellOptions(element, cellOptions);
+            final var cell = withCellOptions(element, cellOptions);
+            if (sourceTracking != null) { // after its content got the lines of the cell
+                reportSource(parent.getSourceListener(), List.of(cell), List.of(sourceTracking.cellSpan(text, content)));
+            }
+            return cell;
+        }
+    }
+
+    // the lines of the table cells in the including reader, created only when it has a source listener
+    private static final class TableSourceTracking {
+        private final Reader parent;
+        private final List<Integer> lineNumbers = new ArrayList<>(); // the number of each kept table line, the skipped ones making them differ from the index
+        private int currentLine; // index in the table lines of the line being read
+        private int openCellStart = -1; // index of the line holding the separator of the open cell, -1 before the first cell line
+        private int cellStart; // index of the line holding the separator of the cell being created
+
+        private TableSourceTracking(final Reader parent) {
+            this.parent = parent;
+        }
+
+        private void onKeptLine() {
+            lineNumbers.add(parent.getLineNumber() - 1);
+        }
+
+        // index: the table line the cells read now, the first call being the first line after the leading blank ones
+        private void onCellLine(final int index) {
+            currentLine = index;
+            if (openCellStart < 0) {
+                openCellStart = index;
+            }
+        }
+
+        private void onCellClose() {
+            cellStart = openCellStart;
+            openCellStart = currentLine; // the specifier of the next cell was read on this line, right before this close
+        }
+
+        // the cell text as asciidoctor's Cell#getSource, with the lines of the table from the one of its separator
+        private SourceSpan cellSpan(final String text, final String content) {
+            return new SourceSpan(parent.getFile(), lineNumbers.get(cellStart), lineNumbers.get(cellStart + lineFeedsBeforeLastContent(text)), content);
+        }
+
+        // the number of lines the cell spans after the one of its separator, the trailing blank lines left out
+        private int lineFeedsBeforeLastContent(final String text) {
+            int last = text.length() - 1;
+            while (last >= 0 && Character.isWhitespace(text.charAt(last))) {
+                last--;
+            }
+            int lineFeeds = 0;
+            for (int i = 0; i < last; i++) {
+                if (text.charAt(i) == '\n') {
+                    lineFeeds++;
+                }
+            }
+            return lineFeeds;
         }
     }
 

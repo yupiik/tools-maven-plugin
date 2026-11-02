@@ -21,10 +21,14 @@ import java.nio.file.Path;
  * Where a block-level element came from, reported to a {@link SourceListener}.
  *
  * @param file      the file the lines were read from, {@code null} when the parser was given a string or a reader without a path.
- * @param startLine first line of the element in that file, 1-based; for list items and table cells, relative to the item or cell.
+ * @param startLine first line of the element, 1-based, counted from the file, or from the enclosing block, list item
+ *                  or table cell for an element nested in one. A table cell itself starts on the line of its separator,
+ *                  counted as its table is (asciidoctor counts only the lines it keeps).
  * @param endLine   last line of the element, 1-based and inclusive, trailing blank lines excluded.
  * @param source    the raw lines of the element joined with a line feed, before attribute substitution,
- *                  without the attribute list and block title lines preceding the element.
+ *                  without the attribute list and block title lines preceding the element. For a table cell, the text
+ *                  after its separator and specifier, stripped as its style strips it, which is asciidoctor's
+ *                  {@code Cell#getSource} outside a header row.
  */
 public record SourceSpan(Path file, int startLine, int endLine, String source) {
 }

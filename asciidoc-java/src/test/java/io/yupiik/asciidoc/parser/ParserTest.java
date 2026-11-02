@@ -5212,11 +5212,54 @@ class ParserTest {
         assertEquals(new SourceSpan(null, 3, 3, "with a continuation"), spans.get(thirdItem.children().get(1)));
         assertEquals(new SourceSpan(null, 1, 1, "note text"), spans.get(((Admonition) body.children().get(1)).content()));
         final var table = (Table) body.children().get(2);
-        assertEquals(new SourceSpan(null, 1, 1, "cell one"), spans.get(table.elements().get(0).get(0)));
-        assertEquals(new SourceSpan(null, 1, 1, "cell two"), spans.get(table.elements().get(0).get(1)));
+        assertEquals(new SourceSpan(null, 15, 15, "cell one"), spans.get(table.elements().get(0).get(0))); // the cell, reported after its content with the lines of the document
+        assertEquals(new SourceSpan(null, 15, 15, "cell two"), spans.get(table.elements().get(0).get(1)));
         final var code = (Code) body.children().get(3);
         assertEquals(new SourceSpan(null, 1, 1, "callout text"), spans.get(code.lineCallOuts().get(0).get(0).text()));
         assertEquals(12, spans.size(), spans::toString); // the four blocks and their eight children, no replaced paragraph
+    }
+
+    @Test
+    void sourceListenerReportsEachTableCellAsWritten() { // asciidoctor's Cell#getSource, the text after the separator and specifier, stripped, on the document line of the separator
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        final var body = new Parser().parseBody("""
+                [cols="1,1"]
+                |===
+                h|Property h| Description
+
+                |`quarkus.name`
+                a|[.description]
+                --
+                The name.
+
+                More.
+                --
+
+                2+^|spanned  text
+                |x |  y
+                // a comment
+                ifdef::nope[]
+                |skipped
+                endif::[]
+                2*|twice
+                |multi
+                line
+                cell |last
+                |===
+                """, new Parser.ParserContext(null, spans::put));
+        final var rows = ((Table) body.children().get(0)).elements();
+        assertEquals(new SourceSpan(null, 3, 3, "Property"), spans.get(rows.get(0).get(0)));
+        assertEquals(new SourceSpan(null, 3, 3, "Description"), spans.get(rows.get(0).get(1)));
+        assertEquals(new SourceSpan(null, 5, 5, "`quarkus.name`"), spans.get(rows.get(1).get(0)));
+        assertEquals(new SourceSpan(null, 6, 11, "[.description]\n--\nThe name.\n\nMore.\n--"), spans.get(rows.get(1).get(1)));
+        assertEquals(new SourceSpan(null, 13, 13, "spanned  text"), spans.get(rows.get(2).get(0)));
+        assertEquals(new SourceSpan(null, 14, 14, "x"), spans.get(rows.get(3).get(0)));
+        assertEquals(new SourceSpan(null, 14, 14, "y"), spans.get(rows.get(3).get(1)));
+        assertEquals(new SourceSpan(null, 19, 19, "twice"), spans.get(rows.get(4).get(0))); // the comment and the skipped conditional do not shift the lines
+        assertEquals(new SourceSpan(null, 19, 19, "twice"), spans.get(rows.get(4).get(1))); // each copy of a repeated cell
+        assertEquals(new SourceSpan(null, 20, 22, "multi\nline\ncell"), spans.get(rows.get(5).get(0)));
+        assertEquals(new SourceSpan(null, 22, 22, "last"), spans.get(rows.get(5).get(1)));
+        assertEquals(OpenBlock.class, rows.get(1).get(1).getClass()); // the 'a' cell made of one block is that block, reported with the lines of the cell first, then as the cell
     }
 
     @Test
