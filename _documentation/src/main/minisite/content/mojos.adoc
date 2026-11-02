@@ -349,7 +349,7 @@ Each entry has the model of the page it links to, plus these keys:
 |`children`|These entries rendered as a nested list with `left-menu-item.hb`.
 |===
 
-The default `left-menu-item.hb` builds the link with `{{{siteBase}}}{{{path}}}` and marks the entry of the page with `{{#if active}} aria-current="page"{{/if}}`, which the default theme highlights.
+The default `left-menu-item.hb` builds the link with `{{{siteBase}}}{{{path}}}` and marks the entry of the page with `{{#if active}} aria-current="page"{{/if}}`, which the default theme highlights; the theme also colours the parent entries of that entry.
 A page without `minisite-menu-1` shows the menu built from the `minisite-index` attributes of the pages, which is deprecated, logs a warning and gives the template `listItems` only.
 
 === Theme and templates
