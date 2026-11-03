@@ -4855,6 +4855,14 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void urlFollowedByTextInCode() { // security-openid-connect-providers.adoc, the span was dropped; asciidoctor links "https://<your" inside the code
+        assertRenderingContent("Navigate to your application `https://<your ngrok instance>.ngrok-free.app/`.",
+                " <div class=\"paragraph\">\n" +
+                        " <p>Navigate to your application <code>https://&lt;your ngrok instance&gt;.ngrok-free.app/</code>.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void inlineAnchorAtTheStartOfAStyledRun() { // the anchor is written, with no empty <strong> for it
         assertRenderingContent("*[[a]] bold `c` text*",
                 " <div class=\"paragraph\">\n" +
