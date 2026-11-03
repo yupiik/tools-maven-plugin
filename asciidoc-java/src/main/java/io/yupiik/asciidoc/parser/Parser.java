@@ -2255,20 +2255,20 @@ public class Parser {
                             flushText(elements, line.substring(start, i));
                         }
                         final var content = line.substring(i + 1, end);
-                        if (isDirectLink(content)) { // this looks like a bad practise but can happen
-                            final var link = unwrapElementIfPossible(parseParagraph(
-                                    enclosingDocument, new Reader(List.of(content)), Map.of(), resolver, Map.of(), false));
-                            if (link instanceof Link l) {
-                                elements.add(l.options().getOrDefault("role", "").contains("inline-code") ?
-                                        l :
-                                        new Link(l.url(), l.label(),
-                                                // inject role inline-code
-                                                Stream.concat(
-                                                                l.options().entrySet().stream().filter(it -> !"role".equals(it.getKey())),
-                                                                Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
-                                                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
-                            }
-                        } else {
+                        final var link = isDirectLink(content) ? // this looks like a bad practise but can happen
+                                unwrapElementIfPossible(parseParagraph(
+                                        enclosingDocument, new Reader(List.of(content)), Map.of(), resolver, Map.of(), false)) :
+                                null;
+                        if (link instanceof Link l) {
+                            elements.add(l.options().getOrDefault("role", "").contains("inline-code") ?
+                                    l :
+                                    new Link(l.url(), l.label(),
+                                            // inject role inline-code
+                                            Stream.concat(
+                                                            l.options().entrySet().stream().filter(it -> !"role".equals(it.getKey())),
+                                                            Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
+                                                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
+                        } else { // `https://x.io foo` is not one link: asciidoctor links the URL inside the code, a Code holds its text
                             elements.add(new Code(codeSpanText(line, i + 1, end, opening), Map.of(), true, List.of()));
                         }
                         i = end;

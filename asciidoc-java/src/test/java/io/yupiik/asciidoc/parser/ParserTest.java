@@ -1243,6 +1243,36 @@ class ParserTest {
     }
 
     @Test
+    void urlFollowedByTextInCodeStaysCode() { // rest-data-panache.adoc, the span was dropped; asciidoctor links the URL, a Code keeps the text as written
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "calling ", Map.of()),
+                        new Code("http://localhost:8080/people?name=Peter Peterson", Map.of(), true, List.of()),
+                        new Text(List.of(), " would return:", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("calling `http://localhost:8080/people?name=Peter Peterson` would return:")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "See ", Map.of()),
+                        new Code("https://yupiik.io[Yupiik] site", Map.of(), true, List.of()),
+                        new Text(List.of(), " or ", Map.of()),
+                        new Code("mailto:a@b.c foo", Map.of(), true, List.of()),
+                        new Text(List.of(), ".", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("See `https://yupiik.io[Yupiik] site` or `mailto:a@b.c foo`.")), null).children());
+    }
+
+    @Test
+    void urlEndedByAnAttributeInCodeStaysCode() { // security-openid-connect-client-reference.adoc, the bare URL stops before {realm} so the span was dropped
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "For Keycloak, use ", Map.of()),
+                        new Code("https://host:port/realms/{realm}", Map.of(), true, List.of()),
+                        new Text(List.of(), ", replacing ", Map.of()),
+                        new Code("{realm}", Map.of(), true, List.of()),
+                        new Text(List.of(), ".", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("For Keycloak, use `https://host:port/realms/{realm}`, replacing `{realm}`.")), null).children());
+    }
+
+    @Test
     void linkMacroWithRole() {
         assertEquals(
                 List.of(new Link( "foo", new Text(List.of(), "foo", Map.of("role", "test", "nowrap", "true")), Map.of("role", "test", "nowrap", "true"))),

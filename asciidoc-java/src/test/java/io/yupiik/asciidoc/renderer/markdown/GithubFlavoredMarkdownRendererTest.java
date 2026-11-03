@@ -1868,6 +1868,12 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void urlFollowedByTextInBackticksIsCode() { // rest-data-panache.adoc, the span was dropped
+        assertEquals("Calling `http://localhost:8080/people?name=Peter Peterson` would return:\n",
+                md("Calling `http://localhost:8080/people?name=Peter Peterson` would return:"));
+    }
+
+    @Test
     void labelledLinkInBackticksKeepsItsTarget() { // spring-web.adoc
         assertEquals("Types in the Spring [`ExceptionHandler javadoc`](https://docs.spring.io/ExceptionHandler.html) are not supported.\n",
                 md("Types in the Spring `https://docs.spring.io/ExceptionHandler.html[ExceptionHandler javadoc]` are not supported."));
