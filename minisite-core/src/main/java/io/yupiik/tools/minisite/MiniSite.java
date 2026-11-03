@@ -401,16 +401,21 @@ public class MiniSite implements Runnable {
         if (!legacy.isEmpty()) {
             final List<Map.Entry<Page, Path>> indexPages = findIndexPages(files).collect(toList());
             if (!indexPages.isEmpty()) {
-                final StringBuilder menu = new StringBuilder(); // the attributes giving the legacy menu, titles and icons come from the pages
+                final StringBuilder asciidoc = new StringBuilder(); // the attributes giving the legacy menu, titles and icons come from the pages
                 for (int i = 0; i < indexPages.size(); i++) {
-                    menu.append(":minisite-menu-").append(i + 1).append(": ").append(indexPages.get(i).getKey().relativePath).append('\n');
+                    final Page page = indexPages.get(i).getKey();
+                    asciidoc.append(":minisite-menu-").append(i + 1).append(": ").append(page.relativePath).append('\n')
+                            .append(":minisite-menu-").append(i + 1).append("-title: ").append(getTitle(page)).append('\n')
+                            .append(":minisite-menu-").append(i + 1).append("-icon: ").append(getIcon(page)).append('\n');
                 }
                 configuration.getAsciidoctorConfiguration().warn().accept(
-                        "The left menu built from the minisite-index attributes is deprecated, define it with these attributes, " +
-                                "in the attributes of the minisite configuration or in a file included in the header of each page:\n" +
-                                menu +
-                                "Pages without minisite-menu-1 attribute:\n" +
-                                legacy.stream().sorted().map(it -> "- " + it).collect(joining("\n", "", "\n")));
+                        "The left menu built from the minisite-index attributes is deprecated.\n" +
+                                "These pages no longer define their left menu with minisite-menu attributes and should be migrated; " +
+                                "the full new syntax is at the end of this message:\n" +
+                                legacy.stream().sorted().map(it -> "- " + it).collect(joining("\n")) +
+                                "\n\nTo apply the migration, add these attributes to the minisite configuration " +
+                                "or to a file included in the header of each page:\n\nAsciidoc:\n" +
+                                asciidoc);
             }
         }
         return menus;
