@@ -318,13 +318,22 @@ class MiniSiteTest {
                         final MiniSiteConfiguration.MiniSiteConfigurationBuilder builder) {
         final List<String> warnings = warnings(builder);
         new MiniSite(builder.build()).run();
-        assertEquals(List.of("The left menu built from the minisite-index attributes is deprecated, define it with these attributes, " +
-                "in the attributes of the minisite configuration or in a file included in the header of each page:\n" +
-                ":minisite-menu-1: /first.html\n" +
-                ":minisite-menu-2: /second.html\n" +
-                "Pages without minisite-menu-1 attribute:\n" +
+        assertEquals(List.of("The left menu built from the minisite-index attributes is deprecated.\n" +
+                "These pages no longer define their left menu with minisite-menu attributes and should be migrated; " +
+                "the full new syntax is at the end of this message:\n" +
                 "- /first.html\n" +
-                "- /second.html\n"), warnings);
+                "- /second.html\n" +
+                "\n" +
+                "To apply the migration, add these attributes to the minisite configuration " +
+                "or to a file included in the header of each page:\n" +
+                "\n" +
+                "Asciidoc:\n" +
+                ":minisite-menu-1: /first.html\n" +
+                ":minisite-menu-1-title: First\n" +
+                ":minisite-menu-1-icon: fas fa-download\n" +
+                ":minisite-menu-2: /second.html\n" +
+                ":minisite-menu-2-title: Second\n" +
+                ":minisite-menu-2-icon: fas fa-download\n"), warnings);
         asserts.assertContains("first.html", "    <ul>\n" + // the legacy menu marks the entry of the page too
                 "<li>\n" +
                 "    <a title=\"First\" href=\"/first.html\" aria-current=\"page\">\n" +
