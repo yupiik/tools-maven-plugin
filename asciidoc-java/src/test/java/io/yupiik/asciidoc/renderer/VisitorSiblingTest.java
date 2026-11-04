@@ -165,6 +165,17 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
     }
 
     @Test
+    void optionLookup() { // the parser writes one "name-option" key per %name and per options= value, opts= stays a list
+        assertTrue(sibling.hasOption(Map.of("nowrap-option", ""), "nowrap"));
+        assertFalse(sibling.hasOption(Map.of("nowrap-option", ""), "wrap"));
+        assertFalse(sibling.hasOption(Map.of("nowrapx-option", ""), "nowrap"));
+        assertFalse(sibling.hasOption(Map.of("nowrap", ""), "nowrap"));
+        assertTrue(sibling.hasOption(Map.of("opts", "nowrap, linenums"), "linenums"));
+        assertFalse(sibling.hasOption(Map.of("opts", "nowrap, linenums"), "nums"));
+        assertFalse(sibling.hasOption(null, "nowrap"));
+    }
+
+    @Test
     void unknownMacro() { // the attribute of a renderer, in any case, else the option of its configuration
         final ConditionalBlock.Context none = key -> null;
         assertSame(UnknownMacro.FAIL, sibling.unknownMacro("x-unknownMacro", none, UnknownMacro.FAIL));
