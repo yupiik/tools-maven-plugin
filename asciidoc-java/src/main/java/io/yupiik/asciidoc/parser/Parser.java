@@ -3969,6 +3969,7 @@ public class Parser {
             }
 
             final int end;
+            boolean angled = false; // `<https://yupiik.io>`: both brackets go
             if (next == nextEmail) {
                 end = emailMatcher.end();
             } else {
@@ -3982,20 +3983,29 @@ public class Parser {
                 } else {
                     nextBlank = Math.min(nextSpace, nextTab);
                 }
-                end = endOfBareLink(content, next, nextBlank > next ? nextBlank : content.length());
+                // as asciidoctor, a url after a `<` ends at the first `>` before a blank, whatever follows the `>`,
+                // and both brackets go; without the `<`, a `>` is part of the url, and the brackets around an email stay text
+                final int closing = next > start && content.charAt(next - 1) == '<' ? content.indexOf('>', next) : -1;
+                if (closing > next && (nextBlank < 0 || closing < nextBlank)) {
+                    end = closing;
+                    angled = true;
+                } else {
+                    end = endOfBareLink(content, next, nextBlank > next ? nextBlank : content.length());
+                }
             }
 
-            if (start != next) {
-                elements.add(newText(List.of(), content.substring(start, next), Map.of()));
+            final int textEnd = angled ? next - 1 : next;
+            if (start != textEnd) {
+                elements.add(newText(List.of(), content.substring(start, textEnd), Map.of()));
             }
 
             final var link = content.substring(next, end);
             elements.add(new Link(next == nextEmail ? "mailto:" + link : link,
                     new Text(List.of(), link, Map.of("nowrap", "true")), Map.of()));
-            if (end == content.length()) {
+            start = angled ? end + 1 : end; // after the `>`
+            if (start >= content.length()) {
                 break;
             }
-            start = end;
         }
     }
 
