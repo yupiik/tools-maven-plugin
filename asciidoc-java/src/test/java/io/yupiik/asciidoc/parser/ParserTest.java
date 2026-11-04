@@ -1734,6 +1734,179 @@ class ParserTest {
     }
 
     @Test
+    void codeConditionalDirectives() { // as asciidoctor's preprocessor, the directives are read with the lines and the code keeps the branch that holds (#238)
+        final var code = """
+                ----
+                before
+                ifdef::a[]
+                shown
+                endif::[]
+                ifndef::a[]
+                hidden
+                endif::[]
+                after
+                ----
+                """;
+        assertEquals( // the attribute of the parser
+                List.of(new Code("before\nshown\nafter\n", Map.of(), false, List.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(List.of(code.split("\n"))), null).children());
+        assertEquals( // an attribute entry before the block, which a renderer never sees
+                List.of(new Code("before\nshown\nafter\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of((":a:\n\n" + code).split("\n"))), null).children());
+        assertEquals( // the attribute is not set
+                List.of(new Code("before\nhidden\nafter\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of(code.split("\n"))), null).children());
+    }
+
+    @Test
+    void codeConditionalBranches() { // the inline form, nested directives, else and ifeval, as in a table
+        final var body = new Parser(Map.of("a", "", "v", "2")).parseBody(new Reader(List.of("""
+                [source,java]
+                ----
+                ifdef::a[int inline;]
+                ifdef::nope[int dropped;]
+                ifdef::a[]
+                ifdef::b[]
+                int never;
+                endif::[]
+                ifndef::b[]
+                int nested;
+                endif::[]
+                endif::[]
+                ifndef::a[]
+                int hidden;
+                else::[]
+                int otherwise;
+                endif::[]
+                ifeval::[{v} > 1]
+                int big;
+                endif::[]
+                ifeval::[{v} < 1]
+                int small;
+                endif::[]
+                ----
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("int inline;\nint nested;\nint otherwise;\nint big;\n", Map.of("language", "java"), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void codeConditionalWithCallouts() { // the markers of the kept lines keep their items, a dropped line takes its marker with it
+        final var body = new Parser(Map.of("a", "")).parseBody(new Reader(List.of("""
+                ----
+                int x; // <1>
+                ifdef::nope[]
+                int dropped; // <3>
+                endif::[]
+                ifdef::a[]
+                int y; // <2>
+                endif::[]
+                ----
+                <1> one
+                <2> two
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Code("int x; //\nint y; //\n", Map.of(), false, List.of(
+                        List.of(new CallOut(1, new Text(List.of(), "one", Map.of()))),
+                        List.of(new CallOut(2, new Text(List.of(), "two", Map.of())))))),
+                body.children());
+    }
+
+    @Test
+    void literalAndPassthroughConditionalDirectives() { // the same reading for a literal and a passthrough block
+        final var body = new Parser(Map.of("a", "")).parseBody(new Reader(List.of("""
+                ....
+                ifdef::a[]
+                shown
+                endif::[]
+                ifndef::a[]
+                hidden
+                endif::[]
+                ....
+
+                ++++
+                <b>x</b>
+                ifdef::a[]
+                <i>shown</i>
+                endif::[]
+                ifndef::a[]
+                <i>hidden</i>
+                endif::[]
+                ++++
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Listing("shown", null), new PassthroughBlock("<b>x</b>\n<i>shown</i>", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void codeIndentedDirectiveStaysCode() { // as asciidoctor, an opening directive is read from the first column only
+        assertEquals(
+                List.of(new Code("  ifdef::a[]\n  text\n  endif::[]\n", Map.of(), false, List.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(List.of("----", "  ifdef::a[]", "  text", "  endif::[]", "----")), null).children());
+    }
+
+    @Test
+    void codeEscapedDirectiveIsShownAsWritten() { // as asciidoctor and asciidoc, a backslash shows a directive instead of evaluating it, and goes
+        assertEquals(
+                List.of(new Code("ifdef::a[]\nshown\nendif::[]\n\\not a directive\n", Map.of(), false, List.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(List.of(
+                        "----", "\\ifdef::a[]", "shown", "\\endif::[]", "\\not a directive", "----")), null).children());
+        assertEquals(
+                List.of(new Listing("ifdef::a[]\nshown\nendif::[]", null)),
+                new Parser().parseBody(new Reader(List.of("....", "\\ifdef::a[]", "shown", "\\endif::[]", "....")), null).children());
+        assertEquals( // asciidoctor's textual test: trailing blanks ignored, an empty target or an ifeval condition is fine, a target with a blank is not a directive
+                List.of(new Code("ifdef::a[]  \nendif::[]  \nifdef::[]\nifeval::x[1 > 0]\n\\endif::a b[]\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of(
+                        "----", "\\ifdef::a[]  ", "\\endif::[]  ", "\\ifdef::[]", "\\ifeval::x[1 > 0]", "\\endif::a b[]", "----")), null).children());
+    }
+
+    @Test
+    void codeCalloutOfADroppedBranchIsAMismatch() { // a marker gone with its branch leaves its item without a line: the mismatch fails by default, `ignore` keeps the document
+        final var code = List.of("----", "ifdef::nope[]", "int dropped; // <2>", "endif::[]", "int x; // <1>", "----", "<1> one", "<2> two");
+        assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(new Reader(code), null));
+        assertEquals(
+                List.of(new Code("int x; //\n", Map.of(), false, List.of(List.of(new CallOut(1, new Text(List.of(), "one", Map.of())))))),
+                new Parser(Map.of("callout-mismatch", "ignore")).parseBody(new Reader(code), null).children());
+    }
+
+    @Test
+    void codeConditionalNestedThreeTimes() { // the devtools includes of quarkus.io nest three directives in one listing, each branch read again
+        final var code = List.of("----", "ifdef::a[]", "ifndef::b[]", "ifndef::c[]", "deep", "endif::[]", "last", "endif::[]", "endif::[]", "after", "----", "", "Text.");
+        assertEquals(
+                List.of(new Code("deep\nlast\nafter\n", Map.of(), false, List.of()), new Text(List.of(), "Text.", Map.of())),
+                new Parser(Map.of("a", "")).parseBody(new Reader(code), null).children());
+        assertEquals(
+                List.of(new Code("last\nafter\n", Map.of(), false, List.of()), new Text(List.of(), "Text.", Map.of())),
+                new Parser(Map.of("a", "", "c", "")).parseBody(new Reader(code), null).children());
+    }
+
+    @Test
+    void attributeUnsetWithATrailingBang() { // :name!: and :!name!: unset as :!name: does, in the body and in the header
+        final var body = List.of(":a:", "", "----", "ifdef::a[]", "set", "endif::[]", "----", "", ":a!:", "", "----", "ifdef::a[]", "still set", "endif::[]", "ifndef::a[]", "unset", "endif::[]", "----");
+        assertEquals(
+                List.of(new Code("set\n", Map.of(), false, List.of()), new Code("unset\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(body), null).children());
+        final var bothBangs = List.of(":a:", "", "----", "ifdef::a[]", "set", "endif::[]", "----", "", ":!a!:", "", "----", "ifdef::a[]", "still set", "endif::[]", "ifndef::a[]", "unset", "endif::[]", "----");
+        assertEquals(
+                List.of(new Code("set\n", Map.of(), false, List.of()), new Code("unset\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(bothBangs), null).children());
+        assertNull(new Parser().parseHeader(new Reader(List.of("= T", ":a: 1", ":a!:"))).attributes().get("a"));
+        assertNull(new Parser().parseHeader(new Reader(List.of("= T", ":a: 1", ":!a!:"))).attributes().get("a"));
+        assertEquals("1", new Parser().parseHeader(new Reader(List.of("= T", ":a: 1", ":!:"))).attributes().get("a"), "an entry with no name unsets nothing");
+    }
+
+    @Test
+    void codeUnterminatedConditionalIsReported() { // as asciidoctor, the branch runs to the end of the document, with a warning
+        final var messages = new ArrayList<String>();
+        final var body = new Parser(new Parser.Configuration().setWarning(messages::add))
+                .parseBody(new Reader(List.of("----", "ifdef::nope[]", "hidden", "----", "", "After the block.")), null);
+        assertEquals(List.of(new Code("", Map.of(), false, List.of())), body.children());
+        assertEquals(List.of("Unterminated preprocessor conditional: 'ifdef::nope[]'"), messages);
+    }
+
+    @Test
     void codeIndented() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                     [source,xml]
