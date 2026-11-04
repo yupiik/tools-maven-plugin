@@ -707,8 +707,9 @@ public class Parser {
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
                 final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
                 final var rawName = attributeMatcher.group("name");
-                if (rawName.startsWith("!")) {
-                    attributes.remove(rawName.substring(1));
+                final var unset = unsetAttributeName(rawName);
+                if (unset != null) {
+                    attributes.remove(unset);
                 } else if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(rawName)) { // offset
                     try {
                         attributes.put(rawName, Integer.toString(Integer.parseInt(attributes.get(rawName)) + Integer.parseInt(value)));
@@ -763,10 +764,13 @@ public class Parser {
         final var content = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
+            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the text never sees the directives
+                continue;
+            }
             if (!content.isEmpty()) {
                 content.append('\n');
             }
-            content.append(next);
+            content.append(unescapeDirective(next));
         }
         if (next != null && !next.startsWith(marker)) {
             reader.rewind();
@@ -1508,7 +1512,10 @@ public class Parser {
         final var builder = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            builder.append(next).append('\n');
+            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the code never sees the directives
+                continue;
+            }
+            builder.append(unescapeDirective(next)).append('\n');
         }
 
         // todo: better support of the code features/syntax config
@@ -2674,36 +2681,54 @@ public class Parser {
         return null;
     }
 
-    // a conditional directive line as asciidoctor's preprocessor reads it: name::target[text], from the first column
-    // to the end of the line, the target without blanks, required for ifdef and ifndef and absent for ifeval; else null
-    // and the line stays text, where asciidoctor keeps a target with a blank as text and drops a missing or forbidden
-    // target with a message
+    // as asciidoctor, :!name:, :name!: and :!name!: unset the attribute: the name without its bangs, null for an assignment
+    private String unsetAttributeName(final String rawName) {
+        final int start = rawName.startsWith("!") ? 1 : 0;
+        final int end = rawName.length() > start && rawName.endsWith("!") ? rawName.length() - 1 : rawName.length();
+        return start == 0 && end == rawName.length() ? null : rawName.substring(start, end);
+    }
+
+    // an opening conditional directive line as asciidoctor's preprocessor reads it: name::target[text], from the first
+    // column to the end of the line, the target required for ifdef and ifndef and absent for ifeval; else null and the
+    // line stays text, where asciidoctor keeps a target with a blank as text and drops a missing or forbidden target
+    // with a message; endif::[] is read by readConditional, so it is not an opening one
     private Directive conditionalDirective(final String line) {
-        if (!line.startsWith("ifdef::") && !line.startsWith("ifndef::") && !line.startsWith("ifeval::")) {
+        if (!line.startsWith("if")) {
             return null;
         }
-        final var stripped = line.strip();
-        final int bracket = stripped.indexOf('[');
-        if (bracket < 0 || !stripped.endsWith("]")) {
+        final int bracket = scanner.conditionalDirectiveBracket(line, 0);
+        if (bracket < 0) {
             return null;
         }
-        final int sep = stripped.indexOf("::");
-        final var target = stripped.substring(sep + "::".length(), bracket);
-        if (scanner.holdsWhitespace(target)) {
+        final int sep = line.indexOf("::");
+        final var target = line.substring(sep + "::".length(), bracket);
+        if (target.isEmpty() != line.startsWith("ifeval::")) { // ifeval has no target, the two others need one
             return null;
         }
-        final boolean ifeval = stripped.startsWith("ifeval::");
-        if (target.isEmpty() != ifeval) { // ifeval has no target, the two others need one
-            return null;
-        }
+        final var stripped = line.stripTrailing();
         return new Directive(
                 new Macro(stripped.substring(0, sep), target, Map.of(), false),
                 stripped.substring(bracket + 1, stripped.length() - 1));
     }
 
-    // as asciidoctor's preprocessor, a conditional directive among the lines of a table is evaluated when the line is
-    // read, with the attributes known at that point, and the lines of the branch that holds go back to the reader,
-    // so the rows and cells are parsed without the directives and a renderer attribute does not change them (#190)
+    /**
+     * As asciidoctor does, a directive escaped with a backslash, {@code \ifdef::name[]} or {@code \endif::[]}, is shown as
+     * written, without the backslash: this is how a verbatim block shows a directive instead of evaluating it.
+     *
+     * @param line a line of a verbatim block.
+     * @return the line without its backslash when it is an escaped directive, else the line.
+     */
+    protected String unescapeDirective(final String line) {
+        if (line.startsWith("\\") && scanner.conditionalDirectiveBracket(line, 1) >= 0) {
+            return line.substring(1);
+        }
+        return line;
+    }
+
+    // as asciidoctor's preprocessor, a conditional directive among the lines of a table or of a verbatim block (a
+    // listing, a literal or a passthrough block) is evaluated when the line is read, with the attributes known at that
+    // point, and the lines of the branch that holds go back to the reader, so the rows, the cells and the verbatim text
+    // are read without the directives and a renderer attribute does not change them (#190, #238)
     private boolean rereadConditionalLines(final String line, final Reader reader, final Map<String, String> currentAttributes) {
         final var directive = conditionalDirective(line);
         if (directive == null) {
@@ -3515,8 +3540,9 @@ public class Parser {
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
                 final var rawName = matcher.group("name");
-                if (rawName.startsWith("!")) {
-                    attributes.remove(rawName.substring(1));
+                final var unset = unsetAttributeName(rawName);
+                if (unset != null) {
+                    attributes.remove(unset);
                 } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
                     attributes.put(rawName, earlyAttributeReplacement(value, name -> {
                         final var local = attributes.get(name);

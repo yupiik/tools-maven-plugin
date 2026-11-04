@@ -19,6 +19,7 @@ import io.yupiik.asciidoc.parser.SourceListener;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -34,9 +35,12 @@ public class Reader {
     private int lineOffset = 0;
     // the parser evaluated a conditional directive block and reads the branch that holds again, see reread():
     // from the end of that branch the reader skips to the end of the block; a block nested in that branch takes the
-    // first field and the enclosing one moves to the second, and two is the whole depth: fields, not a list
+    // field and the enclosing ones wait in an array, created at the first nesting since most documents never nest
+    // (the devtools includes of quarkus.io nest three directives in one listing, #238) and doubled when it is full,
+    // so there is no depth limit and no chain of skips; the innermost enclosing skip is the last one counted
     private Skip skip;
-    private Skip enclosingSkip;
+    private Skip[] enclosingSkips;
+    private int enclosingCount;
 
     public Reader(final List<String> lines) {
         this(lines, null, null);
@@ -95,7 +99,8 @@ public class Reader {
     public void reset() {
         lineOffset = 0;
         skip = null;
-        enclosingSkip = null;
+        enclosingSkips = null;
+        enclosingCount = 0;
     }
 
     /**
@@ -105,21 +110,21 @@ public class Reader {
      *
      * @param from the offset of the first line to read again.
      * @param to   the offset after the last line to read again.
-     * @throws IllegalStateException when the block is nested in two branches read again, which the two fields do not hold.
      */
     public void reread(final int from, final int to) {
         if (from == to) { // an empty branch: nothing to read again, the reader is already after the block
             return;
         }
         while (skip != null && lineOffset > skip.to()) { // the blocks already passed
-            skip = enclosingSkip;
-            enclosingSkip = null;
+            leaveSkip();
         }
         if (skip != null) { // nested in the branch read again
-            if (enclosingSkip != null) {
-                throw new IllegalStateException("Conditional block nested in two branches read again, at line " + getLineNumber());
+            if (enclosingSkips == null) {
+                enclosingSkips = new Skip[2];
+            } else if (enclosingCount == enclosingSkips.length) {
+                enclosingSkips = Arrays.copyOf(enclosingSkips, enclosingCount * 2);
             }
-            enclosingSkip = skip;
+            enclosingSkips[enclosingCount++] = skip;
         }
         skip = new Skip(to, lineOffset);
         lineOffset = from;
@@ -194,15 +199,24 @@ public class Reader {
             if (lineOffset < skip.to()) {
                 lineOffset = skip.to();
             } else if (lineOffset > skip.to()) {
-                skip = enclosingSkip;
-                enclosingSkip = null;
-            } else if (enclosingSkip != null && skip.to() == enclosingSkip.from()) { // the nested block ends where the branch ends: one skip
-                skip = new Skip(skip.from(), enclosingSkip.to());
-                enclosingSkip = null;
+                leaveSkip();
+            } else if (enclosingCount > 0 && skip.to() == enclosingSkips[enclosingCount - 1].from()) { // the nested block ends where the branch ends: one skip
+                skip = new Skip(skip.from(), removeInnermostEnclosingSkip().to());
             } else {
                 break;
             }
         }
+    }
+
+    // the block just passed is dropped, the enclosing one, if any, is the current one again
+    private void leaveSkip() {
+        skip = enclosingCount == 0 ? null : removeInnermostEnclosingSkip();
+    }
+
+    private Skip removeInnermostEnclosingSkip() {
+        final var enclosing = enclosingSkips[--enclosingCount];
+        enclosingSkips[enclosingCount] = null;
+        return enclosing;
     }
 
     // the lines of a conditional block after the branch read again: from the end of the branch (included) to the line

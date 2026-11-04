@@ -22,7 +22,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ReaderTest {
     @Test
@@ -105,21 +104,52 @@ class ReaderTest {
     }
 
     @Test
-    void rereadNestedTwiceIsNotSupported() { // two fields hold a block and the one enclosing it, no more
-        final var reader = new Reader(List.of("ifdef::a[]", "ifdef::b[]", "ifdef::c[]", "x", "endif::[]", "endif::[]", "endif::[]"));
+    void rereadNestedTwice() { // the devtools includes of quarkus.io nest three directives in one listing: two enclosing skips fill the array
+        final var reader = new Reader(List.of("ifdef::a[]", "ifdef::b[]", "ifdef::c[]", "x", "endif::[]", "endif::[]", "endif::[]", "after"));
         for (int i = 0; i < 7; i++) {
             reader.nextLine();
         }
         reader.reread(1, 6);
-        reader.nextLine();
+        assertEquals("ifdef::b[]", reader.nextLine());
         for (int i = 0; i < 4; i++) {
             reader.nextLine();
         }
         reader.reread(2, 5);
-        reader.nextLine();
-        reader.nextLine();
-        reader.nextLine();
-        assertThrows(IllegalStateException.class, () -> reader.reread(3, 4));
+        assertEquals("ifdef::c[]", reader.nextLine());
+        reader.nextLine(); // x
+        reader.nextLine(); // the innermost endif::[]
+        reader.reread(3, 4);
+        assertEquals("x", reader.nextLine());
+        assertEquals("after", reader.nextLine()); // the three endif::[] lines are skipped, one block at a time
+        assertEquals(9, reader.getLineNumber());
+        assertNull(reader.nextLine());
+    }
+
+    @Test
+    void rereadNestedThreeTimes() { // a fourth level grows the array of enclosing skips and reads as the others
+        final var reader = new Reader(List.of("ifdef::a[]", "ifdef::b[]", "ifdef::c[]", "ifdef::d[]", "x", "endif::[]", "endif::[]", "endif::[]", "endif::[]", "after"));
+        for (int i = 0; i < 9; i++) {
+            reader.nextLine();
+        }
+        reader.reread(1, 8);
+        assertEquals("ifdef::b[]", reader.nextLine());
+        for (int i = 0; i < 6; i++) {
+            reader.nextLine();
+        }
+        reader.reread(2, 7);
+        assertEquals("ifdef::c[]", reader.nextLine());
+        for (int i = 0; i < 4; i++) {
+            reader.nextLine();
+        }
+        reader.reread(3, 6);
+        assertEquals("ifdef::d[]", reader.nextLine());
+        reader.nextLine(); // x
+        reader.nextLine(); // the innermost endif::[]
+        reader.reread(4, 5);
+        assertEquals("x", reader.nextLine());
+        assertEquals("after", reader.nextLine()); // the four endif::[] lines are skipped, one block at a time
+        assertEquals(11, reader.getLineNumber());
+        assertNull(reader.nextLine());
     }
 
     @Test

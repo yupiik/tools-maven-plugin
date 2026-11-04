@@ -147,6 +147,21 @@ class TextScannerTest {
     }
 
     @Test
+    void conditionalDirectives() {
+        assertEquals(8, scanner.conditionalDirectiveBracket("ifdef::a[]", 0));
+        assertEquals(9, scanner.conditionalDirectiveBracket("ifndef::a[text] \r", 0), "trailing whitespace ignored");
+        assertEquals(8, scanner.conditionalDirectiveBracket("ifeval::[{a} > 1]", 0), "an empty target");
+        assertEquals(7, scanner.conditionalDirectiveBracket("endif::[]", 0));
+        assertEquals(8, scanner.conditionalDirectiveBracket("\\endif::[]", 1), "after the backslash of an escaped directive");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("include::a.adoc[]", 0), "another macro");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("ifdef::a b[]", 0), "a blank in the target");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("ifdef::a[] x", 0), "text after the bracket");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("ifdef::a", 0), "no bracket");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("ifdef::", 0), "nothing after the colons");
+        assertEquals(-1, scanner.conditionalDirectiveBracket("\\ifdef::a[]", 0), "the backslash is not a name");
+    }
+
+    @Test
     void names() {
         assertTrue(scanner.isWordCharacter('_'));
         assertTrue(scanner.isWordCharacter('é'));
