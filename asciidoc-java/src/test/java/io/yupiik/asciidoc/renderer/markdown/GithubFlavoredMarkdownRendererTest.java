@@ -1851,9 +1851,14 @@ class GithubFlavoredMarkdownRendererTest {
 
     @Test
     void urlInAngleBracketsKeepsTheClosingBracketOutOfTheLink() { // from the Quarkus guide building-native-image.adoc
-        // the first < is text the author wrote, so it is escaped; the second one opens the autolink
-        assertEquals("- Download from \\<<https://github.com/graalvm/mandrel/releases>>, and unpack it.\n",
+        // as asciidoctor, the parser drops the brackets the author wrote; the ones written are the autolink's
+        assertEquals("- Download from <https://github.com/graalvm/mandrel/releases>, and unpack it.\n",
                 md("* Download from <https://github.com/graalvm/mandrel/releases>, and unpack it."));
+    }
+
+    @Test
+    void urlEndingWithAGreaterThanKeepsItInTheLink() { // without an opening bracket the > is part of the url, as asciidoctor reads it
+        assertEquals("See [https://a.io>](<https://a.io%3E>) now.\n", md("See https://a.io> now."));
     }
 
     @Test

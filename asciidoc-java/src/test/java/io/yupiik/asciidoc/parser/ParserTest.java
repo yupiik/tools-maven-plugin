@@ -1589,6 +1589,121 @@ class ParserTest {
     }
 
     @Test
+    void bareLinkBetweenAngleBrackets() { // as asciidoctor, `<https://yupiik.io>` loses its brackets; a lone `>` stays in the url and the brackets around an email stay text
+        final var url = new Link("https://a.io", new Text(List.of(), "https://a.io", Map.of("nowrap", "true")), Map.of());
+        assertEquals(
+                List.of(new Paragraph(List.of(new Text(List.of(), "See ", Map.of()), url, new Text(List.of(), " now.", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("See <https://a.io> now.")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(new Text(List.of(), "See ", Map.of()), url, new Text(List.of(), ".", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("See <https://a.io>.")), null).children());
+        for (final var after : List.of("\"", "'s", "]", ">", "text")) { // the url ends at the first `>`, whatever follows it
+            assertEquals(
+                    List.of(new Paragraph(List.of(new Text(List.of(), "\"", Map.of()), url, new Text(List.of(), after, Map.of())), Map.of())),
+                    new Parser().parseBody(new Reader(List.of("\"<https://a.io>" + after)), null).children(), after);
+        }
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Link("https://a.io/x", new Text(List.of(), "https://a.io/x", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), "y>", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("<https://a.io/x>y>")), null).children());
+        assertEquals( // no `>` before the blank: the `<` is text and the url is bare, as before; asciidoctor links nothing there (backlog)
+                List.of(new Paragraph(List.of(new Text(List.of(), "<", Map.of()), url, new Text(List.of(), " and>", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("<https://a.io and>")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Link("https://a.io/p?q=1&r=2#f", new Text(List.of(), "https://a.io/p?q=1&r=2#f", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), " and ", Map.of()),
+                        new Link("http://b.org/x.html", new Text(List.of(), "http://b.org/x.html", Map.of("nowrap", "true")), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("<https://a.io/p?q=1&r=2#f> and <http://b.org/x.html>")), null).children());
+        assertEquals(
+                List.of(new Link("https://a.io>x", new Text(List.of(), "https://a.io>x", Map.of("nowrap", "true")), Map.of())),
+                new Parser().parseBody(new Reader(List.of("https://a.io>x")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "Write <", Map.of()),
+                        new Link("mailto:me@x.io", new Text(List.of(), "me@x.io", Map.of("nowrap", "true")), Map.of()),
+                        new Text(List.of(), "> now.", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("Write <me@x.io> now.")), null).children());
+    }
+
+    @Test
+    void bareLinkBetweenAngleBracketsWithBlanks() { // as asciidoctor, with blanks inside the brackets both brackets stay text around a bare link
+        final var url = new Link("https://a.io", new Text(List.of(), "https://a.io", Map.of("nowrap", "true")), Map.of());
+        assertEquals(
+                List.of(new Paragraph(List.of(new Text(List.of(), "< ", Map.of()), url, new Text(List.of(), " >", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("< https://a.io >")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(new Text(List.of(), "< ", Map.of()), url, new Text(List.of(), " > ", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("< https://a.io > ")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(new Text(List.of(), "See < ", Map.of()), url, new Text(List.of(), " > now.", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("See < https://a.io > now.")), null).children());
+        assertEquals( // asciidoctor reads a first line that starts with a blank as a literal paragraph (#142), so the blank starts the second line
+                List.of(new Paragraph(List.of(new Text(List.of(), "Text < ", Map.of()), url, new Text(List.of(), " > ", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("Text", " < https://a.io > ")), null).children());
+        for (final var text : List.of("< something else >", "< something else > ")) {
+            assertEquals(List.of(new Text(List.of(), text, Map.of())), new Parser().parseBody(new Reader(List.of(text)), null).children(), text);
+        }
+        assertEquals(
+                List.of(new Text(List.of(), "Text < something else > ", Map.of())),
+                new Parser().parseBody(new Reader(List.of("Text", " < something else > ")), null).children());
+    }
+
+    @Test
+    void bareLinkBetweenAngleBracketsInStructures() { // as asciidoctor, the brackets go in a list, a description list, a table cell and an admonition
+        final var url = new Link("https://a.io", new Text(List.of(), "https://a.io", Map.of("nowrap", "true")), Map.of());
+        final var seeUrlNow = new Paragraph(List.of(new Text(List.of(), "See ", Map.of()), url, new Text(List.of(), " now.", Map.of())), Map.of());
+        assertEquals( // the shape of the quarkus guide building-native-image.adoc
+                List.of(new UnOrderedList(List.of(new Paragraph(List.of(
+                        new Text(List.of(), "Downloads", Map.of()),
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "Download from ", Map.of()),
+                                url,
+                                new Text(List.of(), " or ", Map.of()),
+                                new Link("https://b.io", new Text(List.of(), "https://b.io", Map.of("nowrap", "true")), Map.of()),
+                                new Text(List.of(), ", and unpack it.", Map.of())), Map.of())), Map.of())), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* Downloads", "** Download from <https://a.io> or <https://b.io>, and unpack it.")), null).children());
+        assertEquals(
+                List.of(new OrderedList(List.of(seeUrlNow), Map.of())),
+                new Parser().parseBody(new Reader(List.of(". See <https://a.io> now.")), null).children());
+        assertEquals(
+                List.of(new UnOrderedList(List.of(new Paragraph(List.of(new Text(List.of(), "< ", Map.of()), url, new Text(List.of(), " >", Map.of())), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* < https://a.io >")), null).children());
+        assertEquals(
+                List.of(new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), seeUrlNow), Map.of())),
+                new Parser().parseBody(new Reader(List.of("term:: See <https://a.io> now.")), null).children());
+        assertEquals(
+                List.of(new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), url), Map.of())),
+                new Parser().parseBody(new Reader(List.of("term::", "<https://a.io>")), null).children());
+        assertEquals(
+                List.of(new DescriptionList(Map.of(url, new Text(List.of(), "desc", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("<https://a.io>:: desc")), null).children());
+        assertEquals(
+                List.of(new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), new Text(List.of(), "< something else >", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("term:: < something else >")), null).children());
+        assertEquals(
+                List.of(new Table(List.of(List.of(url, new Text(List.of(), "b", Map.of()))), Map.of())),
+                new Parser().parseBody(new Reader(List.of("|===", "| <https://a.io> | b", "|===")), null).children());
+        assertEquals(
+                List.of(new Admonition(NOTE, new Paragraph(List.of(new Text(List.of(), "See ", Map.of()), url, new Text(List.of(), ".", Map.of())), Map.of()), Map.of())),
+                new Parser().parseBody(new Reader(List.of("NOTE: See <https://a.io>.")), null).children());
+        final var urlB = new Link("https://b.io", new Text(List.of(), "https://b.io", Map.of("nowrap", "true")), Map.of());
+        final var twoParagraphs = new Paragraph(List.of(
+                new Paragraph(List.of(new Text(List.of(), "See ", Map.of()), url, new Text(List.of(), ".", Map.of())), Map.of()),
+                new Paragraph(List.of(new Text(List.of(), "Then ", Map.of()), urlB, new Text(List.of(), ".", Map.of())), Map.of())), Map.of());
+        assertEquals(
+                List.of(new Table(List.of(List.of(twoParagraphs)), Map.of())),
+                new Parser().parseBody(new Reader(List.of("|===", "a| See <https://a.io>.", "", "Then <https://b.io>.", "|===")), null).children());
+        assertEquals(
+                List.of(new Admonition(NOTE, twoParagraphs, Map.of())),
+                new Parser().parseBody(new Reader(List.of("[NOTE]", "====", "See <https://a.io>.", "", "Then <https://b.io>.", "====")), null).children());
+        assertEquals(
+                List.of(new Paragraph(List.of(url, urlB), Map.of())),
+                new Parser().parseBody(new Reader(List.of("<https://a.io><https://b.io>")), null).children());
+    }
+
+    @Test
     void codeIndented() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                     [source,xml]

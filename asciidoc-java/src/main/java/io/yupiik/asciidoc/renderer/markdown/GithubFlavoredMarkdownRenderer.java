@@ -879,18 +879,11 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         }
         final var label = link.label() == null ? "" : inline(link.label()).strip();
         if (label.isEmpty() || label.equals(url)) {
-            // the parser keeps the closing bracket of <https://...> in the url, keep it out of the link
-            int end = url.length();
-            while (end > 0 && url.charAt(end - 1) == '>') {
-                end--;
-            }
-            final var target = url.substring(0, end);
-            final var closing = url.substring(end);
             // an autolink needs a scheme and no space, other targets become a link showing the target,
             // escaped so a <name> placeholder in it is not read as an HTML tag
-            return (sibling.isUri(target) && target.equals(destination(target)) ?
-                    "<" + target + ">" :
-                    "[" + escapeText(target) + "](" + destination(target) + ")") + closing;
+            return sibling.isUri(url) && url.equals(destination(url)) ?
+                    "<" + url + ">" :
+                    "[" + escapeText(url) + "](" + destination(url) + ")";
         }
         return "[" + label + "](" + destination(url) + ")";
     }
