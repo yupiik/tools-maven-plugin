@@ -1068,7 +1068,8 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             writeBlockTitle(element.options());
             builder.append(" <div class=\"content\">\n");
             final var linenums = sibling.hasOption(element.options(), "linenums");
-            builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append("\">");
+            final var nowrap = sibling.hasOption(element.options(), "nowrap");
+            builder.append(" <pre class=\"highlightjs highlight").append(linenums ? " linenums" : "").append(nowrap ? " nowrap" : "").append("\">");
             // the minisite theme selects `pre > code` for its copy button and its highlighting, so a [listing] keeps the tag
             builder.append("<code class=\"");
             if (lang != null) {

@@ -5328,6 +5328,18 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void sourceWithNowrap() { // %nowrap in the style or options="nowrap" reaches the pre, as for a literal block and as asciidoctor writes it
+        final var expected = " <div class=\"listingblock\">\n" +
+                " <div class=\"content\">\n" +
+                " <pre class=\"highlightjs highlight nowrap\"><code class=\"language-java hljs\" data-lang=\"java\">line\n</code></pre>\n" +
+                " </div>\n" +
+                " </div>\n";
+        assertRenderingContent("[source%nowrap,java]\n----\nline\n----", expected);
+        assertRenderingContent("[source,java,options=\"nowrap\"]\n----\nline\n----", expected);
+        assertRenderingContent("[source,java]\n----\nline\n----", expected.replace(" nowrap", ""));
+    }
+
+    @Test
     void codeBlockTitle() { // the title line can be before or after the attribute line, and a literal block has one too
         assertRenderingContent("""
                 Add the extension to your build file:

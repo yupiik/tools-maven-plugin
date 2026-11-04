@@ -163,7 +163,7 @@ public class VisitorSibling {
         if (options == null) {
             return false;
         }
-        if (options.get(name + "-option") != null) {
+        if (options.get(name + "-option") != null) { // the parser writes one key per %name and per options= value
             return true;
         }
         final var opts = options.get("opts");
@@ -171,15 +171,6 @@ public class VisitorSibling {
             for (final var option : opts.split(",")) {
                 if (name.equals(option.strip())) {
                     return true;
-                }
-            }
-        }
-        for (final var key : options.keySet()) { // the parser reads [%collapsible%open] as one "collapsible%open-option" key
-            if (key.indexOf('%') > 0 && key.endsWith("-option")) {
-                for (final var option : key.substring(0, key.length() - "-option".length()).split("%")) {
-                    if (name.equals(option)) {
-                        return true;
-                    }
                 }
             }
         }
