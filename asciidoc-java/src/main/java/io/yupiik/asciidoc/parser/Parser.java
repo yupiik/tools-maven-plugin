@@ -58,6 +58,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -537,6 +538,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
+        evaluateConditionals(reader, Integer.MAX_VALUE, attributes);
         return new Body(doParse(null, reader, line -> true, resolver, attributes, true, false));
     }
 
@@ -705,20 +707,7 @@ public class Parser {
                 elements.add(new LineBreak());
                 options = null;
             } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
-                final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
-                final var rawName = attributeMatcher.group("name");
-                final var unset = unsetAttributeName(rawName);
-                if (unset != null) {
-                    attributes.remove(unset);
-                } else if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(rawName)) { // offset
-                    try {
-                        attributes.put(rawName, Integer.toString(Integer.parseInt(attributes.get(rawName)) + Integer.parseInt(value)));
-                    } catch (final RuntimeException nfe) { // NumberFormatException mainly
-                        attributes.put(rawName, value);
-                    }
-                } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
-                    attributes.put(rawName, earlyAttributeReplacement(value, attributes));
-                }
+                applyAttributeEntry(attributeMatcher, attributes);
             } else {
                 reader.rewind();
                 addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
@@ -764,9 +753,6 @@ public class Parser {
         final var content = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the text never sees the directives
-                continue;
-            }
             if (!content.isEmpty()) {
                 content.append('\n');
             }
@@ -916,9 +902,6 @@ public class Parser {
         final var sourceTracking = reader.getSourceListener() == null ? null : new TableSourceTracking(reader);
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // the cells never see the directives
-                continue;
-            }
             if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
                 lines.add(next.stripTrailing());
                 if (sourceTracking != null) {
@@ -1512,9 +1495,6 @@ public class Parser {
         final var builder = new StringBuilder();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the code never sees the directives
-                continue;
-            }
             builder.append(unescapeDirective(next)).append('\n');
         }
 
@@ -2590,25 +2570,20 @@ public class Parser {
         return scanner.isAttributeReferenceName(plainName) ? plainName : null;
     }
 
-    // a conditional directive as written, with its lines still unparsed: it is read once by readConditional() for the
-    // body, which parses the lines into a ConditionalBlock the renderer evaluates, and for the header and the tables,
-    // which evaluate the conditions themselves and read the lines of the first matching branch again
+    // a conditional directive parseLine() finds inside a line, with its lines still unparsed: readConditional() reads
+    // it once and parseConditionalBlock() parses each branch into a ConditionalBlock the renderer evaluates; a directive
+    // line is evaluated before the parser reads it, see evaluateConditionals()
     private record Conditional(Predicate<ConditionalBlock.Context> condition, List<String> content,
-                               List<Conditional> elseBranches, Map<String, String> options, int start) {}
+                               List<Conditional> elseBranches, Map<String, String> options) {}
 
     private Conditional readConditional(final Macro macro, final String enclosed, final Reader reader,
                                         final Map<String, String> currentAttributes) {
-        final Predicate<ConditionalBlock.Context> condition = switch (macro.name()) {
-            case "ifdef" -> new ConditionalBlock.Ifdef(macro.label());
-            case "ifndef" -> new ConditionalBlock.Ifndef(macro.label());
-            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(ifevalCondition(macro.label(), enclosed), currentAttributes));
-            default -> throw new IllegalArgumentException("Unknown conditional type: " + macro.name());
-        };
+        final var condition = condition(macro, enclosed, currentAttributes);
         // ifdef::attr[content] is the inline form: the content sits in the brackets and there is no endif::[],
         // so nothing more is read from the document, and as asciidoctor a blank content is content too;
         // ifeval has no inline form, its brackets hold the condition
         if (!"ifeval".equals(macro.name()) && !enclosed.isEmpty()) {
-            return new Conditional(condition, List.of(enclosed), List.of(), Map.of(), -1);
+            return new Conditional(condition, List.of(enclosed), List.of(), Map.of());
         }
 
         final var content = new ArrayList<String>();
@@ -2616,30 +2591,22 @@ public class Parser {
         final var openNames = new ArrayList<String>(); // as asciidoctor, an endif closes the last block opened
         openNames.add(macro.label());
         var current = content;
-        final int start = reader.getLineOffset(); // the directive line is read, the branch starts here
         String next;
         while ((next = reader.nextLine()) != null) {
             final var stripped = next.strip();
             final int bracket = stripped.indexOf('['); // as asciidoctor, a directive is a whole line: name::target[text]
-            if (stripped.startsWith("endif::") && bracket > 0 && stripped.endsWith("]")) { // endif::[] or endif::name[]
-                if (bracket != stripped.length() - "[]".length()) {
-                    throw new IllegalArgumentException("Malformed preprocessor directive, text not permitted: '" + stripped + "'");
-                }
-                final var endName = stripped.substring("endif::".length(), bracket);
-                final var expected = openNames.remove(openNames.size() - 1);
-                if (!endName.isEmpty() && !endName.equalsIgnoreCase(expected)) {
-                    throw new IllegalArgumentException("Mismatched preprocessor directive: '" + stripped + "', expected 'endif::" + expected + "[]'");
-                }
+            if (closesBlock(stripped, bracket, openNames.get(openNames.size() - 1))) {
+                openNames.remove(openNames.size() - 1);
                 if (openNames.isEmpty()) {
                     break;
                 }
             } else if (openNames.size() == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
                 current = new ArrayList<>(); // the lines up to the next branch or to the endif::[]
-                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of(), reader.getLineOffset()));
+                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of()));
                 continue;
             } else {
                 final var nested = conditionalDirective(next);
-                if (nested != null && ("ifeval".equals(nested.macro().name()) || nested.enclosed().isEmpty())) { // ifdef::name[content] has no endif
+                if (nested != null && opensBlock(nested)) {
                     openNames.add(nested.macro().label());
                 }
             }
@@ -2649,36 +2616,44 @@ public class Parser {
             warning.accept("Unterminated preprocessor conditional: '" + macro.name() + "::" + macro.label() + "[]'" +
                     (reader.getFile() == null ? "" : " in '" + reader.getFile() + "'"));
         }
-        return new Conditional(condition, content, elseBranches, macro.options(), start);
+        return new Conditional(condition, content, elseBranches, macro.options());
     }
 
-    // the parser evaluated the conditional it just read: the reader reads the lines of the first branch whose
-    // condition holds again, at their place in the document; the inline form ifdef::name[content] has its content
-    // in place of the directive line; when no branch holds, the reader goes on after the block
-    private void rereadHoldingBranch(final Conditional conditional, final ConditionalBlock.Context context, final Reader reader) {
-        final var branch = holdingBranch(conditional, context);
-        if (branch == null) {
-            return;
-        }
-        if (branch.start() < 0) {
-            reader.setPreviousValue(branch.content().get(0));
-            reader.rewind();
-            return;
-        }
-        reader.reread(branch.start(), branch.start() + branch.content().size()); // the nested directive lines count too
+    // the condition of an opening directive; an ifeval condition reads the attributes given here first, then the ones of
+    // the context it is tested with
+    private Predicate<ConditionalBlock.Context> condition(final Macro macro, final String enclosed,
+                                                          final Map<String, String> attributes) {
+        return switch (macro.name()) {
+            case "ifdef" -> new ConditionalBlock.Ifdef(macro.label());
+            case "ifndef" -> new ConditionalBlock.Ifndef(macro.label());
+            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(ifevalCondition(macro.label(), enclosed), attributes));
+            default -> throw new IllegalArgumentException("Unknown conditional type: " + macro.name());
+        };
     }
 
-    // the first branch whose condition holds, null when none holds
-    private Conditional holdingBranch(final Conditional conditional, final ConditionalBlock.Context context) {
-        if (conditional.condition().test(context)) {
-            return conditional;
-        }
-        for (final var branch : conditional.elseBranches()) {
-            if (branch.condition().test(context)) {
-                return branch;
+    // ifdef::name[content] is the inline form: the content sits in the brackets and there is no endif::[], and as
+    // asciidoctor a blank content is content too; ifeval has no inline form, its brackets hold the condition
+    private boolean opensBlock(final Directive directive) {
+        return directive.enclosed().isEmpty() || "ifeval".equals(directive.macro().name());
+    }
+
+    // as asciidoctor, an attribute entry of the body unsets, offsets or sets the attribute, the references of its value
+    // substituted before the assignment and unknown ones kept as is; doParse() and evaluateConditionals() read it here
+    private void applyAttributeEntry(final Matcher entry, final Map<String, String> attributes) {
+        final var value = entry.groupCount() == 3 ? ofNullable(entry.group("value")).orElse("") : "";
+        final var rawName = entry.group("name");
+        final var unset = unsetAttributeName(rawName);
+        if (unset != null) {
+            attributes.remove(unset);
+        } else if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(rawName)) { // offset
+            try {
+                attributes.put(rawName, Integer.toString(Integer.parseInt(attributes.get(rawName)) + Integer.parseInt(value)));
+            } catch (final RuntimeException nfe) { // NumberFormatException mainly
+                attributes.put(rawName, value);
             }
+        } else {
+            attributes.put(rawName, earlyAttributeReplacement(value, attributes));
         }
-        return null;
     }
 
     // as asciidoctor, :!name:, :name!: and :!name!: unset the attribute: the name without its bangs, null for an assignment
@@ -2725,18 +2700,211 @@ public class Parser {
         return line;
     }
 
-    // as asciidoctor's preprocessor, a conditional directive among the lines of a table or of a verbatim block (a
-    // listing, a literal or a passthrough block) is evaluated when the line is read, with the attributes known at that
-    // point, and the lines of the branch that holds go back to the reader, so the rows, the cells and the verbatim text
-    // are read without the directives and a renderer attribute does not change them (#190, #238)
-    private boolean rereadConditionalLines(final String line, final Reader reader, final Map<String, String> currentAttributes) {
-        final var directive = conditionalDirective(line);
-        if (directive == null) {
+    /**
+     * As asciidoctor's preprocessor, evaluates the conditional directives of the next lines of the reader before the
+     * parser reads them, in one pass: the directive lines and the branches that do not hold are dropped, and an inline
+     * directive {@code ifdef::name[content]} that holds gives its content in place of its line; the lines of a comment
+     * block are not evaluated. A list goes on over a directive, a block in a branch is read as anywhere else, and a
+     * renderer attribute changes none of these directives (#190, #238). A directive tests the given attributes, changed
+     * by the attribute entries kept before it, outside verbatim and comment blocks, then the parser attributes; the
+     * entries are applied to a copy only when a directive tests them, and the given attributes stay as they are, since
+     * the parser applies each entry when it reads it.
+     *
+     * @param reader     the reader, before the lines to evaluate.
+     * @param count      how many of the next lines to evaluate at most; a block that starts among them is evaluated up to
+     *                   its endif.
+     * @param attributes the attributes known before these lines.
+     */
+    protected void evaluateConditionals(final Reader reader, final int count, final Map<String, String> attributes) {
+        final var lines = reader.getNextLines(); // the kept lines are written at its start once a line is dropped
+        // created at the first directive or attribute entry, so lines without either allocate nothing more
+        List<OpenConditional> open = null; // the blocks being read, the innermost last
+        KeptEntries entries = null;
+        List<Reader.LineRange> origins = null; // created at the first line dropped: where each run of kept lines comes from
+        String verbatim = null; // the delimiter of the verbatim or comment block the kept lines leave open
+        String line = null; // the line evaluated, or the content of an inline directive that holds, read in its place
+        boolean changed = false;
+        int kept = 0;
+        int next = 0;
+        try {
+            while (true) {
+                if (line == null) {
+                    if (next >= lines.size() || (next >= count && (open == null || open.isEmpty()))) {
+                        break;
+                    }
+                    line = lines.get(next++);
+                    changed = false;
+                }
+                String keep = null; // what the line gives, null when it is dropped
+                final var top = open == null || open.isEmpty() ? null : open.get(open.size() - 1);
+                if ("////".equals(verbatim) && (top == null || top.keeping())) { // the lines of a comment block are not evaluated
+                    keep = line;
+                } else if (top == null || !closesOrBranches(line, open, entries)) {
+                    final var directive = conditionalDirective(line); // an escaped directive is text, a verbatim block removes its backslash
+                    if (top != null && !top.keeping()) { // only the blocks opened in a dropped branch are followed, for their endif
+                        if (directive != null && opensBlock(directive)) {
+                            open.add(new OpenConditional(directive.macro().name(), directive.macro().label(), false, false, false));
+                        }
+                    } else if (directive == null) {
+                        keep = line;
+                    } else {
+                        if (open == null) {
+                            open = new ArrayList<>(4);
+                        }
+                        if (entries == null) {
+                            entries = new KeptEntries(lines, attributes);
+                        }
+                        final boolean holds = condition(directive.macro(), directive.enclosed(), Map.of()).test(keptEntriesContext(entries));
+                        if (opensBlock(directive)) {
+                            open.add(new OpenConditional(directive.macro().name(), directive.macro().label(), true, holds, holds));
+                        } else if (holds) {
+                            line = directive.enclosed();
+                            changed = true;
+                            continue;
+                        }
+                    }
+                }
+                line = null;
+                if (keep == null) {
+                    if (origins == null) {
+                        origins = new ArrayList<>();
+                        if (kept > 0) {
+                            origins.add(new Reader.LineRange(0, 0));
+                        }
+                    }
+                    continue;
+                }
+                if (origins != null) {
+                    final var last = origins.isEmpty() ? null : origins.get(origins.size() - 1);
+                    if (last == null || last.origin() + kept - last.offset() != next - 1) { // the first line kept after dropped lines
+                        origins.add(new Reader.LineRange(kept, next - 1));
+                    }
+                }
+                if (changed || kept != next - 1) {
+                    lines.set(kept, keep);
+                }
+                if (verbatim != null) {
+                    if (closesVerbatimBlock(keep, verbatim)) {
+                        verbatim = null;
+                    }
+                } else {
+                    verbatim = verbatimDelimiter(keep);
+                    if (verbatim == null && keep.startsWith(":", scanner.skipBlanks(keep, 0))) { // read when a directive tests it
+                        if (entries == null) {
+                            entries = new KeptEntries(lines, attributes);
+                        }
+                        entries.add(kept);
+                    }
+                }
+                kept++;
+            }
+        } catch (final RuntimeException re) { // the reader goes past the line in error, so the parser names it as a line it read
+            for (int i = 0; i < next; i++) {
+                reader.nextLine();
+            }
+            throw re;
+        }
+        if (open != null) {
+            for (final var block : open) { // as asciidoctor, the rest of the lines is the branch, with a warning
+                if (block.enclosingKept()) {
+                    warning.accept("Unterminated preprocessor conditional: '" + block.name() + "::" + block.label() + "[]'" +
+                            (reader.getFile() == null ? "" : " in '" + reader.getFile() + "'"));
+                }
+            }
+        }
+        if (origins != null) {
+            reader.keepNextLines(kept, next, origins);
+        }
+    }
+
+    // when the line is an endif::[], an else::[] or an elsif::name[] of the innermost block, updates the blocks and
+    // returns true; as asciidoctor, an endif closes the last block opened, and its name, if any, is the one of that block
+    private boolean closesOrBranches(final String line, final List<OpenConditional> open, final KeptEntries entries) {
+        final int first = scanner.skipBlanks(line, 0);
+        if (first == line.length() || line.charAt(first) != 'e') {
             return false;
         }
-        final var conditional = readConditional(directive.macro(), directive.enclosed(), reader, currentAttributes);
-        rereadHoldingBranch(conditional, key -> currentAttributes.getOrDefault(key, globalAttributes.get(key)), reader);
+        final var stripped = line.strip();
+        final var top = open.get(open.size() - 1);
+        final int bracket = stripped.indexOf('['); // as asciidoctor, a directive is a whole line: name::target[text]
+        if (closesBlock(stripped, bracket, top.label())) {
+            open.remove(open.size() - 1);
+            return true;
+        }
+        if ("else::[]".equals(stripped) || stripped.startsWith("elsif::")) {
+            final boolean holds = top.enclosingKept() && !top.held() && branchCondition(stripped, bracket).test(keptEntriesContext(entries));
+            open.set(open.size() - 1, new OpenConditional(top.name(), top.label(), top.enclosingKept(), top.held() || holds, holds));
+            return true;
+        }
+        return false;
+    }
+
+    // whether the stripped line is an endif::[] or an endif::name[] closing the block opened with this name; as asciidoctor,
+    // an endif closes the last block opened, its name, if any, is the one of that block, and no text follows its brackets
+    private boolean closesBlock(final String stripped, final int bracket, final String name) {
+        if (!stripped.startsWith("endif::") || bracket <= 0 || !stripped.endsWith("]")) {
+            return false;
+        }
+        if (bracket != stripped.length() - "[]".length()) {
+            throw new IllegalArgumentException("Malformed preprocessor directive, text not permitted: '" + stripped + "'");
+        }
+        final int start = "endif::".length();
+        if (bracket != start && (bracket - start != name.length() || !stripped.regionMatches(true, start, name, 0, name.length()))) {
+            throw new IllegalArgumentException("Mismatched preprocessor directive: '" + stripped + "', expected 'endif::" + name + "[]'");
+        }
         return true;
+    }
+
+    // the attributes a directive tests, once the entries kept before it are applied
+    private ConditionalBlock.Context keptEntriesContext(final KeptEntries entries) {
+        for (; entries.applied < entries.count; entries.applied++) {
+            final var entry = ATTRIBUTE_DEFINITION.matcher(entries.lines.get(entries.candidates[entries.applied]).trim());
+            if (entry.matches()) {
+                if (entries.known == entries.attributes) {
+                    entries.known = new HashMap<>(entries.attributes);
+                    entries.context = null;
+                }
+                applyAttributeEntry(entry, entries.known);
+            }
+        }
+        if (entries.context == null) {
+            entries.context = conditionContext(entries.known);
+        }
+        return entries.context;
+    }
+
+    // the attributes a directive tests: the ones known at its line, then the parser ones
+    private ConditionalBlock.Context conditionContext(final Map<String, String> attributes) {
+        return key -> attributes.getOrDefault(key, globalAttributes.get(key));
+    }
+
+    // the delimiter of the listing, literal, passthrough or comment block a line opens, as doParse() reads them, else null
+    private String verbatimDelimiter(final String line) {
+        if (line.startsWith("////")) {
+            return "////";
+        }
+        final int start = scanner.skipBlanks(line, 0);
+        if (start == line.length()) {
+            return null;
+        }
+        final var delimiter = switch (line.charAt(start)) {
+            case '-' -> "----";
+            case '.' -> "....";
+            case '+' -> "++++";
+            case '`' -> "```";
+            default -> null;
+        };
+        return delimiter != null && isDelimiterLine(line, delimiter) ? delimiter : null;
+    }
+
+    private boolean closesVerbatimBlock(final String line, final String delimiter) {
+        return "////".equals(delimiter) ? line.startsWith("////") : isDelimiterLine(line, delimiter);
+    }
+
+    // whether the line, blanks around it aside, is the delimiter, without copying the line
+    private boolean isDelimiterLine(final String line, final String delimiter) {
+        final int start = scanner.skipBlanks(line, 0);
+        return scanner.trailingBlanksStart(line, line.length()) - start == delimiter.length() && line.startsWith(delimiter, start);
     }
 
     // else::[] always holds, elsif::name[] is an ifdef on its name
@@ -2945,7 +3113,9 @@ public class Parser {
         }
 
         if (parse) {
-            return doParse(resolved.path(), subReader(parent, resolved.path(), content), l -> true, resolver, currentAttributes, true, false);
+            final var included = subReader(parent, resolved.path(), content);
+            evaluateConditionals(included, content.size(), currentAttributes);
+            return doParse(resolved.path(), included, l -> true, resolver, currentAttributes, true, false);
         }
         // as for a parsed include, the includes of the included content are relative to it
         return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
@@ -3516,7 +3686,8 @@ public class Parser {
     // a value can reference them as well as the ones of the batch
     private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver,
                                                final Map<String, String> knownAttributes) {
-        Map<String, String> attributes = new LinkedHashMap<>();
+        // the batch starts from the known ones, so the directives of the header and of its includes test them too
+        Map<String, String> attributes = new LinkedHashMap<>(knownAttributes);
         String line;
         while ((line = reader.nextLine()) != null) {
             if (line.isBlank()) { // end of the header, let the caller see it
@@ -3550,17 +3721,11 @@ public class Parser {
                     }));
                 }
             } else if (isBlockMacro(line)) {
-                final var directive = conditionalDirective(line);
-                if (directive != null) {
-                    final var ctx = new ConditionalBlock.Context() {
-                        @Override
-                        public String attribute(final String key) { // the header ones read before the author line count too
-                            return attributes.getOrDefault(key, knownAttributes.getOrDefault(key, globalAttributes.get(key)));
-                        }
-                    };
-                    // the lines of the first branch whose condition holds go back to the loop, they are header lines
-                    // as any other, and either way the header does not end here
-                    rereadHoldingBranch(readConditional(directive.macro(), directive.enclosed(), reader, attributes), ctx, reader);
+                if (conditionalDirective(line) != null) {
+                    // the lines of the branch that holds are read next, they are header lines as any other, and either
+                    // way the header does not end here
+                    reader.rewind();
+                    evaluateConditionals(reader, 1, attributes);
                     continue;
                 }
                 // simplistic macro handling for the include since we still are in headers,
@@ -4225,5 +4390,36 @@ public class Parser {
     // a conditional directive: the macro and what sits in its brackets, which is the condition of an ifeval and the
     // content of the inline form ifdef::name[content]
     private record Directive(Macro macro, String enclosed) {
+    }
+
+    // a conditional block evaluateConditionals() reads: its name and label for its endif and the warning, whether the
+    // lines around it are kept, whether one of its branches held, and whether the lines of its current branch are kept
+    private record OpenConditional(String name, String label, boolean enclosingKept, boolean held, boolean keeping) {
+    }
+
+    // the attribute entries of the lines evaluateConditionals() keeps, which keptEntriesContext() applies to a copy of the
+    // attributes only when a directive tests them, so the entries after the last directive are not applied
+    private static final class KeptEntries {
+        private final List<String> lines; // the kept lines are at its start
+        private final Map<String, String> attributes;
+        private Map<String, String> known;
+        private ConditionalBlock.Context context;
+        private int[] candidates = new int[8]; // the kept lines starting with ':' outside verbatim and comment blocks
+        private int count;
+        private int applied; // the candidates before this one are applied
+
+        private KeptEntries(final List<String> lines, final Map<String, String> attributes) {
+            this.lines = lines;
+            this.attributes = attributes;
+            this.known = attributes;
+        }
+
+        private void add(final int kept) {
+            if (count == candidates.length) {
+                candidates = Arrays.copyOf(candidates, count * 2);
+            }
+            candidates[count++] = kept;
+        }
+
     }
 }

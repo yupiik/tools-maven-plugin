@@ -25,6 +25,7 @@ import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
+import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
@@ -262,18 +263,15 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
 
     @Test
     void conditionalBlockIsInlineWhenItsRenderedChildrenAre() {
-        final var paragraph = (Paragraph) parse("""
-                first line
-                ifdef::foo[]
-                conditional line with a xref:other.adoc[link]
-                endif::[]
-                ifdef::foo[]
-                +
-                ----
-                code
-                ----
-                endif::[]
-                """);
+        // a model built by hand, since the parser evaluates the directives when it reads them
+        final var paragraph = new Paragraph(List.of(
+                new Text(List.of(), "first line", Map.of()),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                        new Text(List.of(), " conditional line with a ", Map.of()),
+                        new Macro("xref", "other.adoc", Map.of("", "link"), true)), Map.of()),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                        new Text(List.of(), " +", Map.of()),
+                        new Code("code\n", Map.of(), false, List.of())), Map.of())), Map.of());
         final var lines = paragraph.children().get(1);
         final var code = paragraph.children().get(2);
         final ConditionalBlock.Context set = Map.of("foo", "")::get;

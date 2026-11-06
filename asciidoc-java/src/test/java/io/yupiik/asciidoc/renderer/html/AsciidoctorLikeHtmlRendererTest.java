@@ -20,8 +20,12 @@ import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.CallOut;
 import io.yupiik.asciidoc.model.Code;
+import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.Document;
+import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Macro;
+import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.internal.Reader;
@@ -1050,26 +1054,16 @@ class AsciidoctorLikeHtmlRendererTest {
 
     @Test
     void inlineIfdef() { // ifdef::attr[content] renders its content when the attribute is set and never swallows what follows
-        final var doc = new Parser().parse(List.of("""
-                = Title
-
-                ifdef::foo[Only with foo.]
-                Always there.
-
-                Last paragraph.""".split("\n")), new Parser.ParserContext(null));
+        final var body = List.<Element>of(
+                new Paragraph(List.of(ifdef("foo", text("Only with foo. ")), text("Always there.")), Map.of()),
+                text("Last paragraph."));
         {
-            final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
-                    .setAttributes(Map.of("noheader", "true")));
-            renderer.visit(doc);
-            final var html = renderer.result();
+            final var html = renderModel(body, Map.of());
             assertFalse(html.contains("Only with foo."), html);
             assertTrue(html.contains("Always there.") && html.contains("Last paragraph."), html);
         }
         {
-            final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
-                    .setAttributes(Map.of("noheader", "true", "foo", "")));
-            renderer.visit(doc);
-            final var html = renderer.result();
+            final var html = renderModel(body, Map.of("foo", ""));
             assertTrue(html.contains("Only with foo.") && html.contains("Always there.") && html.contains("Last paragraph."), html);
         }
     }
@@ -1136,75 +1130,19 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void conditionalBlockInAParagraph() { // the directive lines were line ends around the content, the parser keeps them as spaces
-        assertRenderingContent("""
-                        :foo:
+    void conditionalBlockInAParagraph() { // the directive lines were line ends around the content, the model keeps them as spaces
+        final var paragraph = " <div class=\"paragraph\">\n <p>%s</p>\n </div>\n";
+        final var opening = List.<Element>of(new Paragraph(List.of(ifdef("foo", text("conditional line ")), text("following line")), Map.of()));
+        assertEquals(paragraph.formatted("conditional line following line"), renderModel(opening, Map.of("foo", "")));
+        assertEquals(paragraph.formatted("following line"), renderModel(opening, Map.of()));
 
-                        ifdef::foo[]
-                        conditional line
-                        endif::[]
-                        following line
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>conditional line following line</p>
-                         </div>
-                        """);
-        assertRenderingContent("""
-                        ifdef::foo[]
-                        conditional line
-                        endif::[]
-                        following line
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>following line</p>
-                         </div>
-                        """);
-        assertRenderingContent("""
-                        :foo:
+        final var closing = List.<Element>of(new Paragraph(List.of(text("first line"), ifdef("foo", text(" conditional line"))), Map.of()));
+        assertEquals(paragraph.formatted("first line conditional line"), renderModel(closing, Map.of("foo", "")));
+        assertEquals(paragraph.formatted("first line"), renderModel(closing, Map.of()));
 
-                        first line
-                        ifdef::foo[]
-                        conditional line
-                        endif::[]
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>first line conditional line</p>
-                         </div>
-                        """);
-        assertRenderingContent("""
-                        first line
-                        ifdef::foo[]
-                        conditional line
-                        endif::[]
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>first line</p>
-                         </div>
-                        """);
-        assertRenderingContent("""
-                        :foo:
-
-                        ifdef::foo[Only with foo.]
-                        Always there.
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>Only with foo. Always there.</p>
-                         </div>
-                        """);
-        assertRenderingContent("""
-                        ifdef::foo[Only with foo.]
-                        Always there.
-                        """,
-                """
-                         <div class="paragraph">
-                         <p>Always there.</p>
-                         </div>
-                        """);
+        final var inline = List.<Element>of(new Paragraph(List.of(ifdef("foo", text("Only with foo. ")), text("Always there.")), Map.of()));
+        assertEquals(paragraph.formatted("Only with foo. Always there."), renderModel(inline, Map.of("foo", "")));
+        assertEquals(paragraph.formatted("Always there."), renderModel(inline, Map.of()));
     }
 
     @Test
@@ -1305,58 +1243,32 @@ class AsciidoctorLikeHtmlRendererTest {
 
     @Test
     void lineEndNextToAConditionalHoldingABlockOrALineBreak() { // the line end does not depend on what the branches hold
-        final var document = """
-                first line
-                ifdef::foo[]
-                cond line
-                endif::[]
-                ifdef::bar[]
-                image::x.png[]
-                endif::[]
-                last line.
-
-                first line
-                ifdef::foo[]
-                cond +
-                endif::[]
-                `code` after.
-
-                first
-                ifdef::foo[]
-                ifndef::foo[]
-                x
-                endif::[]
-                endif::[]
-                `code`.
-
-                before
-                ifdef::foo[]
-                ifdef::bar[]
-                y
-                endif::[]
-                x
-                endif::[]
-                after.
-
-                a
-                ifdef::foo[]
-                b
-
-                ----
-                code
-                ----
-                endif::[]
-                c.
-
-                ifdef::foo[]
-                ----
-                code
-                ----
-                d
-                endif::[]
-                e.
-                """;
-        assertRenderingContent(":foo:\n\n" + document, """
+        final var block = new Code("code\n", Map.of(), false, List.of());
+        final var body = List.<Element>of(
+                new Paragraph(List.of(
+                        text("first line"),
+                        ifdef("foo", text(" cond line")),
+                        ifdef("bar", new Macro("image", "x.png", Map.of(), false)),
+                        text(" last line.")), Map.of()),
+                new Paragraph(List.of(
+                        text("first line"),
+                        ifdef("foo", text(" cond"), new LineBreak()),
+                        text(" "),
+                        new Code("code", Map.of(), true, List.of()),
+                        text(" after.")), Map.of()),
+                new Paragraph(List.of(
+                        text("first"),
+                        ifdef("foo", new ConditionalBlock(new ConditionalBlock.Ifndef("foo"), List.of(text(" x")), Map.of())),
+                        text(" "),
+                        new Code("code", Map.of(), true, List.of()),
+                        text(".")), Map.of()),
+                new Paragraph(List.of(
+                        text("before"),
+                        ifdef("foo", text(" "), ifdef("bar", text("y ")), text("x")),
+                        text(" after.")), Map.of()),
+                new Paragraph(List.of(text("a"), ifdef("foo", text(" b"), block), text(" c.")), Map.of()),
+                new Paragraph(List.of(ifdef("foo", block, text("d ")), text("e.")), Map.of()));
+        assertEquals("""
                  <div class="paragraph">
                  <p>first line cond line last line.</p>
                  </div>
@@ -1386,8 +1298,8 @@ class AsciidoctorLikeHtmlRendererTest {
                  </div>
                  </div>
                 d e. </div>
-                """);
-        assertRenderingContent(document, """
+                """, renderModel(body, Map.of("foo", "")));
+        assertEquals("""
                  <div class="paragraph">
                  <p>first line last line.</p>
                  </div>
@@ -1406,30 +1318,25 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="paragraph">
                  <p>e.</p>
                  </div>
-                """);
+                """, renderModel(body, Map.of()));
     }
 
     @Test
     void conditionalBlocksOpeningAParagraph() { // a branch that renders nothing leaves no space at the start of the paragraph
-        final var document = """
-                ifndef::foo[]
-                A
-                endif::[]
-                ifdef::foo[]
-                B
-                endif::[]
-                c
-                """;
-        assertRenderingContent(":foo:\n\n" + document, """
+        final var body = List.<Element>of(new Paragraph(List.of(
+                new ConditionalBlock(new ConditionalBlock.Ifndef("foo"), List.of(text("A ")), Map.of()),
+                ifdef("foo", text("B ")),
+                text("c")), Map.of()));
+        assertEquals("""
                  <div class="paragraph">
                  <p>B c</p>
                  </div>
-                """);
-        assertRenderingContent(document, """
+                """, renderModel(body, Map.of("foo", "")));
+        assertEquals("""
                  <div class="paragraph">
                  <p>A c</p>
                  </div>
-                """);
+                """, renderModel(body, Map.of()));
     }
 
     @Test
@@ -6246,5 +6153,24 @@ class AsciidoctorLikeHtmlRendererTest {
                 }})));
         renderer.visitBody(doc);
         return renderer.result();
+    }
+
+    // the parser evaluates a conditional directive when it reads its line, so only a model built by hand still holds a
+    // ConditionalBlock, and the renderer evaluates it with its own attributes
+    private String renderModel(final List<Element> elements, final Map<String, String> attributes) {
+        final var renderer = new AsciidoctorLikeHtmlRenderer(new AsciidoctorLikeHtmlRenderer.Configuration()
+                .setAttributes(new HashMap<>(attributes) {{
+                    put("noheader", "true");
+                }}));
+        renderer.visitBody(new Body(elements));
+        return renderer.result();
+    }
+
+    private ConditionalBlock ifdef(final String attribute, final Element... children) {
+        return new ConditionalBlock(new ConditionalBlock.Ifdef(attribute), List.of(children), Map.of());
+    }
+
+    private Text text(final String value) {
+        return new Text(List.of(), value, Map.of());
     }
 }

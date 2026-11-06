@@ -16,6 +16,7 @@
 package io.yupiik.asciidoc.renderer.html;
 
 import io.yupiik.asciidoc.model.Body;
+import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
@@ -110,18 +111,13 @@ class TocVisitorTest {
     }
 
     @Test
-    void sectionsOfAConditionalFollowTheAttributes() { // as the page renders them; a conditional is read at body level only
-        final var body = new Parser().parseBody("""
-                ifdef::foo[]
-                == Only with foo
-                endif::[]
-
-                ifndef::foo[]
-                == Only without foo
-                endif::[]
-
-                == Always
-                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+    void sectionsOfAConditionalFollowTheAttributes() { // as the page renders them; a model built by hand, since the parser evaluates the directives
+        final var body = new Body(List.of(
+                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
+                        new Section(2, new Text(List.of(), "Only with foo", Map.of()), List.of(), Map.of())), Map.of()),
+                new ConditionalBlock(new ConditionalBlock.Ifndef("foo"), List.of(
+                        new Section(2, new Text(List.of(), "Only without foo", Map.of()), List.of(), Map.of())), Map.of()),
+                new Section(2, new Text(List.of(), "Always", Map.of()), List.of(), Map.of())));
         final var withFoo = new TocVisitor(new VisitorSibling(), key -> "foo".equals(key) ? "" : null, 2, 1);
         withFoo.visitBody(body);
         assertEquals("""
