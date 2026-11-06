@@ -40,7 +40,9 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.parser.internal.ParserSibling;
 import io.yupiik.asciidoc.parser.internal.Reader;
+import io.yupiik.asciidoc.parser.internal.TextScanner;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static io.yupiik.asciidoc.model.Admonition.Level.NOTE;
@@ -4293,55 +4296,39 @@ class ParserTest {
     }
 
     @Test
-    void ifdef() {
-        final var body = new Parser().parseBody(
-                new Reader(List.of("""
-                        ifdef::foo[]
-                        This is value.
-                        endif::[]
-                        """.split("\n"))),
-                null);
-        assertEquals(
-                List.of(new ConditionalBlock(
-                        new ConditionalBlock.Ifdef("foo"),
-                        List.of(new Text(List.of(), "This is value.", Map.of())),
-                        Map.of())),
-                body.children());
+    void ifdef() { // as asciidoctor, the parser evaluates a body directive when it reads its line
+        final var content = """
+                ifdef::foo[]
+                This is value.
+                endif::[]
+                """;
+        assertEquals(List.of(), parseBodyWith(Map.of(), content));
+        assertEquals(List.of(new Text(List.of(), "This is value.", Map.of())), parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
     void inlineIfdef() { // ifdef::attr[content] has no endif::[], the lines after it are not part of the block
-        final var body = new Parser().parseBody(
-                new Reader(List.of("ifdef::foo[This is value.]", "After.")),
-                null);
-        assertEquals(
-                List.of(new Paragraph(List.of(
-                        new ConditionalBlock(
-                                new ConditionalBlock.Ifdef("foo"),
-                                List.of(new Text(List.of(), "This is value. ", Map.of())), // the line end, inside the branch since nothing precedes the block
-                                Map.of()),
-                        new Text(List.of(), "After.", Map.of())), Map.of())),
-                body.children());
+        final var content = "ifdef::foo[This is value.]\nAfter.";
+        assertEquals(List.of(new Text(List.of(), "After.", Map.of())), parseBodyWith(Map.of(), content));
+        assertEquals(List.of(new Text(List.of(), "This is value. After.", Map.of())), parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
-    void conditionalBlockInAParagraphHoldsInlineElements() { // the enclosing paragraph is the one its line belongs to
-        final var body = new Parser().parseBody(new Reader(List.of("""
+    void conditionalBlockInAParagraphHoldsInlineElements() { // the branch lines are lines of the enclosing paragraph
+        final var content = """
                 first line
                 ifdef::foo[]
                 You can use xref:other.adoc[other], such as W.
                 endif::[]
                 last line
-                """.split("\n"))), null);
+                """;
+        assertEquals(List.of(new Text(List.of(), "first line last line", Map.of())), parseBodyWith(Map.of(), content));
         assertEquals(
                 List.of(new Paragraph(List.of(
-                        new Text(List.of(), "first line", Map.of()),
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
-                                new Text(List.of(), " You can use ", Map.of()),
-                                new Macro("xref", "other.adoc", Map.of("", "other"), true),
-                                new Text(List.of(), ", such as W.", Map.of())), Map.of()),
-                        new Text(List.of(), " last line", Map.of())), Map.of())),
-                body.children());
+                        new Text(List.of(), "first line You can use ", Map.of()),
+                        new Macro("xref", "other.adoc", Map.of("", "other"), true),
+                        new Text(List.of(), ", such as W. last line", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
@@ -4367,8 +4354,9 @@ class ParserTest {
     }
 
     @Test
-    void conditionalBlockHoldingABlockOrALineBreakTakesTheLineEnd() { // a block branch takes no space, a branch ending with a hard line break none at its end, the line end after the block stays outside
-        final var body = new Parser().parseBody(new Reader(List.of("""
+    void conditionalBlockHoldingABlockOrALineBreakTakesTheLineEnd() { // as asciidoctor, a block branch ends the paragraph before it
+        // with bar set, the hard line break of "cond +" lands after "first line", a gap older than the read-time evaluation
+        final var content = """
                 first line
                 ifdef::foo[]
                 ----
@@ -4379,41 +4367,42 @@ class ParserTest {
                 cond +
                 endif::[]
                 `code` after
-                """.split("\n"))), null);
+                """;
         assertEquals(
                 List.of(new Paragraph(List.of(
-                        new Text(List.of(), "first line", Map.of()),
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
-                                new Code("code block\n", Map.of(), false, List.of())), Map.of()),
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("bar"), List.of(
-                                new Text(List.of(), " cond", Map.of()),
-                                new LineBreak()), Map.of()),
-                        new Text(List.of(), " ", Map.of()),
+                        new Text(List.of(), "first line ", Map.of()),
                         new Code("code", Map.of(), true, List.of()),
                         new Text(List.of(), " after", Map.of())), Map.of())),
-                body.children());
+                parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "first line", Map.of()),
+                        new Code("code block\n", Map.of(), false, List.of()),
+                        new Paragraph(List.of(
+                                new Code("code", Map.of(), true, List.of()),
+                                new Text(List.of(), " after", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
-    void conditionalBlockOpeningAParagraphTakesTheLineEndAtTheEnd() { // nothing comes before it, so a branch that renders nothing leaves no space
-        final var body = new Parser().parseBody(new Reader(List.of("""
+    void conditionalBlockOpeningAParagraphTakesTheLineEndAtTheEnd() { // nothing comes before it, so a branch that is not read leaves no space
+        final var content = """
                 ifdef::foo[]
                 *conditional*
                 endif::[]
                 following line
-                """.split("\n"))), null);
+                """;
+        assertEquals(List.of(new Text(List.of(), "following line", Map.of())), parseBodyWith(Map.of(), content));
         assertEquals(
                 List.of(new Paragraph(List.of(
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(
-                                new Text(List.of(BOLD), "conditional", Map.of()),
-                                new Text(List.of(), " ", Map.of())), Map.of()),
-                        new Text(List.of(), "following line", Map.of())), Map.of())),
-                body.children());
+                        new Text(List.of(BOLD), "conditional", Map.of()),
+                        new Text(List.of(), " following line", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
-    void conditionalBlocksOpeningAParagraphTakeTheLineEndAtTheEnd() { // only conditional blocks before it, so each one may render nothing
-        final var body = new Parser().parseBody(new Reader(List.of("""
+    void conditionalBlocksOpeningAParagraphTakeTheLineEndAtTheEnd() { // only conditional blocks before it, so each one may be skipped
+        final var content = """
                 ifndef::foo[]
                 A
                 endif::[]
@@ -4421,33 +4410,30 @@ class ParserTest {
                 B
                 endif::[]
                 c
-                """.split("\n"))), null);
-        assertEquals(
-                List.of(new Paragraph(List.of(
-                        new ConditionalBlock(new ConditionalBlock.Ifndef("foo"), List.of(new Text(List.of(), "A ", Map.of())), Map.of()),
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Text(List.of(), "B ", Map.of())), Map.of()),
-                        new Text(List.of(), "c", Map.of())), Map.of())),
-                body.children());
+                """;
+        assertEquals(List.of(new Text(List.of(), "A c", Map.of())), parseBodyWith(Map.of(), content));
+        assertEquals(List.of(new Text(List.of(), "B c", Map.of())), parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
-    void conditionalBlockAloneKeepsItsParagraph() { // the block is the paragraph, so its line of several inline elements stays one
-        final var body = new Parser().parseBody(new Reader(List.of("""
+    void conditionalBlockAloneKeepsItsParagraph() { // the branch is the paragraph, so its line of several inline elements stays one
+        final var content = """
                 ifdef::foo[]
                 You can use xref:other.adoc[other], such as W.
                 endif::[]
-                """.split("\n"))), null);
+                """;
+        assertEquals(List.of(), parseBodyWith(Map.of(), content));
         assertEquals(
-                List.of(new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Paragraph(List.of(
+                List.of(new Paragraph(List.of(
                         new Text(List.of(), "You can use ", Map.of()),
                         new Macro("xref", "other.adoc", Map.of("", "other"), true),
-                        new Text(List.of(), ", such as W.", Map.of())), Map.of())), Map.of())),
-                body.children());
+                        new Text(List.of(), ", such as W.", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
     void conditionalBlockParagraphInAnAdmonitionKeepsItsParagraph() { // a paragraph of a group is a block, not a line of another paragraph
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var content = """
                 [NOTE]
                 ====
                 First paragraph.
@@ -4456,37 +4442,34 @@ class ParserTest {
                 You can use xref:other.adoc[other], such as W.
                 endif::[]
                 ====
-                """.split("\n"))), null);
+                """;
+        assertEquals(
+                List.of(new Admonition(Admonition.Level.NOTE, new Text(List.of(), "First paragraph.", Map.of()), Map.of())),
+                parseBodyWith(Map.of(), content));
         assertEquals(
                 List.of(new Admonition(Admonition.Level.NOTE, new Paragraph(List.of(
                         new Paragraph(List.of(new Text(List.of(), "First paragraph.", Map.of())), Map.of()),
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Paragraph(List.of(
+                        new Paragraph(List.of(
                                 new Text(List.of(), "You can use ", Map.of()),
                                 new Macro("xref", "other.adoc", Map.of("", "other"), true),
-                                new Text(List.of(), ", such as W.", Map.of())), Map.of())), Map.of())), Map.of()), Map.of())),
-                body.children());
+                                new Text(List.of(), ", such as W.", Map.of())), Map.of())), Map.of()), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
     void ifndef() {
-        final var body = new Parser().parseBody(
-                new Reader(List.of("""
-                        ifndef::foo[]
-                        This is value.
-                        endif::[]
-                        """.split("\n"))),
-                null);
-        assertEquals(
-                List.of(new ConditionalBlock(
-                        new ConditionalBlock.Ifndef("foo"),
-                        List.of(new Text(List.of(), "This is value.", Map.of())),
-                        Map.of())),
-                body.children());
+        final var content = """
+                ifndef::foo[]
+                This is value.
+                endif::[]
+                """;
+        assertEquals(List.of(new Text(List.of(), "This is value.", Map.of())), parseBodyWith(Map.of(), content));
+        assertEquals(List.of(), parseBodyWith(Map.of("foo", ""), content));
     }
 
     @Test
     void namedEndifAfterText() { // the named endif did not close the block, so the next sections were part of it
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var content = """
                 TLS Registry also provides automatic certificate reloading
                 ifndef::no-lets-encrypt[]
                 , integration with Let's Encrypt (ACME)
@@ -4496,23 +4479,23 @@ class ParserTest {
                 == Using the TLS registry
 
                 Content.
-                """.split("\n"))), null);
+                """;
+        final var section = new Section(2, new Text(List.of(), "Using the TLS registry", Map.of()), List.of(new Text(List.of(), "Content.", Map.of())), Map.of());
         assertEquals(
                 List.of(
-                        new Paragraph(List.of(
-                                new Text(List.of(), "TLS Registry also provides automatic certificate reloading", Map.of()),
-                                new ConditionalBlock(
-                                        new ConditionalBlock.Ifndef("no-lets-encrypt"),
-                                        List.of(new Text(List.of(), " , integration with Let's Encrypt (ACME)", Map.of())),
-                                        Map.of()),
-                                new Text(List.of(), " and compatibility with various keystore formats.", Map.of())), Map.of()),
-                        new Section(2, new Text(List.of(), "Using the TLS registry", Map.of()), List.of(new Text(List.of(), "Content.", Map.of())), Map.of())),
-                body.children());
+                        new Text(List.of(), "TLS Registry also provides automatic certificate reloading , integration with Let's Encrypt (ACME) and compatibility with various keystore formats.", Map.of()),
+                        section),
+                parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "TLS Registry also provides automatic certificate reloading and compatibility with various keystore formats.", Map.of()),
+                        section),
+                parseBodyWith(Map.of("no-lets-encrypt", ""), content));
     }
 
     @Test
     void namedEndifAfterABlock() { // the section after the block was hidden with the block
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var content = """
                 ifdef::with-code[]
                 [source,java]
                 ----
@@ -4521,25 +4504,21 @@ class ParserTest {
                 endif::with-code[]
 
                 == Next section
-                """.split("\n"))), null);
+                """;
+        final var section = new Section(2, new Text(List.of(), "Next section", Map.of()), List.of(), Map.of());
+        assertEquals(List.of(section), parseBodyWith(Map.of(), content));
         assertEquals(
-                List.of(
-                        new ConditionalBlock(
-                                new ConditionalBlock.Ifdef("with-code"),
-                                List.of(new Code("run();\n", Map.of("language", "java"), false, List.of())),
-                                Map.of()),
-                        new Section(2, new Text(List.of(), "Next section", Map.of()), List.of(), Map.of())),
-                body.children());
+                List.of(new Code("run();\n", Map.of("language", "java"), false, List.of()), section),
+                parseBodyWith(Map.of("with-code", ""), content));
     }
 
     @Test
     void namedEndifIgnoresTheCase() { // as asciidoctor
-        final var body = new Parser().parseBody(new Reader(List.of("ifdef::Flag[]", "Content.", "endif::flag[]", "", "After.")), null);
+        final var content = "ifdef::Flag[]\nContent.\nendif::flag[]\n\nAfter.";
+        assertEquals(List.of(new Text(List.of(), "After.", Map.of())), parseBodyWith(Map.of(), content));
         assertEquals(
-                List.of(
-                        new ConditionalBlock(new ConditionalBlock.Ifdef("Flag"), List.of(new Text(List.of(), "Content.", Map.of())), Map.of()),
-                        new Text(List.of(), "After.", Map.of())),
-                body.children());
+                List.of(new Text(List.of(), "Content.", Map.of()), new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of("Flag", ""), content));
     }
 
     @Test
@@ -4569,7 +4548,7 @@ class ParserTest {
 
     @Test
     void ifevalInsideAConditionalBlock() { // as asciidoctor, endif::[] closes an ifeval block, which has no name
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var content = """
                 ifdef::flag[]
                 ifeval::[1 == 1]
                 Level one.
@@ -4577,12 +4556,11 @@ class ParserTest {
                 endif::flag[]
 
                 After.
-                """.split("\n"))), null);
-        assertEquals(2, body.children().size());
-        final var ifeval = assertInstanceOf(ConditionalBlock.class, assertInstanceOf(ConditionalBlock.class, body.children().get(0)).children().get(0));
-        assertInstanceOf(ConditionalBlock.Ifeval.class, ifeval.evaluator());
-        assertEquals(List.of(new Text(List.of(), "Level one.", Map.of())), ifeval.children());
-        assertEquals(new Text(List.of(), "After.", Map.of()), body.children().get(1));
+                """;
+        assertEquals(List.of(new Text(List.of(), "After.", Map.of())), parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(new Text(List.of(), "Level one.", Map.of()), new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of("flag", ""), content));
 
         final var reader = new Reader(List.of("ifdef::flag[]", "ifeval::[1 == 1]", "Level one.", "endif::flag[]", "endif::flag[]"));
         final var error = assertThrows(IllegalArgumentException.class, () -> new Parser().parseBody(reader, null));
@@ -4591,21 +4569,22 @@ class ParserTest {
 
     @Test
     void ifevalWithTextAfterItsBracketsDoesNotOpenABlock() { // as asciidoctor, a directive is a whole line, so the ifdef block ends at its endif
-        final var body = new Parser().parseBody(new Reader(List.of("""
-                ifdef::flag[]
-                ifeval::[1 == 1] is text
-                endif::flag[]
+        // with flag set, the line itself becomes a conditional block holding "After." where asciidoctor keeps it as text,
+        // a gap older than the read-time evaluation
+        assertEquals(
+                List.of(new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of(), """
+                        ifdef::flag[]
+                        ifeval::[1 == 1] is text
+                        endif::flag[]
 
-                After.
-                """.split("\n"))), null);
-        assertEquals(2, body.children().size());
-        assertInstanceOf(ConditionalBlock.class, body.children().get(0));
-        assertEquals(new Text(List.of(), "After.", Map.of()), body.children().get(1));
+                        After.
+                        """));
     }
 
     @Test
     void inlineIfdefInsideAConditionalBlock() { // ifdef::attr[content] has no endif, counting it as a block made the first block hold the second one
-        final var body = new Parser().parseBody(new Reader(List.of("""
+        final var content = """
                 ifndef::devtools-no-maven[]
                 ifdef::devtools-wrapped[+]
                 [source,bash]
@@ -4619,20 +4598,313 @@ class ParserTest {
                 ./gradlew build
                 ----
                 endif::[]
-                """.split("\n"))), null);
+                """;
+        final var maven = new Code("./mvnw install\n", Map.of("language", "bash"), false, List.of());
+        final var gradle = new Code("./gradlew build\n", Map.of("language", "bash"), false, List.of());
+        assertEquals(List.of(maven, gradle), parseBodyWith(Map.of(), content));
+        assertEquals(List.of(new Text(List.of(), "+", Map.of()), maven, gradle), parseBodyWith(Map.of("devtools-wrapped", ""), content));
+        assertEquals(List.of(), parseBodyWith(Map.of("devtools-no-maven", "", "devtools-wrapped", "", "devtools-no-gradle", ""), content));
+    }
+
+    @Test
+    void conditionalLineBetweenListItems() { // as asciidoctor, the list goes on over the directives and the item follows the attribute
+        final var content = """
+                * first
+                ifdef::foo[]
+                * second
+                endif::[]
+                * third
+                """;
         assertEquals(
-                List.of(new Paragraph(List.of(
-                        new ConditionalBlock(
-                                new ConditionalBlock.Ifndef("devtools-no-maven"),
-                                List.of(
-                                        new ConditionalBlock(new ConditionalBlock.Ifdef("devtools-wrapped"), List.of(new Text(List.of(), "+", Map.of())), Map.of()),
-                                        new Code("./mvnw install\n", Map.of("language", "bash"), false, List.of())),
-                                Map.of()),
-                        new ConditionalBlock(
-                                new ConditionalBlock.Ifndef("devtools-no-gradle"),
-                                List.of(new Code("./gradlew build\n", Map.of("language", "bash"), false, List.of())),
-                                Map.of())), Map.of())),
-                body.children());
+                List.of(new UnOrderedList(List.of(new Text(List.of(), "first", Map.of()), new Text(List.of(), "third", Map.of())), Map.of())),
+                parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(new UnOrderedList(List.of(
+                        new Text(List.of(), "first", Map.of()),
+                        new Text(List.of(), "second", Map.of()),
+                        new Text(List.of(), "third", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void listAndAdmonitionInAConditionalBlock() { // as asciidoctor, a branch is read as any other part of the body
+        final var content = """
+                ifdef::foo[]
+                * one
+                * two
+
+                NOTE: a note.
+                endif::[]
+
+                After.
+                """;
+        final var after = new Text(List.of(), "After.", Map.of());
+        assertEquals(List.of(after), parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(
+                        new UnOrderedList(List.of(new Text(List.of(), "one", Map.of()), new Text(List.of(), "two", Map.of())), Map.of()),
+                        new Admonition(NOTE, new Text(List.of(), "a note.", Map.of()), Map.of()),
+                        after),
+                parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void conditionalLinesInADescription() { // the directive lines were read as terms, #189
+        final var content = """
+                term::
+                first line
+                ifdef::foo[]
+                conditional line
+                endif::[]
+                last line.
+                """;
+        final var term = new Text(List.of(), "term", Map.of());
+        assertEquals(
+                List.of(new DescriptionList(Map.of(term, new Text(List.of(), "first line last line.", Map.of())), Map.of())),
+                parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(new DescriptionList(Map.of(term, new Text(List.of(), "first line conditional line last line.", Map.of())), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void attributeEntryOfTheBodyBeforeAConditional() { // as asciidoctor, the entry is known when the directive is read
+        assertEquals(
+                List.of(new Text(List.of(), "shown", Map.of())),
+                parseBodyWith(Map.of(), """
+                        :foo:
+
+                        ifdef::foo[]
+                        shown
+                        endif::[]
+                        """));
+    }
+
+    @Test
+    void ifevalOfTheBodyTestsAnEntryOfTheBody() { // the entries kept before the directive are applied to the attributes its condition reads, before the parser ones
+        final var content = """
+                :v: 2
+
+                ifeval::[{v} > 1]
+                big
+                endif::[]
+                ifeval::[{v} < 1]
+                small
+                endif::[]
+                """;
+        final var big = List.<Element>of(new Text(List.of(), "big", Map.of()));
+        assertEquals(big, parseBodyWith(Map.of(), content));
+        assertEquals(big, parseBodyWith(Map.of("v", "0"), content)); // the entry of the body wins over the parser attribute
+        assertEquals( // without the entry, the parser attribute is read
+                List.of(new Text(List.of(), "small", Map.of())),
+                parseBodyWith(Map.of("v", "0"), content.substring(content.indexOf("ifeval"))));
+    }
+
+    @Test
+    void newConditionalParserChangesARule() { // an extension replaces the conditional parser through the protected factory, here to accept ifeval::[always]
+        final var parser = new Parser(Map.of()) {
+            @Override
+            protected ConditionalParser newConditionalParser(final TextScanner scanner, final ParserSibling sibling,
+                                                             final Map<String, String> globalAttributes, final Consumer<String> warning) {
+                return new ConditionalParser(scanner, sibling, globalAttributes, warning) {
+                    @Override
+                    protected String ifevalCondition(final String target, final String enclosed) {
+                        return "always".equals(enclosed) ? "1 == 1" : super.ifevalCondition(target, enclosed);
+                    }
+                };
+            }
+        };
+        final var content = """
+                = T
+                ifeval::[always]
+                :kept:
+                endif::[]
+
+                ifeval::[always]
+                kept
+                endif::[]
+                ifeval::[1 == 2]
+                dropped
+                endif::[]
+                """;
+        final var document = parser.parse(content, new Parser.ParserContext(null));
+        assertEquals(Map.of("kept", "", "authorcount", "0"), document.header().attributes());
+        assertEquals(List.of(new Text(List.of(), "kept", Map.of())), document.body().children());
+        final var error = assertThrows(IllegalStateException.class, () -> new Parser().parse(content, new Parser.ParserContext(null))); // the default parser keeps its rule
+        assertEquals("Unknown expression: 'always'", error.getCause().getMessage());
+    }
+
+    @Test
+    void listEndingInsideABranch() { // the list reader gives back the line it does not take, the section of the branch is read after it
+        final var content = """
+                * a
+                ifdef::foo[]
+
+                == Section
+                endif::[]
+
+                After.
+                """;
+        final var list = new UnOrderedList(List.of(new Text(List.of(), "a", Map.of())), Map.of());
+        final var after = new Text(List.of(), "After.", Map.of());
+        assertEquals(List.of(list, after), parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(list, new Section(2, new Text(List.of(), "Section", Map.of()), List.of(after), Map.of())),
+                parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void escapedDirectiveOfTheBodyIsText() { // as asciidoctor, the line is shown without its backslash and evaluates nothing
+        final var content = """
+                \\ifdef::foo[]
+                text
+                \\endif::[]
+                """;
+        final var text = List.<Element>of(new Text(List.of(), "ifdef::foo[] text endif::[]", Map.of()));
+        assertEquals(text, parseBodyWith(Map.of(), content));
+        assertEquals(text, parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void rewindOverSeveralBlocks() { // the pipe table check reads two lines ahead and gives both back, over two blocks or out of a nested one
+        assertEquals(
+                List.of(new Text(List.of(), "|a text", Map.of())),
+                parseBodyWith(Map.of(), """
+                        |a
+                        ifdef::foo[]
+                        h
+                        endif::[]
+                        ifdef::bar[]
+                        h2
+                        endif::[]
+                        text
+                        """));
+        assertEquals(
+                parseBodyWith(Map.of(), "|a\n|---|\n|b"),
+                parseBodyWith(Map.of("foo", ""), """
+                        |a
+                        ifdef::foo[]
+                        ifdef::foo[]
+                        |---|
+                        endif::[]
+                        endif::[]
+                        |b
+                        """));
+    }
+
+    @Test
+    void attributeLineBeforeAConditionalSection() { // as asciidoctor, the attribute line goes to the first block read after it
+        final var content = """
+                == A
+                [#custom-id]
+                ifdef::foo[]
+                == B
+                endif::[]
+
+                text
+                """;
+        final var a = new Text(List.of(), "A", Map.of());
+        assertEquals(
+                List.of(new Section(2, a, List.of(new Text(List.of(), "text", Map.of("id", "custom-id"))), Map.of())),
+                parseBodyWith(Map.of(), content));
+        assertEquals(
+                List.of(
+                        new Section(2, a, List.of(), Map.of()),
+                        new Section(2, new Text(List.of(), "B", Map.of()), List.of(new Text(List.of(), "text", Map.of())), Map.of("id", "custom-id"))),
+                parseBodyWith(Map.of("foo", ""), content));
+    }
+
+    @Test
+    void sourceSpanBeforeABlockThatDoesNotHold() { // the element ends at its own last line, the dropped lines are not part of it
+        final var spans = new IdentityHashMap<Element, SourceSpan>();
+        new Parser().parseBody("""
+                para
+                ifdef::bar[]
+                hidden
+                endif::[]
+
+                next
+                """, new Parser.ParserContext(null, spans::put));
+        assertSpan(spans, "para", 1, 1);
+        assertSpan(spans, "next", 6, 6);
+    }
+
+    @Test
+    void directiveInACommentBlockIsNotEvaluated() { // as asciidoctor, the lines of a comment block are not read for directives
+        final var warnings = new ArrayList<String>();
+        final var body = new Parser(new Parser.Configuration().setWarning(warnings::add)).parseBody(new Reader(List.of("""
+                ////
+                ifdef::foo[]
+                old
+                ////
+
+                Visible paragraph.
+                """.split("\n"))), null);
+        assertEquals(List.of(new Text(List.of(), "Visible paragraph.", Map.of())), body.children());
+        assertEquals(List.of(), warnings);
+    }
+
+    @Test
+    void headerIncludeAfterTheAuthorLineTestsTheAttributesBeforeIt(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("inc-a.adoc"), "ifdef::foo[]\n:bar: set\nendif::[]\n");
+        final var context = new Parser.ParserContext(ContentResolver.of(work));
+        assertEquals("set", new Parser().parse("= T\n:foo: yes\nJane Doe\ninclude::inc-a.adoc[]\n\nbar is {bar}.\n", context)
+                .header().attributes().get("bar"));
+        assertNull(new Parser().parse("= T\nJane Doe\ninclude::inc-a.adoc[]\n\nbar is {bar}.\n", context)
+                .header().attributes().get("bar"));
+    }
+
+    @Test
+    void blockDirectiveInsideALineOfAHeldBranchKeepsTheLinesAfterIt() { // the pass dropped the endif, so the directive reads no line
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "text ", Map.of()),
+                                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(), List.of(), Map.of())), Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of("flag", ""), "ifdef::flag[]\ntext ifdef::foo[]\nendif::flag[]\n\nAfter."));
+        assertEquals( // with its own endif, the directive inside a line still reads its lines
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "text ", Map.of()),
+                                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Text(List.of(), "hidden", Map.of())), List.of(), Map.of())), Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of(), "text ifdef::foo[]\nhidden\nendif::[]\n\nAfter."));
+        assertEquals( // with no endif at all, the branch is empty and the lines after it are read as usual
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "text ", Map.of()),
+                                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(), List.of(), Map.of()),
+                                new Text(List.of(), " hidden", Map.of())), Map.of()),
+                        new Text(List.of(), "After.", Map.of())),
+                parseBodyWith(Map.of(), "text ifdef::foo[]\nhidden\n\nAfter."));
+    }
+
+    @Test
+    void bodyIncludeTestsAnEntryOfTheBodyBeforeIt(@TempDir final Path work) throws IOException {
+        Files.writeString(work.resolve("inc.adoc"), "ifdef::wrapped[]\nwrapped\nendif::[]\nifndef::wrapped[]\nplain\nendif::[]\n");
+        final var context = new Parser.ParserContext(ContentResolver.of(work));
+        assertEquals(List.of(new Text(List.of(), "wrapped", Map.of())),
+                new Parser().parse("= T\n\n:wrapped:\n\ninclude::inc.adoc[]\n", context).body().children());
+        assertEquals(List.of(new Text(List.of(), "plain", Map.of())),
+                new Parser().parse("= T\n\ninclude::inc.adoc[]\n", context).body().children());
+    }
+
+    @Test
+    void verbatimDelimiterWithACarriageReturnOrAUnicodeSpace() { // without what trim() or strip() removes; other lines keep their \r, as on master
+        assertEquals(List.of(new Code("code\r\n", Map.of(), false, List.of()), new Text(List.of(), "after\r", Map.of())),
+                new Parser().parseBody(new Reader(List.of("----\r", "code\r", "----\r", "\r", "after\r")), null).children());
+        final var expected = List.of(new Code("code\n", Map.of(), false, List.of()), new Text(List.of(), "after", Map.of()));
+        assertEquals(expected, new Parser().parseBody(new Reader(List.of("----", "code", "----　", "", "after")), null).children());
+        assertEquals(expected, new Parser().parseBody(new Reader(List.of("----　", "code", "----", "", "after")), null).children());
+    }
+
+    @Test
+    void errorOfTheBodyPassNamesTheLineOfTheDirective() { // the number after the line, as for a line the parser reads
+        final var error = assertThrows(IllegalStateException.class, () -> new Parser().parse(
+                "= T\n\nPara one.\n\nifdef::x[]\nhidden\nendif::y[]\n", new Parser.ParserContext(null)));
+        assertEquals("Invalid state at line #8", error.getMessage());
+        assertEquals("Mismatched preprocessor directive: 'endif::y[]', expected 'endif::x[]'", error.getCause().getMessage());
     }
 
     @Test
@@ -5753,6 +6025,10 @@ class ParserTest {
         final var expected = new Parser().parse(plain, new Parser.ParserContext(null, null)).body();
         assertEquals(2, expected.children().size());
         assertEquals(expected, new Parser().parse(conditional, new Parser.ParserContext(null, null)).body());
+    }
+
+    private List<Element> parseBodyWith(final Map<String, String> attributes, final String content) {
+        return new Parser(attributes).parseBody(new Reader(List.of(content.split("\n"))), null).children();
     }
 
     private void assertSpan(final Map<Element, SourceSpan> spans, final String source, final int start, final int end) {

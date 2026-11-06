@@ -19,9 +19,12 @@ import io.yupiik.asciidoc.model.Body;
 import io.yupiik.asciidoc.model.Code;
 import io.yupiik.asciidoc.model.ConditionalBlock;
 import io.yupiik.asciidoc.model.DescriptionList;
+import io.yupiik.asciidoc.model.Document;
 import io.yupiik.asciidoc.model.Element;
+import io.yupiik.asciidoc.model.LineBreak;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.Paragraph;
+import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
@@ -33,6 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -709,12 +713,6 @@ class GithubFlavoredMarkdownRendererTest {
                 endif::[]
                 last line.
 
-                first line
-                ifdef::foo[]
-                cond +
-                endif::[]
-                `code` after.
-
                 first `code`
                 ifdef::foo[]
                 cond
@@ -783,9 +781,6 @@ class GithubFlavoredMarkdownRendererTest {
 
                         first line cond line last line.
 
-                        first line cond\\
-                         `code` after.
-
                         first `code` cond last.
 
                         first `code`.
@@ -824,8 +819,6 @@ class GithubFlavoredMarkdownRendererTest {
 
                         first line last line.
 
-                        first line `code` after.
-
                         first `code` last.
 
                         first `code`.
@@ -841,6 +834,21 @@ class GithubFlavoredMarkdownRendererTest {
                         e.
                         """,
                 md(document));
+
+        // a hard line break on a later line of a parsed paragraph lands after the line before it, a gap older than the
+        // read-time evaluation of the directives, so this paragraph is a model built by hand
+        final var lineBreak = new Body(List.of(new Paragraph(List.of(
+                new Text(List.of(), "first line", Map.of()),
+                new ConditionalBlock(new ConditionalBlock.Ifdef("foo"), List.of(new Text(List.of(), " cond", Map.of()), new LineBreak()), Map.of()),
+                new Text(List.of(), " ", Map.of()),
+                new Code("code", Map.of(), true, List.of()),
+                new Text(List.of(), " after.", Map.of())), Map.of())));
+        final var set = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration().setAttributes(Map.of("foo", "")));
+        set.visitBody(lineBreak);
+        assertEquals("first line cond\\\n `code` after.\n", set.result());
+        final var unset = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration());
+        unset.visitBody(lineBreak);
+        assertEquals("first line `code` after.\n", unset.result());
     }
 
     @Test
@@ -1341,7 +1349,7 @@ class GithubFlavoredMarkdownRendererTest {
                 };
             }
         };
-        renderer.visit(new Parser().parse("""
+        final var parsed = new Parser().parse("""
                 = Doc
 
                 See <<sec_install>>.
@@ -1349,11 +1357,12 @@ class GithubFlavoredMarkdownRendererTest {
                 == Install
 
                 Text.
-
-                ifdef::toc[]
-                == With a table of contents
-                endif::[]
-                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))));
+                """, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
+        // the parser evaluates the directives when it reads them, so the conditional section is a model built by hand
+        final var body = new ArrayList<>(parsed.body().children());
+        body.add(new ConditionalBlock(new ConditionalBlock.Ifdef("toc"), List.of(
+                new Section(2, new Text(List.of(), "With a table of contents", Map.of()), List.of(), Map.of())), Map.of()));
+        renderer.visit(new Document(parsed.header(), new Body(body)));
         assertEquals("""
                 # Doc
 
