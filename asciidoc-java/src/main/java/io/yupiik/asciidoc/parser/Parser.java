@@ -44,6 +44,7 @@ import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
+import io.yupiik.asciidoc.parser.internal.ParserSibling;
 import io.yupiik.asciidoc.parser.internal.Reader;
 import io.yupiik.asciidoc.parser.internal.TextScanner;
 import io.yupiik.asciidoc.parser.internal.TextScanner.InlinePassthrough;
@@ -69,13 +70,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -113,10 +112,8 @@ public class Parser {
     private static final Pattern UNORDERED_LIST_PREFIX = Pattern.compile("^(?<wildcard>\\*+) .+");
     private static final Pattern UNORDERED_LIST2_PREFIX = Pattern.compile("^(?<wildcard>-+) .+");
     private static final Pattern CHECKBOX = Pattern.compile("^\\[(?<status>[ x*])\\] ");
-    private static final Pattern ATTRIBUTE_DEFINITION = Pattern.compile("^:(?<name>[^\\n\\t:]+):( +(?<value>.+))? *$");
     // as asciidoctor, the target can be empty, as in ifeval::[{version} > 1] and endif::[], an include needs one
     private static final Pattern HEADER_MACRO = Pattern.compile("^[a-zA-Z0-9_+:.-]+::[^\\[]*\\[.*\\]\\s*$");
-    private static final Pattern ATTRIBUTE_VALUE = Pattern.compile("\\{(?<name>[^ }]+)}");
     private static final Pattern LOWER_ROMAN = Pattern.compile("[ivx]+");
     private static final Pattern UPPER_ROMAN = Pattern.compile("[IVX]+");
     private static final Pattern DIGITS = Pattern.compile("\\d+");
@@ -176,6 +173,8 @@ public class Parser {
     private final Map<String, String> globalAttributes;
     private final Consumer<String> warning;
     private final TextScanner scanner;
+    private final ParserSibling sibling;
+    private final ConditionalParser conditionals;
 
     public Parser(final Configuration configuration) {
         this(configuration, new TextScanner());
@@ -189,6 +188,23 @@ public class Parser {
         this.globalAttributes = configuration.getGlobalAttributes();
         this.warning = configuration.getWarning();
         this.scanner = scanner;
+        this.sibling = new ParserSibling(globalAttributes, scanner);
+        this.conditionals = newConditionalParser(scanner, sibling, globalAttributes, warning);
+    }
+
+    /**
+     * Called from the constructor, so an extension can return a {@link ConditionalParser} that changes a rule, such as
+     * {@link ConditionalParser#ifevalCondition(String, String)}, which was a method of this class up to 1.3.0.
+     *
+     * @param scanner          the character scans of the lines.
+     * @param sibling          the parsing logic the parser shares with its sub-parsers.
+     * @param globalAttributes the parser attributes.
+     * @param warning          where a warning goes.
+     * @return the parser of the conditional directives.
+     */
+    protected ConditionalParser newConditionalParser(final TextScanner scanner, final ParserSibling sibling,
+                                                     final Map<String, String> globalAttributes, final Consumer<String> warning) {
+        return new ConditionalParser(scanner, sibling, globalAttributes, warning);
     }
 
     /**
@@ -244,18 +260,18 @@ public class Parser {
         final var preTitleOptions = new LinkedHashMap<String, String>();
         final var firstLine = readHeaderTitleLine(reader, preTitleOptions);
         if (firstLine == null) {
-            reader.reset();
+            reader.resetOffset();
             return NO_HEADER;
         }
 
         final String title;
         if (firstLine.startsWith("= ") || firstLine.startsWith("# ")) {
             title = firstLine.substring(2).strip();
-        } else if (ATTRIBUTE_DEFINITION.matcher(firstLine).matches()) {
+        } else if (sibling.attributeEntry(firstLine) != null) {
             title = "";
             reader.rewind();
         } else {
-            reader.reset();
+            reader.resetOffset();
             return NO_HEADER;
         }
         final var resolver = context == null ? null : context.resolver();
@@ -274,7 +290,7 @@ public class Parser {
             // as of asciidoctor any line which is not a preprocessor one is the author line, an empty line being
             // required to end the header, so a section or a list not preceded by an empty line is an author
             if (!reader.isComment(authorLine)) {
-                if (!ATTRIBUTE_DEFINITION.matcher(authorLine).matches() && !isPreprocessorMacro(authorLine)) { // author line
+                if (sibling.attributeEntry(authorLine) == null && !isPreprocessorMacro(authorLine)) { // author line
                     authors = parseAuthorLine(authorLine, attributes);
 
                     final var revisionLine = reader.nextLine();
@@ -283,7 +299,7 @@ public class Parser {
                         return buildHeader(title, authors, revision, merge(attributes, preTitleOptions), attributes);
                     }
                     if (!reader.isComment(revisionLine)) {
-                        if (!ATTRIBUTE_DEFINITION.matcher(revisionLine).matches() && !isPreprocessorMacro(revisionLine)) {
+                        if (sibling.attributeEntry(revisionLine) == null && !isPreprocessorMacro(revisionLine)) {
                             final var parsed = parseRevisionLine(revisionLine, attributes);
                             if (parsed == null) { // not a revision line, give it back to the body
                                 reader.rewind();
@@ -408,7 +424,7 @@ public class Parser {
         final var merged = new LinkedHashMap<>(attributes);
         mergeAuthorAttributes(authorLineAuthors, resolved, merged);
         // as asciidoctor, the title references the attributes of the whole header, also the ones defined after it
-        final var substitutedTitle = earlyAttributeReplacement(title, merged);
+        final var substitutedTitle = sibling.earlyAttributeReplacement(title, merged);
         final var manPageMatcher = MAN_PAGE_TITLE.matcher(substitutedTitle);
         if (manPageMatcher.matches()) {
             merged.put("doctype", "manpage");
@@ -537,6 +553,7 @@ public class Parser {
     }
 
     public Body parseBody(final Reader reader, final ContentResolver resolver, final Map<String, String> attributes) {
+        conditionals.evaluate(reader, Integer.MAX_VALUE, attributes);
         return new Body(doParse(null, reader, line -> true, resolver, attributes, true, false));
     }
 
@@ -592,29 +609,30 @@ public class Parser {
                 break;
             }
 
-            final var newValue = earlyAttributeReplacement(next, attributes);
+            final var newValue = sibling.earlyAttributeReplacement(next, attributes);
             if (!Objects.equals(newValue, next)) {
                 reader.setPreviousValue(newValue);
             }
 
             final var stripped = next.trim();
+            final var verbatim = sibling.verbatimDelimiter(next);
             if (stripped.startsWith("[") && stripped.endsWith("]")) {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
                     // as asciidoctor, the attribute references of a block attribute line are substituted before it is parsed
-                    final var blockAttributes = parseBlockAttributes(unescapeAttributeReferences(newValue.strip()));
+                    final var blockAttributes = parseBlockAttributes(sibling.unescapeAttributeReferences(newValue.strip()));
                     final var title = blockAttributes.get("title");
                     // as asciidoctor, a title from the attribute line is substituted again when the block is written
                     options = merge(options, title == null ? blockAttributes : merge(
-                            Map.of("title", unescapeAttributeReferences(earlyAttributeReplacement(title, attributes))), blockAttributes));
+                            Map.of("title", sibling.unescapeAttributeReferences(sibling.earlyAttributeReplacement(title, attributes))), blockAttributes));
                     lastOptions = reader.getLineNumber();
                 }
-            } else if (Objects.equals("....", stripped)) {
+            } else if ("....".equals(verbatim)) {
                 elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
-                options = merge(options, Map.of("title", unescapeAttributeReferences(newValue.strip().substring(1).strip())));
+                options = merge(options, Map.of("title", sibling.unescapeAttributeReferences(newValue.strip().substring(1).strip())));
             } else if (Objects.equals("====", stripped)) {
                 Optional<Admonition.Level> level;
                 final var potentialLevel = options == null ? "" : options.getOrDefault("", "");
@@ -650,8 +668,8 @@ public class Parser {
                     elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
                 }
                 options = null;
-            } else if (Objects.equals("----", stripped) || Objects.equals("```", stripped)) {
-                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, stripped));
+            } else if ("----".equals(verbatim) || "```".equals(verbatim)) {
+                elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, verbatim));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
                 elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "--"));
@@ -674,7 +692,7 @@ public class Parser {
                     addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                     options = null;
                 }
-            } else if (Objects.equals("++++", stripped)) {
+            } else if ("++++".equals(verbatim)) {
                 elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver, attributes));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
@@ -704,21 +722,8 @@ public class Parser {
                 elements.addAll(parseLine(enclosingDocument, reader, stripped.substring(0, stripped.length() - 2), resolver, attributes, supportComplexStructures));
                 elements.add(new LineBreak());
                 options = null;
-            } else if (stripped.startsWith(":") && (attributeMatcher = ATTRIBUTE_DEFINITION.matcher(stripped)).matches()) {
-                final var value = attributeMatcher.groupCount() == 3 ? ofNullable(attributeMatcher.group("value")).orElse("") : "";
-                final var rawName = attributeMatcher.group("name");
-                final var unset = unsetAttributeName(rawName);
-                if (unset != null) {
-                    attributes.remove(unset);
-                } else if ((value.startsWith("+") || value.startsWith("-")) && attributes.containsValue(rawName)) { // offset
-                    try {
-                        attributes.put(rawName, Integer.toString(Integer.parseInt(attributes.get(rawName)) + Integer.parseInt(value)));
-                    } catch (final RuntimeException nfe) { // NumberFormatException mainly
-                        attributes.put(rawName, value);
-                    }
-                } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
-                    attributes.put(rawName, earlyAttributeReplacement(value, attributes));
-                }
+            } else if ((attributeMatcher = sibling.attributeEntry(stripped)) != null) {
+                sibling.applyAttributeEntry(attributeMatcher, attributes);
             } else {
                 reader.rewind();
                 addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
@@ -763,14 +768,11 @@ public class Parser {
                                               final ContentResolver resolver, final Map<String, String> currentAttributes) {
         final var content = new StringBuilder();
         String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the text never sees the directives
-                continue;
-            }
+        while ((next = reader.nextLine()) != null && !sibling.isDelimiterLine(next, marker)) {
             if (!content.isEmpty()) {
                 content.append('\n');
             }
-            content.append(unescapeDirective(next));
+            content.append(conditionals.unescapeDirective(next));
         }
         if (next != null && !next.startsWith(marker)) {
             reader.rewind();
@@ -849,7 +851,7 @@ public class Parser {
 
     private String subs(final String value, final Map<String, String> currentAttributes, final Set<String> substitutions) {
         // the same lookup as a paragraph line: the document attributes, then the parser's global ones
-        return substitutions.contains("attributes") ? unescapeAttributeReferences(earlyAttributeReplacement(value, currentAttributes)) : value;
+        return substitutions.contains("attributes") ? sibling.unescapeAttributeReferences(sibling.earlyAttributeReplacement(value, currentAttributes)) : value;
     }
 
     private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
@@ -916,9 +918,6 @@ public class Parser {
         final var sourceTracking = reader.getSourceListener() == null ? null : new TableSourceTracking(reader);
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // the cells never see the directives
-                continue;
-            }
             if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
                 lines.add(next.stripTrailing());
                 if (sourceTracking != null) {
@@ -1511,11 +1510,8 @@ public class Parser {
                                 final String marker) {
         final var builder = new StringBuilder();
         String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals(marker, next.strip())) {
-            if (rereadConditionalLines(next, reader, currentAttributes)) { // as for the rows of a table, the code never sees the directives
-                continue;
-            }
-            builder.append(unescapeDirective(next)).append('\n');
+        while ((next = reader.nextLine()) != null && !sibling.isDelimiterLine(next, marker)) {
+            builder.append(conditionals.unescapeDirective(next)).append('\n');
         }
 
         // todo: better support of the code features/syntax config
@@ -1671,7 +1667,7 @@ public class Parser {
         }
         return new Macro(
                 "include",
-                earlyAttributeReplacement(directive.substring(target, options), currentAttributes),
+                sibling.earlyAttributeReplacement(directive.substring(target, options), currentAttributes),
                 parseOptions(directive.substring(options + 1, directive.length() - 1)), false);
     }
 
@@ -1685,9 +1681,9 @@ public class Parser {
             final var stripped = line.strip();
             if (line.startsWith("=") ||
                     (line.startsWith("[") && line.endsWith("]")) ||
-                    stripped.startsWith("////") ||
+                    reader.isCommentBlockDelimiter(stripped) ||
                     isHorizontalRule(stripped) ||
-                    (stripped.startsWith(":") && ATTRIBUTE_DEFINITION.matcher(stripped).matches())) {
+                    sibling.attributeEntry(stripped) != null) {
                 reader.rewind();
                 break;
             }
@@ -1700,7 +1696,7 @@ public class Parser {
             // may open at the end of a wrapped line and close on a later one: pre-join such lines into one logical line
             // (the line breaks become the single spaces asciidoctor folds them to) while a code span is left open
             line = joinOpenCodeSpan(reader, line);
-            onlyConditionalsSinceBreak = addLine(elements, parseLine(enclosingDocument, reader, earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options), onlyConditionalsSinceBreak);
+            onlyConditionalsSinceBreak = addLine(elements, parseLine(enclosingDocument, reader, sibling.earlyAttributeReplacement(line, currentAttributes), resolver, currentAttributes, supportComplexStructures, options == null ? Map.of() : options), onlyConditionalsSinceBreak);
             if (hardBreak) {
                 unwrapFirst(elements);
                 elements.add(new LineBreak());
@@ -2240,7 +2236,7 @@ public class Parser {
                                 // backslash; a stem or kbd macro keeps what is written, so it is not touched
                                 final var label = rawContent ?
                                         line.substring(i + 1, end) :
-                                        unescapeAttributeReferences(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)));
+                                        sibling.unescapeAttributeReferences(optionsPrefix.substring(macroMarker + (inlined ? 1 : 2)));
 
                                 final var macro = new Macro(type, label,
                                         "pass".equals(type) ?
@@ -2249,7 +2245,7 @@ public class Parser {
                                         inlined);
                                 switch (macro.name()) {
                                     case "ifdef", "ifndef", "ifeval" -> elements.add(parseConditionalBlock(
-                                            readConditional(macro, line.substring(i + 1, end), reader, currentAttributes),
+                                            conditionals.read(macro, line.substring(i + 1, end), reader, currentAttributes),
                                             enclosingDocument, reader, resolver, currentAttributes));
                                     default -> {
                                         if (!"link".equals(macro.name())) { // only a link parses its text here, the other macros keep it in their options
@@ -2265,7 +2261,7 @@ public class Parser {
                                                 final var l = (Link) linkLabel;
                                                 linkLabel = l.label();
                                             }
-                                            elements.add(new Link(unescapeAttributeReferences(macro.label()), linkLabel, linkOptions));
+                                            elements.add(new Link(sibling.unescapeAttributeReferences(macro.label()), linkLabel, linkOptions));
                                         }
                                     }
                                 }
@@ -2283,7 +2279,7 @@ public class Parser {
                                     linkLabel = l.label();
                                 }
                                 elements.add(new Link(
-                                        unescapeAttributeReferences(optionsPrefix),
+                                        sibling.unescapeAttributeReferences(optionsPrefix),
                                         linkLabel,
                                         removeEmptyKey(options)));
                             }
@@ -2401,80 +2397,20 @@ public class Parser {
     private String codeSpanText(final String line, final int from, final int to, final InlinePassthrough opening) {
         final var passthroughs = scanner.passthroughs(line, from, to, opening);
         if (passthroughs.isEmpty()) {
-            return unescapeAttributeReferences(line.substring(from, to));
+            return sibling.unescapeAttributeReferences(line.substring(from, to));
         }
         final var out = new StringBuilder(to - from);
         int copied = from;
         for (final var passthrough : passthroughs) {
-            out.append(unescapeAttributeReferences(line.substring(copied, passthrough.start())))
+            out.append(sibling.unescapeAttributeReferences(line.substring(copied, passthrough.start())))
                     .append(line, passthrough.start() + passthrough.signs(), passthrough.end() - passthrough.signs());
             copied = passthrough.end();
         }
-        return out.append(unescapeAttributeReferences(line.substring(copied, to))).toString();
+        return out.append(sibling.unescapeAttributeReferences(line.substring(copied, to))).toString();
     }
 
     private boolean isInlineOptionContentMarker(final char c) {
         return c == '#';
-    }
-
-    // asciidoctor only accepts ifeval::[{version} > 1], the condition written as the target, ifeval::{version} > 1[], is kept
-    // for the documents written for this parser
-    protected String ifevalCondition(final String target, final String enclosed) {
-        return (target.isBlank() ? enclosed : target).strip();
-    }
-
-    private Predicate<ConditionalBlock.Context> parseCondition(final String condition, final Map<String, String> attributeAtParsingTime) {
-        final int sep1 = condition.indexOf(' ');
-        if (sep1 < 0) {
-            throw new IllegalArgumentException("Unknown expression: '" + condition + "'");
-        }
-        final int sep2 = condition.lastIndexOf(' ');
-        if (sep2 < 0 || sep2 == sep1) {
-            throw new IllegalArgumentException("Unknown expression: '" + condition + "'");
-        }
-
-        final var leftOperand = stripQuotes(condition.substring(0, sep1).strip());
-        final var operator = condition.substring(sep1 + 1, sep2).strip();
-        final var rightOperand = stripQuotes(condition.substring(sep2).strip());
-        final var parsingAttributes = !attributeAtParsingTime.isEmpty() ?
-                new HashMap<>(attributeAtParsingTime) :
-                Map.<String, String>of();
-        final Function<ConditionalBlock.Context, Function<String, String>> attributeAccessor = ctx ->
-                // ensure levels and implicit attributes are well evaluated
-                key -> parsingAttributes.getOrDefault(key, ctx.attribute(key));
-        return switch (operator) {
-            case "==" -> context -> eval(leftOperand, rightOperand, attributeAccessor.apply(context), Objects::equals);
-            case "!=" -> context -> !eval(leftOperand, rightOperand, attributeAccessor.apply(context), Objects::equals);
-            case "<" -> context -> evalNumbers(leftOperand, rightOperand, context, (a, b) -> a < b);
-            case "<=" -> context -> {
-                final var attributes = attributeAccessor.apply(context);
-                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) <=
-                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
-            };
-            case ">" -> context -> {
-                final var attributes = attributeAccessor.apply(context);
-                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) >
-                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
-            };
-            case ">=" -> context -> {
-                final var attributes = attributeAccessor.apply(context);
-                return Double.parseDouble(earlyAttributeReplacement(leftOperand, attributes)) >=
-                        Double.parseDouble(earlyAttributeReplacement(rightOperand, attributes));
-            };
-            default -> throw new IllegalArgumentException("Unknown operator '" + operator + "'");
-        };
-    }
-
-    private boolean eval(final String leftOperand, final String rightOperand, final Function<String, String> context, final BiPredicate<String, String> test) {
-        return test.test(earlyAttributeReplacement(leftOperand, context), earlyAttributeReplacement(rightOperand, context));
-    }
-
-    private boolean evalNumbers(final String leftOperand, final String rightOperand, final ConditionalBlock.Context context, final BiPredicate<Double, Double> test) {
-        return test.test(Double.parseDouble(earlyAttributeReplacement(leftOperand, context::attribute)), Double.parseDouble(earlyAttributeReplacement(rightOperand, context::attribute)));
-    }
-
-    private String stripQuotes(final String strip) {
-        return strip.startsWith("\"") && strip.endsWith("\"") && strip.length() > 1 ? strip.substring(1, strip.length() - 1) : strip;
     }
 
     // a reference is evaluated when it is rendered, its value can come from the renderer configuration, by parsing the
@@ -2511,243 +2447,7 @@ public class Parser {
                 .toList();
     }
 
-    private String earlyAttributeReplacement(final String value, final Map<String, String> attributes) {
-        return earlyAttributeReplacement(value, attributes::get);
-    }
-
-    // an escaped reference, \\{name} or {name\\}, is kept as it is: the inline parser writes it without its backslash, as asciidoctor does
-    private String earlyAttributeReplacement(final String value, final Function<String, String> attributes) {
-        if (!value.contains("{")) {
-            return value;
-        }
-        final var matcher = ATTRIBUTE_VALUE.matcher(value);
-        final var passthroughs = scanner.codeSpanPassthroughs(value);
-        StringBuilder out = null;
-        int copied = 0;
-        while (matcher.find()) {
-            if (passthroughs != null && passthroughs.get(matcher.start())) { // `+{name}+` is kept as written
-                continue;
-            }
-            final var escaped = escapedReferenceName(value, matcher);
-            if (escaped != null) {
-                if (matcher.group("name").endsWith("\\")) { // {name\\} becomes \\{name}, the form the inline parser reads
-                    if (out == null) {
-                        out = new StringBuilder(value.length());
-                    }
-                    final int start = scanner.isEscaped(value, matcher.start()) ? matcher.start() - 1 : matcher.start();
-                    out.append(value, copied, start).append("\\{").append(escaped).append('}');
-                    copied = matcher.end();
-                }
-                continue;
-            }
-            final var key = matcher.group("name");
-            final var replacement = attributes.apply(key);
-            final var resolved = replacement == null ? globalAttributes.get(key) : replacement;
-            if (resolved == null || resolved.contains('{' + key + '}')) { // ":a: ${a}", inlining it would create a new reference to evaluate, the lazy evaluation handles it
-                continue;
-            }
-            if (out == null) {
-                out = new StringBuilder(value.length());
-            }
-            out.append(value, copied, matcher.start()).append(resolved);
-            copied = matcher.end();
-        }
-        return out == null ? value : out.append(value, copied, value.length()).toString();
-    }
-
-    // a block title, a block attribute line, a verbatim block and a code span get no attribute substitution later, so an escaped
-    // reference is written {name} here
-    private String unescapeAttributeReferences(final String value) {
-        if (!value.contains("\\")) {
-            return value;
-        }
-        final var matcher = ATTRIBUTE_VALUE.matcher(value);
-        StringBuilder out = null;
-        int copied = 0;
-        while (matcher.find()) {
-            final var name = escapedReferenceName(value, matcher);
-            if (name != null) {
-                if (out == null) {
-                    out = new StringBuilder(value.length());
-                }
-                final int start = scanner.isEscaped(value, matcher.start()) ? matcher.start() - 1 : matcher.start();
-                out.append(value, copied, start).append('{').append(name).append('}');
-                copied = matcher.end();
-            }
-        }
-        return out == null ? value : out.append(value, copied, value.length()).toString();
-    }
-
-    // as asciidoctor AttributeReferenceRx: (\\)?{name(\\)?} with a name made of word characters and '-', escaped by either backslash
-    private String escapedReferenceName(final String value, final Matcher matcher) {
-        final var name = matcher.group("name");
-        final boolean escapedStart = scanner.isEscaped(value, matcher.start());
-        final boolean escapedEnd = name.endsWith("\\");
-        if (!escapedStart && !escapedEnd) {
-            return null;
-        }
-        final var plainName = escapedEnd ? name.substring(0, name.length() - 1) : name;
-        return scanner.isAttributeReferenceName(plainName) ? plainName : null;
-    }
-
-    // a conditional directive as written, with its lines still unparsed: it is read once by readConditional() for the
-    // body, which parses the lines into a ConditionalBlock the renderer evaluates, and for the header and the tables,
-    // which evaluate the conditions themselves and read the lines of the first matching branch again
-    private record Conditional(Predicate<ConditionalBlock.Context> condition, List<String> content,
-                               List<Conditional> elseBranches, Map<String, String> options, int start) {}
-
-    private Conditional readConditional(final Macro macro, final String enclosed, final Reader reader,
-                                        final Map<String, String> currentAttributes) {
-        final Predicate<ConditionalBlock.Context> condition = switch (macro.name()) {
-            case "ifdef" -> new ConditionalBlock.Ifdef(macro.label());
-            case "ifndef" -> new ConditionalBlock.Ifndef(macro.label());
-            case "ifeval" -> new ConditionalBlock.Ifeval(parseCondition(ifevalCondition(macro.label(), enclosed), currentAttributes));
-            default -> throw new IllegalArgumentException("Unknown conditional type: " + macro.name());
-        };
-        // ifdef::attr[content] is the inline form: the content sits in the brackets and there is no endif::[],
-        // so nothing more is read from the document, and as asciidoctor a blank content is content too;
-        // ifeval has no inline form, its brackets hold the condition
-        if (!"ifeval".equals(macro.name()) && !enclosed.isEmpty()) {
-            return new Conditional(condition, List.of(enclosed), List.of(), Map.of(), -1);
-        }
-
-        final var content = new ArrayList<String>();
-        final var elseBranches = new ArrayList<Conditional>();
-        final var openNames = new ArrayList<String>(); // as asciidoctor, an endif closes the last block opened
-        openNames.add(macro.label());
-        var current = content;
-        final int start = reader.getLineOffset(); // the directive line is read, the branch starts here
-        String next;
-        while ((next = reader.nextLine()) != null) {
-            final var stripped = next.strip();
-            final int bracket = stripped.indexOf('['); // as asciidoctor, a directive is a whole line: name::target[text]
-            if (stripped.startsWith("endif::") && bracket > 0 && stripped.endsWith("]")) { // endif::[] or endif::name[]
-                if (bracket != stripped.length() - "[]".length()) {
-                    throw new IllegalArgumentException("Malformed preprocessor directive, text not permitted: '" + stripped + "'");
-                }
-                final var endName = stripped.substring("endif::".length(), bracket);
-                final var expected = openNames.remove(openNames.size() - 1);
-                if (!endName.isEmpty() && !endName.equalsIgnoreCase(expected)) {
-                    throw new IllegalArgumentException("Mismatched preprocessor directive: '" + stripped + "', expected 'endif::" + expected + "[]'");
-                }
-                if (openNames.isEmpty()) {
-                    break;
-                }
-            } else if (openNames.size() == 1 && ("else::[]".equals(stripped) || stripped.startsWith("elsif::"))) {
-                current = new ArrayList<>(); // the lines up to the next branch or to the endif::[]
-                elseBranches.add(new Conditional(branchCondition(stripped, bracket), current, List.of(), Map.of(), reader.getLineOffset()));
-                continue;
-            } else {
-                final var nested = conditionalDirective(next);
-                if (nested != null && ("ifeval".equals(nested.macro().name()) || nested.enclosed().isEmpty())) { // ifdef::name[content] has no endif
-                    openNames.add(nested.macro().label());
-                }
-            }
-            current.add(next);
-        }
-        if (next == null) { // as asciidoctor, the rest of the document is the branch, with a warning
-            warning.accept("Unterminated preprocessor conditional: '" + macro.name() + "::" + macro.label() + "[]'" +
-                    (reader.getFile() == null ? "" : " in '" + reader.getFile() + "'"));
-        }
-        return new Conditional(condition, content, elseBranches, macro.options(), start);
-    }
-
-    // the parser evaluated the conditional it just read: the reader reads the lines of the first branch whose
-    // condition holds again, at their place in the document; the inline form ifdef::name[content] has its content
-    // in place of the directive line; when no branch holds, the reader goes on after the block
-    private void rereadHoldingBranch(final Conditional conditional, final ConditionalBlock.Context context, final Reader reader) {
-        final var branch = holdingBranch(conditional, context);
-        if (branch == null) {
-            return;
-        }
-        if (branch.start() < 0) {
-            reader.setPreviousValue(branch.content().get(0));
-            reader.rewind();
-            return;
-        }
-        reader.reread(branch.start(), branch.start() + branch.content().size()); // the nested directive lines count too
-    }
-
-    // the first branch whose condition holds, null when none holds
-    private Conditional holdingBranch(final Conditional conditional, final ConditionalBlock.Context context) {
-        if (conditional.condition().test(context)) {
-            return conditional;
-        }
-        for (final var branch : conditional.elseBranches()) {
-            if (branch.condition().test(context)) {
-                return branch;
-            }
-        }
-        return null;
-    }
-
-    // as asciidoctor, :!name:, :name!: and :!name!: unset the attribute: the name without its bangs, null for an assignment
-    private String unsetAttributeName(final String rawName) {
-        final int start = rawName.startsWith("!") ? 1 : 0;
-        final int end = rawName.length() > start && rawName.endsWith("!") ? rawName.length() - 1 : rawName.length();
-        return start == 0 && end == rawName.length() ? null : rawName.substring(start, end);
-    }
-
-    // an opening conditional directive line as asciidoctor's preprocessor reads it: name::target[text], from the first
-    // column to the end of the line, the target required for ifdef and ifndef and absent for ifeval; else null and the
-    // line stays text, where asciidoctor keeps a target with a blank as text and drops a missing or forbidden target
-    // with a message; endif::[] is read by readConditional, so it is not an opening one
-    private Directive conditionalDirective(final String line) {
-        if (!line.startsWith("if")) {
-            return null;
-        }
-        final int bracket = scanner.conditionalDirectiveBracket(line, 0);
-        if (bracket < 0) {
-            return null;
-        }
-        final int sep = line.indexOf("::");
-        final var target = line.substring(sep + "::".length(), bracket);
-        if (target.isEmpty() != line.startsWith("ifeval::")) { // ifeval has no target, the two others need one
-            return null;
-        }
-        final var stripped = line.stripTrailing();
-        return new Directive(
-                new Macro(stripped.substring(0, sep), target, Map.of(), false),
-                stripped.substring(bracket + 1, stripped.length() - 1));
-    }
-
-    /**
-     * As asciidoctor does, a directive escaped with a backslash, {@code \ifdef::name[]} or {@code \endif::[]}, is shown as
-     * written, without the backslash: this is how a verbatim block shows a directive instead of evaluating it.
-     *
-     * @param line a line of a verbatim block.
-     * @return the line without its backslash when it is an escaped directive, else the line.
-     */
-    protected String unescapeDirective(final String line) {
-        if (line.startsWith("\\") && scanner.conditionalDirectiveBracket(line, 1) >= 0) {
-            return line.substring(1);
-        }
-        return line;
-    }
-
-    // as asciidoctor's preprocessor, a conditional directive among the lines of a table or of a verbatim block (a
-    // listing, a literal or a passthrough block) is evaluated when the line is read, with the attributes known at that
-    // point, and the lines of the branch that holds go back to the reader, so the rows, the cells and the verbatim text
-    // are read without the directives and a renderer attribute does not change them (#190, #238)
-    private boolean rereadConditionalLines(final String line, final Reader reader, final Map<String, String> currentAttributes) {
-        final var directive = conditionalDirective(line);
-        if (directive == null) {
-            return false;
-        }
-        final var conditional = readConditional(directive.macro(), directive.enclosed(), reader, currentAttributes);
-        rereadHoldingBranch(conditional, key -> currentAttributes.getOrDefault(key, globalAttributes.get(key)), reader);
-        return true;
-    }
-
-    // else::[] always holds, elsif::name[] is an ifdef on its name
-    private Predicate<ConditionalBlock.Context> branchCondition(final String directive, final int bracket) {
-        if ("else::[]".equals(directive)) {
-            return ctx -> true;
-        }
-        return new ConditionalBlock.Ifdef(directive.substring("elsif::".length(), bracket));
-    }
-
-    private ConditionalBlock parseConditionalBlock(final Conditional conditional, final Path enclosingDocument,
+    private ConditionalBlock parseConditionalBlock(final ConditionalParser.Conditional conditional, final Path enclosingDocument,
                                                     final Reader parent, final ContentResolver resolver,
                                                     final Map<String, String> currentAttributes) {
         return new ConditionalBlock(
@@ -2945,7 +2645,9 @@ public class Parser {
         }
 
         if (parse) {
-            return doParse(resolved.path(), subReader(parent, resolved.path(), content), l -> true, resolver, currentAttributes, true, false);
+            final var included = subReader(parent, resolved.path(), content);
+            conditionals.evaluate(included, content.size(), currentAttributes);
+            return doParse(resolved.path(), included, l -> true, resolver, currentAttributes, true, false);
         }
         // as for a parsed include, the includes of the included content are relative to it
         return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
@@ -3402,7 +3104,7 @@ public class Parser {
     // authors, makes the indexed ones look overridden and the names be deduced as attribute values.
     private List<Author> parseAuthorLine(final String authorLine, final Map<String, String> attributes) {
         final var entries = splitAuthors(authorLine);
-        final var substituted = entries.stream().map(it -> earlyAttributeReplacement(it, attributes)).toList();
+        final var substituted = entries.stream().map(it -> sibling.earlyAttributeReplacement(it, attributes)).toList();
         return substituted.size() > 1 && !substituted.equals(entries) ?
                 substituted.stream().map(this::parseAuthorAttribute).toList() :
                 substituted.stream().map(this::parseAuthorLineEntry).toList();
@@ -3516,7 +3218,8 @@ public class Parser {
     // a value can reference them as well as the ones of the batch
     private Map<String, String> readAttributes(final Path enclosingElement, final Reader reader, final ContentResolver resolver,
                                                final Map<String, String> knownAttributes) {
-        Map<String, String> attributes = new LinkedHashMap<>();
+        // the batch starts from the known ones, so the directives of the header and of its includes test them too
+        Map<String, String> attributes = new LinkedHashMap<>(knownAttributes);
         String line;
         while ((line = reader.nextLine()) != null) {
             if (line.isBlank()) { // end of the header, let the caller see it
@@ -3524,43 +3227,37 @@ public class Parser {
                 break;
             }
             if (reader.isComment(line)) { // comments are ignored in the header
-                if (line.startsWith("////")) {
+                if (reader.isCommentBlockDelimiter(line)) {
                     String comment;
-                    while ((comment = reader.nextLine()) != null && !comment.startsWith("////")) {
+                    while ((comment = reader.nextLine()) != null && !reader.isCommentBlockDelimiter(comment)) {
                         // skip the comment block
                     }
                 }
                 continue;
             }
-            final var matcher = ATTRIBUTE_DEFINITION.matcher(line);
-            if (matcher.matches()) {
+            final var matcher = sibling.attributeEntry(line);
+            if (matcher != null) {
                 var value = matcher.groupCount() == 3 ? ofNullable(matcher.group("value")).orElse("").strip() : "";
                 while (value.endsWith("\\")) {
                     value = value.substring(0, value.length() - 1).strip() +
                             ofNullable(reader.nextLine()).map(String::strip).map(it -> ' ' + it).orElse("");
                 }
                 final var rawName = matcher.group("name");
-                final var unset = unsetAttributeName(rawName);
+                final var unset = sibling.unsetAttributeName(rawName);
                 if (unset != null) {
                     attributes.remove(unset);
                 } else { // as asciidoctor, the references are substituted before the assignment, unknown ones are kept as is
-                    attributes.put(rawName, earlyAttributeReplacement(value, name -> {
+                    attributes.put(rawName, sibling.earlyAttributeReplacement(value, name -> {
                         final var local = attributes.get(name);
                         return local != null ? local : knownAttributes.get(name);
                     }));
                 }
             } else if (isBlockMacro(line)) {
-                final var directive = conditionalDirective(line);
-                if (directive != null) {
-                    final var ctx = new ConditionalBlock.Context() {
-                        @Override
-                        public String attribute(final String key) { // the header ones read before the author line count too
-                            return attributes.getOrDefault(key, knownAttributes.getOrDefault(key, globalAttributes.get(key)));
-                        }
-                    };
-                    // the lines of the first branch whose condition holds go back to the loop, they are header lines
-                    // as any other, and either way the header does not end here
-                    rereadHoldingBranch(readConditional(directive.macro(), directive.enclosed(), reader, attributes), ctx, reader);
+                if (conditionals.isDirective(line)) {
+                    // the lines of the branch that holds are read next, they are header lines as any other, and either
+                    // way the header does not end here
+                    reader.rewind();
+                    conditionals.evaluate(reader, 1, attributes);
                     continue;
                 }
                 // simplistic macro handling for the include since we still are in headers,
@@ -4220,10 +3917,5 @@ public class Parser {
     }
 
     private record ResolvedAuthors(List<Author> authors, AuthorSource source) {
-    }
-
-    // a conditional directive: the macro and what sits in its brackets, which is the condition of an ifeval and the
-    // content of the inline form ifdef::name[content]
-    private record Directive(Macro macro, String enclosed) {
     }
 }
