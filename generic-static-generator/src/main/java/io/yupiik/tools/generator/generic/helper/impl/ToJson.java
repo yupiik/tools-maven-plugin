@@ -16,6 +16,8 @@
 package io.yupiik.tools.generator.generic.helper.impl;
 
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import io.yupiik.fusion.json.JsonMapper;
 import io.yupiik.tools.generator.generic.helper.Helper;
 import io.yupiik.tools.generator.generic.helper.HelperDocumentation;
@@ -37,7 +39,7 @@ public class ToJson implements Helper {
     }
 
     @Override
-    public String apply(final Object o) {
-        return mapper.toString(o);
+    public Object apply(final HelperContext context) {
+        return new SafeString(mapper.toString(value(context)));
     }
 }
