@@ -12,7 +12,7 @@ Every element is a record of `io.yupiik.asciidoc.model` implementing `Element`: 
 A record carries data only: the parser reads the source once, and the renderers read the model without parsing again.
 For example a `Table` holds its rows, its attributes and, read from `cols`, the specifier of each column (`Table.ColumnSpec`: the multiplier, the alignments, the width and the style letter, as written), and `Table.column(index)` gives the specifier of a column, a multiplier covering as many columns; a `Table` built with the two-argument constructor has no column specifiers and renders as a table without `cols`.
 Includes are resolved by the parser, so the model holds the included elements and never an `include` macro.
-Conditionals stay in the model as `ConditionalBlock` elements, and each renderer writes the branch that holds with the attributes it knows.
+Conditionals are evaluated by the parser before it reads the lines, as Asciidoctor's preprocessor does, so the model holds the elements of the branch that holds; a directive inside a line, `text ifdef::name[shown] more`, stays a `ConditionalBlock`, and a renderer writes the branch of a `ConditionalBlock` that holds for the attributes it knows.
 
 TIP: A `Document` and the parser are thread safe, a renderer is not; see the xref:asciidoc-java.adoc#_quick_start[quick start] for how to reuse each renderer.
 
@@ -59,10 +59,10 @@ A visitor of your own can read the model as the HTML and Markdown renderers do, 
 The model does not keep the source text of the elements.
 To get it, for example to look each paragraph up in a translation file before rendering, register a `SourceListener` in the `ParserContext`.
 The parser calls it for each block-level element with a `SourceSpan`: the file the element was read from (an included file for included elements), its first and last line, and its raw lines before attribute substitution, without the attribute list and title lines preceding it.
-List items, the content of table cells, callouts, description list entries and the content of quote, admonition, open and conditional blocks are read from their own reader, so their line numbers are relative to it.
+List items, the content of table cells, callouts, description list entries and the content of quote, admonition and open blocks are read from their own reader, so their line numbers are relative to it.
 A table cell itself is reported after its content, with the lines of its table from the line of its separator and the text after the separator and the specifier, stripped, as asciidoctor's `Cell#getSource`; a plain text cell is its own content, so the listener gets it twice and a map keeps the cell.
 When a list item, a callout, an admonition block or an `a` cell holds a single paragraph with one child, the model keeps that child, a `Text` for example, and the listener gets the child, not the paragraph.
-Where the parser evaluates a conditional while it reads, in the header and in a table, an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included; a conditional nested in such a branch is read the same way, one level deep: a third level fails the parse with a message.
+The parser evaluates the conditionals before it reads the lines, in the header as in the body, so an element read from the branch that holds keeps its own line numbers and raw lines, nested directive lines included, at any depth.
 
 [source,java]
 ----

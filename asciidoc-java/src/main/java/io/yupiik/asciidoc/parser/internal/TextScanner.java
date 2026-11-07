@@ -424,6 +424,43 @@ public class TextScanner {
     }
 
     /**
+     * The textual test of asciidoctor's preprocessor for a conditional directive line, the same for an escaped one:
+     * {@code ifdef}, {@code ifndef}, {@code ifeval} or {@code endif}, then {@code ::}, a target without whitespace,
+     * then {@code [} and a {@code ]} ending the line, trailing whitespace ignored.
+     *
+     * @param line the line.
+     * @param from the index the directive name starts at: 0, or 1 after the backslash of an escaped directive.
+     * @return the index of the {@code [}, or {@code -1} when the line is not a conditional directive.
+     */
+    public int conditionalDirectiveBracket(final String line, final int from) {
+        final int targetStart;
+        if (line.startsWith("ifdef::", from) || line.startsWith("endif::", from)) {
+            targetStart = from + "ifdef::".length();
+        } else if (line.startsWith("ifndef::", from) || line.startsWith("ifeval::", from)) {
+            targetStart = from + "ifndef::".length();
+        } else {
+            return -1;
+        }
+        int end = line.length();
+        while (end > targetStart && Character.isWhitespace(line.charAt(end - 1))) {
+            end--;
+        }
+        if (end == targetStart || line.charAt(end - 1) != ']') {
+            return -1;
+        }
+        for (int i = targetStart; i < end; i++) {
+            final char c = line.charAt(i);
+            if (c == '[') {
+                return i;
+            }
+            if (Character.isWhitespace(c)) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * @param line the line.
      * @param from the index after the colon of an inline macro.
      * @return whether the target of the macro runs from there to a {@code [} without any blank, as in asciidoctor's

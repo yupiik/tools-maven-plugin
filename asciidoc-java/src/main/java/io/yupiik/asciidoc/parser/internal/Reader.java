@@ -32,11 +32,9 @@ public class Reader {
     private final Path file;
     private final SourceListener listener;
     private int lineOffset = 0;
-    // the parser evaluated a conditional directive block and reads the branch that holds again, see reread():
-    // from the end of that branch the reader skips to the end of the block; a block nested in that branch takes the
-    // first field and the enclosing one moves to the second, and two is the whole depth: fields, not a list
-    private Skip skip;
-    private Skip enclosingSkip;
+    // where the lines come from once keepNextLines() dropped some, one range per run of lines that follow each other
+    // in the document, sorted by offset, the first one at offset 0; null while the lines are the ones given
+    private List<LineRange> ranges;
 
     public Reader(final List<String> lines) {
         this(lines, null, null);
@@ -70,19 +68,22 @@ public class Reader {
         return original;
     }
 
-    // human indexed: the number after the one of the last line read, so the number of the next line; right after a
-    // skipped block, blank lines left out, the last line read is the last one of the branch read again, see reread()
+    // human indexed: the number after the one of the last line read, so the number of the next line when no line was
+    // dropped; when the last lines read are blank lines right after dropped lines, the number after the line before the
+    // dropped ones, so a block that ends there does not take them
     public int getLineNumber() {
-        if (skip != null && lineOffset >= skip.to()) {
-            int offset = lineOffset;
-            while (offset > skip.to() && lines.get(offset - 1).isBlank()) {
-                offset--;
-            }
-            if (offset == skip.to()) {
-                return skip.from() + 1;
-            }
+        if (ranges == null || lineOffset == 0) {
+            return lineOffset + 1;
         }
-        return lineOffset + 1;
+        int offset = lineOffset - 1;
+        while (offset > 0 && lines.get(offset).isBlank()) {
+            final int previous = lineNumber(offset - 1);
+            if (previous + 1 != lineNumber(offset)) {
+                return previous + 1;
+            }
+            offset--;
+        }
+        return lineNumber(lineOffset - 1) + 1;
     }
 
     /**
@@ -92,50 +93,65 @@ public class Reader {
         return lineOffset;
     }
 
-    public void reset() {
-        lineOffset = 0;
-        skip = null;
-        enclosingSkip = null;
+    /**
+     * @return the lines not read yet, a view the parser rewrites in place when it evaluates their conditional directives,
+     * see {@link #keepNextLines(int, int, List)}.
+     */
+    public List<String> getNextLines() {
+        return lines.subList(lineOffset, lines.size());
     }
 
     /**
-     * Reads the lines from {@code from} (included) to {@code to} (excluded) again, then goes on after the last line read:
-     * the parser read a conditional directive block, evaluated it and gives the branch that holds back to its loop.
-     * Each line keeps its offset, so its number and its text as read are the ones of the document.
+     * Drops lines before they are read: the parser evaluated the conditional directives of the next {@code count} lines
+     * and wrote the {@code kept} lines it keeps at their start, through {@link #getNextLines()}, so the lines after them
+     * up to {@code count} are dropped. Each line keeps its number in the document.
      *
-     * @param from the offset of the first line to read again.
-     * @param to   the offset after the last line to read again.
-     * @throws IllegalStateException when the block is nested in two branches read again, which the two fields do not hold.
+     * @param kept    how many lines the parser kept, written at the start of the next lines.
+     * @param count   how many of the next lines the parser evaluated.
+     * @param origins where the kept lines come from, one range per run of lines that follow each other among the lines
+     *                evaluated, sorted by offset, the first one at offset 0.
      */
-    public void reread(final int from, final int to) {
-        if (from == to) { // an empty branch: nothing to read again, the reader is already after the block
-            return;
-        }
-        while (skip != null && lineOffset > skip.to()) { // the blocks already passed
-            skip = enclosingSkip;
-            enclosingSkip = null;
-        }
-        if (skip != null) { // nested in the branch read again
-            if (enclosingSkip != null) {
-                throw new IllegalStateException("Conditional block nested in two branches read again, at line " + getLineNumber());
+    public void keepNextLines(final int kept, final int count, final List<LineRange> origins) {
+        final var updated = new ArrayList<LineRange>(origins.size() + 2 + (ranges == null ? 0 : ranges.size()));
+        if (ranges == null) {
+            updated.add(new LineRange(0, 0));
+        } else {
+            for (final var range : ranges) {
+                if (range.offset() < lineOffset) {
+                    updated.add(range);
+                }
             }
-            enclosingSkip = skip;
         }
-        skip = new Skip(to, lineOffset);
-        lineOffset = from;
+        for (final var range : origins) {
+            updated.add(new LineRange(lineOffset + range.offset(), lineNumber(lineOffset + range.origin()) - 1));
+        }
+        final int after = lineOffset + count;
+        if (after < lines.size()) {
+            final int shift = kept - count;
+            updated.add(new LineRange(after + shift, lineNumber(after) - 1));
+            if (ranges != null) {
+                for (final var range : ranges) {
+                    if (range.offset() > after) {
+                        updated.add(new LineRange(range.offset() + shift, range.origin()));
+                    }
+                }
+            }
+        }
+        ranges = updated;
+        lines.subList(lineOffset + kept, after).clear();
+    }
+
+    public void reset() {
+        lineOffset = 0;
     }
 
     public void rewind() {
         if (lineOffset > 0) {
-            if (skip != null && lineOffset == skip.to()) { // the line before the first one after a block is the last one of its branch
-                lineOffset = skip.from();
-            }
             lineOffset--;
         }
     }
 
     public String nextLine() {
-        skipToBlockEnd();
         if (lineOffset >= lines.size()) {
             return null;
         }
@@ -147,7 +163,6 @@ public class Reader {
 
     public String skipCommentsAndEmptyLines() {
         while (true) {
-            skipToBlockEnd();
             if (lineOffset >= lines.size()) {
                 return null;
             }
@@ -187,26 +202,32 @@ public class Reader {
         return "Reader[current=" + (lineOffset >= lines.size() ? "<none>" : lines.get(lineOffset)) + ", total=" + lines.size() + ", offset=" + lineOffset + "]";
     }
 
-    // at the end of a branch read again, go to the end of its block; a block passed (the line after it was read, or a
-    // comment block went over it) is dropped, and the skip of the block just left stays until then for rewind()
-    private void skipToBlockEnd() {
-        while (skip != null && lineOffset >= skip.from()) {
-            if (lineOffset < skip.to()) {
-                lineOffset = skip.to();
-            } else if (lineOffset > skip.to()) {
-                skip = enclosingSkip;
-                enclosingSkip = null;
-            } else if (enclosingSkip != null && skip.to() == enclosingSkip.from()) { // the nested block ends where the branch ends: one skip
-                skip = new Skip(skip.from(), enclosingSkip.to());
-                enclosingSkip = null;
+    // human indexed, the number in the document of the line at this offset, from the last range starting at or before it
+    private int lineNumber(final int offset) {
+        if (ranges == null) {
+            return offset + 1;
+        }
+        int low = 0;
+        int high = ranges.size() - 1;
+        while (low < high) {
+            final int middle = (low + high + 1) >>> 1;
+            if (ranges.get(middle).offset() <= offset) {
+                low = middle;
             } else {
-                break;
+                high = middle - 1;
             }
         }
+        final var range = ranges.get(low);
+        return range.origin() + offset - range.offset() + 1;
     }
 
-    // the lines of a conditional block after the branch read again: from the end of the branch (included) to the line
-    // after the block (excluded)
-    private record Skip(int from, int to) {
+    /**
+     * Lines that follow each other in the lines they come from: from {@code offset} on, they are the lines from
+     * {@code origin} on, both counted from 0.
+     *
+     * @param offset the offset of the first line of the range.
+     * @param origin the offset of that line in the lines it comes from.
+     */
+    public record LineRange(int offset, int origin) {
     }
 }
