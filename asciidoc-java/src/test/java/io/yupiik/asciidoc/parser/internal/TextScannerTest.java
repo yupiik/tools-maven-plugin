@@ -162,6 +162,29 @@ class TextScannerTest {
     }
 
     @Test
+    void ifevalOperators() {
+        assertEquals(4, scanner.ifevalOperator("{v} > 1"));
+        assertEquals(3, scanner.ifevalOperator("{v}>1"), "no blanks");
+        assertEquals(3, scanner.ifevalOperator("{v}>=1"), "two characters");
+        assertEquals(3, scanner.ifevalOperator("{v}<=1"));
+        assertEquals(3, scanner.ifevalOperator("{v}!=1"));
+        assertEquals(3, scanner.ifevalOperator("\"a\"==\"b c\""), "a blank in an operand");
+        assertEquals(5, scanner.ifevalOperator("\"a=b\"==\"c\""), "a single = is part of an operand");
+        assertEquals(5, scanner.ifevalOperator("\"a!\" == \"b\""), "a single ! is part of an operand");
+        assertEquals(6, scanner.ifevalOperator("\"a<b\" == \"c\""), "the split of earlier versions: one operator between the first and the last space");
+        assertEquals(7, scanner.ifevalOperator("a<\t<\tb == c"), "a tab is not a space for that split");
+        assertEquals(7, scanner.ifevalOperator("\"a<b\" \t== \"c\""), "a tab next to the operator, beside a space");
+        assertEquals(2, scanner.ifevalOperator("\"a<b\" == \"c d\""), "the text between the first and the last space is not one operator");
+        assertEquals(2, scanner.ifevalOperator("\"a<b\"==\"c\""), "else the first operator wins, as in asciidoctor");
+        assertEquals(5, scanner.ifevalOperatorEnd("{v}>=1", 3));
+        assertEquals(4, scanner.ifevalOperatorEnd("{v}>1", 3));
+        assertEquals(1, scanner.ifevalOperator("a==1"), "after the first character");
+        assertEquals(-1, scanner.ifevalOperator("<1"), "not at the first character");
+        assertEquals(-1, scanner.ifevalOperator("{v}"), "no operator");
+        assertEquals(-1, scanner.ifevalOperator("{v} = 1"), "a single =");
+    }
+
+    @Test
     void names() {
         assertTrue(scanner.isWordCharacter('_'));
         assertTrue(scanner.isWordCharacter('é'));

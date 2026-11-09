@@ -375,18 +375,19 @@ public class ConditionalParser {
     }
 
     private Predicate<ConditionalBlock.Context> parseCondition(final String condition, final Map<String, String> attributeAtParsingTime) {
-        final int sep1 = condition.indexOf(' ');
-        if (sep1 < 0) {
+        final int operatorStart = scanner.ifevalOperator(condition);
+        if (operatorStart < 0) {
             throw new IllegalArgumentException("Unknown expression: '" + condition + "'");
         }
-        final int sep2 = condition.lastIndexOf(' ');
-        if (sep2 < 0 || sep2 == sep1) {
+        final int operatorEnd = scanner.ifevalOperatorEnd(condition, operatorStart);
+        final var right = condition.substring(operatorEnd).strip();
+        if (right.isEmpty()) {
             throw new IllegalArgumentException("Unknown expression: '" + condition + "'");
         }
 
-        final var leftOperand = stripQuotes(condition.substring(0, sep1).strip());
-        final var operator = condition.substring(sep1 + 1, sep2).strip();
-        final var rightOperand = stripQuotes(condition.substring(sep2).strip());
+        final var leftOperand = stripQuotes(condition.substring(0, operatorStart).strip());
+        final var operator = condition.substring(operatorStart, operatorEnd);
+        final var rightOperand = stripQuotes(right);
         final var parsingAttributes = !attributeAtParsingTime.isEmpty() ?
                 new HashMap<>(attributeAtParsingTime) :
                 Map.<String, String>of();

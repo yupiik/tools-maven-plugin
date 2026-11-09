@@ -508,6 +508,51 @@ public class TextScanner {
     }
 
     /**
+     * The operator of an {@code ifeval} condition, {@code ==}, {@code !=}, {@code <=}, {@code >=}, {@code <} or
+     * {@code >}. When the text between the first and the last space is one operator once stripped, as in
+     * {@code "a<b" == "a<b"}, it is that one, the split of earlier versions. Otherwise it is the first operator after the
+     * first character, as in asciidoctor: {@code {v}>1}. A single {@code =} or {@code !} is part of an operand.
+     *
+     * @param condition the condition.
+     * @return the index of the operator, or {@code -1} when the condition has none.
+     */
+    public int ifevalOperator(final String condition) {
+        final int firstSpace = condition.indexOf(' ');
+        final int lastSpace = condition.lastIndexOf(' ');
+        if (firstSpace >= 0 && lastSpace > firstSpace) {
+            final var middle = condition.substring(firstSpace + 1, lastSpace).strip();
+            if (!middle.isEmpty() && isIfevalOperator(middle, 0) && ifevalOperatorEnd(middle, 0) == middle.length()) {
+                return condition.indexOf(middle, firstSpace + 1);
+            }
+        }
+        for (int i = 1; i < condition.length(); i++) {
+            if (isIfevalOperator(condition, i)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * @param condition the condition of an {@code ifeval}.
+     * @param index     an index of the condition.
+     * @return whether an operator starts there: {@code <} or {@code >}, or {@code =} or {@code !} before a {@code =}.
+     */
+    protected boolean isIfevalOperator(final String condition, final int index) {
+        final char c = condition.charAt(index);
+        return c == '<' || c == '>' || ((c == '=' || c == '!') && condition.startsWith("=", index + 1));
+    }
+
+    /**
+     * @param condition the condition of an {@code ifeval}.
+     * @param operator  the index of its operator, see {@link #ifevalOperator(String)}.
+     * @return the index after the operator, which is one or two characters long.
+     */
+    public int ifevalOperatorEnd(final String condition, final int operator) {
+        return condition.startsWith("=", operator + 1) ? operator + 2 : operator + 1;
+    }
+
+    /**
      * @param line the line.
      * @param from the index after the colon of an inline macro.
      * @return whether the target of the macro runs from there to a {@code [} without any blank, as in asciidoctor's
