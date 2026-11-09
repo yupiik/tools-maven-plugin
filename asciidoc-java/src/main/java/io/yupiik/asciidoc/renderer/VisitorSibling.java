@@ -58,6 +58,7 @@ import static java.util.stream.Collectors.joining;
  */
 public class VisitorSibling {
     private static final String HEX = "0123456789ABCDEF";
+    private static final Text.Style[] STYLES = Text.Style.values();
 
     // asciidoctor's INTRINSIC_ATTRIBUTES, with its values
     private static final Map<String, String> INTRINSIC_ATTRIBUTES = Map.ofEntries(
@@ -222,16 +223,51 @@ public class VisitorSibling {
     // ------------------------------------------------------------------------------------------------------ elements
 
     /**
-     * @return true for the elements that sit inside a paragraph: texts, links, anchors, attributes, line breaks and the
-     * inline forms of code and macros.
+     * @return true for the elements that sit inside a paragraph: texts, links, anchors, attributes, line breaks, the
+     * inline forms of code and macros, and the styled spans of {@link #spanStyles(Element)}.
      */
     public boolean isInline(final Element element) {
         return switch (element.type()) {
             case TEXT, LINK, ANCHOR, ATTRIBUTE, LINE_BREAK -> true;
             case CODE -> ((Code) element).inline();
             case MACRO -> ((Macro) element).inline();
+            case PARAGRAPH -> isStyledSpan(element);
             default -> false;
         };
+    }
+
+    /**
+     * @return the styles of a styled span, a paragraph inside a line whose options hold the name of a {@link Text.Style}
+     * as a key with an ignored value: {@code *see link:https://a.io[y] now*} is a paragraph with the {@code BOLD} key around
+     * the text, the link and the text after it. Empty for any other element.
+     */
+    public List<Text.Style> spanStyles(final Element element) {
+        if (!isStyledSpan(element)) {
+            return List.of();
+        }
+        final var options = ((Paragraph) element).options();
+        final var styles = new ArrayList<Text.Style>(1);
+        for (final var style : STYLES) {
+            if (options.get(style.name()) != null) {
+                styles.add(style);
+            }
+        }
+        return styles;
+    }
+
+    /**
+     * @return true for a styled span, see {@link #spanStyles(Element)}.
+     */
+    public boolean isStyledSpan(final Element element) {
+        if (!(element instanceof Paragraph paragraph) || paragraph.options() == null || paragraph.options().isEmpty()) {
+            return false;
+        }
+        for (final var style : STYLES) {
+            if (paragraph.options().get(style.name()) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

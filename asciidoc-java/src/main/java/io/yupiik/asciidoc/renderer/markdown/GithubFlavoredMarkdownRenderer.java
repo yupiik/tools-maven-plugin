@@ -230,7 +230,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         final var segments = new ArrayList<List<Element>>();
         List<Element> run = null;
         for (final var child : paragraphLevel ? sibling.expandConditionals(children, context()) : children) {
-            final var wrapped = run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph ?
+            final var wrapped = run != null && run.get(run.size() - 1) instanceof LineBreak && child instanceof Paragraph paragraph && !sibling.isStyledSpan(paragraph) ?
                     sibling.expandConditionals(paragraph.children(), context()) : null;
             if (wrapped != null && allInline(wrapped)) {
                 run.addAll(wrapped); // the parser wraps the line after a line break when it has markup
@@ -371,6 +371,10 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     @Override
     public void visitParagraph(final Paragraph paragraph) {
+        if (sibling.isStyledSpan(paragraph)) { // a styled span outside a paragraph
+            paragraph(inline(paragraph));
+            return;
+        }
         final var id = sibling.id(paragraph.options());
         if (id != null) {
             anchor(id);
@@ -547,8 +551,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * code blocks, nested lists) in source order, indented under the marker.
      */
     protected void listItem(final String marker, final Element item) {
-        final var segments = new ArrayList<>(segments(item instanceof Paragraph paragraph ? paragraph.children() : List.of(item), true));
-        if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped) {
+        final var segments = new ArrayList<>(segments(item instanceof Paragraph paragraph && !sibling.isStyledSpan(paragraph) ? paragraph.children() : List.of(item), true));
+        if (!segments.isEmpty() && segments.get(0).size() == 1 && segments.get(0).get(0) instanceof Paragraph wrapped && !sibling.isStyledSpan(wrapped)) {
             final var lines = sibling.expandConditionals(wrapped.children(), context());
             if (isOneParagraph(lines)) { // first paragraph of an item carrying blocks
                 segments.set(0, lines);
@@ -793,7 +797,13 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             case ANCHOR -> anchorLink((Anchor) element);
             case ATTRIBUTE -> attributeText((Attribute) element);
             case LINE_BREAK -> "\\\n";
-            case PARAGRAPH -> inlineChildren(sibling.expandConditionals(((Paragraph) element).children(), context()));
+            case PARAGRAPH -> {
+                final var paragraph = (Paragraph) element;
+                final var styles = sibling.spanStyles(paragraph);
+                yield styles.isEmpty() ?
+                        inlineChildren(sibling.expandConditionals(paragraph.children(), context())) :
+                        styledSpan(paragraph, styles, "", null);
+            }
             default -> block(List.of(element));
         };
     }
@@ -814,31 +824,109 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     private String inlineChildren(final List<Element> children) {
         final var text = new StringBuilder();
-        for (final var child : children) {
-            text.append(inline(child));
-        }
+        appendInline(children, null, text);
         return text.toString();
+    }
+
+    // an attribute value is written in place, so a styled span inside it sees the text around the attribute
+    protected void appendInline(final List<Element> children, final Element after, final StringBuilder text) {
+        for (int i = 0; i < children.size(); i++) {
+            final var child = children.get(i);
+            final var next = i + 1 < children.size() ? children.get(i + 1) : after;
+            if (child instanceof Paragraph paragraph) {
+                final var styles = sibling.spanStyles(paragraph);
+                if (!styles.isEmpty()) {
+                    text.append(styledSpan(paragraph, styles, text, next));
+                    continue;
+                }
+            }
+            final var value = child instanceof Attribute attribute ? attributeElements(attribute) : null;
+            if (value != null) {
+                appendInline(value, next, text);
+            } else {
+                text.append(inline(child));
+            }
+        }
     }
 
     protected String text(final Text text) {
         final var value = text.value() == null ? "" : text.value();
-        final var options = options(text.options());
-        final var id = options.get("id");
-        final var prefix = id != null && !id.isBlank() ? "<a id=\"" + id.strip() + "\"></a>" : "";
+        final var prefix = idAnchor(text.options());
         if (text.style() == null || text.style().isEmpty() || value.isBlank()) {
             return prefix + escapeText(value);
         }
         // GFM emphasis cannot start or end with a space: keep surrounding whitespace outside the markup
-        int start = 0;
-        while (start < value.length() && Character.isWhitespace(value.charAt(start))) {
-            start++;
+        final int start = leadingWhitespaceEnd(value);
+        final int end = trailingWhitespaceStart(value, start);
+        return prefix + value.substring(0, start) + styled(escapeText(value.substring(start, end)), text.style()) + value.substring(end);
+    }
+
+    /**
+     * @param span   a styled span, see {@link VisitorSibling#spanStyles(Element)}.
+     * @param styles the styles of the span.
+     * @param before what is written before the span in its paragraph.
+     * @param next   the element after the span, null when the span ends its paragraph.
+     */
+    protected String styledSpan(final Paragraph span, final List<Text.Style> styles, final CharSequence before, final Element next) {
+        final var prefix = idAnchor(span.options());
+        final var content = inlineChildren(span.children());
+        if (content.isBlank()) {
+            return prefix + content;
         }
-        int end = value.length();
-        while (end > start && Character.isWhitespace(value.charAt(end - 1))) {
+        final int start = leadingWhitespaceEnd(content);
+        final int end = trailingWhitespaceStart(content, start);
+        final var inner = content.substring(start, end);
+        // commonmark reads no emphasis in a marker between a letter or a digit and a punctuation mark: **see [y](https://a.io)**now
+        // stays as written, so a span starting or ending with punctuation next to a word gets HTML tags
+        final boolean glued = (start == 0 && !Character.isLetterOrDigit(inner.charAt(0)) && endsGlued(before)) ||
+                (end == content.length() && !Character.isLetterOrDigit(inner.charAt(inner.length() - 1)) && startsGlued(next));
+        return prefix + content.substring(0, start) + (glued ? htmlStyled(inner, styles) : styled(inner, styles)) + content.substring(end);
+    }
+
+    // the Markdown written before a span ends with a letter or a digit, maybe followed by * or ~ markers
+    protected boolean endsGlued(final CharSequence text) {
+        int end = text.length();
+        while (end > 0 && (text.charAt(end - 1) == '*' || text.charAt(end - 1) == '~')) {
             end--;
         }
-        var styled = escapeText(value.substring(start, end));
-        for (final var style : text.style()) {
+        return end > 0 && Character.isLetterOrDigit(text.charAt(end - 1));
+    }
+
+    // the element after a span is written starting with a letter or a digit, or with a * or ~ marker (then what follows
+    // that marker is not known here, so the span is treated as glued)
+    protected boolean startsGlued(final Element element) {
+        if (element instanceof Text text) {
+            final var value = text.value();
+            if (value == null || value.isEmpty() || Character.isWhitespace(value.charAt(0))) {
+                return false;
+            }
+            return text.style() == null || text.style().isEmpty() ? Character.isLetterOrDigit(value.charAt(0)) : startsWithMarker(text.style());
+        }
+        if (element instanceof Paragraph paragraph) {
+            final var styles = sibling.spanStyles(paragraph);
+            if (!styles.isEmpty()) {
+                return startsWithMarker(styles);
+            }
+        }
+        if (element instanceof Attribute attribute) {
+            final var value = attributeElements(attribute);
+            return value != null && !value.isEmpty() && startsGlued(value.get(0));
+        }
+        return element instanceof Macro; // an unknown macro is written as text
+    }
+
+    // styled() writes the last style outermost
+    protected boolean startsWithMarker(final List<Text.Style> styles) {
+        return switch (styles.get(styles.size() - 1)) {
+            case BOLD, ITALIC, EMPHASIS, STRIKETHROUGH -> true;
+            default -> false;
+        };
+    }
+
+    // the markup of each style around a content already written as Markdown
+    protected String styled(final String content, final List<Text.Style> styles) {
+        var styled = content;
+        for (final var style : styles) {
             styled = switch (style) {
                 case BOLD -> "**" + styled + "**";
                 case ITALIC, EMPHASIS -> "*" + styled + "*";
@@ -849,7 +937,46 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
                 default -> styled;
             };
         }
-        return prefix + value.substring(0, start) + styled + value.substring(end);
+        return styled;
+    }
+
+    // the HTML tag of each style around a content already written as Markdown, where a marker would not be read
+    protected String htmlStyled(final String content, final List<Text.Style> styles) {
+        var styled = content;
+        for (final var style : styles) {
+            styled = switch (style) {
+                case BOLD -> "<strong>" + styled + "</strong>";
+                case ITALIC, EMPHASIS -> "<em>" + styled + "</em>";
+                case STRIKETHROUGH -> "<del>" + styled + "</del>";
+                case MARK -> "<mark>" + styled + "</mark>";
+                case SUB -> "<sub>" + styled + "</sub>";
+                case SUP -> "<sup>" + styled + "</sup>";
+                default -> styled;
+            };
+        }
+        return styled;
+    }
+
+    // the anchor of an id written before a text or a styled span, [#id]#...#
+    protected String idAnchor(final Map<String, String> options) {
+        final var id = options(options).get("id");
+        return id != null && !id.isBlank() ? "<a id=\"" + id.strip() + "\"></a>" : "";
+    }
+
+    protected int leadingWhitespaceEnd(final String value) {
+        int start = 0;
+        while (start < value.length() && Character.isWhitespace(value.charAt(start))) {
+            start++;
+        }
+        return start;
+    }
+
+    protected int trailingWhitespaceStart(final String value, final int start) {
+        int end = value.length();
+        while (end > start && Character.isWhitespace(value.charAt(end - 1))) {
+            end--;
+        }
+        return end;
     }
 
     /**
@@ -1033,11 +1160,14 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     }
 
     private String attributeText(final Attribute attribute) {
+        final var elements = attributeElements(attribute);
+        return elements == null ? "{" + attribute.attribute() + "}" : inlineChildren(elements);
+    }
+
+    // the elements of the value of an attribute, null when the attribute is not set
+    protected List<Element> attributeElements(final Attribute attribute) {
         final var value = context().attribute(attribute.attribute());
-        if (value == null) {
-            return "{" + attribute.attribute() + "}";
-        }
-        return inlineChildren(sibling.expandConditionals(attribute.evaluator().apply(value), context()));
+        return value == null ? null : sibling.expandConditionals(attribute.evaluator().apply(value), context());
     }
 
     protected String inlineMacro(final Macro macro) {
