@@ -1,0 +1,9 @@
+= Home
+
+== Configuration
+
+The cache size is configured in the server settings file.
+
+== Embeddings
+
+Embeddings are computed from the rendered HTML content.

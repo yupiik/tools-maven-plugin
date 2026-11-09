@@ -117,6 +117,21 @@ public class MiniSiteConfiguration {
      */
     @Builder.Default
     private int renderingThreads = -1;
+    /**
+     * Number of threads used for the LLM embedding computation.
+     * <ul>
+     *   <li>{@code -2} (default): re-use the {@link #renderingThreads} pool — the exact same instance, so
+     *       embeddings share the rendering thread budget instead of doubling it.</li>
+     *   <li>{@code -1}: virtual threads when available, otherwise {@link java.util.concurrent.ForkJoinPool#commonPool()}
+     *       (a dedicated executor, not the rendering one).</li>
+     *   <li>{@code 0}: sequential (previous behaviour), each embedding batch computed on the calling thread.</li>
+     *   <li>{@code > 0}: a dedicated fixed thread pool of the given size (not shared with rendering).</li>
+     * </ul>
+     * When {@code embeddingsThreads > -2} and equals {@link #renderingThreads}, the rendering pool instance is
+     * reused instead of allocating a second one.
+     */
+    @Builder.Default
+    private int embeddingsThreads = -2;
     @Builder.Default
     private GravatarConfiguration gravatar = new GravatarConfiguration();
     @Builder.Default

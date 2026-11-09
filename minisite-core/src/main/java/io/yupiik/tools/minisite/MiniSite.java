@@ -950,6 +950,14 @@ public class MiniSite implements Runnable {
         boolean hasBlog = false;
         List<String> categories = emptyList();
         final Map<Path, Supplier<String>> leftMenus = new HashMap<>();
+        // Whether the LLM embeddings phase should reuse the exact rendering pool instance. True when the feature is on
+        // AND the embeddings setting either inherits the rendering threads (-2) or selects the very same pool size.
+        // When true and rendering ran, the pool is kept open until after the embedding pass and closed at the end of
+        // this method; otherwise it is closed right after the page renders below.
+        final boolean shareEmbeddingPool = configuration.isLlmChatEnabled()
+                && (configuration.getEmbeddingsThreads() == -2
+                || configuration.getEmbeddingsThreads() == configuration.getRenderingThreads());
+        RenderingExecutor rendering = null;
         if (Files.exists(content)) {
             final List<BlogPage> blog = new ArrayList<>();
             final Function<Page, String> footerNavTemplate = loadNavTemplates();
@@ -965,17 +973,21 @@ public class MiniSite implements Runnable {
             template = createTemplate(options, asciidoctor, hasBlog);
             final Function<Page, String> tpl = template;
             final var blogCategories = new AtomicReference<List<String>>(categories);
-            try (final var rendering = new RenderingExecutor(
+            rendering = new RenderingExecutor(
                     configuration.getRenderingThreads(),
-                    configuration.getAsciidoctorConfiguration().warn(), configuration.getAsciidoctorConfiguration().error())) {
-                // page renders and blog generation can run concurrently on the shared executor.
-                pageToRender.forEach(it -> rendering.route(() -> executeInMinisiteClassLoader(() -> it.accept(tpl))));
-                if (hasBlog) {
-                    final var blogSnapshot = new ArrayList<>(blog);
-                    rendering.route(() -> executeInMinisiteClassLoader(() -> blogCategories.set(generateBlog(blogSnapshot, asciidoctor, options, tpl))));
-                }
-                rendering.await(); // wait for every page render and, when present, the blog generation
-                categories = blogCategories.get();
+                    configuration.getAsciidoctorConfiguration().warn(), configuration.getAsciidoctorConfiguration().error());
+            final var renderingExecutor = rendering;
+            // page renders and blog generation can run concurrently on the shared executor.
+            pageToRender.forEach(it -> renderingExecutor.route(() -> executeInMinisiteClassLoader(() -> it.accept(tpl))));
+            if (hasBlog) {
+                final var blogSnapshot = new ArrayList<>(blog);
+                renderingExecutor.route(() -> executeInMinisiteClassLoader(() -> blogCategories.set(generateBlog(blogSnapshot, asciidoctor, options, tpl))));
+            }
+            renderingExecutor.await(); // wait for every page render and, when present, the blog generation
+            categories = blogCategories.get();
+            if (!shareEmbeddingPool) { // close now unless the LLM embeddings share this same pool
+                rendering.close();
+                rendering = null;
             }
         }
         if (configuration.isGenerateIndex()) {
@@ -1141,15 +1153,28 @@ public class MiniSite implements Runnable {
         if (configuration.isLlmChatEnabled()) {
             try {
                 final Predicate<PageRef> ignoredPages = notIndexedPagesPredicate();
-                new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget(),
-                        file -> {
-                            final String location = configuration.getTarget().relativize(file).toString().replace(File.separatorChar, '/');
-                            return ignoredPages.test(new PageRef(location, file.getFileName().toString()));
-                        })
-                        .run();
+                final var embeddings = embeddingExecutor(rendering);
+                try {
+                    new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget(),
+                            file -> {
+                                final String location = configuration.getTarget().relativize(file).toString().replace(File.separatorChar, '/');
+                                return ignoredPages.test(new PageRef(location, file.getFileName().toString()));
+                            },
+                            embeddings.executor)
+                            .run();
+                } finally {
+                    // release any dedicated executor created for the embeddings only; no-op when sharing the rendering pool
+                    embeddings.close();
+                }
             } catch (final RuntimeException e) {
                 configuration.getAsciidoctorConfiguration().error().accept("Failed to generate LLM embeddings: " + e.getMessage());
                 throw e;
+            } finally {
+                // when the embeddings reused the rendering pool, it was kept open until now — close it
+                if (rendering != null) {
+                    rendering.close();
+                    rendering = null;
+                }
             }
         }
 
@@ -1577,6 +1602,59 @@ public class MiniSite implements Runnable {
     }
 
     /**
+     * Resolves the {@link Executor} used to run the LLM embedding batch inference, and whether it is owned by the
+     * embedding phase (and therefore must be closed once the embeddings are written).
+     * <ul>
+     *   <li>{@code embeddingsThreads == -2} (inherit) and the rendering pool exists: reuse the exact rendering pool
+     *       instance so embeddings share the rendering thread budget instead of doubling it.</li>
+     *   <li>{@code embeddingsThreads > -2} and equals {@code renderingThreads}: same-instance reuse as above.</li>
+     *   <li>{@code embeddingsThreads == 0}: sequential ({@link Runnable#run()}-executing executor), nothing to close.</li>
+     *   <li>otherwise: a dedicated executor (virtual threads when {@code -1}, otherwise a fixed pool of the given
+     *       size) owned and closed by the caller.</li>
+     * </ul>
+     */
+    private EmbeddingExecutor embeddingExecutor(final RenderingExecutor rendering) {
+        final int threads = configuration.getEmbeddingsThreads();
+        final int renderingThreads = configuration.getRenderingThreads();
+        final boolean share = threads == -2 || threads == renderingThreads;
+        if (share && rendering != null) {
+            return new EmbeddingExecutor(rendering.executor(), null); // shared instance — closed by caller, not here
+        }
+        final int effective = threads == -2 ? renderingThreads : threads;
+        if (effective == 0) {
+            return new EmbeddingExecutor(LlmEmbeddingGenerator.SEQUENTIAL, null);
+        }
+        final var owned = new RenderingExecutor(effective,
+                configuration.getAsciidoctorConfiguration().warn(), configuration.getAsciidoctorConfiguration().error());
+        return new EmbeddingExecutor(owned.executor(), owned);
+    }
+
+    /**
+     * Pair of an {@link Executor} and an optional owner whose lifecycle belongs to the embedding phase;
+     * {@link #close()} releases the owned executor (a no-op when the executor is shared or sequential).
+     */
+    private static final class EmbeddingExecutor implements AutoCloseable {
+        private final Executor executor;
+        private final AutoCloseable cleanup;
+
+        private EmbeddingExecutor(final Executor executor, final AutoCloseable cleanup) {
+            this.executor = executor;
+            this.cleanup = cleanup;
+        }
+
+        @Override
+        public void close() {
+            if (cleanup != null) {
+                try {
+                    cleanup.close(); // RenderingExecutor.close() never throws
+                } catch (final Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+    }
+
+    /**
      * Builds the predicate over a rendered page ({@link PageRef location/name}) for pages excluded from the
      * search index and the LLM embedding pass ({@code notIndexedPages}, computed via {@link #ignoredPage(String)}).
      * A single code path is shared by the search index and the LLM embedding generator so de-indexed pages are
@@ -1857,6 +1935,14 @@ public class MiniSite implements Runnable {
                 owned = virtualThreadExecutorIfAvailable();
                 executor = owned == null ? ForkJoinPool.commonPool() : owned;
             }
+        }
+
+        /**
+         * The underlying {@link Executor} this rendering executor runs tasks on, exposed so other phases (such as the
+         * LLM embedding computation) can share the exact same pool instance instead of allocating a second one.
+         */
+        protected Executor executor() {
+            return executor;
         }
 
         protected void route(final Runnable task) {

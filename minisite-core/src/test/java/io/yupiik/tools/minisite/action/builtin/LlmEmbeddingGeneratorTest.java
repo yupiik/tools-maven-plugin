@@ -9,9 +9,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmEmbeddingGeneratorTest {
@@ -224,6 +228,51 @@ class LlmEmbeddingGeneratorTest {
 
         assertTrue(simRelated > simUnrelated,
                 "paraphrase (" + simRelated + ") should be more similar than unrelated (" + simUnrelated + ")");
+    }
+
+    @Test
+    void computeEmbeddingsShouldBeDeterministicAcrossExecutors(@TempDir final Path work) {
+        // enough chunks to span several ONNX batches (BATCH_SIZE = 32) and exercise the parallel batch loop
+        final int chunkCount = 100;
+        // both runs embed cloned chunks with the SAME ids/texts so results and index order are directly comparable
+        final List<LlmEmbeddingGenerator.Chunk> sequentialChunks = chunks(chunkCount);
+        final List<LlmEmbeddingGenerator.Chunk> parallelChunks = chunks(chunkCount);
+
+        final var sequential = new LlmEmbeddingGenerator(Map.of(), work, work);
+        sequential.computeEmbeddings(sequentialChunks);
+
+        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            final var parallel = new LlmEmbeddingGenerator(Map.of(), work, work, p -> false, pool);
+            parallel.computeEmbeddings(parallelChunks);
+        } finally {
+            pool.shutdown();
+        }
+
+        assertEquals(chunkCount, sequentialChunks.size(), "sequential chunks");
+        assertEquals(chunkCount, parallelChunks.size(), "parallel chunks");
+        for (int i = 0; i < chunkCount; i++) {
+            final float[] a = sequentialChunks.get(i).embedding;
+            final float[] b = parallelChunks.get(i).embedding;
+            assertNotNull(a, "sequential chunk " + i + " must be embedded");
+            assertNotNull(b, "parallel chunk " + i + " must be embedded");
+            assertEquals(a.length, b.length, "dimension mismatch on chunk " + i);
+            assertArrayEquals(a, b, 1e-6f, "chunk " + i + " embedding must be identical regardless of the executor");
+            assertEquals(sequentialChunks.get(i).id, parallelChunks.get(i).id,
+                    "chunk order/index must be preserved in parallel mode (chunk " + i + ")");
+        }
+    }
+
+    private static List<LlmEmbeddingGenerator.Chunk> chunks(final int count) {
+        final var list = new ArrayList<LlmEmbeddingGenerator.Chunk>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(new LlmEmbeddingGenerator.Chunk("chunk-" + i,
+                    "Configuration option " + i + " controls the cache size of the server.",
+                    "/chunk-" + i,
+                    "Chunk " + i,
+                    null));
+        }
+        return list;
     }
 
     @Test
