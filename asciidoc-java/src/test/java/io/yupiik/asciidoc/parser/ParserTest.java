@@ -4701,6 +4701,89 @@ class ParserTest {
     }
 
     @Test
+    void ifevalOperatorWithOrWithoutBlanks() { // a condition earlier versions read keeps their split; else the first operator splits it, as in asciidoctor
+        final var content = """
+                = Release notes
+                :version: 2
+                :name: a b
+                :pair: a=b
+                ifeval::[{version}>1]
+                :page-layout: post
+                endif::[]
+
+                ifeval::["{name}" == "a b"]
+                A quoted operand holds a blank.
+                endif::[]
+
+                ifeval::[{version}>=2]
+                A two-character operator.
+                endif::[]
+
+                ifeval::[{version}<=1]
+                A false condition.
+                endif::[]
+
+                ifeval::[{version} !=3]
+                A blank on one side.
+                endif::[]
+
+                ifeval::["{pair}"=="a=b"]
+                A single equals sign in an operand.
+                endif::[]
+
+                ifeval::["a<b" == "a<b"]
+                An operand holds an operator.
+                endif::[]
+                """;
+        final var document = new Parser().parse(content, new Parser.ParserContext(null));
+        assertEquals(Map.of("version", "2", "name", "a b", "pair", "a=b", "page-layout", "post", "authorcount", "0"), document.header().attributes());
+        assertEquals(
+                List.of(
+                        new Text(List.of(), "A quoted operand holds a blank.", Map.of()),
+                        new Text(List.of(), "A two-character operator.", Map.of()),
+                        new Text(List.of(), "A blank on one side.", Map.of()),
+                        new Text(List.of(), "A single equals sign in an operand.", Map.of()),
+                        new Text(List.of(), "An operand holds an operator.", Map.of())),
+                document.body().children());
+    }
+
+    @Test
+    void ifevalOperatorWithoutBlanksInsideStructures() { // the same rule for a directive between list items and between table rows
+        final var content = """
+                * one
+                ifeval::[{v}>1]
+                * two
+                endif::[]
+
+                |===
+                |A
+                ifeval::["{v}"=="2"]
+                |B
+                endif::[]
+                |===
+                """;
+        final var one = new Text(List.of(), "one", Map.of());
+        final List<Element> a = List.of(new Text(List.of(), "A", Map.of()));
+        assertEquals(
+                List.of(
+                        new UnOrderedList(List.of(one, new Text(List.of(), "two", Map.of())), Map.of()),
+                        new Table(List.of(a, List.<Element>of(new Text(List.of(), "B", Map.of()))), Map.of())),
+                new Parser(Map.of("v", "2")).parseBody(new Reader(List.of(content.split("\n"))), null).children());
+        assertEquals(
+                List.of(new UnOrderedList(List.of(one), Map.of()), new Table(List.of(a), Map.of())),
+                new Parser(Map.of("v", "1")).parseBody(new Reader(List.of(content.split("\n"))), null).children());
+    }
+
+    @Test
+    void ifevalWithoutOperatorOrRightOperandFails() { // the library has no logger, so a condition it cannot read fails
+        for (final var condition : List.of("{version}", "{version} = 1", "{version} ==")) {
+            final var error = assertThrows(IllegalStateException.class, () -> new Parser().parse(
+                    "= T\n:version: 2\n\nifeval::[" + condition + "]\ntext\nendif::[]\n", new Parser.ParserContext(null)), condition);
+            assertEquals("Unknown expression: '" + condition + "'", error.getCause().getMessage(), condition);
+        }
+    }
+
+    @Test
     void newConditionalParserChangesARule() { // an extension replaces the conditional parser through the protected factory, here to accept ifeval::[always]
         final var parser = new Parser(Map.of()) {
             @Override
