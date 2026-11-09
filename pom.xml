@@ -36,7 +36,7 @@
     <jruby.version>9.4.8.0</jruby.version>
     <asciidoctor-revealjs.version>4.0.1</asciidoctor-revealjs.version>
     <asciidoctor-bespoke.version>1.0.0.alpha.1</asciidoctor-bespoke.version>
-    <jgit.version>7.4.0.202509020913-r</jgit.version>
+    <jgit.version>7.8.1.202611041320-r</jgit.version>
     <johnzon.version>1.2.21</johnzon.version>
     <uship.version>1.0.19</uship.version>
 
