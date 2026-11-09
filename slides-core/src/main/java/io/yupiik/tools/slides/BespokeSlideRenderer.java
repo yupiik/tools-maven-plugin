@@ -127,6 +127,11 @@ public class BespokeSlideRenderer extends AsciidoctorLikeHtmlRenderer {
 
     @Override
     public void visitParagraph(final Paragraph element) {
+        final var styles = sibling.spanStyles(element);
+        if (!styles.isEmpty()) {
+            visitStyledSpan(element, styles);
+            return;
+        }
         stackChain(element.children(), () -> {
             // bespoke slides render the (styled) paragraph text inline, without the div.paragraph nor the <p>
             for (final Element child : element.children()) {

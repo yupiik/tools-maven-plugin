@@ -442,6 +442,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     @Override
     public void visitParagraph(final Paragraph element) {
+        final var styles = sibling.spanStyles(element);
+        if (!styles.isEmpty()) {
+            visitStyledSpan(element, styles);
+            return;
+        }
         state.stackChain(element.children(), () -> {
             final boolean preambleWasHandled = false;
             final boolean nowrap = Boolean.parseBoolean(element.options().getOrDefault("nowrap", "false"));
@@ -985,9 +990,11 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
             final boolean parentNeedsP = state.lastElement.size() > 1 && isList(state.lastElement.get(state.lastElement.size() - 2).type());
             // a multi-style text which is inline content of a paragraph must not be re-wrapped in its own
-            // block <p>; it only gets one when it stands alone (isParagraph) or in a list/callout (parentNeedsP/inCallOut)
+            // block <p>; it only gets one when it stands alone (isParagraph) or in a list/callout (parentNeedsP/inCallOut),
+            // and never inside a styled span, whose tag already holds it
             final boolean wrap = useWrappers &&
-                    (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut)));
+                    (parentNeedsP || (element.style().size() != 1 && (isParagraph || state.inCallOut))) &&
+                    (state.lastElement.size() < 2 || !sibling.isStyledSpan(state.lastElement.get(state.lastElement.size() - 2)));
             final boolean useP = parentNeedsP || isParagraph || !state.inCallOut;
             if (wrap) {
                 builder.append(" <").append(useP ? "p" : "span");
@@ -1016,23 +1023,53 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
      */
     protected void writeStyledText(final Text element, final boolean writeCommonAttributes) {
         final var styles = element.style();
-        // as asciidoctor, a [#…]/#mark# span prefixed by any option ([red], [.role], [#id]...) is a
-        // <span>, only the bare #text# without a prefix is a <mark>
-        final boolean markAsSpan = !styles.isEmpty() && styles.get(0) == Text.Style.MARK && !element.options().isEmpty();
-        if (!styles.isEmpty()) {
-            builder.append('<').append(markAsSpan ? "span" : STYLE_TAGS.get(styles.get(0)));
-            if (writeCommonAttributes) {
-                writeCommonAttributes(element.options(), null);
-            }
-            builder.append('>');
-            for (int si = 1; si < styles.size(); si++) {
-                builder.append('<').append(STYLE_TAGS.get(styles.get(si))).append('>');
-            }
+        if (styles.isEmpty()) {
+            builder.append(escape(element.value()));
+            return;
         }
+        writeStyleStart(styles, element.options(), writeCommonAttributes);
         builder.append(escape(element.value()));
-        for (int si = styles.size() - 1; si >= 0; si--) {
-            builder.append("</").append(si == 0 && markAsSpan ? "span" : STYLE_TAGS.get(styles.get(si))).append('>');
+        writeStyleEnd(styles, element.options());
+    }
+
+    // a styled span writes the tag of its style around its children, with the options that are not a style name
+    protected void visitStyledSpan(final Paragraph element, final List<Text.Style> styles) {
+        final var options = element.options().size() == styles.size() ? Map.<String, String>of() : withoutStyles(element.options(), styles);
+        writeStyleStart(styles, options, true);
+        state.stackChain(element.children(), () -> Visitor.super.visitParagraph(element));
+        writeStyleEnd(styles, options);
+    }
+
+    protected Map<String, String> withoutStyles(final Map<String, String> options, final List<Text.Style> styles) {
+        final var withoutStyles = new HashMap<>(options);
+        for (final var style : styles) {
+            withoutStyles.remove(style.name());
         }
+        return withoutStyles;
+    }
+
+    // as asciidoctor, a [#…]/#mark# span prefixed by any option ([red], [.role], [#id]...) is a
+    // <span>, only the bare #text# without a prefix is a <mark>
+    protected boolean isSpan(final List<Text.Style> styles, final Map<String, String> options) {
+        return styles.get(0) == Text.Style.MARK && !options.isEmpty();
+    }
+
+    protected void writeStyleStart(final List<Text.Style> styles, final Map<String, String> options, final boolean writeCommonAttributes) {
+        builder.append('<').append(isSpan(styles, options) ? "span" : STYLE_TAGS.get(styles.get(0)));
+        if (writeCommonAttributes) {
+            writeCommonAttributes(options, null);
+        }
+        builder.append('>');
+        for (int si = 1; si < styles.size(); si++) {
+            builder.append('<').append(STYLE_TAGS.get(styles.get(si))).append('>');
+        }
+    }
+
+    protected void writeStyleEnd(final List<Text.Style> styles, final Map<String, String> options) {
+        for (int si = styles.size() - 1; si >= 1; si--) {
+            builder.append("</").append(STYLE_TAGS.get(styles.get(si))).append('>');
+        }
+        builder.append("</").append(isSpan(styles, options) ? "span" : STYLE_TAGS.get(styles.get(0))).append('>');
     }
 
     @Override
@@ -2406,7 +2443,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     // the keep-paragraphs parser attribute keeps a paragraph of one inline element in the blocks of an item;
     // a checklist item and a callout item write that element as without the attribute, with the paragraph options
     protected Element unwrapKeptParagraph(final Element element) {
-        if (!(element instanceof Paragraph kept) || kept.children().size() != 1) {
+        if (!(element instanceof Paragraph kept) || kept.children().size() != 1 || sibling.isStyledSpan(kept)) {
             return element;
         }
         final var child = kept.children().get(0);

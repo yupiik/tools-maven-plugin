@@ -87,6 +87,81 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void styledSpanAroundElements() { // the markup holds the links, cross references and code of the run
+        assertEquals("""
+                The use of **the [OpenTelemetry Agent](https://opentelemetry.io/docs/instrumentation/java/automatic/) is not needed nor recommended**.
+
+                *For more information, please refer to [the Quarkus CLI guide](cli-tooling.md).*
+
+                *This property is deprecated since `3.29` (see <https://github.com/quarkusio/quarkus/issues/41016>).*
+
+                <mark>See [\\[sec\\]](#sec) first.</mark>
+
+                **Do not *ever* commit secrets.**
+                """, md("""
+                The use of *the https://opentelemetry.io/docs/instrumentation/java/automatic/[OpenTelemetry Agent] is not needed nor recommended*.
+
+                _For more information, please refer to xref:cli-tooling.adoc[the Quarkus CLI guide]._
+
+                _This property is deprecated since `3.29` (see https://github.com/quarkusio/quarkus/issues/41016)._
+
+                [.red]#See <<sec>> first.#
+
+                *Do not _ever_ commit secrets.*
+                """));
+    }
+
+    @Test
+    void styledSpanNextToAWord() { // commonmark reads no marker between a word and a punctuation mark, so the span gets HTML tags
+        assertEquals("<strong>see [y](https://a.io)</strong>now and word<strong>`b` c</strong>\n",
+                md("**see link:https://a.io[y]**now and word**`b` c**"));
+    }
+
+    @Test
+    void styledSpanWithRoles() { // markdown has no role, so a role span stays a mark inside the run's markers
+        assertEquals("Mind **<mark>this</mark>** too, and **<mark>that</mark>**.\n", md("Mind *[.red]#this#* too, and [.blue]*[.red]#that#*."));
+    }
+
+    @Test
+    void styledSpanNextToAMarker() { // a * marker after the span joins its own, and an attribute value sees the word before it
+        final var document = new Parser().parse("**see `x`**_more_ and word{s}", new Parser.ParserContext(null)); // s is not known when parsing
+        final var renderer = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration()
+                .setAttributes(Map.of("s", "**`b` c**")));
+        renderer.visit(document);
+        assertEquals("<strong>see `x`</strong>*more* and word<strong>`b` c</strong>\n", renderer.result());
+        assertEquals("<strong>see `x`</strong>**more `y`**\n", md("**see `x`***more `y`*")); // a span after the span
+    }
+
+    @Test
+    void styledSpanInAnItemACalloutAndAfterALineBreak() { // the span keeps its markers where the renderer opens a paragraph
+        assertEquals("""
+                - **see [y](https://a.io) now**
+                  - nested item
+
+                ```java
+                int a; // <1>
+                ```
+
+                1. **[y](https://a.io)**
+
+                first\\
+                **see `x` now**
+                """, md("""
+                * *see link:https://a.io[y] now*
+                ** nested item
+
+                [source,java]
+                ----
+                int a; // <1>
+                ----
+                <1> *link:https://a.io[y]*
+
+                first +
+                *see `x` now*
+                """));
+    }
+
+    @Test
     void inlineStyles() {
         assertEquals("Some **bold** and *italic* and `mono` text.\n", md("Some *bold* and _italic_ and `mono` text."));
     }

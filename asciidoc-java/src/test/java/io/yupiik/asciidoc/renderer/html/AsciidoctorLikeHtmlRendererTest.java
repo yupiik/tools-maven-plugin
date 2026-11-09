@@ -4770,11 +4770,131 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void inlineAnchorAtTheStartOfAStyledRun() { // the anchor is written, with no empty <strong> for it
+    void styledSpanAroundElements() { // as asciidoctor, the style tag holds the links, cross references and code of the run
+        assertRenderingContent("""
+                The use of *the https://opentelemetry.io/docs/instrumentation/java/automatic/[OpenTelemetry Agent] is not needed nor recommended*.
+
+                _For more information, please refer to xref:cli-tooling.adoc[the Quarkus CLI guide]._
+
+                _This property is deprecated since `3.29` (see https://github.com/quarkusio/quarkus/issues/41016)._
+
+                [.red]#See <<sec>> first.#
+
+                *Do not _ever_ commit secrets.*
+                """,
+                " <div class=\"paragraph\">\n" +
+                        " <p>The use of <strong>the  <a href=\"https://opentelemetry.io/docs/instrumentation/java/automatic/\">OpenTelemetry Agent</a>\n" +
+                        " is not needed nor recommended</strong>.</p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><em>For more information, please refer to  <a href=\"cli-tooling.html\">the Quarkus CLI guide</a>\n" +
+                        ".</em></p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><em>This property is deprecated since <code>3.29</code> (see  <a href=\"https://github.com/quarkusio/quarkus/issues/41016\">https://github.com/quarkusio/quarkus/issues/41016</a>\n" +
+                        ").</em></p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><span class=\"red\">See  <a href=\"#sec\">[sec]</a>\n" +
+                        " first.</span></p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><strong>Do not <em>ever</em> commit secrets.</strong></p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void styledSpanWithRoles() { // the role stays on the run that carries it
+        assertRenderingContent("""
+                Run [.red]*_the link:https://a.io[tool]_* first.
+
+                *See [.red]#this# now.*
+
+                Mind *[.red]#this#* too, and [.blue]*[.red]#that#*.
+                """,
+                " <div class=\"paragraph\">\n" +
+                        " <p>Run <strong class=\"red\"><em>the  <a href=\"https://a.io\">tool</a>\n" +
+                        "</em></strong> first.</p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><strong>See <span class=\"red\">this</span> now.</strong></p>\n" +
+                        " </div>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>Mind <strong><span class=\"red\">this</span></strong> too, and <strong class=\"blue\"><span class=\"red\">that</span></strong>.</p>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void styledSpanInAStrongCell() { // as asciidoctor, the style of the cell goes around the span
+        assertRenderingContent("""
+                [cols="1s,1e"]
+                |===
+                |Name |Note
+
+                |*see link:https://a.io[y] now* |_see `x` now_
+                |===
+                """,
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<strong>Name</strong>    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<em>Note</em>    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<strong><strong>see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</strong></strong></p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<em><em>see <code>x</code> now</em></em></p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void styledSpanInACallOut() { // the texts of the span get no <span> of their own, unlike the other texts of a callout
+        assertRenderingContent("""
+                [source,java]
+                ----
+                var template = engine.getTemplate("item$item_aliases"); // <1>
+                ----
+                <1> The identifier is translated as: _Use the fragment `item_aliases` from the template `item`._
+                """,
+                " <div class=\"listingblock\">\n" +
+                        " <div class=\"content\">\n" +
+                        " <pre class=\"highlightjs highlight\"><code class=\"language-java hljs\" data-lang=\"java\">var template = engine.getTemplate(&quot;item$item_aliases&quot;); // <b class=\"conum\">(1)</b>\n" +
+                        "</code></pre>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"colist arabic\">\n" +
+                        "  <ol>\n" +
+                        "   <li>\n" +
+                        " <span>\n" +
+                        "The identifier is translated as: \n" +
+                        " </span>\n" +
+                        "<em>Use the fragment <code>item_aliases</code> from the template <code>item</code>.</em>   </li>\n" +
+                        "  </ol>\n" +
+                        " </div>\n");
+    }
+
+    @Test
+    void inlineAnchorAtTheStartOfAStyledRun() { // the anchor is written, with no empty <strong> for it, and the code is bold as asciidoctor
         assertRenderingContent("*[[a]] bold `c` text*",
                 " <div class=\"paragraph\">\n" +
-                        " <p><a id=\"a\"></a>\n" +
-                        "<strong> bold </strong><code>c</code><strong> text</strong></p>\n" +
+                        " <p><strong><a id=\"a\"></a>\n" +
+                        " bold <code>c</code> text</strong></p>\n" +
                         " </div>\n");
     }
 
@@ -4865,11 +4985,11 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void bibliographyEntryInAStyledRun() { // the anchor is written, with no empty <strong> for it
+    void bibliographyEntryInAStyledRun() { // the anchor is written, with no empty <strong> for it, and the code is bold as asciidoctor
         assertRenderingContent("*see [[[ref]]] x `c`*",
                 " <div class=\"paragraph\">\n" +
-                        " <p><strong>see </strong><a id=\"ref\"></a>\n" +
-                        "<strong> x </strong><code>c</code></p>\n" +
+                        " <p><strong>see <a id=\"ref\"></a>\n" +
+                        " x <code>c</code></strong></p>\n" +
                         " </div>\n");
     }
 

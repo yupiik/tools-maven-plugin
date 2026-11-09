@@ -102,6 +102,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
  */
 public class Parser {
     private static final List<Author> NO_AUTHORS = List.of();
+    private static final Text.Style[] STYLES = Text.Style.values();
     private static final Revision NO_REVISION = new Revision("", "", "");
     private static final Header NO_HEADER = new Header("", List.of(), NO_REVISION, Map.of("authorcount", "0"));
 
@@ -1085,7 +1086,9 @@ public class Parser {
             return new Text(Stream.concat(Stream.of(style), t.style().stream()).toList(), t.value(), t.options());
         }
         if (element instanceof Paragraph p) {
-            return new Paragraph(p.children().stream().map(child -> withTextStyle(child, style)).toList(), p.options());
+            return isStyledSpan(p) ? // as asciidoctor, the style of the cell goes around the span: <strong><strong>see <a>y</a></strong></strong>
+                    new Paragraph(List.of(p), withStyleOption(style, Map.of())) :
+                    new Paragraph(p.children().stream().map(child -> withTextStyle(child, style)).toList(), p.options());
         }
         return element;
     }
@@ -1703,7 +1706,7 @@ public class Parser {
                 onlyConditionalsSinceBreak = true;
             }
         }
-        if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty())) {
+        if (elements.size() == 1 && elements.get(0) instanceof Paragraph p && (options == null || options.isEmpty()) && !isStyledSpan(p)) {
             return p;
         }
         return new Paragraph(flattenTexts(elements), options == null ? Map.of() : options);
@@ -1891,6 +1894,7 @@ public class Parser {
             case TEXT, LINK, ANCHOR, ATTRIBUTE, LINE_BREAK, CONDITIONAL_BLOCK -> true;
             case CODE -> ((Code) element).inline();
             case MACRO -> ((Macro) element).inline();
+            case PARAGRAPH -> isStyledSpan((Paragraph) element);
             default -> false;
         };
     }
@@ -2920,26 +2924,67 @@ public class Parser {
         final var content = line.substring(i + 1, end);
         final var sub = parseLine(enclosingDocument, null, content, resolver, currentAttributes, true);
         final var opts = options != null ? inlineRoleOptions(options) : Map.<String, String>of();
-        if (sub.size() == 1 && sub.get(0) instanceof Text t) {
-            if (isAnchor(t)) {
-                collector.add(t);
-            } else if (!t.style().isEmpty()) {
-                collector.add(newText(
-                        style == null ? t.style() : Stream.concat(Stream.of(style), t.style().stream()).toList(),
-                        t.value(), opts));
-            } else {
-                collector.add(newText(style == null ? List.of() : List.of(style), t.value(), opts));
-            }
-        } else if (sub.size() == 1 && !opts.isEmpty()) { // quick way to fusion parseLine options and provided options
+        if (sub.size() == 1 && sub.get(0) instanceof Text t && (isAnchor(t) || t.options().isEmpty())) {
+            collector.add(isAnchor(t) ? t : newText(withStyle(style, t.style()), t.value(), opts));
+        } else if (sub.size() == 1 && !opts.isEmpty() && !(sub.get(0) instanceof Text) && !(sub.get(0) instanceof Paragraph p && isStyledSpan(p))) { // quick way to fusion parseLine options and provided options
             collector.add(unwrapElementIfPossible(new Paragraph(sub, opts)));
-        } else {
-            collector.addAll(sub.stream()
-                    // todo: for now we loose the style for what is not pure text, should we handle it as an element or role maybe?
-                    .map(it -> it instanceof Text t && !isAnchor(t) ?
-                            newText(style == null ? List.of() : List.of(style), t.value(), opts) :
-                            it)
-                    .toList());
+        } else if (isPlainTextOnly(sub)) {
+            final var styles = style == null ? List.<Text.Style>of() : List.of(style);
+            for (final var it : sub) {
+                final var t = (Text) it;
+                collector.add(isAnchor(t) ? t : newText(styles, t.value(), opts));
+            }
+        } else if (style == null && opts.isEmpty()) {
+            collector.addAll(sub);
+        } else { // as asciidoctor, the style also applies to the links, code, styled texts... of the run
+            collector.add(new Paragraph(sub, style == null ? opts : withStyleOption(style, opts)));
         }
+    }
+
+    // a styled span is a paragraph inside a line whose options hold the name of its style, see VisitorSibling.spanStyles()
+    private Map<String, String> withStyleOption(final Text.Style style, final Map<String, String> options) {
+        if (options.isEmpty()) {
+            return Map.of(style.name(), "");
+        }
+        final var withStyle = new HashMap<>(options);
+        withStyle.put(style.name(), "");
+        return withStyle;
+    }
+
+    private boolean isStyledSpan(final Paragraph paragraph) {
+        if (paragraph.options().isEmpty()) {
+            return false;
+        }
+        for (final var style : STYLES) {
+            if (paragraph.options().get(style.name()) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // texts without a style or options of their own (anchors aside), which can take the style of the run without loss
+    private boolean isPlainTextOnly(final List<Element> elements) {
+        for (final var element : elements) {
+            if (!(element instanceof Text t) || (!isAnchor(t) && (!t.style().isEmpty() || !t.options().isEmpty()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // the style of the run comes before the styles of the text it holds: *_b_* makes b bold and italic
+    private List<Text.Style> withStyle(final Text.Style style, final List<Text.Style> inner) {
+        if (style == null) {
+            return inner;
+        }
+        if (inner.isEmpty()) {
+            return List.of(style);
+        }
+        final var styles = new ArrayList<Text.Style>(inner.size() + 1);
+        styles.add(style);
+        styles.addAll(inner);
+        return styles;
     }
 
     // an inline [[id]] or [[[ref]]] anchor, which a styled run keeps as it is

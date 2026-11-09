@@ -86,6 +86,82 @@ class ParserTest {
     private static final Table.ColumnSpec DEFAULT_COLUMN = new Table.ColumnSpec(1, null, null, 1, null);
 
     @Test
+    void styledSpanAroundElements() { // as asciidoctor, the style of a run applies to its links, cross references and code too
+        final var body = new Parser().parseBody("""
+                The use of *the https://opentelemetry.io/docs/instrumentation/java/automatic/[OpenTelemetry Agent] is not needed nor recommended*.
+
+                _For more information, please refer to xref:cli-tooling.adoc[the Quarkus CLI guide]._
+
+                _This property is deprecated since `3.29` (see https://github.com/quarkusio/quarkus/issues/41016)._
+
+                [.red]#See <<sec>> first.#
+
+                *Do not _ever_ commit secrets.*
+                """, new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "The use of ", Map.of()),
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "the ", Map.of()),
+                                        new Link("https://opentelemetry.io/docs/instrumentation/java/automatic/",
+                                                new Text(List.of(), "OpenTelemetry Agent", Map.of("", "OpenTelemetry Agent", "nowrap", "true")), Map.of()),
+                                        new Text(List.of(), " is not needed nor recommended", Map.of())), Map.of("BOLD", "")),
+                                new Text(List.of(), ".", Map.of())), Map.of()),
+                        new Paragraph(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "For more information, please refer to ", Map.of()),
+                                new Macro("xref", "cli-tooling.adoc", Map.of("", "the Quarkus CLI guide"), true),
+                                new Text(List.of(), ".", Map.of())), Map.of("ITALIC", ""))), Map.of()),
+                        new Paragraph(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "This property is deprecated since ", Map.of()),
+                                new Code("3.29", Map.of(), true, List.of()),
+                                new Text(List.of(), " (see ", Map.of()),
+                                new Link("https://github.com/quarkusio/quarkus/issues/41016",
+                                        new Text(List.of(), "https://github.com/quarkusio/quarkus/issues/41016", Map.of("nowrap", "true")), Map.of()),
+                                new Text(List.of(), ").", Map.of())), Map.of("ITALIC", ""))), Map.of()),
+                        new Paragraph(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "See ", Map.of()),
+                                new Anchor("sec", ""),
+                                new Text(List.of(), " first.", Map.of())), Map.of("role", "red", "MARK", ""))), Map.of()),
+                        new Paragraph(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "Do not ", Map.of()),
+                                new Text(List.of(ITALIC), "ever", Map.of()),
+                                new Text(List.of(), " commit secrets.", Map.of())), Map.of("BOLD", ""))), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void styledSpanWithRoles() { // the role stays on the run that carries it
+        final var body = new Parser().parseBody("""
+                Run [.red]*_the link:https://a.io[tool]_* first.
+
+                *See [.red]#this# now.*
+
+                Mind *[.red]#this#* too, and [.blue]*[.red]#that#*.
+                """, new Parser.ParserContext(null));
+        assertEquals(
+                List.of(
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Run ", Map.of()),
+                                new Paragraph(List.of(new Paragraph(List.of(
+                                        new Text(List.of(), "the ", Map.of()),
+                                        new Link("https://a.io", new Text(List.of(), "tool", Map.of("nowrap", "true", "", "tool")), Map.of("nowrap", "true", "", "tool"))),
+                                        Map.of("ITALIC", ""))), Map.of("role", "red", "BOLD", "")),
+                                new Text(List.of(), " first.", Map.of())), Map.of()),
+                        new Paragraph(List.of(new Paragraph(List.of(
+                                new Text(List.of(), "See ", Map.of()),
+                                new Text(List.of(MARK), "this", Map.of("role", "red")),
+                                new Text(List.of(), " now.", Map.of())), Map.of("BOLD", ""))), Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), "Mind ", Map.of()),
+                                new Paragraph(List.of(new Text(List.of(MARK), "this", Map.of("role", "red"))), Map.of("BOLD", "")),
+                                new Text(List.of(), " too, and ", Map.of()),
+                                new Paragraph(List.of(new Text(List.of(MARK), "that", Map.of("role", "red"))), Map.of("role", "blue", "BOLD", "")),
+                                new Text(List.of(), ".", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
     public void doubleDollarAndQuotingForMacro() {
         final var body = new Parser()
                 .parseBody("xref:foo[$$bar$$]\n__link:https://foo.bar[$$dummy$$]__", new Parser.ParserContext(null));
@@ -95,7 +171,8 @@ class ParserTest {
                                 List.of(
                                         new Macro("xref", "foo", Map.of("", "bar"), true),
                                         new Text(List.of(), " ", Map.of()), // the line end
-                                        new Link("https://foo.bar", new Text(List.of(), "dummy", Map.of("nowrap", "true", "", "dummy")), Map.of("", "dummy", "nowrap", "true"))
+                                        new Paragraph(List.of(
+                                                new Link("https://foo.bar", new Text(List.of(), "dummy", Map.of("nowrap", "true", "", "dummy")), Map.of("", "dummy", "nowrap", "true"))), Map.of("ITALIC", ""))
                                 ), Map.of())),
                 body.children());
     }
