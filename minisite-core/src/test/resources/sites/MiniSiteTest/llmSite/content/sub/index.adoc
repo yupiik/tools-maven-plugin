@@ -1,0 +1,5 @@
+= Sub Page
+
+== Details
+
+A nested page with configuration details about the cache size setting.

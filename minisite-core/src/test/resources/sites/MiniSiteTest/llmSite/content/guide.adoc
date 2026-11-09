@@ -1,0 +1,9 @@
+= Guide
+
+== Setup
+
+Install the tool and set the cache size in the server settings file.
+
+== Usage
+
+Run the command to render the site and generate the index.

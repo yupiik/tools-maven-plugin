@@ -480,6 +480,16 @@ public class MiniSiteMojo extends BaseMojo {
     @Parameter(property = "yupiik.minisite.renderingThreads", defaultValue = "-1")
     private int renderingThreads;
 
+    /**
+     * Number of threads used for the LLM embedding computation.
+     * {@code -2} (default) re-uses the {@code renderingThreads} pool (same instance), {@code -1} uses virtual threads
+     * when available (otherwise the common pool), {@code 0} computes sequentially, {@code &gt; 0} uses a dedicated
+     * fixed pool of that size. When {@code embeddingsThreads &gt; -2} and equals {@code renderingThreads}, the
+     * rendering pool instance is reused.
+     */
+    @Parameter(property = "yupiik.minisite.embeddingsThreads", defaultValue = "-2")
+    private int embeddingsThreads;
+
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
@@ -591,6 +601,7 @@ public class MiniSiteMojo extends BaseMojo {
                 .templateAddLeftMenu(templateAddLeftMenu)
                 .templateSuffixes(templateSuffixes)
                 .renderingThreads(renderingThreads)
+                .embeddingsThreads(embeddingsThreads)
                 .preActions(preActions == null ? null : preActions.stream()
                         .map(it -> {
                             final var copy = new PreAction();

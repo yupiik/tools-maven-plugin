@@ -25,6 +25,9 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -35,6 +38,12 @@ import java.util.regex.Pattern;
 // model (mean pooling + L2 normalization) and writes the chunk + index JSON the browser
 // fetches to perform retrieval-augmented chat.
 public class LlmEmbeddingGenerator implements Runnable {
+
+    /**
+     * Sentinel executor marking sequential batch computation on the calling thread, used to distinguish the
+     * {@code null}-executor default from an explicitly sequential mode when comparing executor identity.
+     */
+    public static final Executor SEQUENTIAL = Runnable::run;
 
     // model output shape is depended on by the JS consumer
     private static final String MODEL_RESOURCE = "all-minilm-l6-v2.onnx";
@@ -59,6 +68,9 @@ public class LlmEmbeddingGenerator implements Runnable {
     private final Path outputBase;
     private final int maxLength;
     private final Predicate<Path> ignoredFile;
+    // Where the embedding batches run. null / Runnable::run means sequential on the calling thread
+    // (previous behaviour); any real executor is given one task per ONNX batch and awaited.
+    private final Executor embeddingExecutor;
 
     public LlmEmbeddingGenerator(final Map<String, String> configuration,
                                  final Path sourceBase,
@@ -76,11 +88,27 @@ public class LlmEmbeddingGenerator implements Runnable {
                                  final Path sourceBase,
                                  final Path outputBase,
                                  final Predicate<Path> ignoredFile) {
+        this(configuration, sourceBase, outputBase, ignoredFile, null);
+    }
+
+    /**
+     * @param embeddingExecutor executor used to run the ONNX batch inference concurrently; {@code null} (or a
+     *                          {@link Runnable#run()}-executing executor) falls back to sequential computation on the
+     *                          calling thread. A real executor receives one task per batch of {@link #BATCH_SIZE}
+     *                          chunks; the caller is responsible for its lifecycle but the computation is awaited here
+     *                          before {@link #run()} returns.
+     */
+    public LlmEmbeddingGenerator(final Map<String, String> configuration,
+                                 final Path sourceBase,
+                                 final Path outputBase,
+                                 final Predicate<Path> ignoredFile,
+                                 final Executor embeddingExecutor) {
         checkModel();
         this.sourceBase = sourceBase;
         this.outputBase = outputBase;
         this.maxLength = Integer.parseInt(configuration.getOrDefault("maxLength", "128"));
         this.ignoredFile = ignoredFile == null ? p -> false : ignoredFile;
+        this.embeddingExecutor = embeddingExecutor;
     }
 
     private static void checkModel() {
@@ -232,101 +260,174 @@ public class LlmEmbeddingGenerator implements Runnable {
                 modelBytes = stream.readAllBytes();
             }
 
-            try (var session = env.createSession(modelBytes, new OrtSession.SessionOptions())) {
+            final int clsId = vocab.getOrDefault("[CLS]", 101);
+            final int sepId = vocab.getOrDefault("[SEP]", 102);
+            final int padId = vocab.getOrDefault("[PAD]", 0);
+            final int unkId = vocab.getOrDefault("[UNK]", 100);
 
-                final int clsId = vocab.getOrDefault("[CLS]", 101);
-                final int sepId = vocab.getOrDefault("[SEP]", 102);
-                final int padId = vocab.getOrDefault("[PAD]", 0);
-                final int unkId = vocab.getOrDefault("[UNK]", 100);
-
-                // A single session.run() with batchSize=32 is much faster than 32 individual
-                // runs: ONNX Runtime parallelises the matrix mults across the batch dimension
-                // and the JNI overhead is paid only once.
-                for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
-                    final int end = Math.min(base + BATCH_SIZE, chunks.size());
-                    final int bSize = end - base;
-
-                    final long[] inputIds = new long[bSize * maxLength];
-                    final long[] masks = new long[bSize * maxLength];
-
-                    // tokenise all chunks in this batch
-                    for (int b = 0; b < bSize; b++) {
-                        final int[] tokens = tokenize(chunks.get(base + b).text, vocab, clsId, sepId, padId, unkId);
-                        final int offset = b * maxLength;
-                        for (int i = 0; i < tokens.length && i < maxLength; i++) {
-                            inputIds[offset + i] = tokens[i];
-                            masks[offset + i] = 1L;
-                        }
-                        // remaining positions stay 0 (padding) — Java zero-initialises arrays
-                    }
-
-                    final long[] shape = {bSize, maxLength};
-                    try (var inputTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(inputIds), shape);
-                         var maskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(masks), shape);
-                         var typeTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(new long[bSize * maxLength]), shape)) {
-
-                        final var inputs = new HashMap<String, OnnxTensor>();
-                        inputs.put("input_ids", inputTensor);
-                        inputs.put("attention_mask", maskTensor);
-                        inputs.put("token_type_ids", typeTensor);
-
-                        try (final var result = session.run(inputs)) {
-                            final var output = result.get(0).getValue();
-
-                            final float[] data;
-                            if (output instanceof OnnxTensor tensor) {
-                                data = new float[(int) tensor.getInfo().getNumElements()];
-                                tensor.getFloatBuffer().get(data);
-                            } else if (output instanceof float[][][] array) {
-                                data = flatten(array);
-                            } else if (output instanceof float[][] array) {
-                                data = flatten(array);
-                            } else {
-                                throw new IllegalStateException("Unsupported output type: " + output.getClass());
-                            }
-
-                            // all-MiniLM-L6-v2's first output is last_hidden_state with shape
-                            // [batch, seq, 384]. The canonical sentence embedding is the MEAN of
-                            // the token vectors weighted by the attention mask (NOT the [CLS]
-                            // token). The browser query embedder (transformers.js, pooling:'mean')
-                            // does the same, so both sides must mean-pool to share a vector space.
-                            final int perItem = data.length / bSize;
-                            final int tokenCount = perItem / EMBEDDING_DIM;
-
-                            for (int b = 0; b < bSize; b++) {
-                                final var emb = new float[EMBEDDING_DIM];
-                                if (tokenCount <= 1) {
-                                    // already pooled output [batch, 384]
-                                    System.arraycopy(data, b * perItem, emb, 0, EMBEDDING_DIM);
-                                } else {
-                                    // mean-pool over the sequence using the attention mask
-                                    int counted = 0;
-                                    for (int t = 0; t < tokenCount; t++) {
-                                        final boolean masked = tokenCount == maxLength && masks[b * maxLength + t] == 0L;
-                                        if (masked) {
-                                            continue;
-                                        }
-                                        final int offset = (b * tokenCount + t) * EMBEDDING_DIM;
-                                        for (int d = 0; d < EMBEDDING_DIM; d++) {
-                                            emb[d] += data[offset + d];
-                                        }
-                                        counted++;
-                                    }
-                                    if (counted > 0) {
-                                        for (int d = 0; d < EMBEDDING_DIM; d++) {
-                                            emb[d] /= counted;
-                                        }
-                                    }
-                                }
-                                normalize(emb);
-                                chunks.get(base + b).embedding = emb;
-                            }
-                        }
+            // A single session.run() with batchSize=32 is much faster than 32 individual
+            // runs: ONNX Runtime parallelises the matrix mults across the batch dimension
+            // and the JNI overhead is paid only once.
+            if (embeddingExecutor == null || embeddingExecutor == SEQUENTIAL) {
+                // sequential (previous behaviour): each batch computed on the calling thread with a single shared session
+                try (var session = env.createSession(modelBytes, new OrtSession.SessionOptions())) {
+                    for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
+                        computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, base);
                     }
                 }
+            } else {
+                // concurrent batches must each own their session: ONNX Runtime is NOT deterministic when multiple
+                // threads call run() on the same session concurrently, so a per-batch session keeps the embeddings
+                // bit-identical to the sequential run while still parallelising across the executor.
+                parallelComputeBatches(modelBytes, env, vocab, clsId, sepId, padId, unkId, chunks);
             }
         } catch (final Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Runs one ONNX batch and writes the resulting embeddings into {@code chunks} at {@code [base, base+bSize)}.
+     * Each chunk is written by exactly one task at a distinct index, so concurrent invocations on distinct ranges
+     * are safe (no shared mutable state except the shared, read-only {@code session}/{@code vocab}).
+     */
+    private void computeBatch(final OrtSession session,
+                              final OrtEnvironment env,
+                              final Map<String, Integer> vocab,
+                              final int clsId,
+                              final int sepId,
+                              final int padId,
+                              final int unkId,
+                              final List<Chunk> chunks,
+                              final int base) throws Exception {
+        final int end = Math.min(base + BATCH_SIZE, chunks.size());
+        final int bSize = end - base;
+
+        final long[] inputIds = new long[bSize * maxLength];
+        final long[] masks = new long[bSize * maxLength];
+
+        // tokenise all chunks in this batch
+        for (int b = 0; b < bSize; b++) {
+            final int[] tokens = tokenize(chunks.get(base + b).text, vocab, clsId, sepId, padId, unkId);
+            final int offset = b * maxLength;
+            for (int i = 0; i < tokens.length && i < maxLength; i++) {
+                inputIds[offset + i] = tokens[i];
+                masks[offset + i] = 1L;
+            }
+            // remaining positions stay 0 (padding) — Java zero-initialises arrays
+        }
+
+        final long[] shape = {bSize, maxLength};
+        try (var inputTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(inputIds), shape);
+             var maskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(masks), shape);
+             var typeTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(new long[bSize * maxLength]), shape)) {
+
+            final var inputs = new HashMap<String, OnnxTensor>();
+            inputs.put("input_ids", inputTensor);
+            inputs.put("attention_mask", maskTensor);
+            inputs.put("token_type_ids", typeTensor);
+
+            try (final var result = session.run(inputs)) {
+                final var output = result.get(0).getValue();
+
+                final float[] data;
+                if (output instanceof OnnxTensor tensor) {
+                    data = new float[(int) tensor.getInfo().getNumElements()];
+                    tensor.getFloatBuffer().get(data);
+                } else if (output instanceof float[][][] array) {
+                    data = flatten(array);
+                } else if (output instanceof float[][] array) {
+                    data = flatten(array);
+                } else {
+                    throw new IllegalStateException("Unsupported output type: " + output.getClass());
+                }
+
+                // all-MiniLM-L6-v2's first output is last_hidden_state with shape
+                // [batch, seq, 384]. The canonical sentence embedding is the MEAN of
+                // the token vectors weighted by the attention mask (NOT the [CLS]
+                // token). The browser query embedder (transformers.js, pooling:'mean')
+                // does the same, so both sides must mean-pool to share a vector space.
+                final int perItem = data.length / bSize;
+                final int tokenCount = perItem / EMBEDDING_DIM;
+
+                for (int b = 0; b < bSize; b++) {
+                    final var emb = new float[EMBEDDING_DIM];
+                    if (tokenCount <= 1) {
+                        // already pooled output [batch, 384]
+                        System.arraycopy(data, b * perItem, emb, 0, EMBEDDING_DIM);
+                    } else {
+                        // mean-pool over the sequence using the attention mask
+                        int counted = 0;
+                        for (int t = 0; t < tokenCount; t++) {
+                            final boolean masked = tokenCount == maxLength && masks[b * maxLength + t] == 0L;
+                            if (masked) {
+                                continue;
+                            }
+                            final int offset = (b * tokenCount + t) * EMBEDDING_DIM;
+                            for (int d = 0; d < EMBEDDING_DIM; d++) {
+                                emb[d] += data[offset + d];
+                            }
+                            counted++;
+                        }
+                        if (counted > 0) {
+                            for (int d = 0; d < EMBEDDING_DIM; d++) {
+                                emb[d] /= counted;
+                            }
+                        }
+                    }
+                    normalize(emb);
+                    chunks.get(base + b).embedding = emb;
+                }
+            }
+        }
+    }
+
+    /**
+     * Dispatches one task per ONNX batch to {@link #embeddingExecutor}, waits for all of them and rethrows the first
+     * failure (with the others as suppressed) so the caller sees a failure just like the sequential path does.
+     * Completed batches are written in-place into {@code chunks} at their own indices, so completion order is irrelevant.
+     */
+    private void parallelComputeBatches(final byte[] modelBytes,
+                                        final OrtEnvironment env,
+                                        final Map<String, Integer> vocab,
+                                        final int clsId,
+                                        final int sepId,
+                                        final int padId,
+                                        final int unkId,
+                                        final List<Chunk> chunks) {
+        final int batchCount = (chunks.size() + BATCH_SIZE - 1) / BATCH_SIZE;
+        final var done = new CountDownLatch(batchCount);
+        final var failure = new AtomicReference<Throwable>();
+        for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
+            final int b = base;
+            embeddingExecutor.execute(() -> {
+                // each batch opens its own session: ONNX Runtime is not deterministic when a session.run() is
+                // invoked concurrently on the same session, so per-batch sessions keep results bit-identical to
+                // sequential while parallelising across batches.
+                try (var session = env.createSession(modelBytes, new OrtSession.SessionOptions())) {
+                    computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, b);
+                } catch (final Throwable t) {
+                    failure.accumulateAndGet(t, (acc, cur) -> {
+                        if (acc == null) {
+                            return cur;
+                        }
+                        acc.addSuppressed(cur);
+                        return acc;
+                    });
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+        try {
+            done.await();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while computing embeddings", e);
+        }
+        final var f = failure.get();
+        if (f != null) {
+            throw new IllegalStateException("Embedding computation failed", f);
         }
     }
 
