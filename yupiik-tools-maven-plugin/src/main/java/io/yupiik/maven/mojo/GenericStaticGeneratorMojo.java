@@ -19,7 +19,7 @@ import io.yupiik.fusion.framework.api.ConfiguringContainer;
 import io.yupiik.tools.generator.generic.GenericStaticGenerator;
 import io.yupiik.tools.generator.generic.contributor.ContributorRegistry;
 import io.yupiik.tools.generator.generic.helper.HelperRegistry;
-import lombok.Getter;
+import lombok.Data;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -62,7 +62,7 @@ public class GenericStaticGeneratorMojo extends AbstractMojo {
      * List of contributors to generate the output.
      */
     @Parameter(defaultValue = "java.util.List.of()")
-    private List<GenericStaticGenerator.ContributorConfiguration> contributors = List.of();
+    private List<ContributorConfiguration> contributors = List.of();
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -75,14 +75,17 @@ public class GenericStaticGeneratorMojo extends AbstractMojo {
                             template == null ? "" : template,
                             partials == null ? Map.of() : partials,
                             threads <= 0 ? 1 : threads,
-                            contributors == null ? List.of() : contributors),
+                            contributors == null || contributors.isEmpty() ? List.of() :
+                                    contributors.stream()
+                                            .map(ContributorConfiguration::toEngineConfiguration)
+                                            .toList()),
                     contributorRegistryInstance.instance(),
                     helperRegistryInstance.instance()
             ).run();
         }
     }
 
-    @Getter
+    @Data
     public static class ContributorConfiguration {
         /**
          * Name of the contributor to use.
@@ -101,5 +104,9 @@ public class GenericStaticGeneratorMojo extends AbstractMojo {
          */
         @Parameter
         private Map<String, String> configuration = Map.of();
+
+        public GenericStaticGenerator.ContributorConfiguration toEngineConfiguration() {
+            return new GenericStaticGenerator.ContributorConfiguration(name, contextName, configuration);
+        }
     }
 }
