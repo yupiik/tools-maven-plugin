@@ -1032,22 +1032,37 @@ public class MiniSite implements Runnable {
                     configuration.getAsciidoctorConfiguration());
 
             if (configuration.isLlmChatEnabled()) {
-                Stream.of(
-                                "yupiik-tools-maven-plugin/minisite/assets/js/llm-chat.js",
-                                "yupiik-tools-maven-plugin/minisite/assets/llm-chat-sw.js",
-                                "yupiik-tools-maven-plugin/minisite/assets/css/llm-chat.css")
-                        .forEach(resource -> {
-                            final Path out = output.resolve(resource.substring("yupiik-tools-maven-plugin/minisite/assets/".length()));
-                            try (final InputStream stream = MiniSite.class.getClassLoader().getResourceAsStream(resource)) {
-                                Files.createDirectories(out.getParent());
-                                try (final BufferedReader buffer = new BufferedReader(new InputStreamReader(requireNonNull(stream), StandardCharsets.UTF_8))) {
-                                    Files.writeString(out, buffer.lines().collect(joining("\n"))
-                                            .replace("{{base}}", configuration.getSiteBase()));
-                                }
-                            } catch (final IOException e) {
-                                throw new IllegalStateException(e);
-                            }
-                        });
+                // The frontend bundle is split: the bootstrap (js/llm-chat.js), the lazy async chunks
+                // (js/async/*.js — web-llm + @huggingface/transformers), llm-chat-sw.js and llm-chat.css.
+                // The async chunk names are hashed/numeric so the js dir must be copied as a whole tree
+                // rather than a hardcoded file list (a fixed list would 404 on the async chunks).
+                // 'minisite.js' is skipped here because the block above already copies it with the
+                // {{base}} substitution. minisite.js is the only non-LLM file under assets/js.
+                copyDefaultTreeAsset(configuration,
+                        "yupiik-tools-maven-plugin/minisite/assets/js", "js", output, "minisite.js");
+                copyDefaultBinaryAsset(output,
+                        "yupiik-tools-maven-plugin/minisite/assets/css/llm-chat.css",
+                        configuration.getAsciidoctorConfiguration());
+                copyDefaultBinaryAsset(output,
+                        "yupiik-tools-maven-plugin/minisite/assets/llm-chat-sw.js",
+                        configuration.getAsciidoctorConfiguration());
+
+                // The onnxruntime-web wasm pair (static/wasm/ort-wasm-simd-threaded.{wasm,mjs}) is NOT
+                // copied from the classpath. In default (CDN) mode transformers.js fetches it from
+                // jsdelivr at runtime. In self-host mode the Maven plugin resolves a released minisite-core
+                // artifact and extracts the pair before this block runs. For CLI / programmatic usage we
+                // assume the user has prepared the wasm in their own site assets; if it is absent we only
+                // warn (the frontend will fail to embed/chat without it).
+                if (configuration.isSelfHostLlmAssets()) {
+                    final Path wasmDir = output.resolve("static/wasm");
+                    final boolean wasmPresent = Files.exists(wasmDir.resolve("ort-wasm-simd-threaded.wasm"));
+                    if (!wasmPresent) {
+                        configuration.getAsciidoctorConfiguration().warn().accept(
+                                "LLM chat is configured for self-hosted assets but no onnxruntime wasm was found at "
+                                        + wasmDir + "/. For CLI/programmatic usage copy ort-wasm-simd-threaded.{wasm,mjs} "
+                                        + "into your site's static/wasm/ (or use the Maven plugin which resolves it).");
+                    }
+                }
             }
         }
 
@@ -1155,7 +1170,7 @@ public class MiniSite implements Runnable {
                 final Predicate<PageRef> ignoredPages = notIndexedPagesPredicate();
                 final var embeddings = embeddingExecutor(rendering);
                 try {
-                    new LlmEmbeddingGenerator(Map.of(), configuration.getSource(), configuration.getTarget(),
+                    new LlmEmbeddingGenerator(configuration.getLlmModel(), Map.of(), configuration.getSource(), configuration.getTarget(),
                             file -> {
                                 final String location = configuration.getTarget().relativize(file).toString().replace(File.separatorChar, '/');
                                 return ignoredPages.test(new PageRef(location, file.getFileName().toString()));
@@ -1620,7 +1635,10 @@ public class MiniSite implements Runnable {
         if (share && rendering != null) {
             return new EmbeddingExecutor(rendering.executor(), null); // shared instance — closed by caller, not here
         }
-        final int effective = threads == -2 ? renderingThreads : threads;
+        // -3 is the "default ONNX behaviour": a dedicated fixed pool of the core count, so the bounded pool of
+        // ONNX sessions that LlmEmbeddingGenerator reuses never runs more sessions in parallel than cores.
+        final int effective = threads == -3 ? Math.max(1, Runtime.getRuntime().availableProcessors())
+                : threads == -2 ? renderingThreads : threads;
         if (effective == 0) {
             return new EmbeddingExecutor(LlmEmbeddingGenerator.SEQUENTIAL, null);
         }
@@ -1718,7 +1736,9 @@ public class MiniSite implements Runnable {
         globalModel.put("highlightJs", true); // enabled unless the page opts out (see per-page override below)
         globalModel.put("highlightJsCss", true);
         globalModel.put("llmChat", configuration.isLlmChatEnabled());
+        globalModel.put("selfHostLlm", configuration.isLlmChatEnabled() && configuration.isSelfHostLlmAssets());
         globalModel.put("llmModelId", configuration.getLlmModelId());
+        globalModel.put("llmEmbedding", embeddingModelModel(configuration.getLlmModel()));
         globalModel.put("addCodeCopyButton", configuration.isAddCodeCopyButton());
         globalModel.put("addLeftMenu", configuration.isTemplateAddLeftMenu());
         final String siteBase = configuration.getSiteBase();
@@ -1763,6 +1783,28 @@ public class MiniSite implements Runnable {
                     body,
                     handlebars.render(suffixTemplate, model));
         };
+    }
+
+    /**
+     * Exposes the embedding-model configuration to the page templates (as a flat map the frontend partials can turn
+     * into {@code data-*} attributes on the chat container), so the in-browser embedder stays in the same vector
+     * space as the on-disk embeddings computed at build time.
+     */
+    private Map<String, Object> embeddingModelModel(final MiniSiteConfiguration.LlmModelConfiguration cfg) {
+        final var model = new HashMap<String, Object>();
+        model.put("id", cfg.getModel());
+        model.put("model", cfg.getModel());
+        model.put("dimension", cfg.getDimension());
+        model.put("pooling", cfg.getPooling() == null ? MiniSiteConfiguration.Pooling.MEAN.name() : cfg.getPooling().name());
+        model.put("queryPrefix", cfg.getQueryPrefix() == null ? "" : cfg.getQueryPrefix());
+        final var retrieval = cfg.getRetrieval();
+        if (retrieval != null) {
+            model.put("minScore", retrieval.getMinScore());
+            model.put("lexWeight", retrieval.getLexWeight());
+            model.put("synonymWeight", retrieval.getSynonymWeight());
+            model.put("topK", retrieval.getTopK());
+        }
+        return model;
     }
 
     protected Collection<Page> findPages(final Asciidoc.AsciidocInstance asciidoctor, final Object options) {
@@ -1871,6 +1913,81 @@ public class MiniSite implements Runnable {
         } catch (final IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Copies every entry under the given classpath resource prefix to {@code output}, preserving the
+     * relative layout and stripping the {@code assets/} prefix from the destination path. The prefix may
+     * sit on the filesystem (unpacked classes) or inside a jar (jar protocol); both are handled by walking
+     * the resolved URL. Entries whose file name matches {@code exclude} are skipped. This is how the split
+     * frontend bundle (js/llm-chat.js + js/async/*.js with hashed chunk names) is copied without a hardcoded
+     * file list.
+     *
+     * @param configuration the site configuration (for site base and debug logging).
+     * @param resource      the classpath resource prefix to copy, e.g. {@code .../minisite/assets/js}.
+     * @param stripPrefix   the leading {@code assets/} sub-path to strip from destinations, e.g. {@code js}.
+     * @param output        the site output directory.
+     * @param exclude       a file name to skip (may be {@code null}); used to avoid overwriting files the
+     *                      caller already copied with template substitution.
+     */
+    private void copyDefaultTreeAsset(final MiniSiteConfiguration configuration, final String resource,
+                                      final String stripPrefix, final Path output, final String exclude) {
+        final ClassLoader loader = MiniSite.class.getClassLoader();
+        try {
+            final var urls = loader.getResources(resource).asIterator();
+            while (urls.hasNext()) {
+                final URI uri = urls.next().toURI();
+                collectResourceEntries(loader, uri, resource).forEach(entry -> {
+                    if (exclude != null && Path.of(entry).getFileName().toString().equals(exclude)) {
+                        return;
+                    }
+                    String rel = entry.substring(resource.length()).replace('\\', '/');
+                    while (rel.startsWith("/")) {
+                        rel = rel.substring(1);
+                    }
+                    final Path out = output.resolve(stripPrefix + "/" + rel);
+                    try (final InputStream stream = loader.getResourceAsStream(entry)) {
+                        Files.createDirectories(out.getParent());
+                        Files.copy(requireNonNull(stream), out, StandardCopyOption.REPLACE_EXISTING);
+                        configuration.getAsciidoctorConfiguration().debug().accept("Copying " + entry + " to " + out);
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                });
+            }
+        } catch (final IOException | java.net.URISyntaxException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static java.util.List<String> collectResourceEntries(final ClassLoader loader, final URI uri,
+                                                                 final String prefix) throws IOException {
+        final java.util.List<String> result = new ArrayList<>();
+        if (uri.getScheme().equals("jar")) {
+            final String path = uri.getRawSchemeSpecificPart();
+            final int bang = path.indexOf("!/");
+            if (bang < 0) {
+                return result;
+            }
+            final URI jarUri = URI.create(path.substring(0, bang));
+            try (final java.util.jar.JarFile jar = new java.util.jar.JarFile(new java.io.File(jarUri))) {
+                jar.stream()
+                        .filter(je -> !je.isDirectory() && je.getName().startsWith(prefix))
+                        .forEach(je -> result.add(je.getName()));
+            }
+        } else {
+            final Path dir = Path.of(uri);
+            if (Files.isDirectory(dir)) {
+                try (final Stream<Path> walk = Files.walk(dir)) {
+                    walk.filter(Files::isRegularFile)
+                            .map(p -> prefix + "/" + dir.relativize(p).toString().replace('\\', '/'))
+                            .forEach(result::add);
+                }
+            } else if (Files.isRegularFile(dir)) {
+                result.add(prefix);
+            }
+        }
+        return result;
     }
 
     private Stream<String> findTemplate(final Path layout, final String it) {

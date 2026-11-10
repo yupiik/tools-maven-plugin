@@ -35,18 +35,30 @@ const compiled = ts.transpileModule(fs.readFileSync(`${__dirname}/../src/index.t
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
-function initialize({ supported = true, load = async () => {}, embeddings = async () => {} } = {}) {
+function initialize({ supported = true, gpu = true, load = async () => {}, embeddings = async () => {} } = {}) {
   let start;
   const calls = { models: 0, embeddings: 0, ui: 0, unloaded: 0 };
-  const container = { dataset: { modelId: 'test-model', base: '/docs' }, style: { display: 'none' }, replaceChildren() {} };
+  const container = {
+    dataset: { modelId: 'test-model', base: '/docs', embeddingModel: 'test', embeddingPooling: 'mean', embeddingPrefix: '' },
+    style: { display: 'none' },
+    replaceChildren() {},
+  };
   const elements = new Map([['llm-chat-root', container]]);
   const mocks = {
     './styles.css': {},
-    './gpu-support': { supportsChatModel: async () => supported },
+    './gpu-support': { supportsChatModel: async () => supported, supportsWebGPU: async () => gpu },
     './chat-ui': { renderChatUI: () => calls.ui++, addMessage() {} },
     './embeddings': {
       loadEmbeddings: async base => { assert.equal(base, '/docs'); calls.embeddings++; await embeddings(); },
       getAllChunks: async () => [],
+      loadStoredEmbeddings: async () => new Map(),
+    },
+    './embedder': { warmUpEmbedder: async () => {}, embedQuery: async () => [] },
+    './embedding-config': {
+      embeddingConfig: () => ({ model: 'test', pooling: 'mean', queryPrefix: '' }),
+      retrievalConfig: () => ({ minScore: 0.15, lexWeight: 0.5, synonymWeight: 0.3, topK: 15 }),
+      selfHostLlmAssets: () => false,
+      selfHostWasmBase: () => '/docs/static/wasm/',
     },
     './webllm-wrapper': {
       getModelRequirements: () => ({}),
@@ -72,11 +84,20 @@ function deferred() {
   return { promise, resolve };
 }
 
-test('unsupported hardware initializes neither the UI nor downloads', async () => {
+test('unsupported chat model still shows the RAG-only UI (no model loaded)', async () => {
   const chat = initialize({ supported: false });
   await chat.start();
-  assert.equal(chat.container.style.display, 'none');
-  assert.deepEqual(chat.calls, { models: 0, embeddings: 0, ui: 0, unloaded: 0 });
+  // supportsChatModel=false shows the search/RAG UI (embeddings work) but never loads the chat model.
+  assert.equal(chat.container.style.display, '');
+  assert.deepEqual(chat.calls, { models: 0, embeddings: 1, ui: 1, unloaded: 0 });
+});
+
+test('without WebGPU the widget shows in RAG-only mode (no chat model loaded)', async () => {
+  const chat = initialize({ gpu: false });
+  await chat.start();
+  // Part A2: CPU keeps search/embeddings working — UI shown, embeddings loaded, model never loaded.
+  assert.equal(chat.container.style.display, '');
+  assert.deepEqual(chat.calls, { models: 0, embeddings: 1, ui: 1, unloaded: 0 });
 });
 
 test('the widget becomes visible only after model and embeddings are ready', async () => {

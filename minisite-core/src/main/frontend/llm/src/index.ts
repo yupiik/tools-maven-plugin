@@ -15,17 +15,18 @@
 ///
 
 import './styles.css';
-import { pipeline } from '@huggingface/transformers';
 import { renderChatUI, addMessage, updateLastMessage } from './chat-ui';
 import { loadEmbeddings, getAllChunks } from './embeddings';
-import { loadModel, ask, isModelLoaded, unloadModel, getModelRequirements } from './webllm-wrapper';
-import { supportsChatModel } from './gpu-support';
+import { supportsChatModel, supportsWebGPU } from './gpu-support';
 import { retrieveRelevantChunks, buildPrompt, renderMarkdown } from './rag';
+import { embeddingConfig, retrievalConfig } from './embedding-config';
 
-// Must match the model used to generate the document embeddings server-side
-// (all-MiniLM-L6-v2, mean pooling + L2 normalize). Using a different model here
-// would put queries and documents in different vector spaces and make retrieval random.
-const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
+// NOTE: @huggingface/transformers (query embedder) and @mlc-ai/web-llm (chat) are NOT statically
+// imported here: they are loaded lazily via dynamic import() when the chat is actually used, so the
+// page-load bootstrap stays small (a few KB instead of the 6.5 MB all-in-one bundle). The chat and
+// embedding backends decide at runtime which engines to fetch (WebGPU first, CPU/WASM fallback).
+
+const EMBEDDING_MODEL = embeddingConfig().model;
 
 interface ChunkData {
   id: string;
@@ -37,18 +38,6 @@ interface ChunkData {
 
 let loadedEmbeddingsMap: Map<string, number[]> = new Map();
 let allChunks: ChunkData[] = [];
-
-// Lazily-initialised feature-extraction pipeline used to embed user queries with the
-// same model as the documents. Kept as a module-level singleton so the model weights
-// are downloaded only once.
-let extractor: any = null;
-
-async function getExtractor(): Promise<any> {
-  if (!extractor) {
-    extractor = await pipeline('feature-extraction', EMBEDDING_MODEL);
-  }
-  return extractor;
-}
 
 async function loadStoredEmbeddings(): Promise<Map<string, number[]>> {
   const map = new Map<string, number[]>();
@@ -101,10 +90,11 @@ async function initializeEmbeddings(): Promise<void> {
   loadedEmbeddingsMap = await loadStoredEmbeddings();
 
   // Warm up the query embedder so the first question isn't penalised by the
-  // one-off model download. Surface progress on the existing loading bar.
+  // one-off model download. Lazily imports the transformers engine chunk.
   const textEl = document.getElementById('llm-chat-loading-text');
   if (textEl) textEl.textContent = 'Loading query embedder…';
-  await getExtractor();
+  const embedder = await import('./embedder');
+  await embedder.warmUpEmbedder();
 }
 
 // Replace the "Thinking..." placeholder bubble (added by chat-ui's doSend) with an error
@@ -115,7 +105,8 @@ function failWith(messagesDiv: HTMLElement, message: string): void {
 }
 
 async function handleSend(messagesDiv: HTMLElement, question: string): Promise<void> {
-  if (!isModelLoaded()) {
+  const webllm = await import('./webllm-wrapper');
+  if (!webllm.isModelLoaded()) {
     failWith(messagesDiv, 'Model not loaded. Click "Load model" first.');
     return;
   }
@@ -125,9 +116,10 @@ async function handleSend(messagesDiv: HTMLElement, question: string): Promise<v
     return;
   }
 
-  const queryEmbedding = await computeQueryEmbedding(question);
+  const embedder = await import('./embedder');
+  const queryEmbedding = await embedder.embedQuery(question);
 
-  const relevant = retrieveRelevantChunks(question, queryEmbedding, allChunks, loadedEmbeddingsMap, 4);
+  const relevant = retrieveRelevantChunks(question, queryEmbedding, allChunks, loadedEmbeddingsMap, retrievalConfig().topK);
   if (relevant.length === 0) {
     updateLastMessage(messagesDiv, 'Sorry, I couldn\'t find relevant documentation for your question.');
     return;
@@ -140,17 +132,12 @@ async function handleSend(messagesDiv: HTMLElement, question: string): Promise<v
   // text and re-render it as Markdown on each delta (reading back the HTML-stripped DOM
   // text would be lossy).
   let acc = '';
-  const reply = await ask(prompt, (chunk) => {
+  const reply = await webllm.ask(prompt, (chunk) => {
     acc += chunk;
     updateLastMessage(messagesDiv, renderMarkdown(acc));
   });
 
   updateLastMessage(messagesDiv, renderMarkdown(reply));
-}
-
-async function computeQueryEmbedding(text: string): Promise<number[]> {
-  const out = await (await getExtractor())(text, { pooling: 'mean', normalize: true });
-  return Array.from(out.data as Float32Array);
 }
 
 // Initialize when DOM is ready
@@ -159,7 +146,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!chatContainer) return;
 
   const modelId = chatContainer.dataset.modelId || 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
-  if (!await supportsChatModel(getModelRequirements(modelId))) return;
 
   if ('serviceWorker' in navigator) {
     const base = getSiteBase();
@@ -179,13 +165,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     onOpen: () => Promise.resolve(),
   });
 
-
   const messagesDiv = document.getElementById('llm-chat-messages') as HTMLDivElement;
   const loadingDiv = document.getElementById('llm-chat-loading') as HTMLDivElement;
   if (loadingDiv) loadingDiv.style.display = '';
 
   try {
-    await loadModel(modelId, (progress, text) => {
+    // Decide the backend lazily: probe for a generic WebGPU adapter without importing web-llm.
+    // Only if the user actually needs the chat do we pull in the heavy web-llm async chunk for the
+    // model-specific checks. GPU first; if unavailable we keep RAG/embeddings working on CPU.
+    const gpu = await supportsWebGPU();
+
+    // Load the embeddings + query embedder regardless of the chat backend — RAG retrieval
+    // works on CPU too.
+    await initializeEmbeddings();
+    if (!gpu) {
+      // CPU fallback path (transformers.js text-generation) — see index.ts Part B. For now we
+      // surface embeddings/RAG only and a clear message rather than hiding the whole feature.
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (messagesDiv) addMessage(messagesDiv, 'system',
+        'WebGPU is unavailable, so interactive chat is disabled on this device; documentation search still works.');
+      chatContainer.style.display = '';
+      return;
+    }
+
+    // Now the user needs the chat: pull in the heavy web-llm async chunk and run the
+    // model-specific WebGPU checks before committing to this model.
+    const webllm = await import('./webllm-wrapper');
+    const requirements = webllm.getModelRequirements(modelId);
+    if (!(await supportsChatModel(requirements))) {
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (messagesDiv) addMessage(messagesDiv, 'system',
+        'WebGPU is unavailable, so interactive chat is disabled on this device; documentation search still works.');
+      chatContainer.style.display = '';
+      return;
+    }
+
+    await webllm.loadModel(modelId, (progress, text) => {
       const bar = document.getElementById('llm-chat-loading-bar');
       const label = document.getElementById('llm-chat-loading-text');
       if (bar && label) {
@@ -193,14 +208,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         label.textContent = text;
       }
     });
-    await initializeEmbeddings();
     if (loadingDiv) loadingDiv.style.display = 'none';
     if (messagesDiv) addMessage(messagesDiv, 'system', 'Model loaded. You can now ask questions.');
     chatContainer.style.display = '';
   } catch (err: unknown) {
     chatContainer.style.display = 'none';
     chatContainer.replaceChildren();
-    await unloadModel();
+    await (await import('./webllm-wrapper')).unloadModel();
     console.debug('Documentation chat unavailable:', err);
   }
 });

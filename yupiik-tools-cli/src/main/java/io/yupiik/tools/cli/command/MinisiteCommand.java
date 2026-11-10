@@ -80,6 +80,7 @@ public final class MinisiteCommand {
                                 @Option(value = "preActions", description = "PreAction to execute in properties format (type and configuration as keys, configuration value being properties again).") final List<PreAction> preActions,
                                 @Option(value = "llmChatEnabled", description = "Enable LLM chat on the site.") @Default("false") final boolean llmChatEnabled,
                                 @Option(value = "llmModelId", description = "WebLLM model identifier.") @Default("Llama-3.2-3B-Instruct-q4f16_1-MLC") final String llmModelId,
+                                @Option(value = "llmModel", description = "Embedding model + retrieval configuration, in properties/JSON form (see MiniSiteConfiguration.LlmModelConfiguration).") final MiniSiteConfiguration.LlmModelConfiguration llmModel,
                                 @Option(value = "useYupiikAsciidoc", description = "Should Yupiik Asciidoc renderer be used instead of JRuby Asciidoctor one (default true, does not need asciidoctorj).") @Default("true") final boolean useYupiikAsciidoc,
                                 @Option(value = "createADefault404Page", description = "If `true` a `404.html` will be generated with the minisite theme - useful on github pages for example.") final boolean createADefault404Page,
                                 @Option(value = "createRobotsTxt", description = "If `true` a `robots.txt` will be generated.") final boolean createRobotsTxt,
@@ -87,10 +88,11 @@ public final class MinisiteCommand {
                                 @Out final PrintStream stdout,
                                 @Err final PrintStream stderr,
                                 final AsciidoctorProvider asciidoctorProvider) {
-        if (llmChatEnabled && MinisiteCommand.class.getClassLoader().getResource("all-minilm-l6-v2.onnx") == null) {
+        final var llmModelConfig = llmModel == null ? new MiniSiteConfiguration.LlmModelConfiguration() : llmModel;
+        if (llmChatEnabled && !embeddingModelAvailable(llmModelConfig)) {
             throw new IllegalStateException(
                     "LLM chat is enabled but the embedding model is not on the classpath.\n" +
-                    "Add this dependency to your pom.xml:\n\n" +
+                    "Check that the configured ONNX/tokenizer resources are available; the default is to add this dependency:\n\n" +
                     "  <dependency>\n" +
                     "    <groupId>dev.langchain4j</groupId>\n" +
                     "    <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>\n" +
@@ -100,6 +102,7 @@ public final class MinisiteCommand {
         new MiniSite(MiniSiteConfiguration.builder()
                 .llmChatEnabled(llmChatEnabled)
                 .llmModelId(llmModelId)
+                .llmModel(llmModelConfig)
                 .preActions(preActions)
                 .customGems(customGems)
                 .requires(List.of("auto").equals(requires) ? null : requires)
@@ -152,5 +155,11 @@ public final class MinisiteCommand {
                 .createLlmsTxt(createLlmsTxt)
                 .build())
                 .run();
+    }
+
+    private static boolean embeddingModelAvailable(final MiniSiteConfiguration.LlmModelConfiguration cfg) {
+        final var cl = MinisiteCommand.class.getClassLoader();
+        return cfg.getOnnxResources().stream().allMatch(r -> cl.getResource(r) != null)
+                && cl.getResource(cfg.getTokenizerResource()) != null;
     }
 }

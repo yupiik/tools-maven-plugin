@@ -35,6 +35,27 @@ interface GPUProbe {
   requestAdapter(options: { powerPreference: string }): Promise<GPUAdapterProbe | null>;
 }
 
+// Cheap, generic WebGPU availability probe used by the bootstrap at init time, WITHOUT importing
+// @mlc-ai/web-llm (whose requirements table lives in the heavy async chunk). Only answers "is there a
+// usable, non-software GPU adapter at all"; model-specific feature/limit checks happen later in
+// supportsChatModel once web-llm is loaded.
+export async function supportsWebGPU(
+  gpu: GPUProbe | undefined = (navigator as Navigator & { gpu?: GPUProbe }).gpu,
+  secureContext: boolean = window.isSecureContext,
+): Promise<boolean> {
+  if (!secureContext || !gpu) return false;
+  try {
+    const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter || adapter.isFallbackAdapter || adapter.info?.isFallbackAdapter) return false;
+    // Probe that a device can actually be created before committing to the GPU path.
+    const device = await adapter.requestDevice();
+    device.destroy();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Match WebLLM's minimum runtime limits; a software adapter cannot run the chat.
 // Browser APIs do not expose free VRAM, so model loading remains the final check.
 export async function supportsChatModel(
