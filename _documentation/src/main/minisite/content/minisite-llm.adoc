@@ -69,31 +69,42 @@ In addition the minisite injects, on every page, the chat assets it built from
 
 === Runtime (in the browser)
 
-Everything happens client-side. Before downloading models, the widget checks for a hardware WebGPU adapter,
-the features required by the configured model (including `shader-f16` for half-precision models),
-the runtime buffer and compute limits, and successful GPU device creation.
-The chat stays hidden until the model and documentation embeddings have loaded successfully.
-An unsupported browser, a software fallback adapter, insufficient capabilities or a loading failure leaves the widget hidden.
-Free GPU memory is not exposed by browser APIs, so model loading is the final compatibility check.
+Everything happens client-side. The page-load payload is small: the chat bootstrap is a few KB
+and the heavy engines (WebLLM and transformers.js) are fetched lazily only when the chat is actually used.
+
+Before downloading models, the widget checks for a hardware WebGPU adapter, the features required by
+the configured model (including `shader-f16` for half-precision models), the runtime buffer and compute
+limits, and successful GPU device creation. Free GPU memory is not exposed by browser APIs, so model
+loading is the final compatibility check.
 
 On compatible devices:
 
 . https://github.com/mlc-ai/web-llm[WebLLM] downloads the chat model (`llmModelId`) once from its CDN
-and runs it on WebGPU,
-. the visitor's question is embedded in the browser with the **same** `all-MiniLM-L6-v2` model
-(via https://github.com/huggingface/transformers.js[transformers.js], mean pooling + normalization),
-so questions and documents live in the same vector space,
+and runs it on WebGPU (the fast, primary path),
+. the visitor's question is embedded in the browser with the **same** configured embedding model
+(via https://github.com/huggingface/transformers.js[transformers.js], on the CPU/WASM backend regardless
+of GPU availability, with the configured pooling + query prefix), so questions and documents live in the
+same vector space,
 . a hybrid retrieval ranks the chunks by blending cosine similarity with a keyword score (including a
 small synonym expansion, e.g. _features_ / _modules_ / _extensions_), and keeps the best ones,
 . the retrieved chunks and the question form a grounded prompt; the local model streams back a Markdown
 answer with links to the source pages.
+
+On a device *without* a usable WebGPU adapter, the widget does not disappear: it keeps the documentation
+search (RAG retrieval over the embeddings) working on CPU and shows a message that the interactive chat
+model is unavailable on this device.
 
 The service worker caches the embeddings with a network-first strategy (so a site rebuild is picked up
 on reload) and the chunks are stored in IndexedDB after the first load.
 
 [NOTE]
 ====
-* A WebGPU-capable browser is required to run the chat model.
+* A WebGPU-capable browser is required to run the *chat* model; the documentation search (RAG retrieval)
+  works on any browser because the query embedder runs on CPU/WASM. No ort binary is bundled in the
+  site or the plugin jar: transformers.js fetches the ort-wasm runtime from its CDN by default.
+* For offline / closed-network deployments: place the onnxruntime-web WASM files
+  (`ort-wasm-simd-threaded.wasm` + `.mjs`) plus the embedding model files in your site's `assets/`
+  directory so they are served locally instead of from the CDN.
 * The chat model is a sizeable download on first use; it is cached by the browser afterwards.
 * Embeddings are regenerated on every build, so they always match the published content.
 ====

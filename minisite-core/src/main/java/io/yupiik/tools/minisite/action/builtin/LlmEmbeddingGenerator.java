@@ -3,6 +3,8 @@ package io.yupiik.tools.minisite.action.builtin;
 import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtSession;
+import io.yupiik.tools.minisite.MiniSiteConfiguration;
+import io.yupiik.tools.minisite.MiniSiteConfiguration.Pooling;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbConfig;
 import jakarta.json.bind.config.PropertyOrderStrategy;
@@ -21,14 +23,19 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 // Generates the documentation embeddings consumed by the in-browser LLM chat (see the
@@ -38,6 +45,7 @@ import java.util.regex.Pattern;
 // model (mean pooling + L2 normalization) and writes the chunk + index JSON the browser
 // fetches to perform retrieval-augmented chat.
 public class LlmEmbeddingGenerator implements Runnable {
+    private static final Logger LOGGER = Logger.getLogger(LlmEmbeddingGenerator.class.getName());
 
     /**
      * Sentinel executor marking sequential batch computation on the calling thread, used to distinguish the
@@ -45,9 +53,7 @@ public class LlmEmbeddingGenerator implements Runnable {
      */
     public static final Executor SEQUENTIAL = Runnable::run;
 
-    // model output shape is depended on by the JS consumer
-    private static final String MODEL_RESOURCE = "all-minilm-l6-v2.onnx";
-    private static final String TOKENIZER_RESOURCE = "all-minilm-l6-v2-tokenizer.json";
+    // model output shape is depended on by the JS consumer; defaults keep all-MiniLM-L6-v2 behaviour
     private static final int EMBEDDING_DIM = 384;
 
     // chunking constants
@@ -64,6 +70,7 @@ public class LlmEmbeddingGenerator implements Runnable {
     // throughput is typically 10-20x better than batch=1.
     private static final int BATCH_SIZE = 32;
 
+    private final MiniSiteConfiguration.LlmModelConfiguration llmModel;
     private final Path sourceBase;
     private final Path outputBase;
     private final int maxLength;
@@ -103,7 +110,22 @@ public class LlmEmbeddingGenerator implements Runnable {
                                  final Path outputBase,
                                  final Predicate<Path> ignoredFile,
                                  final Executor embeddingExecutor) {
-        checkModel();
+        this(new MiniSiteConfiguration.LlmModelConfiguration(), configuration, sourceBase, outputBase, ignoredFile, embeddingExecutor);
+    }
+
+    /**
+     * Configurable model variant: {@code llmModel} drives the ONNX/tokenizer classpath resources, the embedding
+     * dimension, the pooling mode and the model id written in {@code embeddings.index.json} (and, upstream, the
+     * in-browser embedder model id shipped to the page templates).
+     */
+    public LlmEmbeddingGenerator(final MiniSiteConfiguration.LlmModelConfiguration llmModel,
+                                 final Map<String, String> configuration,
+                                 final Path sourceBase,
+                                 final Path outputBase,
+                                 final Predicate<Path> ignoredFile,
+                                 final Executor embeddingExecutor) {
+        checkModel(llmModel);
+        this.llmModel = llmModel == null ? new MiniSiteConfiguration.LlmModelConfiguration() : llmModel;
         this.sourceBase = sourceBase;
         this.outputBase = outputBase;
         this.maxLength = Integer.parseInt(configuration.getOrDefault("maxLength", "128"));
@@ -111,10 +133,15 @@ public class LlmEmbeddingGenerator implements Runnable {
         this.embeddingExecutor = embeddingExecutor;
     }
 
-    private static void checkModel() {
+    private static void checkModel(final MiniSiteConfiguration.LlmModelConfiguration llmModel) {
+        final var model = llmModel == null ? new MiniSiteConfiguration.LlmModelConfiguration() : llmModel;
         final var cl = LlmEmbeddingGenerator.class.getClassLoader();
-        if (cl.getResource(MODEL_RESOURCE) == null || cl.getResource(TOKENIZER_RESOURCE) == null) {
-            throw new IllegalStateException("Embedding model missing");
+        final boolean missingOnnx = model.getOnnxResources().stream().anyMatch(r -> cl.getResource(r) == null);
+        if (missingOnnx || cl.getResource(model.getTokenizerResource()) == null) {
+            throw new IllegalStateException("Embedding model missing on the classpath.\n" +
+                    "Check that the ONNX resources " + model.getOnnxResources() + " and the tokenizer \"" +
+                    model.getTokenizerResource() + "\" are available (e.g. add the matching langchain4j " +
+                    "embedding dependency as a plugin dependency).");
         }
     }
 
@@ -252,37 +279,91 @@ public class LlmEmbeddingGenerator implements Runnable {
     void computeEmbeddings(final List<Chunk> chunks) {
         try {
             final var cl = getClass().getClassLoader();
-            final var vocab = loadVocab(cl.getResourceAsStream(TOKENIZER_RESOURCE));
+            final var vocab = loadVocab(cl.getResourceAsStream(llmModel.getTokenizerResource()));
             final var env = OrtEnvironment.getEnvironment();
 
-            final byte[] modelBytes;
-            try (var stream = cl.getResourceAsStream(MODEL_RESOURCE)) {
-                modelBytes = stream.readAllBytes();
-            }
-
-            final int clsId = vocab.getOrDefault("[CLS]", 101);
-            final int sepId = vocab.getOrDefault("[SEP]", 102);
-            final int padId = vocab.getOrDefault("[PAD]", 0);
-            final int unkId = vocab.getOrDefault("[UNK]", 100);
-
-            // A single session.run() with batchSize=32 is much faster than 32 individual
-            // runs: ONNX Runtime parallelises the matrix mults across the batch dimension
-            // and the JNI overhead is paid only once.
-            if (embeddingExecutor == null || embeddingExecutor == SEQUENTIAL) {
-                // sequential (previous behaviour): each batch computed on the calling thread with a single shared session
-                try (var session = env.createSession(modelBytes, new OrtSession.SessionOptions())) {
-                    for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
-                        computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, base);
+            // Session source: either the raw bytes of a single-file model, or the path of an
+            // external-data graph extracted to a temp dir (so ORT finds the sibling .onnx_data).
+            final var resources = llmModel.getOnnxResources();
+            if (resources.size() == 1) {
+                final byte[] modelBytes;
+                try (var stream = cl.getResourceAsStream(resources.get(0))) {
+                    if (stream == null) {
+                        throw new IllegalStateException("Missing embedding model resource: " + resources.get(0));
+                    }
+                    modelBytes = stream.readAllBytes();
+                }
+                computeEmbeddings(chunks, env, vocab, modelBytes, null);
+            } else {
+                final var dir = Files.createTempDirectory("minisite-embedding-model");
+                try {
+                    for (final var resource : resources) {
+                        try (var stream = cl.getResourceAsStream(resource)) {
+                            if (stream == null) {
+                                throw new IllegalStateException("Missing embedding model resource: " + resource);
+                            }
+                            Files.write(dir.resolve(Path.of(resource).getFileName()), stream.readAllBytes());
+                        }
+                    }
+                    computeEmbeddings(chunks, env, vocab, null, dir.resolve(Path.of(resources.get(0)).getFileName()));
+                } finally {
+                    // best-effort cleanup of the extracted model
+                    try {
+                        try (var paths = Files.walk(dir)) {
+                            paths.sorted(Comparator.reverseOrder()).forEach(p -> {
+                                try {
+                                    Files.deleteIfExists(p);
+                                } catch (final IOException e) {
+                                    // best-effort
+                                }
+                            });
+                        }
+                    } catch (final IOException ignored) {
+                        // best-effort
                     }
                 }
-            } else {
-                // concurrent batches must each own their session: ONNX Runtime is NOT deterministic when multiple
-                // threads call run() on the same session concurrently, so a per-batch session keeps the embeddings
-                // bit-identical to the sequential run while still parallelising across the executor.
-                parallelComputeBatches(modelBytes, env, vocab, clsId, sepId, padId, unkId, chunks);
             }
         } catch (final Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void computeEmbeddings(final List<Chunk> chunks,
+                                   final OrtEnvironment env,
+                                   final Map<String, Integer> vocab,
+                                   final byte[] modelBytes,
+                                   final Path modelPath) throws Exception {
+        final int clsId = vocab.getOrDefault("[CLS]", 101);
+        final int sepId = vocab.getOrDefault("[SEP]", 102);
+        final int padId = vocab.getOrDefault("[PAD]", 0);
+        final int unkId = vocab.getOrDefault("[UNK]", 100);
+
+        // A single session.run() with batchSize=32 is much faster than 32 individual
+        // runs: ONNX Runtime parallelises the matrix mults across the batch dimension
+        // and the JNI overhead is paid only once.
+        if (embeddingExecutor == null || embeddingExecutor == SEQUENTIAL) {
+            // sequential (previous behaviour): each batch computed on the calling thread with a single shared session
+            try (var session = openSession(env, modelBytes, modelPath)) {
+                for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
+                    computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, base);
+                }
+            }
+        } else {
+            // concurrent batches must each own their session: ONNX Runtime is NOT deterministic when multiple
+            // threads call run() on the same session concurrently, so a per-batch session keeps the embeddings
+            // bit-identical to the sequential run while still parallelising across the executor.
+            parallelComputeBatches(modelBytes, modelPath, env, vocab, clsId, sepId, padId, unkId, chunks);
+        }
+    }
+
+    private OrtSession openSession(final OrtEnvironment env, final byte[] modelBytes, final Path modelPath)
+            throws Exception {
+        final var options = new OrtSession.SessionOptions();
+        try (options) {
+            if (modelPath != null) {
+                return env.createSession(modelPath.toFile().getAbsolutePath(), options);
+            }
+            return env.createSession(modelBytes, options);
         }
     }
 
@@ -328,53 +409,68 @@ public class LlmEmbeddingGenerator implements Runnable {
             inputs.put("token_type_ids", typeTensor);
 
             try (final var result = session.run(inputs)) {
-                final var output = result.get(0).getValue();
+                // The first output (or llmModel.outputIndex when pooling="baked") is the embedding source.
+                // all-MiniLM-L6-v2's first output is last_hidden_state [batch, seq, 384]; the canonical
+                // sentence embedding is the MEAN over the attention-masked tokens (NOT [CLS]). mdbr-leaf-ir
+                // exposes a pre-pooled, L2-normalised "sentence_embedding" output (dim 768). The browser
+                // query embedder (transformers.js, pooling: {type: poolingMode, normalize}) must do the same
+                // to share a vector space, so the model config (pooling + dimension + outputIndex) is what
+                // keeps both sides consistent.
+                final Pooling pooling = llmModel.getPooling() == null ? Pooling.MEAN : llmModel.getPooling();
+                final int dim = llmModel.getDimension() <= 0 ? EMBEDDING_DIM : llmModel.getDimension();
+                final int outputIndex = llmModel.getOutputIndex();
 
-                final float[] data;
-                if (output instanceof OnnxTensor tensor) {
-                    data = new float[(int) tensor.getInfo().getNumElements()];
-                    tensor.getFloatBuffer().get(data);
-                } else if (output instanceof float[][][] array) {
-                    data = flatten(array);
-                } else if (output instanceof float[][] array) {
-                    data = flatten(array);
+                final OnnxTensor outputTensor = (OnnxTensor) (pooling == Pooling.BAKED ? result.get(outputIndex) : result.get(0));
+                float[] data;
+                if (outputTensor.getInfo().getShape().length == 2) {
+                    data = new float[(int) outputTensor.getInfo().getNumElements()];
+                    outputTensor.getFloatBuffer().get(data);
                 } else {
-                    throw new IllegalStateException("Unsupported output type: " + output.getClass());
+                    data = flatten((float[][][]) outputTensor.getValue());
                 }
 
-                // all-MiniLM-L6-v2's first output is last_hidden_state with shape
-                // [batch, seq, 384]. The canonical sentence embedding is the MEAN of
-                // the token vectors weighted by the attention mask (NOT the [CLS]
-                // token). The browser query embedder (transformers.js, pooling:'mean')
-                // does the same, so both sides must mean-pool to share a vector space.
-                final int perItem = data.length / bSize;
-                final int tokenCount = perItem / EMBEDDING_DIM;
-
-                for (int b = 0; b < bSize; b++) {
-                    final var emb = new float[EMBEDDING_DIM];
+                final float[] pooled = new float[bSize * dim]; // already pooled per row when baked
+                if (pooling == Pooling.BAKED) {
+                    System.arraycopy(data, 0, pooled, 0, pooled.length);
+                } else {
+                    final int perItem = data.length / bSize;
+                    final int tokenCount = perItem / dim;
                     if (tokenCount <= 1) {
-                        // already pooled output [batch, 384]
-                        System.arraycopy(data, b * perItem, emb, 0, EMBEDDING_DIM);
-                    } else {
-                        // mean-pool over the sequence using the attention mask
-                        int counted = 0;
-                        for (int t = 0; t < tokenCount; t++) {
-                            final boolean masked = tokenCount == maxLength && masks[b * maxLength + t] == 0L;
-                            if (masked) {
-                                continue;
-                            }
-                            final int offset = (b * tokenCount + t) * EMBEDDING_DIM;
-                            for (int d = 0; d < EMBEDDING_DIM; d++) {
-                                emb[d] += data[offset + d];
-                            }
-                            counted++;
+                        // already pooled output [batch, dim]
+                        System.arraycopy(data, 0, pooled, 0, pooled.length);
+                    } else if (pooling == Pooling.CLS) {
+                        // [CLS] token per row (bge family style)
+                        for (int b = 0; b < bSize; b++) {
+                            System.arraycopy(data, b * perItem, pooled, b * dim, dim);
                         }
-                        if (counted > 0) {
-                            for (int d = 0; d < EMBEDDING_DIM; d++) {
-                                emb[d] /= counted;
+                    } else {
+                        // mean over the attention-masked tokens
+                        for (int b = 0; b < bSize; b++) {
+                            final int baseDim = b * dim;
+                            int counted = 0;
+                            for (int t = 0; t < tokenCount; t++) {
+                                final boolean masked = tokenCount == maxLength && masks[b * maxLength + t] == 0L;
+                                if (masked) {
+                                    continue;
+                                }
+                                final int offset = (b * tokenCount + t) * dim;
+                                for (int d = 0; d < dim; d++) {
+                                    pooled[baseDim + d] += data[offset + d];
+                                }
+                                counted++;
+                            }
+                            if (counted > 0) {
+                                for (int d = 0; d < dim; d++) {
+                                    pooled[baseDim + d] /= counted;
+                                }
                             }
                         }
                     }
+                }
+
+                for (int b = 0; b < bSize; b++) {
+                    final var emb = new float[dim];
+                    System.arraycopy(pooled, b * dim, emb, 0, dim);
                     normalize(emb);
                     chunks.get(base + b).embedding = emb;
                 }
@@ -386,8 +482,17 @@ public class LlmEmbeddingGenerator implements Runnable {
      * Dispatches one task per ONNX batch to {@link #embeddingExecutor}, waits for all of them and rethrows the first
      * failure (with the others as suppressed) so the caller sees a failure just like the sequential path does.
      * Completed batches are written in-place into {@code chunks} at their own indices, so completion order is irrelevant.
+     *
+     * <p>The ONNX sessions are created once and shared across the batches through a bounded pool of a
+     * {@code #maxConcurrentSessions(byte[])}-sized reuse. ONNX Runtime is not deterministic when multiple threads
+     * call {@code run()} on the same session concurrently, so each session is handed to one batch at a time and
+     * returned to the pool afterwards; the pool bounds how many batches run at once, keeping the results
+     * bit-identical to the sequential run while not spawning an unbounded number of sessions (each session also
+     * creates its own ONNX worker threads, so capping the sessions to the core count avoids over-subscribing the
+     * CPU the way one fresh session per batch on an unbounded executor does).</p>
      */
     private void parallelComputeBatches(final byte[] modelBytes,
+                                        final Path modelPath,
                                         final OrtEnvironment env,
                                         final Map<String, Integer> vocab,
                                         final int clsId,
@@ -396,34 +501,71 @@ public class LlmEmbeddingGenerator implements Runnable {
                                         final int unkId,
                                         final List<Chunk> chunks) {
         final int batchCount = (chunks.size() + BATCH_SIZE - 1) / BATCH_SIZE;
+        if (batchCount == 0) {
+            return;
+        }
+        final int poolSize = Math.min(Math.max(1, Runtime.getRuntime().availableProcessors()), batchCount);
+        final var sessions = new ArrayBlockingQueue<OrtSession>(poolSize);
         final var done = new CountDownLatch(batchCount);
         final var failure = new AtomicReference<Throwable>();
-        for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
-            final int b = base;
-            embeddingExecutor.execute(() -> {
-                // each batch opens its own session: ONNX Runtime is not deterministic when a session.run() is
-                // invoked concurrently on the same session, so per-batch sessions keep results bit-identical to
-                // sequential while parallelising across batches.
-                try (var session = env.createSession(modelBytes, new OrtSession.SessionOptions())) {
-                    computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, b);
-                } catch (final Throwable t) {
-                    failure.accumulateAndGet(t, (acc, cur) -> {
-                        if (acc == null) {
-                            return cur;
+        try {
+            final var options = new OrtSession.SessionOptions();
+            try (options) {
+                for (int i = 0; i < poolSize; i++) {
+                    try {
+                        sessions.add(openSession(env, modelBytes, modelPath));
+                    } catch (final Exception e) {
+                        throw new IllegalStateException("Unable to create an ONNX session for the embeddings", e);
+                    }
+                }
+            }
+            for (int base = 0; base < chunks.size(); base += BATCH_SIZE) {
+                final int b = base;
+                embeddingExecutor.execute(() -> {
+                    OrtSession session = null;
+                    try {
+                        session = sessions.take();
+                        computeBatch(session, env, vocab, clsId, sepId, padId, unkId, chunks, b);
+                    } catch (final InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        failure.accumulateAndGet(ie, (acc, cur) -> {
+                            if (acc == null) {
+                                return cur;
+                            }
+                            acc.addSuppressed(cur);
+                            return acc;
+                        });
+                    } catch (final Throwable t) {
+                        LOGGER.log(Level.FINE, "Embedding batch failed", t);
+                        failure.accumulateAndGet(t, (acc, cur) -> {
+                            if (acc == null) {
+                                return cur;
+                            }
+                            acc.addSuppressed(cur);
+                            return acc;
+                        });
+                    } finally {
+                        if (session != null) {
+                            sessions.offer(session); // back to the pool for the next batch, one session per concurrent batch
                         }
-                        acc.addSuppressed(cur);
-                        return acc;
-                    });
-                } finally {
-                    done.countDown();
+                        done.countDown();
+                    }
+                });
+            }
+            try {
+                done.await();
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while computing embeddings", e);
+            }
+        } finally {
+            sessions.forEach(s -> {
+                try {
+                    s.close();
+                } catch (final Throwable e) {
+                    LOGGER.log(Level.FINE, "Unable to close an embedding ONNX session", e);
                 }
             });
-        }
-        try {
-            done.await();
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while computing embeddings", e);
         }
         final var f = failure.get();
         if (f != null) {
@@ -575,7 +717,8 @@ public class LlmEmbeddingGenerator implements Runnable {
             try (var jsonb = JsonbBuilder.create(
                     new JsonbConfig().withPropertyOrderStrategy(PropertyOrderStrategy.LEXICOGRAPHICAL));
                  var w = Files.newBufferedWriter(dir.resolve("embeddings.index.json"))) {
-                jsonb.toJson(new EmbeddingIndex("all-minilm-l6-v2", EMBEDDING_DIM, List.of(chunkFile), chunks.size()), w);
+                jsonb.toJson(new EmbeddingIndex(llmModel.getModel(), llmModel.getDimension() <= 0 ? EMBEDDING_DIM : llmModel.getDimension(),
+                        List.of(chunkFile), chunks.size()), w);
             }
         } catch (final Exception e) {
             throw new RuntimeException(e);
