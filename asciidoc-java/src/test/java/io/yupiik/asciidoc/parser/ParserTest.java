@@ -81,6 +81,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class ParserTest {
     private static final Table.ColumnSpec DEFAULT_COLUMN = new Table.ColumnSpec(1, null, null, 1, null);
@@ -289,6 +290,90 @@ class ParserTest {
         for (final var it : table.elements()) {
             assertEquals(4, it.size());
         }
+    }
+
+    // the default table cell fast path stores a single plain-text line as one Text, exactly as the inline parsing would
+    @Test
+    void plainTableCellIsASingleText() {
+        final var body = new Parser().parseBody("""
+                |===
+                |foo bar|2023-11-09|42
+                |x=y|a+b|c/d
+                |===
+                """, new Parser.ParserContext(null));
+        final var table = assertInstanceOf(Table.class, body.children().get(0));
+        assertEquals(2, table.elements().size());
+        assertEquals(List.of(
+                        new Text(List.of(), "foo bar", Map.of()),
+                        new Text(List.of(), "2023-11-09", Map.of()),
+                        new Text(List.of(), "42", Map.of())),
+                table.elements().get(0));
+        assertEquals(List.of(
+                        new Text(List.of(), "x=y", Map.of()),
+                        new Text(List.of(), "a+b", Map.of()),
+                        new Text(List.of(), "c/d", Map.of())),
+                table.elements().get(1));
+    }
+
+    // a cell with inline markup is not a plain text line, so it keeps on the full parsing path and its marks survive
+    @Test
+    void tableMarkupCellStillParsed() {
+        final var body = new Parser().parseBody("""
+                |===
+                |*bold*|~~strike~~|`code`
+                |===
+                """, new Parser.ParserContext(null));
+        final var table = assertInstanceOf(Table.class, body.children().get(0));
+        final var row = table.elements().get(0);
+        assertEquals(3, row.size());
+        assertEquals(new Text(List.of(Text.Style.BOLD), "bold", Map.of()), row.get(0));
+        assertEquals(new Text(List.of(Text.Style.STRIKETHROUGH), "strike", Map.of()), row.get(1));
+        assertEquals(new Code("code", Map.of(), true, List.of()), row.get(2));
+    }
+
+    // a cell with an attribute reference keeps on the full parsing path too, a lookup happens when it renders
+    @Test
+    void tableAttributeReferenceCellStillParsed() {
+        final var body = new Parser().parseBody("""
+                |===
+                |{name}
+                |===
+                """, new Parser.ParserContext(null));
+        final var table = assertInstanceOf(Table.class, body.children().get(0));
+        final var cell = table.elements().get(0).get(0);
+        // the reference is parsed, not stored as a single plain Text as the fast path would
+        assertNotEquals(new Text(List.of(), "{name}", Map.of()), cell);
+    }
+
+    // a cell whose line starts like a block prefix (.5, =, ----) is not a plain text line either, it stays on the slow path
+    @Test
+    void tableCellBlockPrefixedLineStaysOnSlowPath() {
+        final var context = new Parser.ParserContext(null);
+        for (final var cell : List.of(".5", "== title", "----")) {
+            final var table = assertInstanceOf(Table.class, new Parser().parseBody("|===\n|" + cell + "\n|===\n", context).children().get(0));
+            // a dot title or a delimiter is consumed as a block-level line, so such a cell is not a single Text
+            assertNotEquals(List.of(new Text(List.of(), cell, Map.of())), table.elements().get(0), cell);
+        }
+    }
+
+    // the cols= and colspan= setups keep their columns and options when the fast path is active
+    @Test
+    void tableColsAndSpansWithPlainCells() {
+        final var body = new Parser().parseBody("""
+                [cols="1,1",options="header"]
+                |===
+                |A|B
+                |2+|C
+                |D|E
+                |===
+                """, new Parser.ParserContext(null));
+        final var table = assertInstanceOf(Table.class, body.children().get(0));
+        assertEquals(Map.of("cols", "1,1", "header-option", ""), table.options());
+        assertEquals(3, table.elements().size());
+        // a plain cell stays a single Text, with or without its span option
+        assertEquals(List.of(new Text(List.of(), "A", Map.of()), new Text(List.of(), "B", Map.of())), table.elements().get(0));
+        assertEquals(List.of(new Text(List.of(), "C", Map.of("colspan", "2"))), table.elements().get(1));
+        assertEquals(List.of(new Text(List.of(), "D", Map.of()), new Text(List.of(), "E", Map.of())), table.elements().get(2));
     }
 
     @Test
