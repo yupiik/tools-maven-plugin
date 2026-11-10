@@ -2199,6 +2199,86 @@ class ParserTest {
     }
 
     @Test
+    void includeInAListItemAttachesTheBlocksAfterItsContinuations() { // the devtools includes of the quarkus.io guides
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                :devtools-wrapped:
+
+                * start Quarkus with:
+                +
+                include::dev.adoc[]
+                * open a browser
+
+                :!devtools-wrapped:
+                """.split("\n"))), (ref, encoding) -> "dev.adoc".equals(ref) ? Optional.of(List.of(
+                "----", "quarkus dev", "----",
+                "ifdef::devtools-wrapped[+]",
+                "----", "./mvnw quarkus:dev", "+", "----")) : Optional.empty());
+        assertEquals(
+                List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "start Quarkus with:", Map.of())), Map.of()),
+                                new Paragraph(List.of(
+                                        new Code("quarkus dev\n", Map.of(), false, List.of()),
+                                        new Code("./mvnw quarkus:dev\n+\n", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        new Text(List.of(), "open a browser", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void includeInAnOrderedListItemOrACalloutAttachesTheBlocksAfterItsContinuations() {
+        final ContentResolver resolver = (ref, encoding) -> "two.adoc".equals(ref) ?
+                Optional.of(List.of("----", "a", "----", "+", "----", "b", "----")) : Optional.empty();
+        final var blocks = new Paragraph(List.of(
+                new Code("a\n", Map.of(), false, List.of()),
+                new Code("b\n", Map.of(), false, List.of())), Map.of());
+        assertEquals(
+                List.of(new OrderedList(List.of(
+                        new Paragraph(List.of(new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()), blocks), Map.of()),
+                        new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of(". item", "+", "include::two.adoc[]", ". next")), resolver).children());
+        assertEquals(
+                List.of(new CallOut(1, new Paragraph(List.of(new Paragraph(List.of(new Text(List.of(), "start with:", Map.of())), Map.of()), blocks), Map.of()))),
+                ((Code) new Parser().parseBody(new Reader(List.of("----", "code <1>", "----", "<1> start with:", "+", "include::two.adoc[]")), resolver)
+                        .children().get(0)).callOuts());
+    }
+
+    @Test
+    void includeInAListItemKeepsTheParagraphsAfterItsContinuationsApart() {
+        final var reader = List.of("* item", "+", "include::texts.adoc[]", "* next");
+        final ContentResolver resolver = (ref, encoding) -> "texts.adoc".equals(ref) ? Optional.of(List.of("first", "+", "second")) : Optional.empty();
+        assertEquals(
+                List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "first", Map.of())), Map.of()),
+                                        new Paragraph(List.of(new Text(List.of(), "second", Map.of())), Map.of())), Map.of())), Map.of()),
+                        new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(reader), resolver).children());
+        assertEquals( // keep-paragraphs=false replaces each paragraph with its text, as for the lines of the item itself
+                List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "item", Map.of()), new Text(List.of(), "first second", Map.of())), Map.of()),
+                        new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser(Map.of("keep-paragraphs", "false")).parseBody(new Reader(reader), resolver).children());
+    }
+
+    @Test
+    void includeContinuationOutsideAListItemIsText() { // as asciidoctor, at the top level and inside a delimited block of the item
+        final ContentResolver resolver = (ref, encoding) -> "two.adoc".equals(ref) ?
+                Optional.of(List.of("----", "a", "----", "+", "----", "b", "----")) : Optional.empty();
+        final var blocks = new Paragraph(List.of(
+                new Code("a\n", Map.of(), false, List.of()),
+                new Text(List.of(), "+", Map.of()),
+                new Code("b\n", Map.of(), false, List.of())), Map.of());
+        assertEquals(List.of(blocks), new Parser().parseBody(new Reader(List.of("include::two.adoc[]")), resolver).children());
+        assertEquals(
+                List.of(new UnOrderedList(List.of(new Paragraph(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                        new OpenBlock(List.of(blocks), Map.of("", "example"))), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "====", "include::two.adoc[]", "====")), resolver).children());
+    }
+
+    @Test
     void missingIncludeFails(@TempDir final Path work) { // a broken document is a failure, not a warning
         final var parser = new Parser();
         final var reader = new Reader(List.of("Before.", "", "include::missing-file.adoc[]", "", "After."));
