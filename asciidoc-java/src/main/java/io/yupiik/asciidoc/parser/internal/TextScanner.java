@@ -423,6 +423,53 @@ public class TextScanner {
         return start;
     }
 
+    // the index within text[from, to) of the last blank (a space or a tab), -1 when there is none, for the table cells
+    // whose specifier, if any, is the text right after that blank
+    public int lastBlankCharIndex(final String text, final int from, final int to) {
+        for (int i = to - 1; i >= from; i--) {
+            if (isBlank(text.charAt(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // whether text[from, to) ends with an escaped separator, i.e. the char right before the end is a backslash, the
+    // segment being non-empty (an empty segment holds no escape), see isEscaped() which has no such boundary
+    public boolean endsWithEscape(final String text, final int from, final int to) {
+        return from < to && text.charAt(to - 1) == '\\';
+    }
+
+    // whether a table cell specifier can begin with this character, as read by Parser#parseCellSpec: a digit, a '.',
+    // an alignment (<^>), or a style letter; anything else always makes parseCellSpec() return null
+    public boolean isLikelyCellSpecFirstChar(final char c) {
+        return c >= '0' && c <= '9' || c == '.' || c == '<' || c == '^' || c == '>' || c >= 'a' && c <= 'z';
+    }
+
+    // the fast-path equivalents of String.stripLeading()/stripTrailing() that only remove the ASCII-whitespace of
+    // trim(), which the table text never legitimately mixes with control characters or non-ASCII spaces; the JDK
+    // methods scan unicode whitespace, which table parsing, one of the hottest paths of large documents, does not need
+    public String stripLeadingAscii(final String value) {
+        int start = 0;
+        while (start < value.length() && isTrimWhitespace(value.charAt(start))) {
+            start++;
+        }
+        return start == 0 ? value : value.substring(start);
+    }
+
+    public String stripTrailingAscii(final String value) {
+        int end = value.length() - 1;
+        while (end >= 0 && isTrimWhitespace(value.charAt(end))) {
+            end--;
+        }
+        end++;
+        return end == value.length() ? value : value.substring(0, end);
+    }
+
+    private static boolean isTrimWhitespace(final char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0x0b;
+    }
+
     /**
      * The textual test of asciidoctor's preprocessor for a conditional directive line, the same for an escaped one:
      * {@code ifdef}, {@code ifndef}, {@code ifeval} or {@code endif}, then {@code ::}, a target without whitespace,
@@ -566,6 +613,55 @@ public class TextScanner {
             }
         }
         return true;
+    }
+
+    /**
+     * Whether a single table cell line is plain text that {@code parseLine()} would turn into one bare {@code Text} with
+     * its exact value, letting the cell be written as such without the reader + {@code doParse()} it would otherwise
+     * spawn, the dominant cost of table parsing on large documents. It must stay byte-identical with that full path,
+     * hence the conservative rejects: any inline markup trigger (the {@code parseLine()} switch), a link or email, an
+     * attribute reference or an escaped char, a {@code [[id]]}/{@code <<x>>}/[text](url) anchor or mark, and the
+     * block-level prefixes that {@code doParse()} would intercept (heading, dot title, comment, list-less delimiters)
+     * even though they are rare in cells.
+     *
+     * @param line one line of a table cell.
+     * @return whether the cell reduces to a single literal {@code Text}.
+     */
+    public boolean isPlainInlineCellText(final String line) {
+        final int length = line.length();
+        if (length == 0) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            switch (line.charAt(i)) {
+                case '\\', '{', '}', ':', '@', '<', '>', '[', ']', '#', '`', '$', '!', '^', '~', '_', '*':
+                    return false;
+                default:
+            }
+        }
+        final char first = line.charAt(0);
+        if (first == '=' || first == '/' || first == '-') { // heading, comment, or a list-like/-~~ delimiter
+            return false;
+        }
+        if (first == '.' && (length == 1 || line.charAt(1) != '.' && line.charAt(1) != ' ')) {
+            return false; // a dot title prefix, which doParse() would consume for the following block
+        }
+        // a lone repeated delimiter such as "----" or "++++": a block delimiter makes doParse() open a block
+        if (length >= 4 && isDelimiterRun(line)) {
+            return false;
+        }
+        return true;
+    }
+
+    // whether the line is a run of one repeated block delimiter character, such as ---- or ++++; after
+    // isPlainInlineCellText() already rejected the inline markup triggers
+    private boolean isDelimiterRun(final String line) {
+        final char first = line.charAt(0);
+        if (first != '=' && first != '-' && first != '_' && first != '.' && first != '*' &&
+                first != '~' && first != '^' && first != '+' && first != '`' && first != '#' && first != '|') {
+            return false;
+        }
+        return runLength(line, 1, first) == line.length() - 1;
     }
 
     /**

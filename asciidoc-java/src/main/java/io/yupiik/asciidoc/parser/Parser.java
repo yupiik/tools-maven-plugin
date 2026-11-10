@@ -917,9 +917,9 @@ public class Parser {
         final var lines = new ArrayList<String>();
         final var sourceTracking = reader.getSourceListener() == null ? null : new TableSourceTracking(reader);
         String next;
-        while ((next = reader.nextLine()) != null && !Objects.equals(token, next.strip())) {
+        while ((next = reader.nextLine()) != null && !Objects.equals(token, next.trim())) {
             if (!next.startsWith("//") || next.startsWith("///")) { // line comments are skipped, as asciidoctor does
-                lines.add(next.stripTrailing());
+                lines.add(scanner.stripTrailingAscii(next));
                 if (sourceTracking != null) {
                     sourceTracking.onKeptLine();
                 }
@@ -952,57 +952,71 @@ public class Parser {
                 cells.closeOpenCell(CellSpec.NONE);
             } else {
                 final var start = line.indexOf('|');
-                final var spec = start < 0 ? null : parseCellSpec(line.substring(0, start).stripLeading());
+                final var spec = start < 0 ? null : parseCellSpec(scanner.stripLeadingAscii(line.substring(0, start)));
                 if (spec != null) { // otherwise the line continues the open cell
                     cells.closeOpenCell(spec);
                     line = line.substring(start + 1);
                 }
             }
 
+            // the cells of one row are cut from the line walking its primary separators with an index advance instead of
+            // taking a substring per separator, to avoid the quadratic allocations of the very wide rows of a large table.
+            // a cell specifier is only parsed when its tail may be one, a specifier starting with a digit, a '.', one of
+            // the <^> alignments or a style letter, so most plain-text cells skip the substring and the parseCellSpec() call.
+            int offset = 0;
             while (true) {
-                final int separator = line == null ? -1 : line.indexOf('|');
+                final int separator = line == null ? -1 : line.indexOf('|', offset);
                 if (separator < 0) {
                     if (line != null) {
-                        cells.buffer.append(line);
+                        cells.buffer.append(line, offset, line.length());
                     }
                     cells.buffer.append('\n');
                     cells.cellOpen = true;
                     break;
                 }
 
-                final var before = line.substring(0, separator);
-                final var after = line.substring(separator + 1);
-                if (before.endsWith("\\")) { // escaped separator
-                    cells.buffer.append(before, 0, before.length() - 1).append('|');
-                    if (after.isEmpty()) {
+                if (scanner.endsWithEscape(line, offset, separator)) { // escaped separator
+                    cells.buffer.append(line, offset, separator - 1).append('|');
+                    offset = separator + 1;
+                    if (offset == line.length()) {
                         cells.buffer.append('\n');
                         cells.cellOpen = true;
                         break;
                     }
-                    line = after;
                     continue;
                 }
-                if (lineStartsWithSeparator && isSpanOnly(before)) { // |2+| and |.2+| read as before, where asciidoctor writes 2+| and .2+|
+                if (lineStartsWithSeparator && isSpanOnly(line.substring(offset, separator))) { // |2+| and |.2+| read as before, where asciidoctor writes 2+| and .2+|
                     lineStartsWithSeparator = false;
-                    final var span = parseCellSpec(before);
+                    final var span = parseCellSpec(line.substring(offset, separator));
                     cells.specs.pollLast();
                     cells.specs.add(new CellSpec(span.colspan(), span.rowspan(), 1, null, null, null, true));
-                    line = after.isEmpty() ? null : after;
+                    offset = separator + 1;
+                    if (offset == line.length()) {
+                        line = null;
+                    }
                     continue;
                 }
                 lineStartsWithSeparator = false;
 
-                final int blank = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\t'));
-                final var spec = blank < 0 ? null : parseCellSpec(before.substring(blank + 1));
+                final int blank = scanner.lastBlankCharIndex(line, offset, separator);
+                final CellSpec spec;
+                if (blank < 0 || (blank + 1 < separator && !scanner.isLikelyCellSpecFirstChar(line.charAt(blank + 1)))) {
+                    spec = null; // the tail is plain text, it cannot be a specifier, skip the substring + parseCellSpec()
+                } else {
+                    spec = parseCellSpec(line.substring(blank + 1, separator));
+                }
                 if (spec == null) { // no specifier before the separator
                     cells.specs.add(CellSpec.NONE);
-                    cells.buffer.append(before);
+                    cells.buffer.append(line, offset, separator);
                 } else {
-                    final int textEnd = scanner.trailingBlanksStart(before, blank);
+                    final int textEnd = scanner.trailingBlanksStart(line, blank);
                     cells.specs.add(spec);
-                    cells.buffer.append(before, 0, textEnd);
+                    cells.buffer.append(line, offset, textEnd);
                 }
-                line = after.isEmpty() ? null : after;
+                offset = separator + 1;
+                if (offset == line.length()) {
+                    line = null;
+                }
                 cells.closeCell(false);
             }
 
@@ -1073,6 +1087,9 @@ public class Parser {
                     .collect(joining()), Map.of(), true, List.of());
             case "h" -> withCellOptions(parseCell(enclosingDocument, "d", lines, parent, resolver, currentAttributes), Map.of("role", "header"));
             default -> { // "d", all inline markup
+                if (lines.size() == 1 && scanner.isPlainInlineCellText(lines.get(0))) { // fast path: a single plain-text line
+                    yield new Text(List.of(), lines.get(0), Map.of());
+                }
                 final var content = doParse(enclosingDocument, subReader(parent, null, lines), line -> true, resolver, currentAttributes, false, false);
                 yield content.size() == 1 ? content.get(0) : new Paragraph(content, Map.of());
             }
@@ -1337,14 +1354,14 @@ public class Parser {
             final var style = spec.style() != null ? spec.style() : (column == null ? null : column.style());
             final String content;
             if ("a".equals(style) || "l".equals(style)) { // as asciidoctor: the leading line feeds go, the indentation of the first line stays
-                final var trailingStripped = text.stripTrailing();
+                final var trailingStripped = scanner.stripTrailingAscii(text);
                 int firstLine = 0;
                 while (firstLine < trailingStripped.length() && trailingStripped.charAt(firstLine) == '\n') {
                     firstLine++;
                 }
-                content = firstLine == 0 && "a".equals(style) ? trailingStripped.stripLeading() : trailingStripped.substring(firstLine);
+                content = firstLine == 0 && "a".equals(style) ? scanner.stripLeadingAscii(trailingStripped) : trailingStripped.substring(firstLine);
             } else {
-                content = text.strip();
+                content = text.trim();
             }
             // a cell with no style of its own gets the default one, "d", which parses the inline markup as asciidoctor does
             final var element = parseCell(enclosingDocument, style == null ? "d" : style,
@@ -1425,8 +1442,8 @@ public class Parser {
                                  final Map<String, String> options,
                                  final ContentResolver resolver,
                                  final Map<String, String> currentAttributes) {
-        final var headerLine = reader.nextLine().strip();
-        final var separatorLine = reader.nextLine().strip();
+        final var headerLine = reader.nextLine().trim();
+        final var separatorLine = reader.nextLine().trim();
         final var headerCells = parsePipeRow(headerLine);
         final var numCols = headerCells.size();
 
@@ -1435,7 +1452,7 @@ public class Parser {
         final var sepParts = separatorLine.split("\\|");
         var sepIdx = 0;
         for (final var part : sepParts) {
-            final var trimmed = part.strip();
+            final var trimmed = part.trim();
             if (trimmed.isEmpty()) continue;
             if (sepIdx >= numCols) break;
             if (trimmed.startsWith(":") && trimmed.endsWith(":")) {
@@ -1454,20 +1471,20 @@ public class Parser {
         // header row
         final var headerElements = new ArrayList<Element>(numCols);
         for (final var cell : headerCells) {
-            headerElements.add(new Text(List.of(), cell.strip(), Map.of()));
+            headerElements.add(new Text(List.of(), cell.trim(), Map.of()));
         }
         rows.add(headerElements);
 
         // data rows
         String next;
         while ((next = reader.nextLine()) != null) {
-            final var stripped = next.strip();
+            final var stripped = next.trim();
             if (stripped.isBlank() || stripped.equals(headerLine)) break;
             if (!stripped.startsWith("|")) break;
             final var cells = parsePipeRow(stripped);
             final var rowElements = new ArrayList<Element>(numCols);
             for (final var cell : cells) {
-                rowElements.add(new Text(List.of(), cell.strip(), Map.of()));
+                rowElements.add(new Text(List.of(), cell.trim(), Map.of()));
             }
             rows.add(rowElements);
         }
@@ -1488,7 +1505,7 @@ public class Parser {
         int last = 0;
         int idx = scanner.nextUnescapedMarkdown(line, '|', last);
         while (idx >= 0) {
-            final var cell = line.substring(last, idx).strip();
+            final var cell = line.substring(last, idx).trim();
             if (!cell.isEmpty()) {
                 cells.add(cell.replace("\\|", "|"));
             }
@@ -1496,7 +1513,7 @@ public class Parser {
             idx = scanner.nextUnescapedMarkdown(line, '|', last);
         }
         if (last < line.length()) {
-            final var cell = line.substring(last).strip();
+            final var cell = line.substring(last).trim();
             if (!cell.isEmpty()) {
                 cells.add(cell.replace("\\|", "|"));
             }

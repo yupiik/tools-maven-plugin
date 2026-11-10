@@ -31,7 +31,7 @@ public class HtmlEscaping implements Function<String, String> {
     private static final Pattern CHARACTER_REFERENCE = Pattern.compile("&(?:[a-zA-Z][a-zA-Z]+\\d{0,2}|#\\d\\d\\d{0,4}|#x[\\da-fA-F]{3,6});");
 
     // taken from commons-value
-    private final Map<Character, String> escaped = Map.ofEntries(
+    private static final Map<Character, String> BASE_ESCAPED = Map.ofEntries(
             entry('"', "&quot;"),
             entry('&', "&amp;"),
             entry('<', "&lt;"),
@@ -285,32 +285,61 @@ public class HtmlEscaping implements Function<String, String> {
             entry('\u203A', "&rsaquo;"),
             entry('\u20AC', "&euro;"));
 
+    // dense char->replacement table built once from BASE_ESCAPED, so the hot loop does an O(1) array index
+    // instead of an autoboxing Map<Character,String>.get (the escaped keys are sparse and mostly >= 0xA0)
+    private static final String[] BY_CHAR = buildByChar(BASE_ESCAPED);
+
     public HtmlEscaping() {
     }
 
     @Override
     public String apply(final String value) {
-        StringBuilder result = null;
-        for (int i = 0; i < value.length(); i++) {
+        final int first = indexOfEscapable(value);
+        if (first < 0) { // the common case for plain ASCII text: nothing to transform
+            return value;
+        }
+        final StringBuilder result = new StringBuilder(value.length() + 16).append(value, 0, first);
+        for (int i = first; i < value.length(); i++) {
             final var c = value.charAt(i);
             if (c == '&' && CHARACTER_REFERENCE.matcher(value).region(i, value.length()).lookingAt()) {
                 // as of asciidoctor character references are kept as they are
-                if (result != null) {
-                    result.append(c);
-                }
+                result.append(c);
                 continue;
             }
-            final var replacement = escaped.get(c);
-            if (replacement != null) {
-                if (result == null) {
-                    result = new StringBuilder(value.length() + 16);
-                    result.append(value, 0, i);
-                }
-                result.append(replacement);
-            } else if (result != null) {
-                result.append(c);
+            final var replacement = c < BY_CHAR.length ? BY_CHAR[c] : null;
+            result.append(replacement == null ? c : replacement);
+        }
+        return result.toString();
+    }
+
+    // null when no character of the string can need escaping; conservative on '&' (a character reference keeps it)
+    private static int indexOfEscapable(final String value) {
+        final int len = value.length();
+        for (int i = 0; i < len; i++) {
+            final var c = value.charAt(i);
+            if (c == '"' || c == '&' || c == '<' || c == '>') {
+                return i;
+            }
+            if (c >= 0xA0 && c < BY_CHAR.length && BY_CHAR[c] != null) { // nbsp and the high entities
+                return i;
             }
         }
-        return result == null ? value : result.toString();
+        return -1;
+    }
+
+    private static String[] buildByChar(final Map<Character, String> entries) {
+        int max = -1;
+        for (final var entry : entries.entrySet()) {
+            if (entry.getKey() > max) {
+                max = entry.getKey();
+            }
+        }
+        final var byChar = new String[max + 1];
+        entries.forEach((k, v) -> {
+            if (k < byChar.length) {
+                byChar[k] = v;
+            }
+        });
+        return byChar;
     }
 }
