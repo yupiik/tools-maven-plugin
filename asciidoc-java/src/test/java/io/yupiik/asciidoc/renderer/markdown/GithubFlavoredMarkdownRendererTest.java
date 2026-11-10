@@ -27,6 +27,7 @@ import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.Section;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.parser.internal.TextScanner;
 import io.yupiik.asciidoc.parser.resolver.ContentResolver;
 import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
@@ -120,6 +121,23 @@ class GithubFlavoredMarkdownRendererTest {
     @Test
     void styledSpanWithRoles() { // markdown has no role, so a role span stays a mark inside the run's markers
         assertEquals("Mind **<mark>this</mark>** too, and **<mark>that</mark>**.\n", md("Mind *[.red]#this#* too, and [.blue]*[.red]#that#*."));
+    }
+
+    @Test
+    void styledSpanInAStyledCell() { // a span of the style of the cell gets one pair of markers, a span of another style gets both
+        assertEquals("""
+                        | **Name** | *Note* |
+                        | --- | --- |
+                        | **see [y](https://a.io) now** **and** **x** | *see [y](https://a.io) now* *and* ***x*** |
+                        """,
+                md("""
+                        [cols="1s,1e"]
+                        |===
+                        |Name |Note
+
+                        |*see link:https://a.io[y] now* and *x* |_see link:https://a.io[y] now_ and *x*
+                        |===
+                        """));
     }
 
     @Test
@@ -1363,6 +1381,37 @@ class GithubFlavoredMarkdownRendererTest {
                 .setAttributes(Map.of("imagesdir", "img", "relfilesuffix", "/")));
         renderer.visitBody(body);
         assertEquals("![logo](img/logo.png)\n\nSee [the other page](other/) [^1].\n\n[^1]: A note.\n", renderer.result());
+    }
+
+    @Test
+    void scannerRuleAppliesToTheStyledTexts() { // commonmark counts a no-break space as whitespace, Character.isWhitespace does not: a scanner changes the rule
+        final var body = new Body(List.of(new Paragraph(List.of(
+                new Text(List.of(Text.Style.BOLD), "\u00a0bold\u00a0", Map.of())), Map.of())));
+        final var standard = new GithubFlavoredMarkdownRenderer();
+        standard.visitBody(body);
+        assertEquals("**\u00a0bold\u00a0**\n", standard.result());
+
+        final var custom = new GithubFlavoredMarkdownRenderer(new GithubFlavoredMarkdownRenderer.Configuration(), new VisitorSibling(), new TextScanner() {
+            @Override
+            public int skipWhitespace(final String text, final int from) {
+                int next = from;
+                while (next < text.length() && (text.charAt(next) == '\u00a0' || Character.isWhitespace(text.charAt(next)))) {
+                    next++;
+                }
+                return next;
+            }
+
+            @Override
+            public int trailingWhitespaceStart(final String text, final int end) {
+                int start = end;
+                while (start > 0 && (text.charAt(start - 1) == '\u00a0' || Character.isWhitespace(text.charAt(start - 1)))) {
+                    start--;
+                }
+                return start;
+            }
+        });
+        custom.visitBody(body);
+        assertEquals("\u00a0**bold**\u00a0\n", custom.result());
     }
 
     @Test

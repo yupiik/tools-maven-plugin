@@ -444,7 +444,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     @Override
     public void visitParagraph(final Paragraph element) {
         final var styles = sibling.spanStyles(element);
-        if (!styles.isEmpty()) {
+        if (!styles.isEmpty()) { // a span is inline: written alone, it stays inside a paragraph, which writes the preamble
             visitStyledSpan(element, styles);
             return;
         }

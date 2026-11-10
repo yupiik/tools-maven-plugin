@@ -102,7 +102,6 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
  */
 public class Parser {
     private static final List<Author> NO_AUTHORS = List.of();
-    private static final Text.Style[] STYLES = Text.Style.values();
     private static final Revision NO_REVISION = new Revision("", "", "");
     private static final Header NO_HEADER = new Header("", List.of(), NO_REVISION, Map.of("authorcount", "0"));
 
@@ -1097,15 +1096,32 @@ public class Parser {
         };
     }
 
-    // an emphasis or strong cell keeps its inline markup, and its texts get the style, as in asciidoctor
+    // an emphasis or strong cell keeps its inline markup, and its texts get the style
     private Element withTextStyle(final Element element, final Text.Style style) {
         if (element instanceof Text t) {
-            return new Text(Stream.concat(Stream.of(style), t.style().stream()).toList(), t.value(), t.options());
+            // a text of the style of the cell keeps it once; _see_ is italic, the style of an emphasis cell
+            if (t.style().contains(style) || (style == EMPHASIS && t.style().contains(ITALIC))) {
+                return t;
+            }
+            final var styles = new ArrayList<Text.Style>(t.style().size() + 1);
+            styles.add(style);
+            styles.addAll(t.style());
+            return new Text(styles, t.value(), t.options());
         }
         if (element instanceof Paragraph p) {
-            return isStyledSpan(p) ? // as asciidoctor, the style of the cell goes around the span: <strong><strong>see <a>y</a></strong></strong>
-                    new Paragraph(List.of(p), withStyleOption(style, Map.of())) :
-                    new Paragraph(p.children().stream().map(child -> withTextStyle(child, style)).toList(), p.options());
+            if (isStyledSpan(p)) {
+                // as a text, a span of the style of the cell stays one span, with its options
+                if (p.options().get(style.name()) != null || (style == EMPHASIS && p.options().get(ITALIC.name()) != null)) {
+                    return p;
+                }
+                // a span of another style keeps its options inside the style of the cell: <em><strong class="r">see <a>y</a></strong></em>
+                return new Paragraph(List.of(p), withStyleOption(style, Map.of()));
+            }
+            final var children = new ArrayList<Element>(p.children().size());
+            for (final var child : p.children()) {
+                children.add(withTextStyle(child, style));
+            }
+            return new Paragraph(children, p.options());
         }
         return element;
     }
@@ -2972,8 +2988,8 @@ public class Parser {
         if (paragraph.options().isEmpty()) {
             return false;
         }
-        for (final var style : STYLES) {
-            if (paragraph.options().get(style.name()) != null) {
+        for (int i = 0; i < Text.Style.VALUES.size(); i++) { // by index: no iterator on this per-paragraph path
+            if (paragraph.options().get(Text.Style.VALUES.get(i).name()) != null) {
                 return true;
             }
         }

@@ -58,7 +58,6 @@ import static java.util.stream.Collectors.joining;
  */
 public class VisitorSibling {
     private static final String HEX = "0123456789ABCDEF";
-    private static final Text.Style[] STYLES = Text.Style.values();
 
     // asciidoctor's INTRINSIC_ATTRIBUTES, with its values
     private static final Map<String, String> INTRINSIC_ATTRIBUTES = Map.ofEntries(
@@ -242,17 +241,21 @@ public class VisitorSibling {
      * the text, the link and the text after it. Empty for any other element.
      */
     public List<Text.Style> spanStyles(final Element element) {
-        if (!isStyledSpan(element)) {
+        if (!(element instanceof Paragraph paragraph) || paragraph.options() == null || paragraph.options().isEmpty()) {
             return List.of();
         }
-        final var options = ((Paragraph) element).options();
-        final var styles = new ArrayList<Text.Style>(1);
-        for (final var style : STYLES) {
+        final var options = paragraph.options();
+        List<Text.Style> styles = null;
+        for (int i = 0; i < Text.Style.VALUES.size(); i++) { // by index: no iterator on this per-element path
+            final var style = Text.Style.VALUES.get(i);
             if (options.get(style.name()) != null) {
+                if (styles == null) {
+                    styles = new ArrayList<>(1);
+                }
                 styles.add(style);
             }
         }
-        return styles;
+        return styles == null ? List.of() : styles;
     }
 
     /**
@@ -262,8 +265,8 @@ public class VisitorSibling {
         if (!(element instanceof Paragraph paragraph) || paragraph.options() == null || paragraph.options().isEmpty()) {
             return false;
         }
-        for (final var style : STYLES) {
-            if (paragraph.options().get(style.name()) != null) {
+        for (int i = 0; i < Text.Style.VALUES.size(); i++) { // by index: no iterator on this per-element path
+            if (paragraph.options().get(Text.Style.VALUES.get(i).name()) != null) {
                 return true;
             }
         }

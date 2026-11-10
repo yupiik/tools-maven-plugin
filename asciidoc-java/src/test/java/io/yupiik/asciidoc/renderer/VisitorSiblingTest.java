@@ -284,6 +284,20 @@ class VisitorSiblingTest { // the options come from the parser, so a change of t
         assertTrue(sibling.isInline(paragraph.children().get(0), set));
     }
 
+    @Test
+    void spanStyles() { // the styles of a span in the declaration order of Text.Style, none for another element
+        final var text = new Text(List.of(), "see", Map.of());
+        assertEquals(List.of(Text.Style.BOLD, Text.Style.ITALIC),
+                sibling.spanStyles(new Paragraph(List.of(text), Map.of("ITALIC", "", "role", "r", "BOLD", ""))));
+        assertEquals(List.of(), sibling.spanStyles(new Paragraph(List.of(text), Map.of("role", "r"))), "a role alone is no style");
+        assertEquals(List.of(), sibling.spanStyles(new Paragraph(List.of(text), Map.of())));
+        assertEquals(List.of(), sibling.spanStyles(new Text(List.of(Text.Style.BOLD), "see", Map.of())), "a styled text is not a span");
+
+        final var span = ((Paragraph) parse("*see link:https://a.io[y] now*")).children().get(0);
+        assertEquals(List.of(Text.Style.BOLD), sibling.spanStyles(span));
+        assertTrue(sibling.isStyledSpan(span));
+    }
+
     private Element parse(final String asciidoc) {
         return new Parser().parse(asciidoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing")))).body().children().get(0);
     }
