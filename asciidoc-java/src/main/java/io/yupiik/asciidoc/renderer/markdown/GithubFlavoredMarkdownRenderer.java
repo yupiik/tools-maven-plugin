@@ -41,6 +41,7 @@ import io.yupiik.asciidoc.model.Table;
 import io.yupiik.asciidoc.model.Text;
 import io.yupiik.asciidoc.model.UnOrderedList;
 import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.parser.internal.TextScanner;
 import io.yupiik.asciidoc.renderer.UnknownMacro;
 import io.yupiik.asciidoc.renderer.Visitor;
 import io.yupiik.asciidoc.renderer.VisitorSibling;
@@ -79,6 +80,7 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
 
     protected final Configuration configuration;
     protected final VisitorSibling sibling;
+    protected final TextScanner scanner;
     protected final VisitorState state; // this is why we are not thread safe
     protected StringBuilder builder = new StringBuilder(); // replaced while a nested block renders, see block()
 
@@ -95,8 +97,17 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      *                reading in both.
      */
     public GithubFlavoredMarkdownRenderer(final Configuration configuration, final VisitorSibling sibling) {
+        this(configuration, sibling, new TextScanner());
+    }
+
+    /**
+     * @param scanner the character scans of the texts, the same class as the parser's, for an extension which changes a
+     *                rule.
+     */
+    protected GithubFlavoredMarkdownRenderer(final Configuration configuration, final VisitorSibling sibling, final TextScanner scanner) {
         this.configuration = configuration;
         this.sibling = sibling;
+        this.scanner = scanner;
         this.state = new VisitorState(sibling, key -> configuration.getAttributes().get(key)) {
             @Override
             public ConditionalBlock.Context context() { // a subclass overriding context() changes the index too
@@ -856,8 +867,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             return prefix + escapeText(value);
         }
         // GFM emphasis cannot start or end with a space: keep surrounding whitespace outside the markup
-        final int start = leadingWhitespaceEnd(value);
-        final int end = trailingWhitespaceStart(value, start);
+        final int start = scanner.skipWhitespace(value, 0);
+        final int end = scanner.trailingWhitespaceStart(value, value.length());
         return prefix + value.substring(0, start) + styled(escapeText(value.substring(start, end)), text.style()) + value.substring(end);
     }
 
@@ -873,8 +884,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         if (content.isBlank()) {
             return prefix + content;
         }
-        final int start = leadingWhitespaceEnd(content);
-        final int end = trailingWhitespaceStart(content, start);
+        final int start = scanner.skipWhitespace(content, 0);
+        final int end = scanner.trailingWhitespaceStart(content, content.length());
         final var inner = content.substring(start, end);
         // commonmark reads no emphasis in a marker between a letter or a digit and a punctuation mark: **see [y](https://a.io)**now
         // stays as written, so a span starting or ending with punctuation next to a word gets HTML tags
@@ -961,22 +972,6 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
     protected String idAnchor(final Map<String, String> options) {
         final var id = options(options).get("id");
         return id != null && !id.isBlank() ? "<a id=\"" + id.strip() + "\"></a>" : "";
-    }
-
-    protected int leadingWhitespaceEnd(final String value) {
-        int start = 0;
-        while (start < value.length() && Character.isWhitespace(value.charAt(start))) {
-            start++;
-        }
-        return start;
-    }
-
-    protected int trailingWhitespaceStart(final String value, final int start) {
-        int end = value.length();
-        while (end > start && Character.isWhitespace(value.charAt(end - 1))) {
-            end--;
-        }
-        return end;
     }
 
     /**

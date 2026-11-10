@@ -23,8 +23,8 @@ import java.util.List;
  * The character scans of the parser over one line of text: whether a backslash escapes a character, where an inline
  * pair closes, where a passthrough or a nested macro ends, how long a run of one character is, what a blank is and
  * which characters make a name. Each method takes the text and the indices it reads, builds no element and resolves
- * no attribute, so the parser keeps those jobs; the scanner holds no state and one instance serves a parser. The
- * methods are instance methods so an extension can override a rule.
+ * no attribute, so the parser keeps those jobs; the scanner holds no state and one instance serves a parser or a
+ * renderer. The methods are instance methods so an extension can override a rule.
  */
 public class TextScanner {
     // -- escapes
@@ -423,6 +423,34 @@ public class TextScanner {
         return start;
     }
 
+    /**
+     * @param text the text.
+     * @param from an index of the text.
+     * @return the first index at or after {@code from} whose character is not a whitespace
+     * ({@code Character.isWhitespace}), or the length of the text.
+     */
+    public int skipWhitespace(final String text, final int from) {
+        int next = from;
+        while (next < text.length() && Character.isWhitespace(text.charAt(next))) {
+            next++;
+        }
+        return next;
+    }
+
+    /**
+     * @param text the text.
+     * @param end  an index of the text.
+     * @return the index the whitespace ending right before {@code end} starts at, {@code end} itself when there is none,
+     * see {@link #trailingBlanksStart(String, int)}.
+     */
+    public int trailingWhitespaceStart(final String text, final int end) {
+        int start = end;
+        while (start > 0 && Character.isWhitespace(text.charAt(start - 1))) {
+            start--;
+        }
+        return start;
+    }
+
     // the index within text[from, to) of the last blank (a space or a tab), -1 when there is none, for the table cells
     // whose specifier, if any, is the text right after that blank
     public int lastBlankCharIndex(final String text, final int from, final int to) {
@@ -488,10 +516,7 @@ public class TextScanner {
         } else {
             return -1;
         }
-        int end = line.length();
-        while (end > targetStart && Character.isWhitespace(line.charAt(end - 1))) {
-            end--;
-        }
+        final int end = trailingWhitespaceStart(line, line.length());
         if (end == targetStart || line.charAt(end - 1) != ']') {
             return -1;
         }

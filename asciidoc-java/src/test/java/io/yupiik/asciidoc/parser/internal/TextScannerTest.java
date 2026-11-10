@@ -135,6 +135,18 @@ class TextScannerTest {
     }
 
     @Test
+    void whitespace() { // any Character.isWhitespace character, where a blank is only a space or a tab
+        assertEquals(3, scanner.skipWhitespace(" \n\ta", 0));
+        assertEquals(2, scanner.skipWhitespace("a\u2003b", 1), "an em space is a whitespace");
+        assertEquals(1, scanner.skipWhitespace("a\u00a0b", 1), "a no-break space is not a whitespace");
+        assertEquals(3, scanner.skipWhitespace("a \n", 1), "the length when only whitespace remains");
+        assertEquals(1, scanner.trailingWhitespaceStart("a \n\t", 4));
+        assertEquals(1, scanner.trailingWhitespaceStart("a \nb", 3), "the whitespace before end, whatever follows it");
+        assertEquals(2, scanner.trailingWhitespaceStart("ab", 2), "the index itself when nothing precedes it");
+        assertEquals(0, scanner.trailingWhitespaceStart(" \n", 2), "0 when only whitespace precedes it");
+    }
+
+    @Test
     void targets() {
         assertTrue(scanner.isMacroTarget("image:a.png[alt]", 6));
         assertFalse(scanner.isMacroTarget("image:a b.png[alt]", 6));

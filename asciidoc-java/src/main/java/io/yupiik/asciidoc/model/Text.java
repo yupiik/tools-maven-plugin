@@ -27,6 +27,11 @@ public record Text(List<Style> style, String value, Map<String, String> options)
     }
 
     public enum Style {
-        BOLD, ITALIC, EMPHASIS, MARK, SUB, SUP, STRIKETHROUGH
+        BOLD, ITALIC, EMPHASIS, MARK, SUB, SUP, STRIKETHROUGH;
+
+        /**
+         * The styles in declaration order, read without the copy of the array that {@link #values()} makes at each call.
+         */
+        public static final List<Style> VALUES = List.of(values());
     }
 }

@@ -4825,7 +4825,136 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
-    void styledSpanInAStrongCell() { // as asciidoctor, the style of the cell goes around the span
+    void styledSpanAloneInThePreamble() { // the parser keeps a paragraph around the span, which writes the preamble as asciidoctor
+        assertRendering("= T\n\n*see link:https://a.io[y] now*\n\n== S\n\ntext",
+                "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        " <meta charset=\"UTF-8\">\n" +
+                        " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        " <meta name=\"generator\" content=\"Asciidoctor \">\n" +
+                        " <title>T</title>\n" +
+                        "</head>\n" +
+                        "<body class=\"article\">\n" +
+                        " <div id=\"header\">\n" +
+                        " <h1>T</h1>\n" +
+                        " </div>\n" +
+                        " <div id=\"content\">\n" +
+                        " <div id=\"preamble\">\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p><strong>see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</strong></p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div class=\"sect1\">\n" +
+                        "  <h2 id=\"_s\">S</h2>\n" +
+                        " <div class=\"sectionbody\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <p>\n" +
+                        "text\n" +
+                        " </p>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " <div id=\"footer\">\n" +
+                        "  <div id=\"footer-text\">\n" +
+                        "  </div>\n" +
+                        " </div>\n" +
+                        "</body>\n" +
+                        "</html>\n");
+    }
+
+    @Test
+    void styledSpanWithOptionsInAStrongCell() { // a strong span stays one span with its role or its id; an emphasis span keeps them inside the style of the cell
+        assertRenderingContent("""
+                [cols="1s,1s,1s"]
+                |===
+                |Role |Id |Emphasis
+
+                |[.r]*see link:https://a.io[y] now* |[#i]*see link:https://a.io[y] now* |[.r]_see link:https://a.io[y] now_
+                |===
+                """,
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "   <col style=\"width: 33%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<strong>Role</strong>    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<strong>Id</strong>    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<strong>Emphasis</strong>    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<strong class=\"r\">see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</strong></p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<strong id=\"i\">see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</strong></p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<strong><em class=\"r\">see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</em></strong></p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void styledTextInAStyledCell() { // a text of the style of the cell keeps it once, a text of another style gets both
+        assertRenderingContent("""
+                [cols="1s,1e"]
+                |===
+                |Name |Note
+
+                |see *x* and _y_ now |see _x_ and *y* now
+                |===
+                """,
+                " <table class=\"tableblock frame-all grid-all stretch\">\n" +
+                        "  <colgroup>\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "   <col style=\"width: 50%;\">\n" +
+                        "  </colgroup>\n" +
+                        "  <thead>\n" +
+                        "   <tr>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<strong>Name</strong>    </th>\n" +
+                        "    <th class=\"tableblock halign-left\">\n" +
+                        "<em>Note</em>    </th>\n" +
+                        "   </tr>\n" +
+                        "  </thead>\n" +
+                        "  <tbody>\n" +
+                        "   <tr>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<strong>see </strong><strong>x</strong><strong> and </strong><strong><em>y</em></strong><strong> now</strong></p>\n" +
+                        "    </td>\n" +
+                        "    <td class=\"tableblock halign-left\">\n" +
+                        "<p class=\"tableblock\">\n" +
+                        "<em>see </em><em>x</em><em> and </em><em><strong>y</strong></em><em> now</em></p>\n" +
+                        "    </td>\n" +
+                        "   </tr>\n" +
+                        "  </tbody>\n" +
+                        " </table>\n");
+    }
+
+    @Test
+    void styledSpanInAStrongCell() { // a span of the style of the cell stays one span
         assertRenderingContent("""
                 [cols="1s,1e"]
                 |===
@@ -4851,12 +4980,12 @@ class AsciidoctorLikeHtmlRendererTest {
                         "   <tr>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<strong><strong>see  <a href=\"https://a.io\">y</a>\n" +
-                        " now</strong></strong></p>\n" +
+                        "<strong>see  <a href=\"https://a.io\">y</a>\n" +
+                        " now</strong></p>\n" +
                         "    </td>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<em><em>see <code>x</code> now</em></em></p>\n" +
+                        "<em>see <code>x</code> now</em></p>\n" +
                         "    </td>\n" +
                         "   </tr>\n" +
                         "  </tbody>\n" +
