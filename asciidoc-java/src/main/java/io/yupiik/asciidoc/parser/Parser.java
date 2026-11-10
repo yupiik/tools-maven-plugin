@@ -725,7 +725,7 @@ public class Parser {
                 options = null;
             } else if ((attributeMatcher = sibling.attributeEntry(stripped)) != null) {
                 sibling.applyAttributeEntry(attributeMatcher, attributes);
-            } else {
+            } else if (!"+".equals(stripped) || !(reader instanceof ListItemReader)) { // in a list item, a lone + attaches the next block, see listItemReader()
                 reader.rewind();
                 addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                 options = null;
@@ -1590,7 +1590,7 @@ public class Parser {
             final var text = new StringBuilder(matcher.group("description"));
             readContinuation(reader, l -> CALLOUT.matcher(l).matches(), text);
 
-            final var elements = doParse(enclosingDocument, subReader(reader, null, List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
+            final var elements = doParse(enclosingDocument, listItemReader(reader, null, List.of(text.toString().split("\n"))), l -> true, resolver, currentAttributes, true, false, keepsParagraphs(currentAttributes));
             callOuts.add(new CallOut(number, elements.size() == 1 ? elements.get(0) : new Paragraph(elements, Map.of())));
         }
         if (next != null) {
@@ -1703,7 +1703,8 @@ public class Parser {
                     (line.startsWith("[") && line.endsWith("]")) ||
                     reader.isCommentBlockDelimiter(stripped) ||
                     isHorizontalRule(stripped) ||
-                    sibling.attributeEntry(stripped) != null) {
+                    sibling.attributeEntry(stripped) != null ||
+                    ("+".equals(stripped) && reader instanceof ListItemReader)) {
                 reader.rewind();
                 break;
             }
@@ -2666,9 +2667,13 @@ public class Parser {
         }
 
         if (parse) {
-            final var included = subReader(parent, resolved.path(), content);
+            final boolean inListItem = parent instanceof ListItemReader;
+            final var included = inListItem ?
+                    listItemReader(parent, resolved.path(), content) :
+                    subReader(parent, resolved.path(), content);
             conditionals.evaluate(included, content.size(), currentAttributes);
-            return doParse(resolved.path(), included, l -> true, resolver, currentAttributes, true, false);
+            // in a list item, the paragraphs that a + separates stay apart, as the paragraphs of the item itself
+            return doParse(resolved.path(), included, l -> true, resolver, currentAttributes, true, false, inListItem && keepsParagraphs(currentAttributes));
         }
         // as for a parsed include, the includes of the included content are relative to it
         return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
@@ -2874,7 +2879,7 @@ public class Parser {
                     isChecked = false;
                 }
 
-                final var elements = doParse(enclosingDocument, subReader(reader, null, List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true, keepsParagraphs(currentAttributes));
+                final var elements = doParse(enclosingDocument, listItemReader(reader, null, List.of(buffer.toString().split("\n"))), l -> true, resolver, currentAttributes, true, true, keepsParagraphs(currentAttributes));
                 if (isCheckItem) {
                     children.add(new Paragraph(elements, isChecked ? Map.of("checkbox", "true", "checked", "true") : Map.of("checkbox", "true")));
                 } else {
@@ -3926,6 +3931,18 @@ public class Parser {
     }
 
     /**
+     * The reader of the content of an ordered, unordered or callout list item, or of an include in one. As asciidoctor
+     * expands an include into the lines of the item, a lone {@code +} line of the included content attaches the next block
+     * to the item, see {@link #doParse}; inside a delimited block of the item, it stays text.
+     */
+    private Reader listItemReader(final Reader parent, final Path file, final List<String> lines) {
+        if (parent == null) {
+            return new ListItemReader(lines, file, null);
+        }
+        return new ListItemReader(lines, file == null ? parent.getFile() : file, parent.getSourceListener());
+    }
+
+    /**
      * Reports the elements the model keeps to the source listener, each with the span of the same index:
      * the one of the element it was parsed from, so an element unwrapped from a paragraph gets the span of the paragraph.
      * A {@code null} span, no line to report, is not reported.
@@ -3979,5 +3996,11 @@ public class Parser {
     }
 
     private record ResolvedAuthors(List<Author> authors, AuthorSource source) {
+    }
+
+    private static final class ListItemReader extends Reader {
+        private ListItemReader(final List<String> lines, final Path file, final SourceListener listener) {
+            super(lines, file, listener);
+        }
     }
 }
