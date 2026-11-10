@@ -64,6 +64,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -1251,17 +1252,20 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             if (noheader || element.elements().size() > 1) {
                 final var startRow = noheader ? 0 : 1;
                 builder.append("  <tbody>\n");
-                element.elements().stream().skip(startRow).forEach(row -> {
+                final var rows = element.elements();
+                for (int r = startRow; r < rows.size(); r++) {
                     builder.append("   <tr>\n");
+                    final var row = rows.get(r);
                     int colIdx = 0;
                     for (final var col : row) {
                         final var column = element.column(colIdx);
+                        final var role = getCellOptions(col).get("role");
                         final var halign = cellHalign(col, column);
-                        writeTableCell("header".equals(getCellOptions(col).get("role")) ? "th" : "td", col, halign, alignmentClasses(halign, cellValign(col, column)));
+                        writeTableCell("header".equals(role) ? "th" : "td", col, halign, alignmentClasses(halign, cellValign(col, column)));
                         colIdx++;
                     }
                     builder.append("   </tr>\n");
-                });
+                }
                 builder.append("  </tbody>\n");
             }
         }
@@ -2180,29 +2184,40 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
     // the span, the alignment and the header role of a cell are written on its td or th, not on its content
     private Element withoutCellOptions(final Element element) {
         if (element instanceof Text t) {
-            return new Text(t.style(), t.value(), withoutCellOptions(t.options()));
+            return hasCellOptions(t.options()) ? new Text(t.style(), t.value(), withoutCellOptions(t.options())) : element;
         }
         if (element instanceof Link l) {
-            return new Link(l.url(), l.label(), withoutCellOptions(l.options()));
+            return hasCellOptions(l.options()) ? new Link(l.url(), l.label(), withoutCellOptions(l.options())) : element;
         }
         if (element instanceof Code c) {
-            return new Code(c.value(), withoutCellOptions(c.options()), c.inline(), c.lineCallOuts());
+            return hasCellOptions(c.options()) ? new Code(c.value(), withoutCellOptions(c.options()), c.inline(), c.lineCallOuts()) : element;
         }
         if (element instanceof Macro m) {
-            return new Macro(m.name(), m.label(), withoutCellOptions(m.options()), m.inline());
+            return hasCellOptions(m.options()) ? new Macro(m.name(), m.label(), withoutCellOptions(m.options()), m.inline()) : element;
         }
         if (element instanceof Paragraph p) {
-            return new Paragraph(p.children(), withoutCellOptions(p.options()));
+            return hasCellOptions(p.options()) ? new Paragraph(p.children(), withoutCellOptions(p.options())) : element;
         }
         return element;
     }
 
-    private Map<String, String> withoutCellOptions(final Map<String, String> options) {
+    private static final Set<String> CELL_OPTION_KEYS = Set.of("colspan", "rowspan", "halign", "valign");
+
+    private boolean hasCellOptions(final Map<String, String> options) {
         if (options.isEmpty()) {
+            return false;
+        }
+        return options.containsKey("colspan") || options.containsKey("rowspan") ||
+                options.containsKey("halign") || options.containsKey("valign") ||
+                "header".equals(options.get("role"));
+    }
+
+    private Map<String, String> withoutCellOptions(final Map<String, String> options) {
+        if (options.isEmpty() || !hasCellOptions(options)) {
             return options;
         }
         final var copy = new HashMap<>(options);
-        copy.keySet().removeAll(List.of("colspan", "rowspan", "halign", "valign"));
+        copy.keySet().removeAll(CELL_OPTION_KEYS);
         if ("header".equals(copy.get("role"))) {
             copy.remove("role");
         }

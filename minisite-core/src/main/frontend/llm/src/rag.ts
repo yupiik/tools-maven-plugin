@@ -47,10 +47,13 @@ const SYNONYMS: Record<string, string[]> = {
 
 // Weight of the lexical (keyword) score relative to cosine. Cosine for on-topic chunks of
 // all-MiniLM-L6-v2 sits around 0.2-0.5; a strong keyword/heading match adds up to this.
-const LEX_WEIGHT = 0.5;
+// Config-driven via MiniSiteConfiguration.llmModel.retrieval (defaults 0.5 / 0.3 / 0.15 / 15).
+import { retrievalConfig } from './embedding-config';
+const CONFIG = retrievalConfig();
+const LEX_WEIGHT = CONFIG.lexWeight;
 // Synonym matches count, but less than the user's literal words — otherwise expanding
 // "extensions" to "module" would let unrelated "module" chunks outrank the real answer.
-const SYNONYM_WEIGHT = 0.3;
+const SYNONYM_WEIGHT = CONFIG.synonymWeight;
 
 interface QueryTerms {
   primary: string[];   // the user's own content words
@@ -106,14 +109,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // unrelated content is near or below 0. 0.15 keeps genuine matches (which a 0.3 floor
 // wrongly discarded) while still dropping noise. We always keep at least the top result
 // so the model gets some context rather than an empty prompt.
-const MIN_SCORE = 0.15;
+const MIN_SCORE = CONFIG.minScore;
 
 export function retrieveRelevantChunks(
     question: string,
     queryEmbedding: number[],
     chunks: ChunkData[],
     storedEmbeddings: Map<string, number[]>,
-    topK = 15,
+    topK = CONFIG.topK,
 ): ScoredChunk[] {
   // Hybrid retrieval: blend semantic similarity (cosine) with a lexical/keyword score over
   // ALL chunks. Pure cosine with this model is too weak for abstract/structural questions

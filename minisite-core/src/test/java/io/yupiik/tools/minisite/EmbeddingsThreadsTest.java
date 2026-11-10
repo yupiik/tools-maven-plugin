@@ -38,9 +38,10 @@ import org.asciidoctor.Asciidoctor;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that the {@code embeddingsThreads} modes (-2 inherit / 0 sequential / &gt; 0 dedicated) produce the exact
- * same rendered site and LLM embeddings, and that the executor lifecycle (shared rendering pool vs dedicated pool) does
- * not throw or deadlock. The models are present on the test classpath (see LlmEmbeddingGenerator/llmChatEnabled).
+ * Verifies that the {@code embeddingsThreads} modes (-3 bounded-to-cores / -2 inherit / 0 sequential / &gt; 0 dedicated)
+ * produce the exact same rendered site and LLM embeddings, and that the executor lifecycle (shared rendering pool vs
+ * dedicated pool) does not throw or deadlock. The models are present on the test classpath (see
+ * LlmEmbeddingGenerator/llmChatEnabled).
  */
 class EmbeddingsThreadsTest {
     private static final Logger LOGGER = Logger.getLogger(EmbeddingsThreadsTest.class.getName());
@@ -51,7 +52,8 @@ class EmbeddingsThreadsTest {
         final Path source = Paths.get("target/test-classes/sites/MiniSiteTest/llmSite");
         final int renderingThreads = 1; // keep it single-threaded so the embeddings thread mode is what varies
 
-        final Map<String, String> inherited = render(source, renderingThreads, -2); // share the rendering pool
+        final Map<String, String> inherited = render(source, renderingThreads, -3); // default: dedicated pool of the core count
+        final Map<String, String> shared = render(source, renderingThreads, -2); // share the rendering pool
         final Map<String, String> sequential = render(source, renderingThreads, 0); // sequential (previous behaviour)
         final Map<String, String> dedicated = render(source, renderingThreads, 2); // dedicated fixed pool
 
@@ -60,10 +62,12 @@ class EmbeddingsThreadsTest {
         assertTrue(inherited.containsKey("assets/llm/embeddings/chunk-0001.json"),
                 "the LLM embedding pass must have run and emitted chunks");
 
+        assertEquals(shared.keySet(), inherited.keySet(), "-2 must produce the same files");
         assertEquals(sequential.keySet(), inherited.keySet(), "sequential must produce the same files");
         assertEquals(dedicated.keySet(), inherited.keySet(), "dedicated must produce the same files");
         for (final Map.Entry<String, String> e : inherited.entrySet()) {
             final String page = e.getKey();
+            assertEquals(e.getValue(), shared.get(page), "-2 differs on " + page);
             assertEquals(e.getValue(), sequential.get(page), "sequential differs on " + page);
             assertEquals(e.getValue(), dedicated.get(page), "dedicated differs on " + page);
         }

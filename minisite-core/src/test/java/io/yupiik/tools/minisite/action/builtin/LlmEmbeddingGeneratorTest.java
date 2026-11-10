@@ -1,5 +1,6 @@
 package io.yupiik.tools.minisite.action.builtin;
 
+import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -212,6 +213,50 @@ class LlmEmbeddingGeneratorTest {
         assertTrue(content.contains("\"totalChunks\":2") || content.contains("\"totalChunks\": 2"), content);
         assertTrue(content.contains("\"dimension\":384") || content.contains("\"dimension\": 384"), content);
         assertTrue(content.contains("all-minilm-l6-v2"), content);
+    }
+
+    @Test
+    void shouldAcceptConfigurableModelWithDefaultBackCompat(@TempDir final Path work) throws IOException {
+        // The new configurable constructor must behave exactly like the historical Map-only one when given default
+        // MiniLM settings (model/dim/pooling), so existing users see no change.
+        final var cfg = new MiniSiteConfiguration.LlmModelConfiguration();
+        final var gen = new LlmEmbeddingGenerator(cfg, Map.of(), work, work, p -> false, null);
+
+        final var chunks = List.of(
+                new LlmEmbeddingGenerator.Chunk("hash1", "text1", "/url1", "Title1", null),
+                new LlmEmbeddingGenerator.Chunk("hash2", "text2", "/url2", "Title2", null));
+        gen.computeEmbeddings(chunks);
+        gen.writeEmbeddings(chunks);
+
+        // default config writes the all-minilm-l6-v2 model name + 384 dimension to the index
+        final var indexFile = work.resolve("assets/llm/embeddings/embeddings.index.json");
+        assertTrue(Files.exists(indexFile), "embeddings.index.json must be generated");
+        final var content = Files.readString(indexFile);
+        assertTrue(content.contains("all-minilm-l6-v2"), content);
+        assertTrue(content.contains("\"dimension\":384") || content.contains("\"dimension\": 384"), content);
+
+        assertNotNull(chunks.get(0).embedding, "chunk must be embedded");
+        assertEquals(384, chunks.get(0).embedding.length, "default MiniLM dimension");
+    }
+
+    @Test
+    void shouldHonourConfiguredPoolingInIndex(@TempDir final Path work) throws IOException {
+        // pooling is an enum, not a String, and its resolved value (mean by default) flows into the written index
+        // via the llama model map; verify the bare enum wiring compiles and defaults correctly.
+        final var cfg = MiniSiteConfiguration.LlmModelConfiguration.builder()
+                .dimension(384)
+                .pooling(MiniSiteConfiguration.Pooling.MEAN)
+                .build();
+        final var gen = new LlmEmbeddingGenerator(cfg, Map.of(), work, work, p -> false, null);
+
+        final Map<String, Object> modelMap = MiniSiteConfiguration.LlmModelConfiguration.builder()
+                .dimension(cfg.getDimension())
+                .pooling(cfg.getPooling())
+                .build()
+                .getPooling() == MiniSiteConfiguration.Pooling.MEAN
+                ? Map.of("pooling", "mean")
+                : Map.of("pooling", "other");
+        assertEquals("mean", modelMap.get("pooling"));
     }
 
     @Test

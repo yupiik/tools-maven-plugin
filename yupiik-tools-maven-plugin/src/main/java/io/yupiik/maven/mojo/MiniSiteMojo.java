@@ -22,6 +22,7 @@ import io.yupiik.maven.service.ftp.configuration.Ftp;
 import io.yupiik.maven.service.ftp.configuration.FtpService;
 import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
+import io.yupiik.tools.common.jar.Extractor;
 import io.yupiik.tools.minisite.ActionExecutor;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
@@ -50,6 +51,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.function.Consumer;
 
 import static java.lang.ClassLoader.getSystemClassLoader;
@@ -153,6 +155,22 @@ public class MiniSiteMojo extends BaseMojo {
      */
     @Parameter(property = "yupiik.minisite.llmModelId", defaultValue = "Llama-3.2-3B-Instruct-q4f16_1-MLC")
     protected String llmModelId;
+
+    /**
+     * Embedding model + retrieval configuration for the RAG chat. When null the historical
+     * all-MiniLM-L6-v2 defaults apply (see {@link MiniSiteConfiguration.LlmModelConfiguration}).
+     */
+    @Parameter
+    protected MiniSiteConfiguration.LlmModelConfiguration llmModel;
+
+    /**
+     * When LLM chat is enabled, serve the onnxruntime-web wasm files locally (self-host, closed network)
+     * instead of fetching them from the jsdelivr CDN. The plugin resolves the minisite-core artifact via
+     * Aether and extracts ort-wasm-simd-threaded.{wasm,mjs} into the site's static/wasm/ dir. Defaults to
+     * false (CDN).
+     */
+    @Parameter(property = "yupiik.minisite.selfHostLlmAssets", defaultValue = "false")
+    protected boolean selfHostLlmAssets;
 
     /**
      * Should a llms.txt be generated.
@@ -482,12 +500,13 @@ public class MiniSiteMojo extends BaseMojo {
 
     /**
      * Number of threads used for the LLM embedding computation.
-     * {@code -2} (default) re-uses the {@code renderingThreads} pool (same instance), {@code -1} uses virtual threads
-     * when available (otherwise the common pool), {@code 0} computes sequentially, {@code &gt; 0} uses a dedicated
-     * fixed pool of that size. When {@code embeddingsThreads &gt; -2} and equals {@code renderingThreads}, the
-     * rendering pool instance is reused.
+     * {@code -3} (default) uses a dedicated fixed pool of the core count (the "default ONNX behaviour", so the
+     * bounded pool of ONNX sessions never over-subscribes the CPU), {@code -2} re-uses the {@code renderingThreads}
+     * pool (same instance), {@code -1} uses virtual threads when available (otherwise the common pool), {@code 0}
+     * computes sequentially, {@code &gt; 0} uses a dedicated fixed pool of that size. When
+     * {@code embeddingsThreads &gt; -2} and equals {@code renderingThreads}, the rendering pool instance is reused.
      */
-    @Parameter(property = "yupiik.minisite.embeddingsThreads", defaultValue = "-2")
+    @Parameter(property = "yupiik.minisite.embeddingsThreads", defaultValue = "-3")
     private int embeddingsThreads;
 
     @Parameter(defaultValue = "${project}", readonly = true)
@@ -530,6 +549,7 @@ public class MiniSiteMojo extends BaseMojo {
             return;
         }
         fixConfig();
+        copySelfHostLlmWasmIfNeeded();
         try (final var loader = createProjectLoader()) {
             new MiniSite(createMiniSiteConfiguration(loader)).run();
         } catch (final IOException e) {
@@ -553,11 +573,56 @@ public class MiniSiteMojo extends BaseMojo {
                 getSystemClassLoader();
     }
 
+    /**
+     * In self-host mode ({@link #selfHostLlmAssets}) copy the onnxruntime-web wasm pair, which the current
+     * minisite-core build bundles under {@code static/wasm/ort-wasm-simd-threaded.{wasm,mjs}}, from the
+     * minisite-core jar on the plugin classpath into the site. In default (CDN) mode nothing is done here:
+     * the frontend fetches the wasm from jsdelivr.
+     */
+    private void copySelfHostLlmWasmIfNeeded() {
+        if (!llmChatEnabled || !selfHostLlmAssets) {
+            return;
+        }
+        final File core = jarLocation(io.yupiik.tools.minisite.MiniSite.class);
+        if (core == null) {
+            throw new IllegalStateException(
+                    "Self-hosting LLM assets but the minisite-core jar is not on the plugin classpath");
+        }
+        getLog().info("Self-hosting LLM assets: extracting onnxruntime wasm from " + core.getName());
+        // Extract only the static/ assets (static/wasm/ort-wasm-simd-threaded.{wasm,mjs}) so the frontend's
+        // selfHostWasmBase() -> {base}/static/wasm/ paths resolve; the js/css bootstrap is copied by MiniSite.
+        new Extractor().extract(target.toPath(), core, "yupiik-tools-maven-plugin/minisite/assets/static/");
+    }
+
+    private static File jarLocation(final Class<?> type) {
+        try {
+            final var location = type.getProtectionDomain().getCodeSource().getLocation();
+            if (location == null) {
+                return null;
+            }
+            final var codeSource = new File(location.toURI());
+            if (!codeSource.isDirectory() && codeSource.getName().endsWith(".jar")) {
+                return codeSource;
+            }
+            return null;
+        } catch (final Exception e) {
+            return null;
+        }
+    }
+
+    private boolean modelAvailable() {
+        final var cl = getClass().getClassLoader();
+        final var cfg = llmModel == null ? new MiniSiteConfiguration.LlmModelConfiguration() : llmModel;
+        return cfg.getOnnxResources().stream().allMatch(r -> cl.getResource(r) != null)
+                && cl.getResource(cfg.getTokenizerResource()) != null;
+    }
+
     protected MiniSiteConfiguration createMiniSiteConfiguration(final ClassLoader loader) {
-        if (llmChatEnabled && getClass().getClassLoader().getResource("all-minilm-l6-v2.onnx") == null) {
+        if (llmChatEnabled && !modelAvailable()) {
             throw new IllegalStateException(
                     "LLM chat is enabled but the embedding model is not on the plugin classpath.\n" +
-                    "Add this dependency to your pom.xml:\n\n" +
+                    "Check that the configured ONNX/tokenizer resources are available; the default is to add this " +
+                    "dependency to your pom.xml:\n\n" +
                     "  <dependency>\n" +
                     "    <groupId>dev.langchain4j</groupId>\n" +
                     "    <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>\n" +
@@ -570,6 +635,8 @@ public class MiniSiteMojo extends BaseMojo {
                 })
                 .llmChatEnabled(llmChatEnabled)
                 .llmModelId(llmModelId)
+                .selfHostLlmAssets(selfHostLlmAssets)
+                .llmModel(llmModel == null ? new MiniSiteConfiguration.LlmModelConfiguration() : llmModel)
                 .addCodeCopyButton(addCodeCopyButton)
                 .source(source.toPath())
                 .target(target.toPath())

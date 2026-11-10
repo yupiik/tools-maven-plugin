@@ -120,7 +120,11 @@ public class MiniSiteConfiguration {
     /**
      * Number of threads used for the LLM embedding computation.
      * <ul>
-     *   <li>{@code -2} (default): re-use the {@link #renderingThreads} pool — the exact same instance, so
+     *   <li>{@code -3} (default): a dedicated fixed thread pool of {@link Runtime#availableProcessors()} threads, the
+     *       "default ONNX behaviour" — one ONNX session at a time per core, so the (bounded) pool that
+     *       {@code LlmEmbeddingGenerator} reuses across batches never over-subscribes the CPU with per-batch session
+     *       worker threads.</li>
+     *   <li>{@code -2}: re-use the {@link #renderingThreads} pool — the exact same instance, so
      *       embeddings share the rendering thread budget instead of doubling it.</li>
      *   <li>{@code -1}: virtual threads when available, otherwise {@link java.util.concurrent.ForkJoinPool#commonPool()}
      *       (a dedicated executor, not the rendering one).</li>
@@ -131,12 +135,16 @@ public class MiniSiteConfiguration {
      * reused instead of allocating a second one.
      */
     @Builder.Default
-    private int embeddingsThreads = -2;
+    private int embeddingsThreads = -3;
     @Builder.Default
     private GravatarConfiguration gravatar = new GravatarConfiguration();
     @Builder.Default
     private boolean llmChatEnabled = false;
+    @Builder.Default
+    private boolean selfHostLlmAssets = false;
     private String llmModelId = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
+    @Builder.Default
+    private LlmModelConfiguration llmModel = new LlmModelConfiguration();
     @Builder.Default
     private boolean addCodeCopyButton = true;
     @Builder.Default
@@ -292,5 +300,96 @@ public class MiniSiteConfiguration {
                     };
             }
         }
+    }
+
+    /**
+     * Configuration of the LLM feature as a whole, shared by the on-disk embedding computation and the in-browser
+     * query embedding / retrieval. A model is not hardcoded: every knob the two sides need is here, so switching the
+     * embedding model is a configuration change (the matching ONNX + tokenizer resources simply need to be on the
+     * plugin/CLI classpath).
+     *
+     * <p>Default values keep the historical {@code all-MiniLM-L6-v2} behaviour (mean pooling over the masked tokens,
+     * 384 dimensions, no query prefix, cosine + lexical hybrid retrieval with a 0.15 floor).</p>
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LlmModelConfiguration {
+        /**
+         * The model identifier written into {@code embeddings.index.json} and consumed by the browser embedder
+         * (e.g. transformers.js {@code 'Xenova/all-MiniLM-L6-v2'} or {@code 'onnx-community/mdbr-leaf-ir-ONNX'}).
+         */
+        @Builder.Default
+        private String model = "all-minilm-l6-v2";
+
+        /**
+         * Classpath resources of the ONNX graph. A model split between a graph file and external data
+         * ({@code model.onnx} + {@code model.onnx_data}) lists both, in order; a single-file model lists one.
+         */
+        @Builder.Default
+        private List<String> onnxResources = List.of("all-minilm-l6-v2.onnx");
+
+        /** Classpath resource of the tokenizer JSON (HF {@code tokenizer.json}). */
+        @Builder.Default
+        private String tokenizerResource = "all-minilm-l6-v2-tokenizer.json";
+
+        /** Expected size of one embedding vector, used by pooling and written to {@code embeddings.index.json}. */
+        private int dimension = 384;
+
+        /**
+         * How the embedding is produced from the small model encoder:
+         * <ul>
+         *   <li>{@link Pooling#MEAN}: average the token vectors weighted by the attention mask (MiniLM).</li>
+         *   <li>{@link Pooling#CLS}: take the {@code [CLS]} vector (bge family).</li>
+         *   <li>{@link Pooling#BAKED}: the graph already outputs the pooled, normalized embedding
+         *       ({@code sentence_embedding}, e.g. mdbr-leaf-ir) - no Java pooling. The ONNX output to read is
+         *       {@link #outputIndex}.</li>
+         * </ul>
+         */
+        private Pooling pooling = Pooling.MEAN;
+
+        /** Index of the ONNX output to consume when {@link Pooling#BAKED}. */
+        private int outputIndex = 0;
+
+        /**
+         * Text prepended to the user query by the browser embedder. Asymmetric models (mdbr-leaf-ir, bge-small)
+         * require e.g. {@code "Represent this sentence for searching relevant passages: "}; passages/chunks are
+         * embedded without it, so this prefix is applied to queries only.
+         */
+        private String queryPrefix = "";
+
+        /** Retrieval knobs shared with {@code rag.ts}. */
+        @Builder.Default
+        private RetrievalConfiguration retrieval = new RetrievalConfiguration();
+    }
+
+    /** How the small model encoder output is turned into a single embedding vector. */
+    public enum Pooling {
+        /** Average the token vectors weighted by the attention mask (MiniLM). */
+        MEAN,
+        /** Take the {@code [CLS]} vector (bge family). */
+        CLS,
+        /** The graph already outputs the pooled, normalized embedding; read {@link LlmModelConfiguration#outputIndex}. */
+        BAKED
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RetrievalConfiguration {
+        /** Minimum cosine for a chunk to be considered relevant (rag.ts MIN_SCORE, 0.15 historically). */
+        @Builder.Default
+        private double minScore = 0.15;
+        /** Weight of the lexical/keyword score relative to cosine (rag.ts LEX_WEIGHT, 0.5 historically). */
+        @Builder.Default
+        private double lexWeight = 0.5;
+        /** Weight of a synonym match inside the lexical term (rag.ts SYNONYM_WEIGHT, 0.3 historically). */
+        @Builder.Default
+        private double synonymWeight = 0.3;
+        /** How many chunks are sent to the model as context (rag.ts topK, 15 historically). */
+        @Builder.Default
+        private int topK = 15;
     }
 }
