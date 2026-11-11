@@ -38,8 +38,7 @@ class BespokeSlideRendererTest {
         assertEquals("""
                  <section>
                   <h2>Slide</h2>
-                <strong>see  <a href="https://a.io">y</a>
-                 now</strong> <ul>
+                <strong>see <a href="https://a.io">y</a> now</strong> <ul>
                   <li>
                 <strong>item <code>x</code></strong>  </li>
                  </ul>

@@ -72,6 +72,7 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.yupiik.asciidoc.model.Element.ElementType.DESCRIPTION_LIST;
 import static io.yupiik.asciidoc.model.Element.ElementType.LINK;
 import static io.yupiik.asciidoc.model.Element.ElementType.ORDERED_LIST;
 import static io.yupiik.asciidoc.model.Element.ElementType.PARAGRAPH;
@@ -672,8 +673,9 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
             builder.append("<code>");
         }
 
+        final boolean block = isBlockLink();
         final var query = sibling.mailtoQuery(element); // empty for every link but a mailto: with a subject
-        builder.append(" <a href=\"").append(element.url());
+        builder.append(block ? " <a href=\"" : "<a href=\"").append(element.url());
         if (!query.isEmpty()) {
             builder.append(escape(query));
         }
@@ -736,7 +738,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         } else {
             visitElement(label);
         }
-        builder.append("</a>\n");
+        builder.append(block ? "</a>\n" : "</a>");
 
         if (code) {
             builder.append("</code>");
@@ -1651,11 +1653,28 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
         final var reference = sibling.crossReference((element.label() == null ? "" : element.label()).strip(), state.asciidocExtensions());
         final var target = crossReferenceTarget(reference);
         final var label = element.options().get("");
-        if (label != null) {
-            builder.append(" <a href=\"").append(target).append("\">").append(parseLabel(label)).append("</a>\n");
-        } else {
-            builder.append(" <a href=\"").append(target).append("\">").append(escape(crossReferenceText(reference, target))).append("</a>\n");
+        final boolean block = isBlockLink();
+        builder.append(block ? " <a href=\"" : "<a href=\"").append(target).append("\">")
+                .append(label != null ? parseLabel(label) : escape(crossReferenceText(reference, target)))
+                .append(block ? "</a>\n" : "</a>");
+    }
+
+    /**
+     * @return true for a link or a cross reference that is a block of its own, a paragraph holding nothing else: it
+     * keeps the space and the line end that set it apart from the blocks around it. Inside a paragraph, an item of
+     * a list or of a description list, a title or a label, the texts next to the link already hold the blanks of the
+     * source, so nothing is added.
+     */
+    protected boolean isBlockLink() {
+        if (state.nowrap) {
+            return false;
         }
+        final int parent = state.lastElement.size() - 2;
+        if (parent < 0) {
+            return true;
+        }
+        final var type = state.lastElement.get(parent).type();
+        return type != PARAGRAPH && type != DESCRIPTION_LIST && !isList(type);
     }
 
     /**
@@ -1697,6 +1716,7 @@ public class AsciidoctorLikeHtmlRenderer implements Visitor<String> {
 
     private AsciidoctorLikeHtmlRenderer render(final Body body) {
         final var nested = nested();
+        nested.state.nowrap = true; // the content of a label or of a pass macro is inline
         (body.children().size() == 1 && body.children().get(0) instanceof Paragraph p ?
                 p.children() :
                 body.children()).stream()
