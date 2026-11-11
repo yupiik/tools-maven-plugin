@@ -32,6 +32,7 @@ public class Reader {
     private final Path file;
     private final SourceListener listener;
     private int lineOffset = 0;
+    private int skipped; // the Skipped bits of the last skip call
     // where the lines come from once keepNextLines() dropped some, one range per run of lines that follow each other
     // in the document, sorted by offset, the first one at offset 0; null while the lines are the ones given
     private List<LineRange> ranges;
@@ -164,7 +165,25 @@ public class Reader {
         return line;
     }
 
+    /**
+     * @return the next line that is not blank and not in a comment; {@link #skipped()} then says what it went over.
+     */
     public String skipCommentsAndEmptyLines() {
+        int skippedLines = 0;
+        var line = skipComments();
+        while (line != null && line.isBlank()) {
+            skippedLines |= skipped | Skipped.BLANK_LINE.bit();
+            line = skipComments();
+        }
+        skipped |= skippedLines;
+        return line;
+    }
+
+    /**
+     * @return the next line that is not in a comment, a blank line included; {@link #skipped()} then says which comments it went over.
+     */
+    public String skipComments() {
+        skipped = 0;
         while (true) {
             if (lineOffset >= lines.size()) {
                 return null;
@@ -172,10 +191,8 @@ public class Reader {
             final var line = lines.get(lineOffset);
             lineOffset++;
 
-            if (line.isBlank()) {
-                continue;
-            }
             if (isCommentBlockDelimiter(line)) { // go to the end of the comment
+                skipped |= Skipped.COMMENT_BLOCK.bit();
                 for (int i = lineOffset + 1; i < lines.size(); i++) {
                     if (isCommentBlockDelimiter(lines.get(i))) {
                         lineOffset = i + 1;
@@ -184,7 +201,8 @@ public class Reader {
                 }
                 continue;
             }
-            if (line.startsWith("//")) {
+            if (isLineComment(line)) {
+                skipped |= Skipped.LINE_COMMENT.bit();
                 continue;
             }
 
@@ -193,7 +211,16 @@ public class Reader {
     }
 
     public boolean isComment(final String line) {
-        return line.startsWith("//") || isCommentBlockDelimiter(line);
+        return isLineComment(line) || isCommentBlockDelimiter(line);
+    }
+
+    /**
+     * @param line a line.
+     * @return whether the line is a line comment: {@code //} from the first column, as {@code // text} or {@code //text};
+     * as in asciidoctor, {@code /// text} is text.
+     */
+    public boolean isLineComment(final String line) {
+        return line.startsWith("//") && !line.startsWith("///");
     }
 
     /**
@@ -202,6 +229,14 @@ public class Reader {
      */
     public boolean isCommentBlockDelimiter(final String line) {
         return line.startsWith("////");
+    }
+
+    /**
+     * @return the {@link Skipped} bits of the last {@link #skipCommentsAndEmptyLines()} or {@link #skipComments()} call,
+     * to test with {@code &}.
+     */
+    public int skipped() {
+        return skipped;
     }
 
     public void setPreviousValue(final String newValue) {
@@ -240,5 +275,18 @@ public class Reader {
      * @param origin the offset of that line in the lines it comes from.
      */
     public record LineRange(int offset, int origin) {
+    }
+
+    /**
+     * What a skip call of the reader went over, one bit each in {@link #skipped()}.
+     */
+    public enum Skipped {
+        BLANK_LINE, LINE_COMMENT, COMMENT_BLOCK;
+
+        private final int bit = 1 << ordinal();
+
+        public int bit() {
+            return bit;
+        }
     }
 }

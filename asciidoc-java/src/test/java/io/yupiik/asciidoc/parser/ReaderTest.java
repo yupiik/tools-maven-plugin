@@ -36,11 +36,62 @@ class ReaderTest {
     }
 
     @Test
+    void skipCommentsReturnsBlankLines() {
+        final var reader = new Reader(List.of("// foo", "", "////", "multi", "////", "here", "next"));
+        assertEquals("", reader.skipComments());
+        assertEquals(Reader.Skipped.LINE_COMMENT.bit(), reader.skipped());
+        assertEquals("here", reader.skipComments());
+        assertEquals(Reader.Skipped.COMMENT_BLOCK.bit(), reader.skipped());
+        assertEquals("next", reader.skipComments());
+        assertEquals(0, reader.skipped());
+        assertNull(reader.skipComments());
+    }
+
+    @Test
+    void skipCommentsAndEmptyLinesSetsEveryBitItWentOver() {
+        final var reader = new Reader(List.of("", "// foo", "", "////", "multi", "////", "here"));
+        assertEquals("here", reader.skipCommentsAndEmptyLines());
+        assertEquals(
+                Reader.Skipped.BLANK_LINE.bit() | Reader.Skipped.LINE_COMMENT.bit() | Reader.Skipped.COMMENT_BLOCK.bit(),
+                reader.skipped());
+    }
+
+    @Test
+    void tripleSlashLineIsNotAComment() { // as asciidoctor
+        assertEquals("/// text", new Reader(List.of("// comment", "//", "/// text")).skipCommentsAndEmptyLines());
+    }
+
+    @Test
     void nextLine() {
         final var reader = new Reader(List.of("a", "b"));
         assertEquals("a", reader.nextLine());
         assertEquals("b", reader.nextLine());
         assertNull(reader.nextLine());
+    }
+
+    @Test
+    void skipped() {
+        assertSkipped(0, List.of("a +", "b"));
+        assertSkipped(Reader.Skipped.LINE_COMMENT.bit(), List.of("a +", "// one", "// two", "b"));
+        assertSkipped(Reader.Skipped.BLANK_LINE.bit(), List.of("a +", "", "b"));
+        assertSkipped(Reader.Skipped.COMMENT_BLOCK.bit(), List.of("a +", "////", "// inside", "////", "b"));
+    }
+
+    @Test
+    void skippedIsResetByEachSkip() {
+        final var reader = new Reader(List.of("a", "", "b", "c"));
+        assertEquals("a", reader.skipCommentsAndEmptyLines());
+        assertEquals("b", reader.skipCommentsAndEmptyLines());
+        assertEquals(Reader.Skipped.BLANK_LINE.bit(), reader.skipped());
+        assertEquals("c", reader.skipCommentsAndEmptyLines());
+        assertEquals(0, reader.skipped());
+    }
+
+    private void assertSkipped(final int expected, final List<String> lines) {
+        final var reader = new Reader(lines);
+        assertEquals("a +", reader.nextLine());
+        assertEquals("b", reader.skipCommentsAndEmptyLines());
+        assertEquals(expected, reader.skipped());
     }
 
     @Test

@@ -218,4 +218,12 @@ class TextScannerTest {
         assertFalse(scanner.isAnchorId("a b"));
         assertFalse(scanner.isAnchorId(""));
     }
+
+    @Test
+    void blockTitles() {
+        assertTrue(scanner.isBlockTitle(".pom.xml"));
+        assertFalse(scanner.isBlockTitle(" .pom.xml"), "the dot sits in the first column, as in asciidoctor");
+        assertFalse(scanner.isBlockTitle("..."));
+        assertFalse(scanner.isBlockTitle(". item"), "an ordered list item");
+    }
 }
