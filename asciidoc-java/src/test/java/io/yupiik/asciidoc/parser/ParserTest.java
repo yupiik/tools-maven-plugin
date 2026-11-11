@@ -32,6 +32,7 @@ import io.yupiik.asciidoc.model.Listing;
 import io.yupiik.asciidoc.model.Macro;
 import io.yupiik.asciidoc.model.OpenBlock;
 import io.yupiik.asciidoc.model.OrderedList;
+import io.yupiik.asciidoc.model.PageBreak;
 import io.yupiik.asciidoc.model.Paragraph;
 import io.yupiik.asciidoc.model.PassthroughBlock;
 import io.yupiik.asciidoc.model.Quote;
@@ -2001,7 +2002,7 @@ class ParserTest {
                 ++++
                 """.split("\n"))), null);
         assertEquals(
-                List.of(new Listing("shown", null), new PassthroughBlock("<b>x</b>\n<i>shown</i>", Map.of())),
+                List.of(new Listing("shown", Map.of()), new PassthroughBlock("<b>x</b>\n<i>shown</i>", Map.of())),
                 body.children());
     }
 
@@ -2019,7 +2020,7 @@ class ParserTest {
                 new Parser(Map.of("a", "")).parseBody(new Reader(List.of(
                         "----", "\\ifdef::a[]", "shown", "\\endif::[]", "\\not a directive", "----")), null).children());
         assertEquals(
-                List.of(new Listing("ifdef::a[]\nshown\nendif::[]", null)),
+                List.of(new Listing("ifdef::a[]\nshown\nendif::[]", Map.of())),
                 new Parser().parseBody(new Reader(List.of("....", "\\ifdef::a[]", "shown", "\\endif::[]", "....")), null).children());
         assertEquals( // asciidoctor's textual test: trailing blanks ignored, an empty target or an ifeval condition is fine, a target with a blank is not a directive
                 List.of(new Code("ifdef::a[]  \nendif::[]  \nifdef::[]\nifeval::x[1 > 0]\n\\endif::a b[]\n", Map.of(), false, List.of())),
@@ -2393,7 +2394,7 @@ class ParserTest {
                 after
                 ....
                 """.split("\n"))), ContentResolver.of(work));
-        assertEquals(List.of(new Listing("include::one.txt[] trailing\nafter", null)), body.children());
+        assertEquals(List.of(new Listing("include::one.txt[] trailing\nafter", Map.of())), body.children());
     }
 
     @Test
@@ -5376,7 +5377,40 @@ class ParserTest {
     @Test
     void constrainedMarksStayLiteralInALiteralBlock() { // the same for a '....' block
         final var body = new Parser().parseBody(new Reader(List.of("....", "snake_case_name and *bold*", "....")), null);
-        assertEquals(List.of(new Listing("snake_case_name and *bold*", null)), body.children());
+        assertEquals(List.of(new Listing("snake_case_name and *bold*", Map.of())), body.children());
+    }
+
+    @Test
+    void literalBlockWithoutAttributeLineHasEmptyOptions() { // as the other blocks, never null; an attribute line still sets them
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ....
+                plain text
+                ....
+
+                .Output
+                [literal]
+                ....
+                BUILD SUCCESS
+                ....
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Listing("plain text", Map.of()), new Listing("BUILD SUCCESS", Map.of("title", "Output", "", "literal"))),
+                body.children());
+    }
+
+    @Test
+    void pageBreakWithoutAttributeLineHasEmptyOptions() { // the same for '<<<'
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                before
+
+                <<<
+
+                [%always]
+                <<<
+                """.split("\n"))), null);
+        assertEquals(
+                List.of(new Text(List.of(), "before", Map.of()), new PageBreak(Map.of()), new PageBreak(Map.of("always-option", ""))),
+                body.children());
     }
 
     @Test

@@ -630,7 +630,7 @@ public class Parser {
                     lastOptions = reader.getLineNumber();
                 }
             } else if ("....".equals(verbatim)) {
-                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options));
+                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options == null ? Map.of() : options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", sibling.unescapeAttributeReferences(newValue.strip().substring(1).strip())));
@@ -697,7 +697,7 @@ public class Parser {
                 elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver, attributes));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
-                elements.add(new PageBreak(options));
+                elements.add(new PageBreak(options == null ? Map.of() : options));
                 options = null;
             } else if (stripped.startsWith("> ")) {
                 reader.rewind();

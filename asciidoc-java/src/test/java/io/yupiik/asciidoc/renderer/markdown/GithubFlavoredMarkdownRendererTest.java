@@ -1922,6 +1922,48 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void literalBlockWithoutAttributeLine() { // a fence without language, also in a list item
+        assertEquals("""
+                Run the build, it prints:
+
+                ```
+                [INFO] BUILD SUCCESS
+                  <1 module> & *done*
+                ```
+
+                **Last output**
+
+                ```
+                with a title
+                ```
+
+                - Check the log:
+
+                  ```
+                  Total time: 2 s
+                  ```
+                """, md("""
+                Run the build, it prints:
+
+                ....
+                [INFO] BUILD SUCCESS
+                  <1 module> & *done*
+                ....
+
+                .Last output
+                ....
+                with a title
+                ....
+
+                * Check the log:
+                +
+                ....
+                Total time: 2 s
+                ....
+                """));
+    }
+
+    @Test
     void linkTargetsWithSpaces() { // as in asciidoctor, the target of a link stops at a blank and the text stays literal, an image takes it
         assertEquals("See link:my file.pdf\\[the file\\] and ![Alt](<my image.png>).\n",
                 md("See link:my file.pdf[the file] and image:my image.png[Alt]."));
