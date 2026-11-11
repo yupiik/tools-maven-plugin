@@ -45,7 +45,7 @@ With an empty `:idprefix:` and `:idseparator: -`, `== Vert.x and the Getting-sta
 
 == Lists
 
-* Unordered lists (`*`) and ordered lists (`.`), nested at any depth, `[start=NN]` on an ordered list.
+* Unordered lists (`*`) and ordered lists (`.`), nested at any depth, `[start=NN]` on an ordered list, also when spaces or a tab come before the marker.
 * Description lists, with the `[qanda]` and `[horizontal]` styles.
 * Callout lists after a code block, see <<_blocks,Blocks>>.
 

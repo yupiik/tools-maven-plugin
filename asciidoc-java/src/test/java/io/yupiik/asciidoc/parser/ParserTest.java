@@ -2980,6 +2980,142 @@ class ParserTest {
     }
 
     @Test
+    void indentedListItemStartsAList() { // as asciidoctor, whatever the spaces or tabs before the marker, also after a blank line that ends a hard line break
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "This guide helps you:",
+                "",
+                " *  Read and write objects to a database",
+                " *  Develop and test against services",
+                "",
+                ".Steps",
+                "  1. start Quarkus:",
+                "+",
+                "----",
+                "quarkus dev",
+                "----",
+                "  2. open a browser",
+                "",
+                "Then: +",
+                "",
+                "\t- [x] done")), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "This guide helps you:", Map.of()),
+                        new UnOrderedList(
+                                List.of(
+                                        new Text(List.of(), "Read and write objects to a database", Map.of()),
+                                        new Text(List.of(), "Develop and test against services", Map.of())),
+                                Map.of()),
+                        new OrderedList(
+                                List.of(
+                                        new Paragraph(List.of(
+                                                new Paragraph(List.of(new Text(List.of(), "start Quarkus:", Map.of())), Map.of()),
+                                                new Code("quarkus dev\n", Map.of(), false, List.of())), Map.of()),
+                                        new Text(List.of(), "open a browser", Map.of())),
+                                Map.of("title", "Steps", "style", "arabic")),
+                        new Text(List.of(), "Then:", Map.of()),
+                        new LineBreak(),
+                        new UnOrderedList(
+                                List.of(new Paragraph(List.of(new Text(List.of(), "done", Map.of())), Map.of("checkbox", "true", "checked", "true"))),
+                                Map.of("checklist", "true"))),
+                body.children());
+    }
+
+    @Test
+    void indentedLineWhichDoesNotStartAListIsKept() { // after a paragraph line or a hard line break, without a list marker, after a control character, and in a listing
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "By default:",
+                " * the user",
+                " * the admin",
+                "",
+                "The roles are: +",
+                " * reader",
+                "",
+                "The other roles are: +",
+                "// asciidoctor drops this line from the paragraph",
+                " * writer",
+                "",
+                "\u0007",
+                "",
+                "\u000b* not indented",
+                "",
+                " not a list item",
+                "",
+                " *bold* text",
+                "",
+                "----",
+                " * code",
+                "----")), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "By default: * the user * the admin", Map.of()),
+                        new Text(List.of(), "The roles are:", Map.of()),
+                        new LineBreak(),
+                        new Text(List.of(), " * reader", Map.of()),
+                        new Text(List.of(), "The other roles are:", Map.of()),
+                        new LineBreak(),
+                        new Text(List.of(), " * writer", Map.of()),
+                        new Text(List.of(), "\u0007", Map.of()),
+                        new Text(List.of(), "\u000b* not indented", Map.of()),
+                        new Text(List.of(), " not a list item", Map.of()),
+                        new Paragraph(List.of(
+                                new Text(List.of(), " ", Map.of()),
+                                new Text(List.of(BOLD), "bold", Map.of()),
+                                new Text(List.of(), " text", Map.of())), Map.of()),
+                        new Code(" * code\n", Map.of(), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void indentedListItemInAVerbatimParagraphIsKept() { // as asciidoctor, a paragraph with the source, listing, literal or verse style keeps its lines
+        for (final var style : List.of("[source,java]", "[source]", "[listing]", "[literal]", "[verse]")) {
+            final var body = new Parser().parseBody(new Reader(List.of(style, " * one", " * two")), null);
+            assertEquals(1, body.children().size(), style);
+            assertEquals(" * one * two", assertInstanceOf(Text.class, body.children().get(0), style).value(), style);
+        }
+        // the style ends with its block: the next indented item starts a list
+        assertEquals(List.of(
+                        new Text(List.of(), " * one", Map.of("", "literal")),
+                        new UnOrderedList(List.of(new Text(List.of(), "two", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("[literal]", " * one", "", " * two")), null).children());
+        // the style can come from an attribute reference, as the other block attributes
+        assertEquals(List.of(new Text(List.of(), " * one", Map.of("language", "java"))),
+                new Parser().parseBody(new Reader(List.of(":s: source", "", "[{s},java]", " * one")), null).children());
+    }
+
+    @Test
+    void indentedListItemInAVerbatimBlockIsKept() { // as asciidoctor, a `--` block with a verbatim style and a `____` block with the verse style keep their lines
+        assertEquals(List.of(new OpenBlock(List.of(new Text(List.of(), " * one * two", Map.of())), Map.of("", "listing"))),
+                new Parser().parseBody(new Reader(List.of("[listing]", "--", " * one", " * two", "--")), null).children());
+        assertEquals(List.of(new Quote(List.of(new Text(List.of(), " * one * two", Map.of())), Map.of("role", "verseblock"))),
+                new Parser().parseBody(new Reader(List.of("[verse]", "____", " * one", " * two", "____")), null).children());
+        assertEquals(List.of(new Quote(List.of(new Text(List.of(), " * one", Map.of())), Map.of("role", "verseblock poem"))),
+                new Parser().parseBody(new Reader(List.of("[verse.poem]", "____", " * one", "____")), null).children());
+        // the blocks inside a verbatim block keep their lines too
+        assertEquals(List.of(new OpenBlock(List.of(new Quote(List.of(new Text(List.of(), " * one", Map.of())), Map.of())), Map.of("", "listing"))),
+                new Parser().parseBody(new Reader(List.of("[listing]", "--", "____", " * one", "____", "--")), null).children());
+        for (final var delimiter : List.of("====", "****")) {
+            final var block = assertInstanceOf(OpenBlock.class, new Parser().parseBody(new Reader(List.of("[listing]", "--", delimiter, " * one", delimiter, "--")), null).children().get(0));
+            assertEquals(List.of(new Text(List.of(), " * one", Map.of())), assertInstanceOf(OpenBlock.class, block.children().get(0), delimiter).children(), delimiter);
+        }
+        // as asciidoctor, a `____` block and a `====` block with the source style still read the list
+        final var list = new UnOrderedList(List.of(new Text(List.of(), "one", Map.of())), Map.of());
+        assertEquals(List.of(new Quote(List.of(list), Map.of())),
+                new Parser().parseBody(new Reader(List.of("[source]", "____", " * one", "____")), null).children());
+        assertEquals(List.of(list),
+                assertInstanceOf(OpenBlock.class, new Parser().parseBody(new Reader(List.of("[source]", "====", " * one", "====")), null).children().get(0)).children());
+    }
+
+    @Test
+    void indentedListMarkerFromAnAttributeIsText() { // as asciidoctor, an attribute reference does not make a list item, the text of an item still gets its attributes
+        assertEquals(List.of(new Text(List.of(), " * item", Map.of())),
+                new Parser().parseBody(new Reader(List.of(":marker: *", "", " {marker} item")), null).children());
+        assertEquals(List.of(new UnOrderedList(List.of(new Text(List.of(), "hello world", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of(":name: world", "", " * hello {name}")), null).children());
+        // the blanks after the item are kept, as for an item in the first column
+        assertEquals(new Parser().parseBody(new Reader(List.of(":x:", "", "* {x}")), null).children(),
+                new Parser().parseBody(new Reader(List.of(":x:", "", " * {x}")), null).children());
+    }
+
+    @Test
     void orderedList() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 . item 1

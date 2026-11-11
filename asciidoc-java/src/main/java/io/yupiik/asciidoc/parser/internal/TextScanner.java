@@ -744,4 +744,28 @@ public class TextScanner {
      */
     public record InlinePassthrough(int start, int signs, int end) {
     }
+
+    /**
+     * @param line a block attribute line such as {@code [source,java]}, stripped.
+     * @return whether its first attribute is the style {@code source}, {@code listing} or {@code literal}: as in
+     * asciidoctor, the lines of a paragraph or of a {@code --} block with such a style are kept as written.
+     */
+    public boolean isVerbatimStyle(final String line) {
+        return hasStyle(line, "source") || hasStyle(line, "listing") || hasStyle(line, "literal");
+    }
+
+    /**
+     * @param line a block attribute line such as {@code [verse,Someone]}, stripped.
+     * @return whether its first attribute is the style {@code verse}, which keeps the lines as written too, also
+     * those of a {@code ____} block.
+     */
+    public boolean isVerseStyle(final String line) {
+        return hasStyle(line, "verse");
+    }
+
+    // the style ends at the `]` of the line, at the `,` of the next attribute, or at a `.role`, `#id` or `%option` shorthand
+    protected boolean hasStyle(final String line, final String style) {
+        final int end = 1 + style.length();
+        return line.startsWith(style, 1) && end < line.length() && ",].#%".indexOf(line.charAt(end)) >= 0;
+    }
 }

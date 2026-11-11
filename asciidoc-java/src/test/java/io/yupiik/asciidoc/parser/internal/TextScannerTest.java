@@ -218,4 +218,21 @@ class TextScannerTest {
         assertFalse(scanner.isAnchorId("a b"));
         assertFalse(scanner.isAnchorId(""));
     }
+
+    @Test
+    void verbatimStyles() {
+        assertTrue(scanner.isVerbatimStyle("[source]"));
+        assertTrue(scanner.isVerbatimStyle("[source,java]"));
+        assertTrue(scanner.isVerbatimStyle("[source%linenums,java]"));
+        assertTrue(scanner.isVerbatimStyle("[listing]"));
+        assertTrue(scanner.isVerbatimStyle("[literal.role]"));
+        assertTrue(scanner.isVerseStyle("[verse,Someone]"));
+        assertTrue(scanner.isVerseStyle("[verse.role]"));
+        assertFalse(scanner.isVerseStyle("[source]"));
+        assertFalse(scanner.isVerbatimStyle("[verse]"));
+        assertFalse(scanner.isVerbatimStyle("[sources]"));
+        assertFalse(scanner.isVerbatimStyle("[.source]"));
+        assertFalse(scanner.isVerbatimStyle("[square]"));
+        assertFalse(scanner.isVerbatimStyle("[role=source]"));
+    }
 }

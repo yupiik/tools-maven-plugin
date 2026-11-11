@@ -25,7 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReaderTest {
     @Test
@@ -41,6 +43,31 @@ class ReaderTest {
         assertEquals("a", reader.nextLine());
         assertEquals("b", reader.nextLine());
         assertNull(reader.nextLine());
+    }
+
+    @Test
+    void skippedParagraphEnd() { // a blank line or a `////` block ends a paragraph, `//` line comments do not
+        assertSkippedParagraphEnd(false, List.of("a +", "b"));
+        assertSkippedParagraphEnd(false, List.of("a +", "// one", "// two", "b"));
+        assertSkippedParagraphEnd(true, List.of("a +", "", "b"));
+        assertSkippedParagraphEnd(true, List.of("a +", "////", "// inside", "////", "b"));
+    }
+
+    @Test
+    void skippedParagraphEndIsResetByEachSkip() {
+        final var reader = new Reader(List.of("a", "", "b", "c"));
+        assertEquals("a", reader.skipCommentsAndEmptyLines());
+        assertEquals("b", reader.skipCommentsAndEmptyLines());
+        assertTrue(reader.skippedParagraphEnd());
+        assertEquals("c", reader.skipCommentsAndEmptyLines());
+        assertFalse(reader.skippedParagraphEnd());
+    }
+
+    private void assertSkippedParagraphEnd(final boolean expected, final List<String> lines) {
+        final var reader = new Reader(lines);
+        assertEquals("a +", reader.nextLine());
+        assertEquals("b", reader.skipCommentsAndEmptyLines());
+        assertEquals(expected, reader.skippedParagraphEnd());
     }
 
     @Test
