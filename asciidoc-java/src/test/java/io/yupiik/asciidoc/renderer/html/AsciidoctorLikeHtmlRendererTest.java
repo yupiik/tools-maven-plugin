@@ -5871,6 +5871,142 @@ class AsciidoctorLikeHtmlRendererTest {
                         """);
     }
 
+    @Test
+    void literalBlockWithoutAttributeLine() { // as asciidoctor, a literalblock div; it failed with a NullPointerException, as '<<<' in a cell did
+        assertRenderingContent("""
+                == Build
+
+                Run the build, it prints:
+
+                ....
+                [INFO] BUILD SUCCESS
+                  <1 module> & *done*
+                ....
+
+                * Check the log:
+                +
+                ....
+                Total time: 2 s
+                ....
+
+                ====
+                ....
+                in an example
+                ....
+                ====
+
+                [cols="1,1a"]
+                |===
+                | Step | Output
+
+                | build
+                |
+                ....
+                in a cell
+                ....
+
+                | print
+                |
+                <<<
+                |===
+
+                .Last output
+                ....
+                with a title
+                ....
+                """, """
+                 <div class="sect1">
+                  <h2 id="_build">Build</h2>
+                 <div class="sectionbody">
+                 <div class="paragraph">
+                 <p>
+                Run the build, it prints:
+                 </p>
+                 </div>
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>[INFO] BUILD SUCCESS
+                  &lt;1 module&gt; &amp; *done*</pre>
+                 </div>
+                 </div>
+                 <div class="ulist">
+                 <ul>
+                  <li>
+                 <div class="paragraph">
+                 <div class="paragraph">
+                 <p>Check the log:</p>
+                 </div>
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>Total time: 2 s</pre>
+                 </div>
+                 </div>
+                 </div>
+                  </li>
+                 </ul>
+                 </div>
+                 <div class="exampleblock">
+                  <div class="content">
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>in an example</pre>
+                 </div>
+                 </div>
+                  </div>
+                 </div>
+                 <table class="tableblock frame-all grid-all stretch">
+                  <colgroup>
+                   <col style="width: 50%;">
+                   <col style="width: 50%;">
+                  </colgroup>
+                  <thead>
+                   <tr>
+                    <th class="tableblock halign-left">
+                Step    </th>
+                    <th class="tableblock halign-left">
+                Output    </th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                build</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <div class="content">
+                 <div class="literalblock">
+                 <div class="content">
+                 <pre>in a cell</pre>
+                 </div>
+                 </div>
+                </div>
+                    </td>
+                   </tr>
+                   <tr>
+                    <td class="tableblock halign-left">
+                <p class="tableblock">
+                print</p>
+                    </td>
+                    <td class="tableblock halign-left">
+                <div class="content">
+                 <div class="page-break"></div>
+                </div>
+                    </td>
+                   </tr>
+                  </tbody>
+                 </table>
+                 <div class="literalblock">
+                  <div class="title">Last output</div>
+                 <div class="content">
+                 <pre>with a title</pre>
+                 </div>
+                 </div>
+                 </div>
+                 </div>
+                """);
+    }
+
     private void assertRenderingContainsLines(final String adoc, final String... lines) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();
