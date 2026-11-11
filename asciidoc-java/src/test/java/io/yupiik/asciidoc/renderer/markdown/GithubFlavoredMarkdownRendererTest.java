@@ -1292,6 +1292,43 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void blockTitleInAListItem() { // the title was a paragraph ".pom.xml" that took the language and the role of the code
+        assertEquals("""
+                        1. Add the annotation to the test class:
+
+                           **H2 example**
+
+                           ```java
+                           @QuarkusTestResource(H2DatabaseTestResource.class)
+                           ```
+
+                        2. Add the dependency:
+
+                           **pom.xml**
+
+                           ```xml
+                           <artifactId>quarkus-test-h2</artifactId>
+                           ```
+                        """,
+                md("""
+                        . Add the annotation to the test class:
+                        +
+                        .H2 example
+                        [source,java]
+                        ----
+                        @QuarkusTestResource(H2DatabaseTestResource.class)
+                        ----
+                        . Add the dependency:
+                        +
+                        [source,xml,role="primary"]
+                        .pom.xml
+                        ----
+                        <artifactId>quarkus-test-h2</artifactId>
+                        ----
+                        """));
+    }
+
+    @Test
     void fenceIsLongerThanTheBackticksInTheCode() {
         assertEquals("`````text\n````\nnested\n```\n`````\n", md("""
                 [source,text]
