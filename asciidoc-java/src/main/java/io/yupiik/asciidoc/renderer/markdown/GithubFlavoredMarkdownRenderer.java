@@ -199,6 +199,9 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
             if (segment.size() == 1 && !sibling.isInline(segment.get(0))) {
                 visitElement(segment.get(0));
             } else {
+                if (segment.get(0) instanceof Text text) { // the parser gives a paragraph of one text as this text, with the title
+                    blockTitle(text.options());
+                }
                 paragraph(inlineChildren(segment));
             }
         }
@@ -379,11 +382,13 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
         if (id != null) {
             anchor(id);
         }
+        blockTitle(paragraph.options());
         renderSegments(segments(paragraph.children(), true));
     }
 
     @Override
     public void visitText(final Text text) {
+        blockTitle(text.options());
         paragraph(inline(text));
     }
 
@@ -712,7 +717,8 @@ public class GithubFlavoredMarkdownRenderer implements Visitor<String> {
      * Cells are single-line in GFM: block content is flattened and pipes are escaped.
      */
     protected String cell(final Element element) {
-        final var text = sibling.isInline(element) ? inline(element) : block(List.of(element));
+        final var titled = element instanceof Text single && options(single.options()).get("title") != null; // a titled paragraph, see renderSegments
+        final var text = sibling.isInline(element) && !titled ? inline(element) : block(List.of(element));
         return text.strip().replace("|", "\\|").replace("\n\n", "<br><br>").replace("\n", "<br>");
     }
 
