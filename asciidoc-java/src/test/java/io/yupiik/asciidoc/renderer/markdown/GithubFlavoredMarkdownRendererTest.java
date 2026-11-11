@@ -393,6 +393,151 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void paragraphTitle() { // on a paragraph of one text, of several elements, with an id, and inside other blocks
+        assertEquals("""
+                        # Doc
+
+                        ## Deploy
+
+                        **Compression pipeline**
+
+                        The response is compressed.
+
+                        **Kubernetes**
+
+                        The extension writes the manifests in `target/kubernetes`.
+
+                        **Setting up**
+
+                        <a id="steps"></a>Start the server.
+
+                        <a id="check"></a>
+                        **Checking**
+
+                        Open `/q/health` in a browser.
+
+                        **Name mismatch**
+
+                        The names differ.
+
+                        They must match.
+
+                        **Custom name**
+
+                        The datasource has a custom name.
+
+                        > [!NOTE]
+                        > **Port 80**
+                        >
+                        > The port must be *open*.
+                        >
+                        > Check the firewall.
+
+                        > **A quote**
+                        >
+                        > Quoted text.
+                        """,
+                md("""
+                        = Doc
+
+                        == Deploy
+
+                        .Compression pipeline
+                        The response is compressed.
+
+                        .Kubernetes
+                        The extension writes the manifests in `target/kubernetes`.
+
+                        [#steps]
+                        .Setting up
+                        Start the server.
+
+                        [#check]
+                        .Checking
+                        Open `/q/health` in a browser.
+
+                        --
+                        .Name mismatch
+                        The names differ.
+
+                        They must match.
+                        --
+
+                        ====
+                        .Custom name
+                        The datasource has a custom name.
+                        ====
+
+                        [NOTE]
+                        ====
+                        .Port 80
+                        The port must be _open_.
+
+                        Check the firewall.
+                        ====
+
+                        ____
+                        .A quote
+                        Quoted text.
+                        ____
+                        """));
+    }
+
+    @Test
+    void paragraphWithoutATitle() { // the title attribute of a link is not the title of the paragraph it starts
+        assertEquals("""
+                        A paragraph.
+
+                        [Example](https://example.com) starts the paragraph.
+
+                        A **bold** paragraph.
+                        """,
+                md("""
+                        A paragraph.
+
+                        https://example.com[Example,title=Hover] starts the paragraph.
+
+                        A *bold* paragraph.
+                        """));
+    }
+
+    @Test
+    void paragraphTitleInACell() {
+        assertEquals("""
+                        | Name | Notes |
+                        | --- | --- |
+                        | a | **Cell title**<br><br>Cell text. |
+                        | b | Cell text. |
+                        """,
+                md("""
+                        [cols="1,1a"]
+                        |===
+                        | Name | Notes
+
+                        | a
+                        |
+                        .Cell title
+                        Cell text.
+
+                        | b
+                        |
+                        Cell text.
+                        |===
+                        """));
+    }
+
+    @Test
+    void visitTextWritesItsTitle() { // a text visited alone is a paragraph
+        final var titled = new GithubFlavoredMarkdownRenderer();
+        titled.visitText(new Text(List.of(), "A paragraph.", Map.of("title", "Para title")));
+        assertEquals("**Para title**\n\nA paragraph.\n", titled.result());
+
+        final var untitled = new GithubFlavoredMarkdownRenderer();
+        untitled.visitText(new Text(List.of(), "A paragraph.", Map.of()));
+        assertEquals("A paragraph.\n", untitled.result());
+    }
+
+    @Test
     void table() {
         assertEquals("""
                         **Options**
@@ -1064,7 +1209,7 @@ class GithubFlavoredMarkdownRendererTest {
 
     @Test
     void aCrossReferenceTextIsNotSubstitutedASecondTime() { // the parser already resolved it, escape included
-        assertEquals("<a id=\"t\"></a>Some text.\n\nSee [My {name} title](#t).\n", md("""
+        assertEquals("**My {name} title**\n\n<a id=\"t\"></a>Some text.\n\nSee [My {name} title](#t).\n", md("""
                 :name: value
 
                 .My \\{name} title

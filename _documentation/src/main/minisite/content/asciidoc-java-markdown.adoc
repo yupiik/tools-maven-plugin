@@ -82,6 +82,9 @@ Run `GuideBench` on the Fusion documentation to measure a change.
 |Admonition
 |A GitHub alert (`> [!NOTE]`).
 
+|Block title (`.Title`)
+|A bold line (`+**Title**+`) before a paragraph, a list, a code block, a table, a quote or an open block, and at the top of an alert; an italic line after an image.
+
 |Callouts
 |A numbered list after the code block, the `<1>` markers staying in the code.
 
