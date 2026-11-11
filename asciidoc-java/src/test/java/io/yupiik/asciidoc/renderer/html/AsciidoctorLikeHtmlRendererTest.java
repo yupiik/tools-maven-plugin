@@ -228,8 +228,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div id="preamble">
                  <div class="sectionbody">
                  <div class="paragraph metadata">
-                 <p><span class="mr-2 category-release"><span class="icon"><i class="fas fa-gift"></i></span></span>,  <a href="http://localhost:4200/blog/author/francois-papon/page-1.html" class="metadata-authors">Francois Papon</a>
-                , <span class="metadata-published">2023-09-26</span>, <span class="metadata-readingtime">49 sec read</span></p>
+                 <p><span class="mr-2 category-release"><span class="icon"><i class="fas fa-gift"></i></span></span>, <a href="http://localhost:4200/blog/author/francois-papon/page-1.html" class="metadata-authors">Francois Papon</a>, <span class="metadata-published">2023-09-26</span>, <span class="metadata-readingtime">49 sec read</span></p>
                  </div>
                  </div>
                  </div>
@@ -614,8 +613,7 @@ class AsciidoctorLikeHtmlRendererTest {
                           <h2 id="_same">Same</h2>
                          <div class="sectionbody">
                          <div class="paragraph">
-                        See  <a href="#_same_2">Same</a>
-                        . </div>
+                        See <a href="#_same_2">Same</a>. </div>
                          </div>
                          </div>
                          <div class="sect1">
@@ -685,8 +683,7 @@ class AsciidoctorLikeHtmlRendererTest {
                           <h2 id="_same_2">Same</h2>
                          <div class="sectionbody">
                          <div class="paragraph">
-                        See  <a href="#_same">Same</a>
-                        . </div>
+                        See <a href="#_same">Same</a>. </div>
                          </div>
                          </div>
                         """);
@@ -782,9 +779,7 @@ class AsciidoctorLikeHtmlRendererTest {
                   <h2 id="vert-x-and-the-getting-started-guide">Vert.x and the Getting-started guide</h2>
                  <div class="sectionbody">
                  <div class="paragraph">
-                See  <a href="#café-société">Caf&eacute; Soci&eacute;t&eacute;</a>
-                 and  <a href="#using-unit">Using Uni&lt;T&gt;</a>
-                . </div>
+                See <a href="#café-société">Caf&eacute; Soci&eacute;t&eacute;</a> and <a href="#using-unit">Using Uni&lt;T&gt;</a>. </div>
                  </div>
                  </div>
                  <div class="sect1">
@@ -877,8 +872,7 @@ class AsciidoctorLikeHtmlRendererTest {
                           <h2 id="first">1. First</h2>
                          <div class="sectionbody">
                          <div class="paragraph">
-                        See  <a href="#sub-part">Sub part</a>
-                        . </div>
+                        See <a href="#sub-part">Sub part</a>. </div>
                          <div class="sect2">
                           <h3 id="sub-part">1.1. Sub part</h3>
                          <div class="sectionbody">
@@ -1175,9 +1169,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          </div>
                          </div>
                          <div class="paragraph">
-                         <p>The framework provides mechanisms. You can also use  <a href="other.html#x">mechanisms</a>
-                        , such as WebAuthn. Mechanisms depend on  <a href="idp.html">providers</a>
-                        .</p>
+                         <p>The framework provides mechanisms. You can also use <a href="other.html#x">mechanisms</a>, such as WebAuthn. Mechanisms depend on <a href="idp.html">providers</a>.</p>
                          </div>
                          </div>
                          </div>
@@ -1212,11 +1204,91 @@ class AsciidoctorLikeHtmlRendererTest {
                          </div>
                          </div>
                          <div class="paragraph">
-                         <p>The framework provides mechanisms. You can also use  <a href="other.html#x">mechanisms</a>
-                        , such as OIDC. Mechanisms depend on  <a href="idp.html">providers</a>
-                        .</p>
+                         <p>The framework provides mechanisms. You can also use <a href="other.html#x">mechanisms</a>, such as OIDC. Mechanisms depend on <a href="idp.html">providers</a>.</p>
                          </div>
                          </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void linksAndCrossReferencesKeepTheSpacingOfTheSource() { // no blank next to a bracket, a quote, a slash or a dot
+        assertRenderingContent("""
+                        See the guide (link:https://example.com[site]) and 'https://example.org[the other]', or
+                        this/link:https://example.com/a[one]/link:https://example.com/b[two].
+                        Read xref:other.adoc[the page], (xref:other.adoc#part[its part]) and <<install>>.
+                        The link:https://example.com[site] has (<<install,a label>>), <<install,one>> <<install,two>>
+                        and <<install,three>><<install,four>>, then https://example.com/c
+                        on the next line.
+
+                        * link:https://example.com[site] starts the item
+                        * see (<<install,the section>>)
+
+                        link:https://example.com[term]:: link:https://example.org[description]
+
+                        [[install]]
+                        == Install (link:https://example.com[site])
+                        """,
+                """
+                         <div class="paragraph">
+                         <p>See the guide (<a href="https://example.com">site</a>) and '<a href="https://example.org">the other</a>', or this/<a href="https://example.com/a">one</a>/<a href="https://example.com/b">two</a>. Read <a href="other.html">the page</a>, (<a href="other.html#part">its part</a>) and <a href="#install">Install (site)</a>. The <a href="https://example.com">site</a> has (<a href="#install">a label</a>), <a href="#install">one</a> <a href="#install">two</a> and <a href="#install">three</a><a href="#install">four</a>, then <a href="https://example.com/c">https://example.com/c</a> on the next line.</p>
+                         </div>
+                         <div class="ulist">
+                         <ul>
+                          <li>
+                         <div class="paragraph">
+                         <p><a href="https://example.com">site</a> starts the item</p>
+                         </div>
+                          </li>
+                          <li>
+                         <div class="paragraph">
+                         <p>see (<a href="#install">the section</a>)</p>
+                         </div>
+                          </li>
+                         </ul>
+                         </div>
+                         <div class="dlist">
+                          <dl>
+                            <dt class="hdlist1"><a href="https://example.com">term</a></dt>
+                            <dd>
+                        <p><a href="https://example.org">description</a></p>
+                        </dd>
+                          </dl>
+                         </div>
+                         <div class="sect1">
+                          <h2 id="install">Install (<a href="https://example.com">site</a>)</h2>
+                         <div class="sectionbody">
+                         </div>
+                         </div>
+                        """);
+    }
+
+    @Test
+    void linkParagraphsStayApart() { // a link that is a paragraph of its own keeps its line end, a link in a text adds none
+        assertRenderingContent("""
+                        link:https://example.com[one]
+
+                        xref:other.adoc[two]
+
+                        ====
+                        link:https://example.com[three]
+
+                        link:https://example.org[four]
+                        ====
+
+                        See (xref:other.adoc[the (link:https://example.com[site]) page]).
+                        """,
+                """
+                         <a href="https://example.com">one</a>
+                         <a href="other.html">two</a>
+                         <div class="exampleblock">
+                          <div class="content">
+                         <a href="https://example.com">three</a>
+                         <a href="https://example.org">four</a>
+                          </div>
+                         </div>
+                         <div class="paragraph">
+                         <p>See (<a href="other.html">the (<a href="https://example.com">site</a>) page</a>).</p>
                          </div>
                         """);
     }
@@ -1234,9 +1306,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         """,
                 """
                          <div class="paragraph">
-                         <p>The connector converts incoming messages into <code>Message&lt;T&gt;</code> instances. <code>T</code> depends on the content type. This enables exact assertions with <code>isEqualTo()</code> instead of fuzzy matching, and <strong>bold</strong> text, see  <a href="https://example.com">the site</a>
-                         and  <a href="other.html">other</a>
-                         pages.</p>
+                         <p>The connector converts incoming messages into <code>Message&lt;T&gt;</code> instances. <code>T</code> depends on the content type. This enables exact assertions with <code>isEqualTo()</code> instead of fuzzy matching, and <strong>bold</strong> text, see <a href="https://example.com">the site</a> and <a href="other.html">other</a> pages.</p>
                          </div>
                         """);
     }
@@ -1504,11 +1574,9 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="ulist blog-links blog-links-page">
                  <ul>
                   <li>
-                 <p> <a href="http://localhost:4200/blog/index.html" class="blog-link-all">All posts</a>
-                </p>  </li>
+                 <p><a href="http://localhost:4200/blog/index.html" class="blog-link-all">All posts</a></p>  </li>
                   <li>
-                 <p> <a href="http://localhost:4200/blog/page-2.html" class="blog-link-next">Next</a>
-                </p>  </li>
+                 <p><a href="http://localhost:4200/blog/page-2.html" class="blog-link-next">Next</a></p>  </li>
                  </ul>
                  </div>
                 """);
@@ -1714,8 +1782,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <div class="ulist checklist">
                  <ul class="checklist">
                   <li>
-                   <p>&#10063; Read <p> <a href="https://yupiik.io">the site</a>
-                </p></p>
+                   <p>&#10063; Read <p><a href="https://yupiik.io">the site</a></p></p>
                   </li>
                  </ul>
                  </div>
@@ -1728,8 +1795,7 @@ class AsciidoctorLikeHtmlRendererTest {
                  <ul class="checklist">
                   <li>
                    <p>&#10003; Done <div class="paragraph">
-                 <a href="#sec">Section</a>
-                 </div>
+                <a href="#sec">Section</a> </div>
                 </p>
                   </li>
                  </ul>
@@ -1839,8 +1905,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 m pass:m[text https://example.org]
                 """, """
                  <div class="paragraph">
-                 <p>c &lt;b&gt;raw&lt;/b&gt; q plain <strong>bold</strong> a WIP only n &lt;b&gt;&amp;&lt;/b&gt; <strong>bold</strong> m text  <a href="https://example.org">https://example.org</a>
-                </p>
+                 <p>c &lt;b&gt;raw&lt;/b&gt; q plain <strong>bold</strong> a WIP only n &lt;b&gt;&amp;&lt;/b&gt; <strong>bold</strong> m text <a href="https://example.org">https://example.org</a></p>
                  </div>
                 """);
     }
@@ -2268,8 +2333,7 @@ class AsciidoctorLikeHtmlRendererTest {
                   <li>
                  <div class="paragraph">
                  <p> <span class="image w32"><img src="Apache_Feather_Logo.png" alt="romain_asf"></span>
-                  <a href="https://home.apache.org/committer-index.html#rmannibucau">ASF Member</a>
-                </p>
+                 <a href="https://home.apache.org/committer-index.html#rmannibucau">ASF Member</a></p>
                  </div>
                   </li>
                  </ul>
@@ -2808,12 +2872,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         See the Prometheus link:https://github.com/prometheus/prometheus[example], https://github.com/quarkusio/quarkus/issues/15782[#15782] and xref:logging.adoc[Logging, the reference].""",
                 """
                          <div class="paragraph">
-                         <p>The  <a href="#quarkus-log_quarkus-log-category-categories-level"><code>quarkus.log.category.&quot;categories&quot;.level</code></a>
-                         property sets the level, as  <a href="https://quarkus.io/blog/kafka-avro/">How to Use Kafka, Schema Registry and Avro with Quarkus</a>
-                         shows. See the Prometheus  <a href="https://github.com/prometheus/prometheus">example</a>
-                        ,  <a href="https://github.com/quarkusio/quarkus/issues/15782">#15782</a>
-                         and  <a href="logging.html">Logging, the reference</a>
-                        .</p>
+                         <p>The <a href="#quarkus-log_quarkus-log-category-categories-level"><code>quarkus.log.category.&quot;categories&quot;.level</code></a> property sets the level, as <a href="https://quarkus.io/blog/kafka-avro/">How to Use Kafka, Schema Registry and Avro with Quarkus</a> shows. See the Prometheus <a href="https://github.com/prometheus/prometheus">example</a>, <a href="https://github.com/quarkusio/quarkus/issues/15782">#15782</a> and <a href="logging.html">Logging, the reference</a>.</p>
                          </div>
                         """);
     }
@@ -2827,16 +2886,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "or mailto:team@example.org[Ask us, Subject here] and mailto:team@example.org[Hi=there].",
                 """
                          <div class="paragraph">
-                         <p>Visit  <a href="https://quarkus.io" class="external" target="_blank" rel="noopener">Quarkus, the site</a>
-                        ,  <a href="https://quarkus.io/guides/" target="_blank" rel="noopener">a, b</a>
-                        ,  <a href="https://quarkus.io" class="x">source</a>
-                        ,  <a href="https://quarkus.io" class="x">50%</a>
-                        ,  <a href="https://quarkus.io" class="x">.foo</a>
-                        ,  <a href="https://quarkus.io"><code>quarkus.http.port=8080</code></a>
-                         and  <a href="ftp://host/file">a, b</a>
-                        , or  <a href="mailto:team@example.org?subject=Subject%20here">Ask us</a>
-                         and  <a href="mailto:team@example.org">Hi=there</a>
-                        .</p>
+                         <p>Visit <a href="https://quarkus.io" class="external" target="_blank" rel="noopener">Quarkus, the site</a>, <a href="https://quarkus.io/guides/" target="_blank" rel="noopener">a, b</a>, <a href="https://quarkus.io" class="x">source</a>, <a href="https://quarkus.io" class="x">50%</a>, <a href="https://quarkus.io" class="x">.foo</a>, <a href="https://quarkus.io"><code>quarkus.http.port=8080</code></a> and <a href="ftp://host/file">a, b</a>, or <a href="mailto:team@example.org?subject=Subject%20here">Ask us</a> and <a href="mailto:team@example.org">Hi=there</a>.</p>
                          </div>
                         """);
     }
@@ -2848,12 +2898,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "link:https://u.io[\"\",role=x] and link:https://u.io[\"unclosed, role=x].",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="#id"><code>quarkus.log.category.&quot;categories&quot;.level=DEBUG</code></a>
-                        ,  <a href="#id">a.&quot;b&quot;.c=d</a>
-                        ,  <a href="https://u.io">a, b</a>
-                        ,  <a href="https://u.io" class="x">https://u.io</a>
-                         and  <a href="https://u.io" class="x">&quot;unclosed</a>
-                        .</p>
+                         <p>See <a href="#id"><code>quarkus.log.category.&quot;categories&quot;.level=DEBUG</code></a>, <a href="#id">a.&quot;b&quot;.c=d</a>, <a href="https://u.io">a, b</a>, <a href="https://u.io" class="x">https://u.io</a> and <a href="https://u.io" class="x">&quot;unclosed</a>.</p>
                          </div>
                         """);
     }
@@ -2883,8 +2928,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 "See link:https://x.io/a[a [b] here.",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="https://x.io/a">a [b</a>
-                         here.</p>
+                         <p>See <a href="https://x.io/a">a [b</a> here.</p>
                          </div>
                         """);
     }
@@ -2898,13 +2942,9 @@ class AsciidoctorLikeHtmlRendererTest {
                         See link:https://x.io[image:a.png[alt,width=100],window=_blank], https://x.io[image:a.png[alt,width=100]] and xref:t[icon:question-circle[title=More]] here, then link:https://u.io[a [b, role=x] c] d.""",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="https://x.io" target="_blank" rel="noopener"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
-                        </a>
-                        ,  <a href="https://x.io"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
-                        </a>
-                         and  <a href="#t"><span class="icon"><i class="fas fa-question-circle" title="More"></i></span></a>
-                         here, then  <a href="https://u.io" class="x">a [b</a>
-                         c] d.</p>
+                         <p>See <a href="https://x.io" target="_blank" rel="noopener"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
+                        </a>, <a href="https://x.io"> <span class="image"><img src="a.png" alt="alt" width="100"></span>
+                        </a> and <a href="#t"><span class="icon"><i class="fas fa-question-circle" title="More"></i></span></a> here, then <a href="https://u.io" class="x">a [b</a> c] d.</p>
                          </div>
                         """);
     }
@@ -2915,9 +2955,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 "See link:#id[`+++quarkus.http.proxy.trusted-proxy[i].subject-dn+++`] and link:https://u.io[`+++a, b+++`, role=x] here.",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="#id"><code>quarkus.http.proxy.trusted-proxy[i].subject-dn</code></a>
-                         and  <a href="https://u.io" class="x"><code>a, b</code></a>
-                         here.</p>
+                         <p>See <a href="#id"><code>quarkus.http.proxy.trusted-proxy[i].subject-dn</code></a> and <a href="https://u.io" class="x"><code>a, b</code></a> here.</p>
                          </div>
                         """);
     }
@@ -2928,42 +2966,28 @@ class AsciidoctorLikeHtmlRendererTest {
                 "See link:#id[`+a[i].b+`] and https://u.io[`+a[i]+`] and xref:t[`+a[i]+`] and link:https://u.io[`+a, b+`, role=x] here.",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="#id"><code>a[i].b</code></a>
-                         and  <a href="https://u.io"><code>a[i]</code></a>
-                         and  <a href="#t"><code>a[i]</code></a>
-                         and  <a href="https://u.io" class="x"><code>a, b</code></a>
-                         here.</p>
+                         <p>See <a href="#id"><code>a[i].b</code></a> and <a href="https://u.io"><code>a[i]</code></a> and <a href="#t"><code>a[i]</code></a> and <a href="https://u.io" class="x"><code>a, b</code></a> here.</p>
                          </div>
                         """);
         assertRenderingContent( // outside a code span the text stays whole; its signs stay too, where asciidoctor drops them (a passthrough outside backticks is not substituted yet)
                 "See link:#id[+a[i].b+] and link:#id[++a[i]++] here.",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="#id">+a[i].b+</a>
-                         and  <a href="#id">++a[i]++</a>
-                         here.</p>
+                         <p>See <a href="#id">+a[i].b+</a> and <a href="#id">++a[i]++</a> here.</p>
                          </div>
                         """);
         assertRenderingContent( // a passthrough closed after another '[' would swallow the next link, so the text ends at its ']' as on master (asciidoctor's passthrough extraction merges the two links into one)
                 "See https://x.io[C++] and https://y.io[C++] here, then link:#id[`+a[i].b+`] and link:#x[`+c[j]+`], and link:#y[`+a[i][j]+`] and https://u.io[`+++b[i][j]+++`].",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="https://x.io">C++</a>
-                         and  <a href="https://y.io">C++</a>
-                         here, then  <a href="#id"><code>a[i].b</code></a>
-                         and  <a href="#x"><code>c[j]</code></a>
-                        , and  <a href="#y"><code>a[i][j]</code></a>
-                         and  <a href="https://u.io"><code>b[i][j]</code></a>
-                        .</p>
+                         <p>See <a href="https://x.io">C++</a> and <a href="https://y.io">C++</a> here, then <a href="#id"><code>a[i].b</code></a> and <a href="#x"><code>c[j]</code></a>, and <a href="#y"><code>a[i][j]</code></a> and <a href="https://u.io"><code>b[i][j]</code></a>.</p>
                          </div>
                         """);
         assertRenderingContent( // a ',' or '=' inside the passthrough does not make the text an attribute list, as asciidoctor, which extracts the passthroughs first
                 "See link:https://u.io[a, +b=c+] and link:https://u.io[\"quoted\" +a=b+] here.",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="https://u.io">a, +b=c+</a>
-                         and  <a href="https://u.io">&quot;quoted&quot; +a=b+</a>
-                         here.</p>
+                         <p>See <a href="https://u.io">a, +b=c+</a> and <a href="https://u.io">&quot;quoted&quot; +a=b+</a> here.</p>
                          </div>
                         """);
     }
@@ -2996,8 +3020,7 @@ class AsciidoctorLikeHtmlRendererTest {
         }
         assertRenderingContent("See link:https://u.io[role=None,Text] here.", """
                  <div class="paragraph">
-                 <p>See  <a href="https://u.io">https://u.io</a>
-                 here.</p>
+                 <p>See <a href="https://u.io">https://u.io</a> here.</p>
                  </div>
                 """); // the positional value after a named one shows the URL as the text, as asciidoctor, which also writes class="bare" there
     }
@@ -3006,9 +3029,7 @@ class AsciidoctorLikeHtmlRendererTest {
     void textAfterAClosingQuoteIsTheNextValue() { // as asciidoctor's AttributeList, which skips only blanks and a ',' after the quote and reads what follows as the next attribute
         assertRenderingContent("See mailto:a@b.c[\"Hi\" there, Subject] and link:https://u.io[\"a\" b, role=x] here.", """
                  <div class="paragraph">
-                 <p>See  <a href="mailto:a@b.c?subject=there&amp;body=Subject">Hi</a>
-                 and  <a href="https://u.io" class="x">a</a>
-                 here.</p>
+                 <p>See <a href="mailto:a@b.c?subject=there&amp;body=Subject">Hi</a> and <a href="https://u.io" class="x">a</a> here.</p>
                  </div>
                 """);
     }
@@ -3019,13 +3040,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 "Write to mailto:a@b.c[Text, Sub ject & co?, Body/\u00e9+1=2], mailto:a@b.c[Ask us, noopener], mailto:a@b.c[,Subject only], mailto:a@b.c[Text, role=x, Body], mailto:a@b.c[Text,\"\",Body] and mailto:a@b.c[].",
                 """
                          <div class="paragraph">
-                         <p>Write to  <a href="mailto:a@b.c?subject=Sub%20ject%20%26%20co%3F&amp;body=Body%2F%C3%A9%2B1%3D2">Text</a>
-                        ,  <a href="mailto:a@b.c?subject=noopener">Ask us</a>
-                        ,  <a href="mailto:a@b.c?subject=Subject%20only">a@b.c</a>
-                        ,  <a href="mailto:a@b.c" class="x">Text</a>
-                        ,  <a href="mailto:a@b.c?subject=&amp;body=Body">Text</a>
-                         and  <a href="mailto:a@b.c">a@b.c</a>
-                        .</p>
+                         <p>Write to <a href="mailto:a@b.c?subject=Sub%20ject%20%26%20co%3F&amp;body=Body%2F%C3%A9%2B1%3D2">Text</a>, <a href="mailto:a@b.c?subject=noopener">Ask us</a>, <a href="mailto:a@b.c?subject=Subject%20only">a@b.c</a>, <a href="mailto:a@b.c" class="x">Text</a>, <a href="mailto:a@b.c?subject=&amp;body=Body">Text</a> and <a href="mailto:a@b.c">a@b.c</a>.</p>
                          </div>
                         """);
     }
@@ -3037,14 +3052,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "link:https://u.io[text, noopener, role=x] and link:https://u.io[text,opts=\"nofollow, noopener\"], then link:https://u.io[see a = b, role=x].",
                 """
                          <div class="paragraph">
-                         <p>See  <a href="https://u.io">https://u.io</a>
-                         after,  <a href="https://u.io">https://u.io</a>
-                         after,  <a href="https://u.io" class="x">https://u.io</a>
-                        ,  <a href="https://u.io" target="_blank" rel="noopener">https://u.io</a>
-                        ,  <a href="https://u.io" class="x">text</a>
-                         and  <a href="https://u.io" rel="nofollow noopener">text</a>
-                        , then  <a href="https://u.io" class="x">see a = b</a>
-                        .</p>
+                         <p>See <a href="https://u.io">https://u.io</a> after, <a href="https://u.io">https://u.io</a> after, <a href="https://u.io" class="x">https://u.io</a>, <a href="https://u.io" target="_blank" rel="noopener">https://u.io</a>, <a href="https://u.io" class="x">text</a> and <a href="https://u.io" rel="nofollow noopener">text</a>, then <a href="https://u.io" class="x">see a = b</a>.</p>
                          </div>
                         """);
     }
@@ -3058,11 +3066,9 @@ class AsciidoctorLikeHtmlRendererTest {
                         The type is link:#x[icon:question-circle[title=More information]] here, see link:https://x.io/a[image:a.png[x] image:b.png[y]] too.""",
                 """
                          <div class="paragraph">
-                         <p>The type is  <a href="#x"><span class="icon"><i class="fas fa-question-circle" title="More information"></i></span></a>
-                         here, see  <a href="https://x.io/a"> <span class="image"><img src="a.png" alt="x"></span>
+                         <p>The type is <a href="#x"><span class="icon"><i class="fas fa-question-circle" title="More information"></i></span></a> here, see <a href="https://x.io/a"> <span class="image"><img src="a.png" alt="x"></span>
                           <span class="image"><img src="b.png" alt="y"></span>
-                        </a>
-                         too.</p>
+                        </a> too.</p>
                          </div>
                         """);
     }
@@ -3187,8 +3193,7 @@ class AsciidoctorLikeHtmlRendererTest {
                            <tr>
                             <td class="tableblock halign-left">
                         <p class="tableblock">
-                         <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a>
-                        </p>
+                        <a href="#io.yupiik.test.MyObject">io.yupiik.test.MyObject</a></p>
                             </td>
                             <td class="tableblock halign-left">
                         <p class="tableblock">
@@ -3415,7 +3420,7 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent(
                 "click [here](https://example.com) now",
                 " <div class=\"paragraph\">\n" +
-                        " <p>click  <a href=\"https://example.com\">here</a>\n" +
+                        " <p>click <a href=\"https://example.com\">here</a>" +
                         " now</p>\n" +
                         " </div>\n");
     }
@@ -4454,8 +4459,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 <div class="content">
                  <div class="paragraph">
                 <a id="quarkus-http-port"></a>
-                  <a href="#quarkus-http-port" class="property-path"><code>quarkus.http.port</code></a>
-                 </div>
+                 <a href="#quarkus-http-port" class="property-path"><code>quarkus.http.port</code></a> </div>
                  <div class="openblock description">
                   <div class="content description">
                 The HTTP port.  </div>
@@ -4731,7 +4735,7 @@ class AsciidoctorLikeHtmlRendererTest {
         assertRenderingContent("[[top]] see link:#top[the top] now",
                 " <div class=\"paragraph\">\n" +
                         " <p><a id=\"top\"></a>\n" +
-                        " see  <a href=\"#top\">the top</a>\n" +
+                        " see <a href=\"#top\">the top</a>" +
                         " now</p>\n" +
                         " </div>\n");
     }
@@ -4783,19 +4787,19 @@ class AsciidoctorLikeHtmlRendererTest {
                 *Do not _ever_ commit secrets.*
                 """,
                 " <div class=\"paragraph\">\n" +
-                        " <p>The use of <strong>the  <a href=\"https://opentelemetry.io/docs/instrumentation/java/automatic/\">OpenTelemetry Agent</a>\n" +
+                        " <p>The use of <strong>the <a href=\"https://opentelemetry.io/docs/instrumentation/java/automatic/\">OpenTelemetry Agent</a>" +
                         " is not needed nor recommended</strong>.</p>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p><em>For more information, please refer to  <a href=\"cli-tooling.html\">the Quarkus CLI guide</a>\n" +
+                        " <p><em>For more information, please refer to <a href=\"cli-tooling.html\">the Quarkus CLI guide</a>" +
                         ".</em></p>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p><em>This property is deprecated since <code>3.29</code> (see  <a href=\"https://github.com/quarkusio/quarkus/issues/41016\">https://github.com/quarkusio/quarkus/issues/41016</a>\n" +
+                        " <p><em>This property is deprecated since <code>3.29</code> (see <a href=\"https://github.com/quarkusio/quarkus/issues/41016\">https://github.com/quarkusio/quarkus/issues/41016</a>" +
                         ").</em></p>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p><span class=\"red\">See  <a href=\"#sec\">[sec]</a>\n" +
+                        " <p><span class=\"red\">See <a href=\"#sec\">[sec]</a>" +
                         " first.</span></p>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
@@ -4813,7 +4817,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 Mind *[.red]#this#* too, and [.blue]*[.red]#that#*.
                 """,
                 " <div class=\"paragraph\">\n" +
-                        " <p>Run <strong class=\"red\"><em>the  <a href=\"https://a.io\">tool</a>\n" +
+                        " <p>Run <strong class=\"red\"><em>the <a href=\"https://a.io\">tool</a>" +
                         "</em></strong> first.</p>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
@@ -4843,8 +4847,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         " <div id=\"preamble\">\n" +
                         " <div class=\"sectionbody\">\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p><strong>see  <a href=\"https://a.io\">y</a>\n" +
-                        " now</strong></p>\n" +
+                        " <p><strong>see <a href=\"https://a.io\">y</a> now</strong></p>\n" +
                         " </div>\n" +
                         " </div>\n" +
                         " </div>\n" +
@@ -4897,18 +4900,15 @@ class AsciidoctorLikeHtmlRendererTest {
                         "   <tr>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<strong class=\"r\">see  <a href=\"https://a.io\">y</a>\n" +
-                        " now</strong></p>\n" +
+                        "<strong class=\"r\">see <a href=\"https://a.io\">y</a> now</strong></p>\n" +
                         "    </td>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<strong id=\"i\">see  <a href=\"https://a.io\">y</a>\n" +
-                        " now</strong></p>\n" +
+                        "<strong id=\"i\">see <a href=\"https://a.io\">y</a> now</strong></p>\n" +
                         "    </td>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<strong><em class=\"r\">see  <a href=\"https://a.io\">y</a>\n" +
-                        " now</em></strong></p>\n" +
+                        "<strong><em class=\"r\">see <a href=\"https://a.io\">y</a> now</em></strong></p>\n" +
                         "    </td>\n" +
                         "   </tr>\n" +
                         "  </tbody>\n" +
@@ -4980,7 +4980,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "   <tr>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
                         "<p class=\"tableblock\">\n" +
-                        "<strong>see  <a href=\"https://a.io\">y</a>\n" +
+                        "<strong>see <a href=\"https://a.io\">y</a>" +
                         " now</strong></p>\n" +
                         "    </td>\n" +
                         "    <td class=\"tableblock halign-left\">\n" +
@@ -5156,7 +5156,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         "<div class=\"content\">\n" +
                         " <div class=\"paragraph\">\n" +
                         " <p><a id=\"top\"></a>\n" +
-                        "  <a href=\"#top\" class=\"property-path\"><code>q.top</code></a>\n" +
+                        " <a href=\"#top\" class=\"property-path\"><code>q.top</code></a>" +
                         "</p>\n" +
                         " </div>\n" +
                         " <div class=\"openblock description\">\n" +
@@ -5314,8 +5314,7 @@ class AsciidoctorLikeHtmlRendererTest {
                     </td>
                     <th class="tableblock halign-left">
                 <p class="tableblock">
-                 <a href="https://example.com">Example</a>
-                </p>
+                <a href="https://example.com">Example</a></p>
                     </th>
                    </tr>
                    <tr>
@@ -5636,7 +5635,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         " </div>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p>See  <a href=\"#{name}\">[{name}]</a>\n" +
+                        " <p>See <a href=\"#{name}\">[{name}]</a>" +
                         ".</p>\n" +
                         " </div>\n");
         assertRenderingContent(":name: value\n\nimage::{name}.png[]\n\nSee xref:{name}[].\n",
@@ -5646,7 +5645,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         " </div>\n" +
                         " </div>\n" +
                         " <div class=\"paragraph\">\n" +
-                        " <p>See  <a href=\"#value\">[value]</a>\n" +
+                        " <p>See <a href=\"#value\">[value]</a>" +
                         ".</p>\n" +
                         " </div>\n");
     }
@@ -6047,10 +6046,7 @@ class AsciidoctorLikeHtmlRendererTest {
                           <h3 id="_other_details">Other details</h3>
                          <div class="sectionbody">
                          <div class="paragraph">
-                         <p>See  <a href="#_other_details">Other details</a>
-                        ,  <a href="#install">Install</a>
-                         and  <a href="cli-tooling.html#dev-mode">the CLI</a>
-                        .</p>
+                         <p>See <a href="#_other_details">Other details</a>, <a href="#install">Install</a> and <a href="cli-tooling.html#dev-mode">the CLI</a>.</p>
                          </div>
                          </div>
                          </div>
@@ -6079,13 +6075,7 @@ class AsciidoctorLikeHtmlRendererTest {
                           <h2 id="openshift">OpenShift</h2>
                          <div class="sectionbody">
                          <div class="paragraph">
-                         <p>See  <a href="cdi-reference.html#remove_unused_beans">unused beans</a>
-                        ,  <a href="config-reference.html#property-expressions">config-reference.html</a>
-                        ,  <a href="#openshift">the section</a>
-                        ,  <a href="#openshift">OpenShift</a>
-                        ,  <a href="#guide.adoc">[guide.adoc]</a>
-                         and  <a href="cdi-reference.html#bean_discovery">cdi-reference.html</a>
-                        .</p>
+                         <p>See <a href="cdi-reference.html#remove_unused_beans">unused beans</a>, <a href="config-reference.html#property-expressions">config-reference.html</a>, <a href="#openshift">the section</a>, <a href="#openshift">OpenShift</a>, <a href="#guide.adoc">[guide.adoc]</a> and <a href="cdi-reference.html#bean_discovery">cdi-reference.html</a>.</p>
                          </div>
                          </div>
                          </div>
@@ -6100,8 +6090,7 @@ class AsciidoctorLikeHtmlRendererTest {
                         """,
                 """
                          <div class="paragraph">
-                         <p>See  <a href="../cdi-reference/#remove_unused_beans">unused beans</a>
-                        .</p>
+                         <p>See <a href="../cdi-reference/#remove_unused_beans">unused beans</a>.</p>
                          </div>
                         """);
     }
@@ -6125,8 +6114,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          </p>
                          </div>
                          <div class="paragraph">
-                         <p>See  <a href="#t">My {name} title</a>
-                        .</p>
+                         <p>See <a href="#t">My {name} title</a>.</p>
                          </div>
                         """);
     }
@@ -6169,11 +6157,7 @@ class AsciidoctorLikeHtmlRendererTest {
                          <p>Some <strong>other</strong> text.</p>
                          </div>
                          <div class="paragraph">
-                         <p>See  <a href="#intro">The introduction</a>
-                        ,  <a href="#ports">Ports of the service</a>
-                        ,  <a href="#plain">[plain]</a>
-                         and  <a href="#plain">[plain]</a>
-                        .</p>
+                         <p>See <a href="#intro">The introduction</a>, <a href="#ports">Ports of the service</a>, <a href="#plain">[plain]</a> and <a href="#plain">[plain]</a>.</p>
                          </div>
                         """);
     }
@@ -6394,8 +6378,7 @@ class AsciidoctorLikeHtmlRendererTest {
                 """
                          <div class="paragraph">
                           <div class="title">Read this first</div>
-                         <p>See  <a href="https://x.org">the site</a>
-                         and  <span class="image"><img src="a.png" alt="Alt"></span>
+                         <p>See <a href="https://x.org">the site</a> and  <span class="image"><img src="a.png" alt="Alt"></span>
                          here.</p>
                          </div>
                         """);
@@ -6404,7 +6387,7 @@ class AsciidoctorLikeHtmlRendererTest {
     @Test
     void linksAfterATextWithAColon() { // 'Path' used to be read as the macro name, so the default mode failed on the line
         assertRenderingContent("Path: link:https://example.com[a], Type: link:https://example.org[b]",
-                " <div class=\"paragraph\">\n <p>Path:  <a href=\"https://example.com\">a</a>\n, Type:  <a href=\"https://example.org\">b</a>\n</p>\n </div>\n");
+                " <div class=\"paragraph\">\n <p>Path: <a href=\"https://example.com\">a</a>, Type: <a href=\"https://example.org\">b</a></p>\n </div>\n");
     }
 
     @Test
