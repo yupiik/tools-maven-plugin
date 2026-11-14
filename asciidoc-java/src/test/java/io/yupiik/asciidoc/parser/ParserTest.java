@@ -2955,6 +2955,438 @@ class ParserTest {
     }
 
     @Test
+    void blockTitleInAListItem() { // datasource.adoc and logging.adoc: the title comes before or after the attribute line
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                . Add the annotation to the test class:
+                +
+                .H2 example
+                [source,java]
+                ----
+                @QuarkusTestResource(H2DatabaseTestResource.class)
+                ----
+                . Add the dependency:
+                +
+                [source,xml,role="primary"]
+                .pom.xml
+                ----
+                <artifactId>quarkus-test-h2</artifactId>
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new OrderedList(
+                                List.of(
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), "Add the annotation to the test class:", Map.of())), Map.of()),
+                                                        new Code("@QuarkusTestResource(H2DatabaseTestResource.class)\n", Map.of("language", "java", "title", "H2 example"), false, List.of())),
+                                                Map.of()),
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), "Add the dependency:", Map.of())), Map.of()),
+                                                        new Code("<artifactId>quarkus-test-h2</artifactId>\n", Map.of("language", "xml", "role", "primary", "title", "pom.xml"), false, List.of())),
+                                                Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleAfterAListItemWithDot() { // only the text of the item keeps its leading dot
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * .gitignore
+                +
+                .Ignored files
+                ----
+                target/
+                ----
+                * .dockerignore
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), ".gitignore", Map.of())), Map.of()),
+                                                        new Code("target/\n", Map.of("title", "Ignored files"), false, List.of())),
+                                                Map.of()),
+                                        new Text(List.of(), ".dockerignore", Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleInANestedItemAndAChecklistItem() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * [x] .done
+                +
+                .First
+                ----
+                a
+                ----
+                ** .nested
+                +
+                .Second
+                ----
+                b
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), ".done", Map.of())), Map.of()),
+                                                        new Code("a\n", Map.of("title", "First"), false, List.of()),
+                                                        new UnOrderedList(
+                                                                List.of(
+                                                                        new Paragraph(
+                                                                                List.of(
+                                                                                        new Paragraph(List.of(new Text(List.of(), ".nested", Map.of())), Map.of()),
+                                                                                        new Code("b\n", Map.of("title", "Second"), false, List.of())),
+                                                                                Map.of())),
+                                                                Map.of())),
+                                                Map.of("checkbox", "true", "checked", "true"))),
+                                Map.of("checklist", "true"))),
+                body.children());
+    }
+
+    @Test
+    void blockTitleInACalloutItem() { // the text of the item was read as a title and lost
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                ----
+                .gitignore <1>
+                target/ <2>
+                ----
+                <1> .gitignore is the file name
+                <2> A folder:
+                +
+                .Its content
+                ----
+                classes
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Code(".gitignore\ntarget/\n", Map.of(), false, List.of(
+                                List.of(new CallOut(1, new Text(List.of(), ".gitignore is the file name", Map.of()))),
+                                List.of(new CallOut(2, new Paragraph(
+                                        List.of(
+                                                new Paragraph(List.of(new Text(List.of(), "A folder:", Map.of())), Map.of()),
+                                                new Code("classes\n", Map.of("title", "Its content"), false, List.of())),
+                                        Map.of())))))),
+                body.children());
+    }
+
+    @Test
+    void dotLineAfterAHardLineBreakInAListItemIsText() { // the line goes on the text before the break, it is no title of the block
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * Edit one of the files:
+                +
+                the first +
+                .gitignore
+                +
+                ----
+                target/
+                ----
+                * next
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), "Edit one of the files:", Map.of())), Map.of()),
+                                                        new Text(List.of(), "the first", Map.of()),
+                                                        new LineBreak(),
+                                                        new Paragraph(List.of(new Text(List.of(), ".gitignore", Map.of())), Map.of()),
+                                                        new Code("target/\n", Map.of(), false, List.of())),
+                                                Map.of()),
+                                        new Text(List.of(), "next", Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void dotLineAfterAHardLineBreakAndALineCommentIsText() { // as asciidoctor, the line comment does not end the text
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * Edit one of the files:
+                +
+                the first +
+                // the second one is optional
+                .gitignore
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(new Paragraph(
+                                        List.of(
+                                                new Paragraph(List.of(new Text(List.of(), "Edit one of the files:", Map.of())), Map.of()),
+                                                new Text(List.of(), "the first", Map.of()),
+                                                new LineBreak(),
+                                                new Paragraph(List.of(new Text(List.of(), ".gitignore", Map.of())), Map.of())),
+                                        Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void dotLineAfterAHardLineBreakIsText() { // the line was read as a title and lost
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                Or edit +
+                .dockerignore
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "Or edit", Map.of()),
+                        new LineBreak(),
+                        new Text(List.of(), ".dockerignore", Map.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleAfterAHardLineBreakAndABlankLine() { // the other direction: the blank line ends the text
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                Or edit +
+
+                .Ignored files
+                ----
+                target/
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "Or edit", Map.of()),
+                        new LineBreak(),
+                        new Code("target/\n", Map.of("title", "Ignored files"), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void blankLinesAfterABlockTitleEndTheListItem() { // the title has no block in the item and is dropped, the block follows the list
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+
+
+                ----
+                x
+                ----
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                        new Code("x\n", Map.of(), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleWaitsForItsBlockOverOneBlankLineInAListItem() { // as asciidoctor, the block keeps its title and stays in the item
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+
+                ----
+                x
+                ----
+                * next
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                        new Code("x\n", Map.of("title", "Title"), false, List.of())), Map.of()),
+                                new Text(List.of(), "next", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleBeforeANestedItemIsTheTitleOfTheNestedList() { // as asciidoctor, for an unordered and an ordered list
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "item", Map.of()),
+                                        new UnOrderedList(List.of(new Text(List.of(), "child", Map.of())), Map.of("title", "Title"))), Map.of()),
+                                new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("""
+                        * item
+                        +
+                        .Title
+                        ** child
+                        * next
+                        """.split("\n"))), null).children());
+        assertEquals(List.of(
+                        new OrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "item", Map.of()),
+                                        new OrderedList(List.of(new Text(List.of(), "child", Map.of())), Map.of("title", "Title"))), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("""
+                        . item
+                        +
+                        .Title
+                        .. child
+                        """.split("\n"))), null).children());
+    }
+
+    @Test
+    void blockMetadataInAnyOrderWaitsForItsBlockInAListItem() { // a title before the attribute line, and a title before `+` and a nested item
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                        new Code("x\n", Map.of("title", "Title", "language", "java"), false, List.of())), Map.of()),
+                                new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("""
+                        * item
+                        +
+                        .Title
+                        [source,java]
+
+                        ----
+                        x
+                        ----
+                        * next
+                        """.split("\n"))), null).children());
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Text(List.of(), "item", Map.of()),
+                                        new UnOrderedList(List.of(new Text(List.of(), "child", Map.of())), Map.of("title", "Title", "", "square"))), Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("""
+                        * item
+                        +
+                        .Title
+                        [square]
+                        +
+                        ** child
+                        """.split("\n"))), null).children());
+    }
+
+    @Test
+    void blockTitleWaitsForAQuoteOverOneBlankLineInAListItem() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+
+                ____
+                q
+                ____
+                * next
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                        new Quote(List.of(new Text(List.of(), "q", Map.of())), Map.of("title", "Title"))), Map.of()),
+                                new Text(List.of(), "next", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void horizontalRuleAfterABlockTitleAndABlankLineEndsTheListItem() { // a rule has no closing line, so the item does not wait for it
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+
+                '''
+                * next
+
+                == Section
+                text
+                """.split("\n"))), null);
+        assertEquals(4, body.children().size());
+        assertEquals(new UnOrderedList(List.of(new Text(List.of(), "item", Map.of())), Map.of()), body.children().get(0));
+        assertEquals(new UnOrderedList(List.of(new Text(List.of(), "next", Map.of())), Map.of()), body.children().get(2));
+        assertInstanceOf(Section.class, body.children().get(3));
+    }
+
+    @Test
+    void blockTitleBeforeTheNextItemOfTheSameLevelIsDropped() { // as asciidoctor: the title has no block, and the next item takes no title
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+                * next
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(
+                                new Text(List.of(), "item", Map.of()),
+                                new Text(List.of(), "next", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void dotLineAfterALineCommentAtTheStartOfAListItemIsText() { // no exception; the comment is dropped as before, where asciidoctor keeps it as text
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * // comment
+                .gitignore
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Text(List.of(), ".gitignore", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void sectionTitleAfterABlockTitleAndABlankLineEndsTheListItem() { // the section is not nested in the item
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * item
+                +
+                .Title
+
+                == Section
+
+                text
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                        new Section(2, new Text(List.of(), "Section", Map.of()), List.of(new Text(List.of(), "text", Map.of())), Map.of())),
+                body.children());
+    }
+
+    @Test
+    void indentedDotLineIsText() { // as asciidoctor, a block title starts in the first column, so the line is not lost
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                para
+
+                 .indented dot
+
+                * item
+                +
+                 .indented dot in an item
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new Text(List.of(), "para", Map.of()),
+                        new Text(List.of(), " .indented dot", Map.of()),
+                        new UnOrderedList(
+                                List.of(new Paragraph(
+                                        List.of(
+                                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                                new Paragraph(List.of(new Text(List.of(), " .indented dot in an item", Map.of())), Map.of())),
+                                        Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
+    void blockTitleInAQuoteOfAListItem() {
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                * A quote:
+                +
+                ____
+                .Its title
+                quoted
+                ____
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                        new UnOrderedList(
+                                List.of(
+                                        new Paragraph(
+                                                List.of(
+                                                        new Paragraph(List.of(new Text(List.of(), "A quote:", Map.of())), Map.of()),
+                                                        new Quote(List.of(new Text(List.of(), "quoted", Map.of("title", "Its title"))), Map.of())),
+                                                Map.of())),
+                                Map.of())),
+                body.children());
+    }
+
+    @Test
     void unorderedListUnCommonFormatting() {
         final var body = new Parser().parseBody(new Reader(List.of("""
                 * something:

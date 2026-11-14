@@ -32,6 +32,7 @@ public class Reader {
     private final Path file;
     private final SourceListener listener;
     private int lineOffset = 0;
+    private boolean skippedParagraphEnd;
     // where the lines come from once keepNextLines() dropped some, one range per run of lines that follow each other
     // in the document, sorted by offset, the first one at offset 0; null while the lines are the ones given
     private List<LineRange> ranges;
@@ -165,6 +166,7 @@ public class Reader {
     }
 
     public String skipCommentsAndEmptyLines() {
+        skippedParagraphEnd = false;
         while (true) {
             if (lineOffset >= lines.size()) {
                 return null;
@@ -173,9 +175,11 @@ public class Reader {
             lineOffset++;
 
             if (line.isBlank()) {
+                skippedParagraphEnd = true;
                 continue;
             }
             if (isCommentBlockDelimiter(line)) { // go to the end of the comment
+                skippedParagraphEnd = true;
                 for (int i = lineOffset + 1; i < lines.size(); i++) {
                     if (isCommentBlockDelimiter(lines.get(i))) {
                         lineOffset = i + 1;
@@ -202,6 +206,14 @@ public class Reader {
      */
     public boolean isCommentBlockDelimiter(final String line) {
         return line.startsWith("////");
+    }
+
+    /**
+     * @return whether the last {@link #skipCommentsAndEmptyLines()} call went over a blank line or a {@code ////}
+     * comment block, which end a paragraph as in asciidoctor. A {@code //} line comment does not end it.
+     */
+    public boolean skippedParagraphEnd() {
+        return skippedParagraphEnd;
     }
 
     public void setPreviousValue(final String newValue) {

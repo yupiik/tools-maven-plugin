@@ -4766,6 +4766,36 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void blockTitleInAListItem() { // logging.adoc, the title was a paragraph ".pom.xml" that took the role of the code
+        assertRenderingContent("""
+                        . Add the dependency:
+                        +
+                        [source,xml,role="primary"]
+                        .pom.xml
+                        ----
+                        <artifactId>quarkus-test-h2</artifactId>
+                        ----
+                        """,
+                " <div class=\"olist\">\n" +
+                        " <ol>\n" +
+                        "  <li>\n" +
+                        " <div class=\"paragraph\">\n" +
+                        " <div class=\"paragraph\">\n" +
+                        "Add the dependency: </div>\n" +
+                        " <div class=\"listingblock primary\">\n" +
+                        "  <div class=\"title\">pom.xml</div>\n" +
+                        " <div class=\"content\">\n" +
+                        " <pre class=\"highlightjs highlight\"><code class=\"language-xml hljs\" data-lang=\"xml\">&lt;artifactId&gt;quarkus-test-h2&lt;/artifactId&gt;\n" +
+                        "</code></pre>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        " </div>\n" +
+                        "  </li>\n" +
+                        " </ol>\n" +
+                        " </div>\n");
+    }
+
+    @Test
     void urlFollowedByTextInCode() { // security-openid-connect-providers.adoc, the span was dropped; asciidoctor links "https://<your" inside the code
         assertRenderingContent("Navigate to your application `https://<your ngrok instance>.ngrok-free.app/`.",
                 " <div class=\"paragraph\">\n" +
