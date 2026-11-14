@@ -39,6 +39,7 @@
     <jgit.version>7.8.1.202611041320-r</jgit.version>
     <johnzon.version>1.2.21</johnzon.version>
     <uship.version>1.0.19</uship.version>
+    <langchain4j.version>1.23.0-beta33</langchain4j.version>
 
     <node.version>v20.11.0</node.version>
     <npm.version>10.2.4</npm.version>

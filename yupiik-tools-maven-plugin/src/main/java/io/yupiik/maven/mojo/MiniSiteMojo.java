@@ -24,6 +24,7 @@ import io.yupiik.maven.service.git.Git;
 import io.yupiik.maven.service.git.GitService;
 import io.yupiik.tools.common.jar.Extractor;
 import io.yupiik.tools.minisite.ActionExecutor;
+import io.yupiik.tools.minisite.LlmEmbeddingModel;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
@@ -141,7 +142,7 @@ public class MiniSiteMojo extends BaseMojo {
      *     <code><![CDATA[<dependency>
      *        <groupId>dev.langchain4j</groupId>
      *        <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
-     *        <version>1.16.1-beta26</version>
+     *        <version>1.23.0-beta33</version>
      *      </dependency>]]></code>
      * </pre>
      *
@@ -624,9 +625,9 @@ public class MiniSiteMojo extends BaseMojo {
                     "Check that the configured ONNX/tokenizer resources are available; the default is to add this " +
                     "dependency to your pom.xml:\n\n" +
                     "  <dependency>\n" +
-                    "    <groupId>dev.langchain4j</groupId>\n" +
-                    "    <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>\n" +
-                    "    <version>1.16.1-beta26</version>\n" +
+                    "    <groupId>" + LlmEmbeddingModel.GROUP_ID + "</groupId>\n" +
+                    "    <artifactId>" + LlmEmbeddingModel.ARTIFACT_ID + "</artifactId>\n" +
+                    "    <version>" + LlmEmbeddingModel.VERSION + "</version>\n" +
                     "  </dependency>\n");
         }
         return MiniSiteConfiguration.builder()
