@@ -17,6 +17,7 @@ package io.yupiik.tools.cli.command;
 
 import io.yupiik.tools.cli.service.AsciidoctorConfigurationImpl;
 import io.yupiik.tools.cli.service.AsciidoctorProvider;
+import io.yupiik.tools.minisite.LlmEmbeddingModel;
 import io.yupiik.tools.minisite.MiniSite;
 import io.yupiik.tools.minisite.MiniSiteConfiguration;
 import io.yupiik.tools.minisite.PreAction;
@@ -94,9 +95,9 @@ public final class MinisiteCommand {
                     "LLM chat is enabled but the embedding model is not on the classpath.\n" +
                     "Check that the configured ONNX/tokenizer resources are available; the default is to add this dependency:\n\n" +
                     "  <dependency>\n" +
-                    "    <groupId>dev.langchain4j</groupId>\n" +
-                    "    <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>\n" +
-                    "    <version>1.16.1-beta26</version>\n" +
+                    "    <groupId>" + LlmEmbeddingModel.GROUP_ID + "</groupId>\n" +
+                    "    <artifactId>" + LlmEmbeddingModel.ARTIFACT_ID + "</artifactId>\n" +
+                    "    <version>" + LlmEmbeddingModel.VERSION + "</version>\n" +
                     "  </dependency>\n");
         }
         new MiniSite(MiniSiteConfiguration.builder()
