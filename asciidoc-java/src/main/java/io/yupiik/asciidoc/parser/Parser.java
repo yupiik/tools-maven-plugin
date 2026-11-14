@@ -580,6 +580,14 @@ public class Parser {
                                   final ContentResolver resolver, final Map<String, String> attributes,
                                   final boolean supportComplexStructures,
                                   final boolean skipTitle, final boolean keepParagraphs) {
+        return doParse(enclosingDocument, reader, continueTest, resolver, attributes, supportComplexStructures, skipTitle, keepParagraphs, false);
+    }
+
+    // with verbatimContent, the reader holds the lines of a block with a verbatim style, where an indented list item is text
+    private List<Element> doParse(final Path enclosingDocument, final Reader reader, final Predicate<String> continueTest,
+                                  final ContentResolver resolver, final Map<String, String> attributes,
+                                  final boolean supportComplexStructures,
+                                  final boolean skipTitle, final boolean keepParagraphs, final boolean verbatimContent) {
         final var elements = new ArrayList<Element>(8);
         String next;
 
@@ -587,6 +595,9 @@ public class Parser {
         Map<String, String> options = null;
         Matcher attributeMatcher;
         int spanStart = -1; // first line of the element(s) being parsed, 1-based, for the source listener
+        boolean textAhead = false; // the next line continues a line ending with ` +`, unless a paragraph end comes first
+        boolean verbatimStyle = verbatimContent; // the pending block attributes start with source, listing, literal or verse
+        boolean verseStyle = false; // the pending block attributes start with verse
         final var listener = reader.getSourceListener();
         final var spans = listener == null ? null : new ArrayList<SourceSpan>(8); // one per element, reported once the kept elements are known
         while (true) {
@@ -600,6 +611,8 @@ public class Parser {
             if (next == null) {
                 break;
             }
+            final boolean continuesText = textAhead && !reader.skippedParagraphEnd();
+            textAhead = false;
             spanStart = reader.getLineNumber() - 1;
             if (!continueTest.test(next) && !(next.startsWith("=") && isFloatingTitle(options))) {
                 reader.rewind();
@@ -621,12 +634,15 @@ public class Parser {
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
                     // as asciidoctor, the attribute references of a block attribute line are substituted before it is parsed
-                    final var blockAttributes = parseBlockAttributes(sibling.unescapeAttributeReferences(newValue.strip()));
+                    final var attributeLine = sibling.unescapeAttributeReferences(newValue.strip());
+                    final var blockAttributes = parseBlockAttributes(attributeLine);
                     final var title = blockAttributes.get("title");
                     // as asciidoctor, a title from the attribute line is substituted again when the block is written
                     options = merge(options, title == null ? blockAttributes : merge(
                             Map.of("title", sibling.unescapeAttributeReferences(sibling.earlyAttributeReplacement(title, attributes))), blockAttributes));
                     lastOptions = reader.getLineNumber();
+                    verseStyle = verseStyle || scanner.isVerseStyle(attributeLine);
+                    verbatimStyle = verbatimStyle || verseStyle || scanner.isVerbatimStyle(attributeLine);
                 }
             } else if ("....".equals(verbatim)) {
                 elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options == null ? Map.of() : options));
@@ -646,7 +662,7 @@ public class Parser {
                     if (options == null || !options.containsKey("") || options.get("").isBlank()) {
                         options = merge(options, Map.of("", "example"));
                     }
-                    elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "===="));
+                    elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "====", verbatimContent));
                 }
                 options = null;
             } else if (stripped.startsWith("#")) {
@@ -672,7 +688,8 @@ public class Parser {
                 elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, verbatim));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
-                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "--"));
+                // as asciidoctor, the open block takes the verbatim style of its attribute line
+                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "--", verbatimStyle));
                 options = null;
             } else if (stripped.startsWith("|===")) {
                 elements.add(parseTable(enclosingDocument, reader, options, resolver, attributes, stripped));
@@ -706,14 +723,16 @@ public class Parser {
                 if (options == null || !options.containsKey("") || options.get("").isBlank()) {
                     options = merge(options, Map.of("", "sidebar"));
                 }
-                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "****"));
+                elements.add(parseOpenBlock(enclosingDocument, reader, options, resolver, attributes, "****", verbatimContent));
                 options = null;
             } else if (stripped.startsWith("____")) {
                 final var buffer = new ArrayList<String>();
                 while ((next = reader.nextLine()) != null && !"____".equals(next.strip())) {
                     buffer.add(next);
                 }
-                elements.add(new Quote(doParse(enclosingDocument, subReader(reader, null, buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle), options == null ? Map.of() : options));
+                // as asciidoctor, a `____` block with the verse style is verbatim
+                elements.add(new Quote(doParse(enclosingDocument, subReader(reader, null, buffer), l -> true, resolver, attributes, supportComplexStructures, skipTitle, false,
+                        verbatimContent || verseStyle), options == null ? Map.of() : options));
                 options = null;
             } else if (isHorizontalRule(stripped)) {
                 elements.add(new HorizontalRule(options == null ? Map.of() : options));
@@ -721,13 +740,23 @@ public class Parser {
             } else if (stripped.endsWith(" +")) {
                 elements.addAll(parseLine(enclosingDocument, reader, stripped.substring(0, stripped.length() - 2), resolver, attributes, supportComplexStructures));
                 elements.add(new LineBreak());
+                textAhead = true;
                 options = null;
             } else if ((attributeMatcher = sibling.attributeEntry(stripped)) != null) {
                 sibling.applyAttributeEntry(attributeMatcher, attributes);
             } else if (!"+".equals(stripped) || !(reader instanceof ListItemReader)) { // in a list item, a lone + attaches the next block, see listItemReader()
+                // as asciidoctor, a list item after spaces or tabs starts a list, but not when it continues a line ending with ` +`,
+                // not in a paragraph with a verbatim style, and not when its marker comes from an attribute reference
+                if (supportComplexStructures && !continuesText && scanner.isBlank(next.charAt(0)) && !verbatimStyle && isListItem(stripped)) {
+                    reader.setPreviousValue(newValue.stripLeading());
+                }
                 reader.rewind();
                 addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                 options = null;
+            }
+            if (options == null) {
+                verbatimStyle = verbatimContent;
+                verseStyle = false;
             }
         }
         if (keepParagraphs && elements.size() == 1) { // alone, it is not a group
@@ -856,7 +885,7 @@ public class Parser {
 
     private OpenBlock parseOpenBlock(final Path enclosingDocument, final Reader reader, final Map<String, String> options,
                                      final ContentResolver resolver, final Map<String, String> currentAttributes,
-                                     final String end) {
+                                     final String end, final boolean verbatimContent) {
         final var content = new ArrayList<String>();
         String next;
         while ((next = reader.nextLine()) != null && !Objects.equals(end, next.strip())) {
@@ -865,7 +894,7 @@ public class Parser {
         if (next != null && !next.startsWith(end)) {
             reader.rewind();
         }
-        return new OpenBlock(doParse(enclosingDocument, subReader(reader, null, content), l -> true, resolver, currentAttributes, true, false), options == null ? Map.of() : options);
+        return new OpenBlock(doParse(enclosingDocument, subReader(reader, null, content), l -> true, resolver, currentAttributes, true, false, false, verbatimContent), options == null ? Map.of() : options);
     }
 
     private Admonition parseAdmonitionBlock(final Path enclosingDocument,
@@ -1957,26 +1986,25 @@ public class Parser {
                 return elements;
             }
 
-            final int firstSpace = line.indexOf(' '); // an ordered list marker ends with . or ) right before the first space
-            if (firstSpace > 0 && (line.charAt(firstSpace - 1) == '.' || line.charAt(firstSpace - 1) == ')')) {
-                final var matcher = ORDERED_LIST_PREFIX.matcher(line);
-                if (matcher.matches() && matcher.group("dots").length() == 1) {
-                    final var prefix = matcher.group("prefix");
-                    final var delim = matcher.group("dots");
-                    final var style = detectOrderedListStyle(prefix, delim);
-                    final var listOpts = new StringBuilder();
-                    if (style != null) {
-                        listOpts.append("style=").append(style);
-                    }
-                    final var startOpt = pendingOptions.get("start");
-                    if (startOpt != null) {
-                        if (!listOpts.isEmpty()) listOpts.append(',');
-                        listOpts.append("start=").append(startOpt);
-                    }
-                    reader.rewind();
-                    elements.add(parseOrderedList(enclosingDocument, reader, listOpts.isEmpty() ? null : listOpts.toString(), ". ", resolver, currentAttributes));
-                    return elements;
+            final var orderedItem = tryMatchOrderedListItem(line);
+            if (orderedItem != null) {
+                final var prefix = orderedItem.group("prefix");
+                final var delim = orderedItem.group("dots");
+                final var style = detectOrderedListStyle(prefix, delim);
+                final var listOpts = new StringBuilder();
+                if (style != null) {
+                    listOpts.append("style=").append(style);
                 }
+                final var startOpt = pendingOptions.get("start");
+                if (startOpt != null) {
+                    if (!listOpts.isEmpty()) {
+                        listOpts.append(',');
+                    }
+                    listOpts.append("start=").append(startOpt);
+                }
+                reader.rewind();
+                elements.add(parseOrderedList(enclosingDocument, reader, listOpts.isEmpty() ? null : listOpts.toString(), ". ", resolver, currentAttributes));
+                return elements;
             }
 
             if (line.startsWith("*")) {
@@ -2813,6 +2841,23 @@ public class Parser {
             reader.rewind();
         }
         return new DescriptionList(children, options);
+    }
+
+    // the lines parseLine() opens a list for, as `* item`, `- item`, `. item`, `1. item` or `a) item`
+    private boolean isListItem(final String line) {
+        return line.startsWith("* ") || line.startsWith("- ") || tryMatchOrderedListItem(line) != null;
+    }
+
+    // the matcher of an ordered list item with a marker of one `.` or `)`, as `. item`, `1. item` or `a) item`, null for another line
+    private Matcher tryMatchOrderedListItem(final String line) {
+        final int firstSpace = line.indexOf(' '); // an ordered list marker ends with . or ) right before the first space
+        if (firstSpace > 0 && (line.charAt(firstSpace - 1) == '.' || line.charAt(firstSpace - 1) == ')')) {
+            final var matcher = ORDERED_LIST_PREFIX.matcher(line);
+            if (matcher.matches() && matcher.group("dots").length() == 1) {
+                return matcher;
+            }
+        }
+        return null;
     }
 
     private UnOrderedList parseUnorderedList(final Path enclosingDocument, final Reader reader, final String options, final String prefix,
