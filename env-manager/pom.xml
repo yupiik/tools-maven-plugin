@@ -191,7 +191,7 @@
         $ ./target/yem -->
         <groupId>org.apache.geronimo.arthur</groupId>
         <artifactId>arthur-maven-plugin</artifactId>
-        <version>1.0.8</version>
+        <version>1.0.10</version>
         <configuration>
           <main>io.yupiik.fusion.framework.api.main.Launcher</main>
           <graalVersion>21.0.2-graalce</graalVersion>
