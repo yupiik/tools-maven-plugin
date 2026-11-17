@@ -16,13 +16,15 @@
 package io.yupiik.tools.generator.generic.helper.impl;
 
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import io.yupiik.tools.generator.generic.helper.Helper;
 import io.yupiik.tools.generator.generic.helper.HelperDocumentation;
 
 import java.util.Locale;
 
 @DefaultScoped
-@HelperDocumentation("Uppercase the passed parameter (stringified using `toString` or `null`).")
+@HelperDocumentation("Uppercase the passed parameter (stringified using `toString`, an empty string for a missing value).")
 public class Uppercase implements Helper {
     @Override
     public String name() {
@@ -30,7 +32,7 @@ public class Uppercase implements Helper {
     }
 
     @Override
-    public String apply(final Object o) {
-        return String.valueOf(o).toUpperCase(Locale.ROOT);
+    public Object apply(final HelperContext context) {
+        return new SafeString(String.valueOf(value(context)).toUpperCase(Locale.ROOT));
     }
 }

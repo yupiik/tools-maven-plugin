@@ -17,9 +17,12 @@ The syntax is a subset of handlebars:
 * `{{name}}` interpolates the `name` value and **HTML-escapes** it.
 * `{{{name}}}` interpolates the `name` value **without** escaping (raw). Use it for values that already contain HTML such as the rendered page `body`, `breadcrumb` or generated navigation.
 * `{{#if name}}...{{else}}...{{/if}}`, `{{#each items}}...{{/each}}` and similar block helpers are supported.
-* `{{> partialName}}` includes a partial (see <<Partials>>). Note there is **no space** after `>`.
-* `{{lowercase value}}` / `{{uppercase value}}` are built-in helpers.
+* `{{> partialName}}` includes a partial (see <<Partials>>).
+* `{{lowercase value}}`, `{{uppercase value}}` and `{{gravatar mail}}` (the gravatar URL of a mail or of an author name) are built-in helpers.
+* The helpers of the engine are available too: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `and`, `or`, `not`, `default`, `lookup` and `time`, inline, as blocks (`{{#eq a b}}...{{/eq}}`) or in sub-expressions (`{{#if (eq a b)}}...{{/if}}`).
 ====
+
+NOTE: The engine is fusion-handlebars 1.2. The default templates render the same output as with 1.1, and the minisite helpers still write their output as is. A name that is also a helper now calls the helper between three braces and in `{{#name}}` too, so a value named like a helper, such as `time`, `default`, `lowercase`, `uppercase` or `gravatar`, is read with `this`, as in `{{this.time}}`, and tested with `{{#if gravatar}}`; `{{{gravatar}}}` still gives the `gravatar` value of a blog page. In a sub-expression, the result of `lowercase`, `uppercase` or `gravatar` is a `SafeString` object, so `eq`, `not`, `default` and `if` do not compare or test its text: `{{#eq (lowercase v) "abc"}}` is false for `v=ABC`. A custom template is also affected by the other changes that link:https://www.yupiik.io/fusion/handlebars.html#_breaking_changes[1.2.0 lists], such as the context of a `{{#name}}...{{/name}}` block, which is now the value of `name`.
 
 The `{{...}}`/`{{{...}}}` sequences you write in the minisite *templates* (`.hb` files) are handlebars and are rendered by the engine.
 In contrast, the paragraphs and blocks of a page's AsciiDoc source are converted to HTML by the Asciidoctor renderer and then inserted via `{{{body}}}` without being re-parsed, so a literal `{{name}}` or `{{{name}}}` you write in a page body (for example when documenting handlebars) is preserved as-is and does not need to be escaped.

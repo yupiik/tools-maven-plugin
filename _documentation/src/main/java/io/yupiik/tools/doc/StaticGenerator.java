@@ -21,6 +21,7 @@ import io.yupiik.fusion.framework.api.ConfiguringContainer;
 import io.yupiik.fusion.framework.api.container.bean.ProvidedInstanceBean;
 import io.yupiik.fusion.framework.api.main.Args;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
 import io.yupiik.fusion.json.internal.JsonMapperImpl;
 import io.yupiik.fusion.json.internal.framework.JsonModule;
 import io.yupiik.tools.generator.generic.FusionGeneratedModule;
@@ -71,7 +72,7 @@ public class StaticGenerator implements Runnable {
         }
     }
 
-    private String format(final Map<String, Function<Object, String>> helper) {
+    private String format(final Map<String, Function<HelperContext, Object>> helper) {
         return helper.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(it -> {

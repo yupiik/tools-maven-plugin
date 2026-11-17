@@ -15,6 +15,8 @@
  */
 package io.yupiik.tools.generator.generic.helper.impl;
 
+import io.yupiik.fusion.framework.handlebars.helper.HelperContext;
+import io.yupiik.fusion.framework.handlebars.helper.SafeString;
 import io.yupiik.fusion.json.internal.JsonMapperImpl;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +30,7 @@ class ToJsonTest {
     @Test
     void eval() {
         try (final var mapper = new JsonMapperImpl(List.of(), c -> empty())) {
-            assertEquals("{\"k\":\"v\"}", new ToJson(mapper).apply(Map.of("k", "v")));
+            assertEquals(new SafeString("{\"k\":\"v\"}"), new ToJson(mapper).apply(new HelperContext(List.of(Map.of("k", "v")), Map.of())));
         }
     }
 }
