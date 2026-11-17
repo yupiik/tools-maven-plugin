@@ -686,6 +686,15 @@ public class TextScanner {
     }
 
     /**
+     * @param line a line, not stripped.
+     * @return whether the line is a block title such as {@code .Title}: the dot sits in the first column, as in
+     * asciidoctor, so an indented {@code .Title} is text; {@code ...} and the ordered list item {@code . item} are no titles.
+     */
+    public boolean isBlockTitle(final String line) {
+        return line.startsWith(".") && !line.startsWith("..") && !line.startsWith(". ");
+    }
+
+    /**
      * Whether a single table cell line is plain text that {@code parseLine()} would turn into one bare {@code Text} with
      * its exact value, letting the cell be written as such without the reader + {@code doParse()} it would otherwise
      * spawn, the dominant cost of table parsing on large documents. It must stay byte-identical with that full path,
@@ -713,7 +722,7 @@ public class TextScanner {
         if (first == '=' || first == '/' || first == '-') { // heading, comment, or a list-like/-~~ delimiter
             return false;
         }
-        if (first == '.' && (length == 1 || line.charAt(1) != '.' && line.charAt(1) != ' ')) {
+        if (isBlockTitle(line)) {
             return false; // a dot title prefix, which doParse() would consume for the following block
         }
         // a lone repeated delimiter such as "----" or "++++": a block delimiter makes doParse() open a block
