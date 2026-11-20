@@ -6006,6 +6006,36 @@ class AsciidoctorLikeHtmlRendererTest {
                 """);
     }
 
+    @Test
+    void listingDelimitedByFiveDashes() { // as asciidoctor, a ---- line is content of a ----- listing, not an <hr>
+        assertRenderingContent("""
+                [source,asciidoc]
+                -----
+                == Inner title
+                ----
+                nested
+                ----
+                -----
+
+                after
+                """, """
+                 <div class="listingblock">
+                 <div class="content">
+                 <pre class="highlightjs highlight"><code class="language-asciidoc hljs" data-lang="asciidoc">== Inner title
+                ----
+                nested
+                ----
+                </code></pre>
+                 </div>
+                 </div>
+                 <div class="paragraph">
+                 <p>
+                after
+                 </p>
+                 </div>
+                """);
+    }
+
     private void assertRenderingContainsLines(final String adoc, final String... lines) {
         final var doc = new Parser().parse(adoc, new Parser.ParserContext(ContentResolver.of(Path.of("target/missing"))));
         final var renderer = new AsciidoctorLikeHtmlRenderer();

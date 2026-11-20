@@ -5226,6 +5226,234 @@ class ParserTest {
     }
 
     @Test
+    void listingDelimitedByFiveDashes() { // as asciidoctor, a ---- line is content of a ----- listing, not its end
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,asciidoc]
+                -----
+                == Inner title
+                ----
+                nested
+                ----
+                -----
+
+                after
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                new Code("== Inner title\n----\nnested\n----\n", Map.of("language", "asciidoc"), false, List.of()),
+                new Text(List.of(), "after", Map.of())), body.children());
+    }
+
+    @Test
+    void verbatimDelimiterClosesOnTheSameLine() { // as asciidoctor, four dashes or more open a listing and only the same run closes it
+        assertEquals(List.of(new Code("five\n------\nsix inside\n", Map.of(), false, List.of()), new Text(List.of(), "after", Map.of())),
+                new Parser().parseBody(new Reader(List.of("-----", "five", "------", "six inside", "-----", "", "after")), null).children());
+        assertEquals(List.of(new Code("six\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("------", "six", "------")), null).children());
+        assertEquals(List.of(new Code("a\n-----\nb\n", Map.of("language", "java"), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("[source,java]", "----", "a", "-----", "b", "----")), null).children());
+        assertEquals(List.of(new Code("first\n", Map.of(), false, List.of()), new Code("second\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("-----", "first", "-----", "-----", "second", "-----")), null).children());
+        assertEquals(List.of(new Code("blanks\n", Map.of(), false, List.of())), // what trim() or strip() removes is ignored, as for four dashes
+                new Parser().parseBody(new Reader(List.of("-----   ", "blanks", "-----\u3000")), null).children());
+        // no later ----- closes it, so it stays a thematic break, as horizontalRuleLonger() and CommonMark; asciidoctor
+        // would read a listing up to the end, as the parser still does for an unclosed ----
+        assertEquals(List.of(new HorizontalRule(Map.of()), new Text(List.of(), "unclosed", Map.of()), new Code("more\n", Map.of(), false, List.of())),
+                new Parser().parseBody(new Reader(List.of("-----", "unclosed", "", "----", "more")), null).children());
+    }
+
+    @Test
+    void literalAndPassthroughBlocksDelimitedByFiveCharacters() { // the same rule as a listing, through the same delimiter method
+        assertEquals(List.of(new Listing("lit\n....\nstill lit", Map.of())),
+                new Parser().parseBody(new Reader(List.of(".....", "lit", "....", "still lit", ".....")), null).children());
+        assertEquals(List.of(new PassthroughBlock("<b>x</b>\n++++", Map.of())),
+                new Parser().parseBody(new Reader(List.of("+++++", "<b>x</b>", "++++", "+++++")), null).children());
+    }
+
+    @Test
+    void listingDelimitedByFiveDashesInsideOtherBlocks() { // in a list item, an a| cell and an example block, as asciidoctor
+        assertEquals(List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new Code("code\n", Map.of(), false, List.of())), Map.of()),
+                        new Text(List.of(), "next", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "-----", "code", "-----", "* next")), null).children());
+        final var table = (Table) new Parser().parseBody(new Reader(List.of(
+                "[cols=\"1\"]", "|===", "a|", "-----", "----", "cell", "----", "-----", "|===")), null).children().get(0);
+        assertEquals(List.of(List.of(new Code("----\ncell\n----\n", Map.of(), false, List.of()))), table.elements());
+        assertEquals(List.of(new OpenBlock(List.of(new Code("xattr -r\n", Map.of("language", "bash"), false, List.of())), Map.of("", "example"))),
+                new Parser().parseBody(new Reader(List.of("====", "[source,bash]", "-----", "xattr -r", "-----", "====")), null).children());
+    }
+
+    @Test
+    void delimiterLongerThanFourOpensNothingForTheConditionalPass() { // the pass cannot see where a block ends, so :bar: x counts, as on master
+        final var body = new Parser().parse("""
+                = T
+
+                ====
+                in
+
+                -----
+                ====
+
+                :bar: x
+
+                ifdef::bar[]
+                shown
+                endif::[]
+
+                value {bar}
+
+                -----
+                """, new Parser.ParserContext(null)).body();
+        assertEquals(List.of(
+                new OpenBlock(List.of(new Text(List.of(), "in", Map.of()), new HorizontalRule(Map.of())), Map.of("", "example")),
+                new Text(List.of(), "shown", Map.of()),
+                new Text(List.of(), "value x", Map.of()),
+                new HorizontalRule(Map.of())), body.children());
+    }
+
+    @Test
+    void longerDelimitersInAListItemContinuation() { // the item waits for the same line over a blank line, as for ++++
+        final var item = new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of());
+        final var next = new Text(List.of(), "next", Map.of());
+        assertEquals(List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(item, new PassthroughBlock("<b>a</b>\n\n<b>b</b>", Map.of())), Map.of()), next), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "+++++", "<b>a</b>", "", "<b>b</b>", "+++++", "* next")), null).children());
+        // the same check now knows a .... block, which master ended at its blank line
+        assertEquals(List.of(new UnOrderedList(List.of(
+                        new Paragraph(List.of(item, new Listing("lit a\n\nlit b", Map.of())), Map.of()), next), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "....", "lit a", "", "lit b", "....", "* next")), null).children());
+    }
+
+    @Test
+    void listItemBlockEndsAtItsOwnDelimiter() { // as asciidoctor, the lines of an attached block go on to its delimiter, other delimiters are content
+        final var item = new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of());
+        final var after = new Text(List.of(), "after", Map.of());
+        assertEquals(List.of(new UnOrderedList(List.of(new Paragraph(List.of(item, new Code("----\nx\n----\n", Map.of(), false, List.of())), Map.of())), Map.of()), after),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "-----", "----", "x", "----", "-----", "", "after")), null).children());
+        assertEquals(List.of(new UnOrderedList(List.of(new Paragraph(List.of(item,
+                                new OpenBlock(List.of(new Code("x\n", Map.of(), false, List.of())), Map.of("", "example"))), Map.of())), Map.of()), after),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "====", "----", "x", "----", "====", "", "after")), null).children());
+        final var literal = new Parser().parseBody(new Reader(List.of(
+                "* Write a literal block:", "+", "[source,asciidoc]", "----", "....", "literal text", "....", "----", "", "== Next section", "", "text")), null).children();
+        assertEquals(List.of(
+                new UnOrderedList(List.of(new Paragraph(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "Write a literal block:", Map.of())), Map.of()),
+                        new Code("....\nliteral text\n....\n", Map.of("language", "asciidoc"), false, List.of())), Map.of())), Map.of()),
+                new Section(2, new Text(List.of(), "Next section", Map.of()), List.of(new Text(List.of(), "text", Map.of())), Map.of())), literal);
+    }
+
+    @Test
+    void horizontalRuleInAListItemWaitsForNothing() { // a rule opens no block, so the next block delimiter ends the wait, as on master
+        final var after = new Text(List.of(), "after", Map.of());
+        final var section = new Section(2, new Text(List.of(), "S", Map.of()), List.of(new Text(List.of(), "body", Map.of())), Map.of());
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new HorizontalRule(Map.of()),
+                                new Code("x\n", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "'''", "+", "----", "x", "----", "", "after", "", "== S", "", "body")), null).children());
+        assertEquals(List.of(
+                        new OrderedList(List.of(
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "step one", Map.of())), Map.of()),
+                                        new HorizontalRule(Map.of()),
+                                        new OpenBlock(List.of(new Text(List.of(), "example", Map.of())), Map.of("", "example"))), Map.of()),
+                                new Text(List.of(), "step two", Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of(". step one", "+", "'''", "+", "====", "example", "====", ". step two", "", "after", "", "== S", "", "body")), null).children());
+        // a run of dashes that no later line closes is a rule too
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new HorizontalRule(Map.of()),
+                                new Code("x\n", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "-----", "+", "----", "x", "----", "", "after", "", "== S", "", "body")), null).children());
+        // the same in a description list, whose reading of the attached blocks is its own
+        assertEquals(List.of(
+                        new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), new Paragraph(List.of(
+                                new Text(List.of(), "desc +", Map.of()),
+                                new HorizontalRule(Map.of()),
+                                new Text(List.of(), "+", Map.of()),
+                                new Code("x\n", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("term:: desc", "+", "-----", "+", "----", "x", "----", "", "after", "", "== S", "", "body")), null).children());
+    }
+
+    @Test
+    void closingLineWithTrailingBlanksEndsTheWaitOfAListItem() { // as asciidoctor, which removes the trailing blanks of each line; doParse closes the block on it too
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new Code("----\nx\n----\n", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        new Text(List.of(), "after", Map.of()),
+                        new Section(2, new Text(List.of(), "S", Map.of()), List.of(new Text(List.of(), "body", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "-----", "----", "x", "----", "-----  ", "", "after", "", "== S", "", "body")), null).children());
+    }
+
+    @Test
+    void indentedDelimiterLineDoesNotEndTheWaitOfAListItem() { // as on master, the item and the description end at the blank line after the block
+        final var after = new Text(List.of(), "after", Map.of());
+        final var section = new Section(2, new Text(List.of(), "S", Map.of()), List.of(new Text(List.of(), "body", Map.of())), Map.of());
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new OpenBlock(List.of(new Text(List.of(), "example", Map.of())), Map.of("", "example")),
+                                new OpenBlock(List.of(new Text(List.of(), "more", Map.of())), Map.of("", "example"))), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "====", "example", "  ====", "more", "====", "", "after", "", "== S", "", "body")), null).children());
+        assertEquals(List.of(
+                        new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), new Paragraph(List.of(
+                                new Text(List.of(), "desc +", Map.of()),
+                                new Code("a\n", Map.of(), false, List.of()),
+                                new Text(List.of(), "b", Map.of()),
+                                new Code("", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("term:: desc", "+", "----", "a", "  ----", "b", "----", "", "after", "", "== S", "", "body")), null).children());
+        // an indented run of dashes that no later line closes lets the next delimiter line replace the wait
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new Code("a\n", Map.of(), false, List.of()),
+                                new OpenBlock(List.of(new Text(List.of(), "ex", Map.of())), Map.of("", "example"))), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "-----", "a", "  -----", "+", "====", "ex", "====", "", "after", "", "== S", "", "body")), null).children());
+        // a white space that asciidoctor keeps at the end of the line makes the line content too
+        assertEquals(List.of(
+                        new UnOrderedList(List.of(new Paragraph(List.of(
+                                new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                                new Code("a\n", Map.of(), false, List.of()),
+                                new Paragraph(List.of(new Text(List.of(), "b", Map.of())), Map.of()),
+                                new Code("", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("* item", "+", "----", "a", "----　", "b", "----", "", "after", "", "== S", "", "body")), null).children());
+        assertEquals(List.of(
+                        new DescriptionList(Map.of(new Text(List.of(), "term", Map.of()), new Paragraph(List.of(
+                                new Text(List.of(), "desc +", Map.of()),
+                                new Code("a\n", Map.of(), false, List.of()),
+                                new Text(List.of(), "b", Map.of()),
+                                new Code("", Map.of(), false, List.of())), Map.of())), Map.of()),
+                        after, section),
+                new Parser().parseBody(new Reader(List.of("term:: desc", "+", "----", "a", "----\u3000", "b", "----", "", "after", "", "== S", "", "body")), null).children());
+    }
+
+    @Test
+    void unclosedLongerDelimiterInAListItemOpensNothing() { // as in doParse, so the item ends at the blank line, as on master
+        assertEquals(List.of(
+                        new Text(List.of(), "Intro", Map.of()),
+                        new UnOrderedList(List.of(
+                                new Text(List.of(), "first", Map.of()),
+                                new Paragraph(List.of(
+                                        new Paragraph(List.of(new Text(List.of(), "second", Map.of())), Map.of()),
+                                        new Paragraph(List.of(new Text(List.of(), "+++++", Map.of())), Map.of())), Map.of())), Map.of()),
+                        new Text(List.of(), "After the list.", Map.of()),
+                        new Section(2, new Text(List.of(), "Usage", Map.of()), List.of(new Text(List.of(), "Some text.", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of("Intro", "", "* first", "* second", "+", "+++++", "", "After the list.", "", "== Usage", "", "Some text.")), null).children());
+    }
+
+    @Test
     void errorOfTheBodyPassNamesTheLineOfTheDirective() { // the number after the line, as for a line the parser reads
         final var error = assertThrows(IllegalStateException.class, () -> new Parser().parse(
                 "= T\n\nPara one.\n\nifdef::x[]\nhidden\nendif::y[]\n", new Parser.ParserContext(null)));

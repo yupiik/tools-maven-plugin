@@ -70,6 +70,7 @@ With an empty `:idprefix:` and `:idseparator: -`, `== Vert.x and the Getting-sta
 == Blocks
 
 * Source blocks (`[source,...]`), listing blocks, example blocks, open blocks, quote blocks and sidebars.
+* A listing (`----`), literal (`....`) or passthrough (`++++`) delimiter can be longer, as `-----`, and only the same line closes the block, as in Asciidoctor, so a `[source,asciidoc]` block delimited by `-----` can show a `----` block. A longer delimiter that no later line of the same block closes opens no block, so `-----` alone stays a horizontal rule, as in CommonMark, see <<_differences_from_asciidoctor,Differences from Asciidoctor>>.
 * Admonitions (`NOTE:`, `TIP:`, `IMPORTANT:`, `WARNING:`, `CAUTION:`), as a paragraph or as a delimited block.
 * Block STEM (`[stem]`, `[latexmath]`, `[asciimath]`) and passthrough blocks.
 * Callouts: `<1>` markers in a code block and the callout list after it. A block whose markers do not match its list fails the parse, unless the `callout-mismatch` attribute asks to keep it, see <<_parser_attributes,Parser attributes>>.
@@ -161,5 +162,6 @@ The parser aims at Asciidoctor's reading of every construct; these differences a
 * The HTML renderer writes the table of contents at the top of the document for any value of `toc` but `none`, and again at each `toc::[]` macro, where Asciidoctor places it once, at the top, after the preamble or at the macro, see xref:asciidoc-java-html.adoc#_attributes_the_renderer_reads[Attributes the renderer reads].
 * With `icons` set to another value than `font`, the HTML renderer reads the callout and admonition images under that value (`image/callouts/1.png`, `image/note.png`), where Asciidoctor reads them under `iconsdir` (`./images/icons/note.png`); the `title` and `alt` of an admonition icon are the label in upper case (`NOTE`), where Asciidoctor writes `Note`.
 * The HTML renderer writes an icon with the classes of the icon font the site picks, Font Awesome 5 by default (`fas fa-lock`), where Asciidoctor writes the version 4 classes (`fa fa-lock`); a name written with its classes, `icon:fas fa-gift[]`, is kept as it is, where Asciidoctor writes `fa fa-fas fa-gift`, see xref:asciidoc-java-html.adoc#_icons_and_icon_fonts[Icons and icon fonts].
+* A delimiter longer than four characters (`-----`, `.....`, `+++++`) that no later line of its block closes opens no block, where Asciidoctor reads a block up to the end of the block that holds it; two such lines of one block always delimit a block, even when both were meant as horizontal rules. The conditional directives read the lines of such a block as lines of the document.
 * With `:sectnums:`, the entries of the table of contents have no section number (`One` for the heading `1. One`), where Asciidoctor numbers them.
 * Constructs that are not listed on this page are not implemented yet; a document using one renders them as text or fails, and an issue on the bugtracker is welcome.
