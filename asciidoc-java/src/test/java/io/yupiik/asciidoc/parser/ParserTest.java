@@ -6459,6 +6459,42 @@ class ParserTest {
     }
 
     @Test
+    void rawTextMacroReadsItsWholeAttributeListAsItsText() { // as asciidoctor gives it to quarkus.io's tooltip extension (raw content model)
+        final var body = new Parser().parseBody(new Reader(List.of(
+                "See tooltip:a[x, \"y\", role=r], tooltip:b[ c , d ], tooltip:c[e\\] f] and tooltip:d[].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Macro("tooltip", "a", Map.of("", "x, \"y\", role=r"), true),
+                new Text(List.of(), ", ", Map.of()),
+                new Macro("tooltip", "b", Map.of("", "c , d"), true),
+                new Text(List.of(), ", ", Map.of()),
+                new Macro("tooltip", "c", Map.of("", "e\\] f"), true),
+                new Text(List.of(), " and ", Map.of()),
+                new Macro("tooltip", "d", Map.of(), true),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void rawTextMacrosAttributeReplacesTheList() { // the document names the macros, tooltip then reads its list as the other macros
+        final var body = new Parser().parseBody(new Reader(List.of(":raw-text-macros: foo, bar", "", "See bar:x[a, b] and tooltip:y[a, b].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Macro("bar", "x", Map.of("", "a, b"), true),
+                new Text(List.of(), " and ", Map.of()),
+                new Macro("tooltip", "y", Map.of("", "a", "opts", "b"), true),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void rawTextMacrosAttributeEmptied() { // from the parser configuration, an empty list reads every attribute list as before
+        final var body = new Parser(Map.of("raw-text-macros", "")).parseBody(new Reader(List.of("See tooltip:y[a, b].")), null);
+        assertEquals(List.of(new Paragraph(List.of(
+                new Text(List.of(), "See ", Map.of()),
+                new Macro("tooltip", "y", Map.of("", "a", "opts", "b"), true),
+                new Text(List.of(), ".", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
     void attributeHoldingAMacroAfterAWord() { // the attribute is substituted first, then the glued name is one name; asciidoctor's registry reads footnote
         final var body = new Parser().parseBody(new Reader(List.of(":fn: footnote:[Diataxis.]", "", "The framework{fn} is used.")), null);
         assertEquals(List.of(new Paragraph(List.of(

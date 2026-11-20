@@ -2427,6 +2427,19 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void unknownMacroTextKeepsTheAttributeListAsWritten() { // as asciidoctor, with its blanks, its quotes and each value in its place
+        assertEquals("See tooltip:x[Otherwise, fail the build.] and tooltip:y[\"a, b\", role=r].\n\ntooltip::z[a\\] b, c]\n",
+                md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: text\n\n" +
+                        "See tooltip:x[Otherwise, fail the build.] and tooltip:y[\"a, b\", role=r].\n\ntooltip::z[a\\] b, c]\n"));
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: fail\n\nSee tooltip:x[a, b] here.\n"));
+        assertEquals("Unknown macro 'tooltip' in 'tooltip:x[a, b]', set the attribute " +
+                        "yupiik-renderer-githubflavoredmarkdown-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
+                error.getMessage());
+        assertEquals("See  here.\n", md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: ignore\n\nSee tooltip:x[a, b] here.\n"));
+    }
+
+    @Test
     void unknownBlockMacroIsAParagraph() { // asciidoctor reads foo::bar[baz] as a paragraph, not as a block
         assertEquals("before\n\nfoo::bar[baz]\n\nafter\n",
                 md(":yupiik-renderer-githubflavoredmarkdown-unknownMacro: text\n\nbefore\n\nfoo::bar[baz]\n\nafter\n"));

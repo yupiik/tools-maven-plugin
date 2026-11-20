@@ -148,6 +148,10 @@ Set them in the document (`:keep-paragraphs: false`) or pass them to the `Parser
 |`missing-include`
 |unset
 |`ignore` keeps parsing when the target of an `include::[]` does not exist: the include leaves no text and the warning listener of the parser (`Parser.Configuration.setWarning`) is told, where Asciidoctor writes an `Unresolved directive` line in the output. By default a missing target fails the parse, unless that include is optional (`opts=optional`).
+
+|`raw-text-macros`
+|`tooltip`
+|The macros whose whole attribute list is their text, under the key `""` of their options, as Asciidoctor gives it to an extension registered with the raw content model: `tooltip:x[a, "b"]` has the text `a, "b"`. The text loses its outer blanks. Every other macro reads its list as named and positional attributes, so `tooltip:x[a, b]` would keep `b` under `opts`. An empty value reads every list that way.
 |===
 
 == Differences from Asciidoctor

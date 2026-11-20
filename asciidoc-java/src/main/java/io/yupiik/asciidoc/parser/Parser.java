@@ -135,6 +135,7 @@ public class Parser {
     // the default of the blank-target-macros attribute: asciidoctor's image, icon, menu and xref regexes take blanks in
     // the target, as image:my file.png[alt]; the target of a link stops at a blank, as in asciidoctor
     private static final String BLANK_TARGET_MACROS = "image,icon,menu,xref";
+    private static final String RAW_TEXT_MACROS = "tooltip";
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}");
     private static final Pattern AUTHOR_DELIMITER = Pattern.compile(";(?: |$)");
     private static final Pattern AUTHOR_INFO = Pattern.compile(
@@ -2261,9 +2262,11 @@ public class Parser {
                                 end = linkTextEnd(line, i, end, currentAttributes);
                             }
                             // read after the escaped check, which needs no options, and after the __ strip, so the prefix is the real one
-                            final var options = parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip(), linkText);
-
                             final int macroMarker = optionsPrefix.indexOf(":");
+                            final var options = macroMarker > 0 && !directLink && isRawTextMacro(optionsPrefix, macroMarker, currentAttributes) ?
+                                    rawTextOptions(line.substring(i + 1, end)) :
+                                    parseMacroOptions(optionsPrefix, line.substring(i + 1, end).strip(), linkText);
+
                             if (macroMarker > 0 && !directLink) {
                                 final boolean inlined = optionsPrefix.length() <= macroMarker + 1 || optionsPrefix.charAt(macroMarker + 1) != ':';
                                 final var type = optionsPrefix.substring(0, macroMarker);
@@ -3441,6 +3444,30 @@ public class Parser {
         return scanner.containsOutsideMacrosAndPassthroughs(text, "=") ?
                 doParseOptions(text, STYLE_KEYS, false) :
                 Map.of("", dropLegacyPassthroughMarkers(text));
+    }
+
+    // the macros of the raw-text-macros attribute read their whole attribute list as their text, as asciidoctor gives it
+    // to an extension registered with the raw content model: tooltip:x[a, "b", c=d] has the text "a, \"b\", c=d"
+    private boolean isRawTextMacro(final String prefix, final int nameLength, final Map<String, String> currentAttributes) {
+        final var macros = currentAttributes.getOrDefault("raw-text-macros",
+                globalAttributes.getOrDefault("raw-text-macros", RAW_TEXT_MACROS));
+        int from = 0;
+        while (from < macros.length()) {
+            final int comma = macros.indexOf(',', from);
+            final int to = comma < 0 ? macros.length() : comma;
+            final int nameStart = scanner.skipBlanks(macros, from);
+            if (scanner.trailingBlanksStart(macros, to) - nameStart == nameLength && macros.regionMatches(nameStart, prefix, 0, nameLength)) {
+                return true;
+            }
+            from = to + 1;
+        }
+        return false;
+    }
+
+    // as asciidoctor, the text loses its outer blanks; an escape, as a\] b, stays as written, as in the values of the other macros
+    private Map<String, String> rawTextOptions(final String attributeList) {
+        final var text = attributeList.trim();
+        return text.isEmpty() ? Map.of() : Map.of("", text);
     }
 
     // as asciidoctor, which substitutes the passthroughs, image:, icon: and the other macros before the links, a macro

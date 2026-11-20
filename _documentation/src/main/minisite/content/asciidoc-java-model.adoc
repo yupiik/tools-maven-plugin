@@ -37,6 +37,7 @@ include::{asciidoc-java-examples}/DocumentationExamplesTest.java[tag=renderer-su
 
 For the paragraph `Set tooltip:foo[a hint] here.` it writes `<p>Set <span title="a hint">foo</span> here.</p>`; the other unknown macros keep the default of `onMissingMacro`.
 The `name()` of a `Macro` is the word before the colon, its `label()` the target, and the text between the brackets its positional option, under the key `""` of `options()`.
+A macro of the `raw-text-macros` parser attribute, `tooltip` by default, keeps the whole text between the brackets there, commas and quotes included.
 
 == Reading the model as the renderers do
 
