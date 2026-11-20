@@ -562,6 +562,31 @@ class ParserTest {
     }
 
     @Test
+    void lineBeforeTheTitleStartingWithAnAnchorAndEndingWithALinkIsContent() { // as asciidoctor; it was read as the attributes of the title and lost
+        final var document = new Parser().parse(List.of(
+                "[[a]] https://x.org/[X]",
+                "",
+                "= Title",
+                "",
+                "Body."), new Parser.ParserContext(null));
+        assertEquals("", document.header().title());
+        assertEquals(Map.of("authorcount", "0"), document.header().attributes());
+        assertEquals(List.of(
+                new Paragraph(List.of(
+                        new Text(List.of(), "", Map.of("id", "a", "anchor", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Link("https://x.org/", new Text(List.of(), "X", Map.of("", "X", "nowrap", "true")), Map.of())), Map.of()),
+                new Section(1, new Text(List.of(), "Title", Map.of()), List.of(new Text(List.of(), "Body.", Map.of())), Map.of())), document.body().children());
+    }
+
+    @Test
+    void attributeLineEndingWithAWhiteSpaceAboveAsciiIsNoTitleAttributeLine() { // the header trims the line as the body does; asciidoctor reads it as text too
+        final var header = new Parser().parse(List.of("[.lead]　", "= Title", "", "text"), new Parser.ParserContext(null)).header();
+        assertEquals("", header.title());
+        assertEquals(Map.of("authorcount", "0"), header.attributes());
+    }
+
+    @Test
     void parseHeaderWithBlockAttributesBeforeTitleWithoutHeader() {
         final var header = new Parser().parseHeader(new Reader(List.of(
                 "[id=foo]",
@@ -5388,6 +5413,53 @@ class ParserTest {
                 new Text(List.of(), "See ", Map.of()),
                 new Text(List.of(), "", Map.of("id", "ref", "bibliography", "")),
                 new Text(List.of(), " for details.", Map.of())), Map.of())), body.children());
+    }
+
+    @Test
+    void listItemsStartingWithAnAnchorAndEndingWithAMacro() { // as asciidoctor, such a line is the text of the item, not a block attribute line; it threw
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [bibliography]
+                * [[[jd]]] https://jakarta.ee/specifications/data/[Jakarta Data specification]
+                * [[a]] link:https://x.org/[X]
+                * [[b]] image:i.png[]
+                """.split("\n"))), null);
+        assertEquals(List.of(new UnOrderedList(List.of(
+                new Paragraph(List.of(
+                        new Text(List.of(), "", Map.of("id", "jd", "bibliography", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Link("https://jakarta.ee/specifications/data/", new Text(List.of(), "Jakarta Data specification",
+                                Map.of("", "Jakarta Data specification", "nowrap", "true")), Map.of())), Map.of()),
+                new Paragraph(List.of(
+                        new Text(List.of(), "", Map.of("id", "a", "anchor", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Link("https://x.org/", new Text(List.of(), "X", Map.of("", "X", "nowrap", "true")), Map.of("", "X", "nowrap", "true"))), Map.of()),
+                new Paragraph(List.of(
+                        new Text(List.of(), "", Map.of("id", "b", "anchor", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Macro("image", "i.png", Map.of(), true)), Map.of())),
+                Map.of("", "bibliography"))), body.children());
+    }
+
+    @Test
+    void lineStartingWithAnAnchorAndEndingWithALinkIsAParagraph() { // as asciidoctor; it was read as a block attribute line and its text was lost
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [[a]] https://x.org/[X]
+
+                Line one
+                [[b]] https://y.org/[Y]
+                line three.
+                """.split("\n"))), null);
+        assertEquals(List.of(
+                new Paragraph(List.of(
+                        new Text(List.of(), "", Map.of("id", "a", "anchor", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Link("https://x.org/", new Text(List.of(), "X", Map.of("", "X", "nowrap", "true")), Map.of())), Map.of()),
+                new Paragraph(List.of(
+                        new Text(List.of(), "Line one ", Map.of()),
+                        new Text(List.of(), "", Map.of("id", "b", "anchor", "")),
+                        new Text(List.of(), " ", Map.of()),
+                        new Link("https://y.org/", new Text(List.of(), "Y", Map.of("", "Y", "nowrap", "true")), Map.of()),
+                        new Text(List.of(), " line three.", Map.of())), Map.of())), body.children());
     }
 
     @Test

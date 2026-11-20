@@ -1240,6 +1240,36 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void bibliographyItemWithOnlyAnAnchorAndALink() { // the shape of a quarkus.io blog post, which threw
+        assertEquals("""
+                - <a id="jd"></a> [Jakarta Data specification](https://jakarta.ee/specifications/data/)
+                - <a id="ee"></a> [Jakarta EE](https://jakarta.ee/)
+                """, md("""
+                [bibliography]
+                * [[[jd]]] https://jakarta.ee/specifications/data/[Jakarta Data specification]
+                * [[[ee]]] https://jakarta.ee/[Jakarta EE]
+                """));
+    }
+
+    @Test
+    void headerCellWithOnlyAnAnchorAndALink() { // the configuration table of the quarkus.io blaze-persistence guide, whose header cell was empty
+        assertEquals("""
+                | <a id="quarkus-blaze-persistence_configuration"></a>[Configuration property](#quarkus-blaze-persistence_configuration) | Type |
+                | --- | --- |
+                | `quarkus.blaze-persistence.enabled` | boolean |
+                """, md("""
+                [cols="80,20"]
+                |===
+                h|[[quarkus-blaze-persistence_configuration]]link:#quarkus-blaze-persistence_configuration[Configuration property]
+                h|Type
+
+                |`quarkus.blaze-persistence.enabled`
+                |boolean
+                |===
+                """));
+    }
+
+    @Test
     void anchorAtTheStartOfALineBeforePlainText() {
         assertEquals("<a id=\"top\"></a> text after a space.\n", md("[[top]] text after a space.\n"));
     }
