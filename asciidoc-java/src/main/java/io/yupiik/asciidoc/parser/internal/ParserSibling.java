@@ -70,23 +70,62 @@ public class ParserSibling {
     }
 
     /**
+     * As asciidoctor, a listing ({@code -}), literal ({@code .}) or passthrough ({@code +}) delimiter is its character
+     * written four times or more, {@code -----} as well as {@code ----}, and only the same line closes the block, so a
+     * {@code ----} line is content of a {@code -----} block; a fenced code delimiter is exactly {@code ```}. A run
+     * longer than four characters opens a block only when a later line of the reader, the lines of the block that holds
+     * it, closes it: alone, {@code -----} stays a thematic break, as in CommonMark.
+     *
+     * @param line   a line.
+     * @param reader the reader of the block the line is in.
+     * @param from   the index, in {@link Reader#getNextLines()}, of the line after it.
+     * @return the delimiter of the listing, literal or passthrough block the line opens, as written ({@code ----},
+     * {@code -----}, {@code ....}, {@code ++++}, ...) or {@code ```}, alone on the line with what {@link String#trim()}
+     * or {@link String#strip()} removes ignored, else {@code null}; its first character tells the kind of block.
+     */
+    public String verbatimDelimiter(final String line, final Reader reader, final int from) {
+        final var delimiter = verbatimDelimiter(line);
+        if (delimiter == null || delimiter.length() <= 4) {
+            return delimiter;
+        }
+        final var lines = reader.getNextLines();
+        for (int i = from; i < lines.size(); i++) {
+            if (isDelimiterLine(lines.get(i), delimiter)) {
+                return delimiter;
+            }
+        }
+        return null;
+    }
+
+    /**
      * @param line a line.
-     * @return the delimiter of the listing, literal or passthrough block the line opens, {@code ----}, {@code ```},
-     * {@code ....} or {@code ++++}, alone on the line with what {@link String#trim()} or {@link String#strip()} removes ignored, else {@code null}.
+     * @return the delimiter the line would be, see {@link #verbatimDelimiter(String, Reader, int)}, without checking
+     * that a later line closes a delimiter longer than four characters.
      */
     public String verbatimDelimiter(final String line) {
         final int start = trimmedStart(line);
         if (start == line.length()) {
             return null;
         }
-        final var delimiter = switch (line.charAt(start)) {
+        final char c = line.charAt(start);
+        final var shortest = switch (c) {
             case '-' -> "----";
             case '.' -> "....";
             case '+' -> "++++";
             case '`' -> "```";
             default -> null;
         };
-        return delimiter != null && isDelimiterLine(line, delimiter) ? delimiter : null;
+        if (shortest == null) {
+            return null;
+        }
+        final int end = trimmedEnd(line, start);
+        if (c == '`') {
+            return end - start == shortest.length() && line.startsWith(shortest, start) ? shortest : null;
+        }
+        if (end - start < shortest.length() || scanner.runLength(line, start, c) < end - start) {
+            return null;
+        }
+        return end - start == shortest.length() ? shortest : line.substring(start, end);
     }
 
     /**
@@ -97,11 +136,16 @@ public class ParserSibling {
      */
     public boolean isDelimiterLine(final String line, final String delimiter) {
         final int start = trimmedStart(line);
+        return trimmedEnd(line, start) - start == delimiter.length() && line.startsWith(delimiter, start);
+    }
+
+    // the index after the last character that neither String.trim() nor String.strip() removes, start being the first one
+    protected int trimmedEnd(final String line, final int start) {
         int end = line.length();
         while (end > start && isTrimmed(line.charAt(end - 1))) {
             end--;
         }
-        return end - start == delimiter.length() && line.startsWith(delimiter, start);
+        return end;
     }
 
     // the index of the first character that neither String.trim() nor String.strip() removes

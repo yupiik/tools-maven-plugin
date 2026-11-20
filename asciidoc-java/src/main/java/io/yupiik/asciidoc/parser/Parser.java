@@ -615,7 +615,8 @@ public class Parser {
             }
 
             final var stripped = next.trim();
-            final var verbatim = sibling.verbatimDelimiter(next);
+            final var verbatim = sibling.verbatimDelimiter(next, reader, 0);
+            final char verbatimKind = verbatim == null ? 0 : verbatim.charAt(0); // '-', '.', '+' or '`', as written four times or more
             if (stripped.startsWith("[") && stripped.endsWith("]")) {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
@@ -628,8 +629,8 @@ public class Parser {
                             Map.of("title", sibling.unescapeAttributeReferences(sibling.earlyAttributeReplacement(title, attributes))), blockAttributes));
                     lastOptions = reader.getLineNumber();
                 }
-            } else if ("....".equals(verbatim)) {
-                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, "....", resolver, attributes).value(), options == null ? Map.of() : options));
+            } else if (verbatimKind == '.') {
+                elements.add(new Listing(parsePassthrough(enclosingDocument, reader, options, verbatim, resolver, attributes).value(), options == null ? Map.of() : options));
                 options = null;
             } else if (!skipTitle && stripped.startsWith(".") && !stripped.startsWith("..") && !stripped.startsWith(". ")) {
                 options = merge(options, Map.of("title", sibling.unescapeAttributeReferences(newValue.strip().substring(1).strip())));
@@ -668,7 +669,7 @@ public class Parser {
                     elements.add(parseSection(enclosingDocument, reader, options, resolver, attributes));
                 }
                 options = null;
-            } else if ("----".equals(verbatim) || "```".equals(verbatim)) {
+            } else if (verbatimKind == '-' || verbatimKind == '`') {
                 elements.add(parseCodeBlock(enclosingDocument, reader, options, resolver, attributes, verbatim));
                 options = null;
             } else if (Objects.equals("--", stripped)) {
@@ -692,8 +693,8 @@ public class Parser {
                     addParagraph(elements, parseParagraph(enclosingDocument, reader, options, resolver, attributes, supportComplexStructures), keepParagraphs);
                     options = null;
                 }
-            } else if ("++++".equals(verbatim)) {
-                elements.add(parsePassthrough(enclosingDocument, reader, options, "++++", resolver, attributes));
+            } else if (verbatimKind == '+') {
+                elements.add(parsePassthrough(enclosingDocument, reader, options, verbatim, resolver, attributes));
                 options = null;
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options == null ? Map.of() : options));
@@ -781,7 +782,7 @@ public class Parser {
         final var text = content.toString();
         final var actualOpts = options == null ? Map.<String, String>of() : options;
         // a literal block ("....") is verbatim, a passthrough block ("++++") has no substitution by default
-        final var substitutions = resolveSubs(actualOpts.get("subs"), "....".equals(marker) ? VERBATIM_SUBS : NO_SUBS);
+        final var substitutions = resolveSubs(actualOpts.get("subs"), marker.charAt(0) == '.' ? VERBATIM_SUBS : NO_SUBS);
         if (!text.contains("include::")) {
             return new PassthroughBlock(subs(text, currentAttributes, substitutions), actualOpts);
         }
@@ -2777,14 +2778,20 @@ public class Parser {
                     buffer.add(content);
                 }
                 String needed = null;
+                boolean rule = false; // the awaited line is a horizontal rule, which opens no block
                 while ((next = reader.nextLine()) != null &&
                         ((!DESCRIPTION_LIST_PREFIX.matcher(next).matches() &&
                                 !next.isBlank()) || needed != null)) {
                     buffer.add(next);
-                    if (Objects.equals(needed, next)) {
-                        needed = null;
-                    } else if (isBlock(next)) {
+                    if (needed != null && sibling.isDelimiterLine(next, needed)) {
+                        if (needed.equals(scanner.stripTrailingAscii(next))) { // only trailing ASCII blanks, which asciidoctor removes from every line
+                            needed = null;
+                        } else { // an indented line is content, as on master; a longer run may have no closing line left
+                            rule = opensNoBlock(needed, reader);
+                        }
+                    } else if ((needed == null || rule) && isBlock(next, reader)) { // inside a block, another delimiter line is content
                         needed = next;
+                        rule = opensNoBlock(needed, reader);
                     }
                 }
                 if (next != null) {
@@ -2929,11 +2936,17 @@ public class Parser {
     private void readContinuation(final Reader reader, final Predicate<String> stopsAt, final StringBuilder buffer) {
         String next;
         String needed = null;
+        boolean rule = false; // the awaited line is a horizontal rule, which opens no block
         while ((next = reader.nextLine()) != null) {
-            if (Objects.equals(needed, next)) {
-                needed = null;
-            } else if (isBlock(next)) {
+            if (needed != null && sibling.isDelimiterLine(next, needed)) {
+                if (needed.equals(scanner.stripTrailingAscii(next))) { // only trailing ASCII blanks, which asciidoctor removes from every line
+                    needed = null;
+                } else { // an indented line is content, as on master; a longer run may have no closing line left
+                    rule = opensNoBlock(needed, reader);
+                }
+            } else if ((needed == null || rule) && isBlock(next, reader)) { // inside a block, another delimiter line is content
                 needed = next;
+                rule = opensNoBlock(needed, reader);
             } else if (needed == null && next.isBlank()) {
                 break;
             } else if ("+".equals(next.strip())) { // continuation
@@ -2949,11 +2962,17 @@ public class Parser {
         }
     }
 
-    private boolean isBlock(final String strippedLine) {
-        return "====".equals(strippedLine) || "----".equals(strippedLine) ||
-                "```".equals(strippedLine) || "--".equals(strippedLine) ||
-                "++++".equals(strippedLine) || "****".equals(strippedLine) ||
-                isHorizontalRule(strippedLine);
+    // the line opens a block of a list item or a description, or is a horizontal rule; reader is right after it
+    private boolean isBlock(final String line, final Reader reader) {
+        return "====".equals(line) || line.equals(sibling.verbatimDelimiter(line, reader, 0)) ||
+                "--".equals(line) || "****".equals(line) ||
+                isHorizontalRule(line);
+    }
+
+    // a horizontal rule (''', ---, ***, ___, or a run of dashes that no later line closes) opens no block, so the next
+    // delimiter line replaces the wait it started, as on master; the reader is right after the line
+    private boolean opensNoBlock(final String line, final Reader reader) {
+        return isHorizontalRule(line) && !"____".equals(line) && !"****".equals(line) && sibling.verbatimDelimiter(line, reader, 0) == null;
     }
 
     private void addTextElements(final Path enclosingDocument, final String line, final int i, final int end,

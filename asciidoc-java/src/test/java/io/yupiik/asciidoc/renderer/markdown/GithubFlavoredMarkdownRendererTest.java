@@ -321,6 +321,21 @@ class GithubFlavoredMarkdownRendererTest {
     }
 
     @Test
+    void listingDelimitedByFiveDashes() { // as asciidoctor, a ---- line is content of a ----- listing, not a thematic break
+        assertEquals("```asciidoc\n== Inner title\n----\nnested\n----\n```\n\nafter\n", md("""
+                [source,asciidoc]
+                -----
+                == Inner title
+                ----
+                nested
+                ----
+                -----
+
+                after
+                """));
+    }
+
+    @Test
     void lists() {
         final var md = md("""
                 * first

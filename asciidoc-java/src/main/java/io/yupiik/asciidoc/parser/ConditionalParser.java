@@ -150,7 +150,14 @@ public class ConditionalParser {
                         verbatim = null;
                     }
                 } else {
-                    verbatim = reader.isCommentBlockDelimiter(keep) ? COMMENT_BLOCK : sibling.verbatimDelimiter(keep);
+                    if (reader.isCommentBlockDelimiter(keep)) {
+                        verbatim = COMMENT_BLOCK;
+                    } else {
+                        // a delimiter longer than four characters opens a block only when a later line of its own block closes
+                        // it, which this pass over the lines of the whole document cannot know, so such a line is text here
+                        final var delimiter = sibling.verbatimDelimiter(keep);
+                        verbatim = delimiter == null || delimiter.length() > 4 ? null : delimiter;
+                    }
                     if (verbatim == null && sibling.mayBeAttributeEntry(keep)) { // read when a directive tests it
                         if (entries == null) {
                             entries = new KeptEntries(lines, attributes);
