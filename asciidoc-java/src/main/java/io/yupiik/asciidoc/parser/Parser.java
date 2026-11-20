@@ -323,16 +323,17 @@ public class Parser {
 
     private String readHeaderTitleLine(final Reader reader, final Map<String, String> preTitleOptions) {
         var line = reader.skipCommentsAndEmptyLines();
-        while (line != null && isBlockAttributeLine(line)) {
-            preTitleOptions.putAll(parseBlockAttributes(line.strip()));
+        while (line != null && isBlockAttributeLine(line.trim())) {
+            preTitleOptions.putAll(parseBlockAttributes(line.trim()));
             line = reader.skipCommentsAndEmptyLines();
         }
         return line;
     }
 
+    // as in asciidoctor's parse_block_metadata_line, a line that starts with [[ is block metadata only when it ends
+    // with ]]: [[a]] https://x.org/[X] is a paragraph that starts with an inline anchor
     private boolean isBlockAttributeLine(final String line) {
-        final var stripped = line.strip();
-        return stripped.startsWith("[") && stripped.endsWith("]");
+        return line.startsWith("[") && line.endsWith("]") && (!line.startsWith("[[") || line.endsWith("]]"));
     }
 
     private Map<String, String> parseBlockAttributes(final String stripped) {
@@ -616,7 +617,7 @@ public class Parser {
 
             final var stripped = next.trim();
             final var verbatim = sibling.verbatimDelimiter(next);
-            if (stripped.startsWith("[") && stripped.endsWith("]")) {
+            if (isBlockAttributeLine(stripped)) {
                 if ("[abstract]".equals(stripped)) { // not sure this was a great idea, just consider it a role for now
                     options = merge(options, Map.of("role", "abstract"));
                 } else {
@@ -1716,7 +1717,7 @@ public class Parser {
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
             final var stripped = line.strip();
             if (line.startsWith("=") ||
-                    (line.startsWith("[") && line.endsWith("]")) ||
+                    isBlockAttributeLine(line) ||
                     reader.isCommentBlockDelimiter(stripped) ||
                     isHorizontalRule(stripped) ||
                     sibling.attributeEntry(stripped) != null ||
