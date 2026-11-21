@@ -51,6 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.IdentityHashMap;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -78,6 +79,7 @@ import static io.yupiik.asciidoc.model.Text.Style.SUP;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -4515,6 +4517,69 @@ class ParserTest {
                         new Text(List.of(), "Yep. AsciiDoc and Markdown share a lot of common syntax already.", Map.of())),
                         Map.of())),
                 body.children());
+    }
+
+    @Test
+    void indentedQuoteLineIsText() { // it looped forever; asciidoctor writes a literal paragraph, the parser paragraph text
+        for (final var indent : List.of(" ", "\t", "   ")) {
+            final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                    "intro", "", indent + "> mvn install", "", "after")), null));
+            assertEquals(List.of(
+                    new Text(List.of(), "intro", Map.of()),
+                    new Text(List.of(), indent + "> mvn install", Map.of()),
+                    new Text(List.of(), "after", Map.of())), body.children());
+        }
+    }
+
+    @Test
+    void quoteLineAfterAControlCharacterIsText() { // as asciidoctor; it looped forever
+        for (final var control : List.of("\u0001", "\u001c")) {
+            final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                    control + "> q")), null));
+            assertEquals(List.of(new Text(List.of(), control + "> q", Map.of())), body.children());
+        }
+    }
+
+    @Test
+    void indentedQuoteLineAfterABlockTitleOrABlockAttributeLineIsText() { // it looped forever
+        final var titled = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                ".Title", " > q")), null));
+        assertEquals(List.of(new Text(List.of(), " > q", Map.of("title", "Title"))), titled.children());
+
+        final var withRole = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "[role=x]", " > q")), null));
+        assertEquals(List.of(new Text(List.of(), " > q", Map.of("role", "x"))), withRole.children());
+    }
+
+    @Test
+    void indentedQuoteLineInAListItemIsText() { // it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "* item", "+", " > q", "", "after")), null));
+        assertEquals(List.of(
+                new UnOrderedList(List.of(new Paragraph(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                        new Paragraph(List.of(new Text(List.of(), " > q", Map.of())), Map.of())), Map.of())), Map.of()),
+                new Text(List.of(), "after", Map.of())), body.children());
+    }
+
+    @Test
+    void indentedQuoteLineInADelimitedBlockIsText() { // it looped forever
+        final var quote = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "____", " > q", "____")), null));
+        assertEquals(List.of(new Quote(List.of(new Text(List.of(), " > q", Map.of())), Map.of())), quote.children());
+
+        final var open = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "--", " > q", "--")), null));
+        assertEquals(List.of(new OpenBlock(List.of(new Text(List.of(), " > q", Map.of())), Map.of())), open.children());
+    }
+
+    @Test
+    void indentedLineAfterAQuoteIsText() { // it looped forever; asciidoctor continues the quote up to the blank line
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "> a", " > b")), null));
+        assertEquals(List.of(
+                new Quote(List.of(new Text(List.of(), "a", Map.of())), Map.of()),
+                new Text(List.of(), " > b", Map.of())), body.children());
     }
 
     @Test
