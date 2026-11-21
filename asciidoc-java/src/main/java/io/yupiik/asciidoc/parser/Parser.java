@@ -1714,10 +1714,13 @@ public class Parser {
         boolean onlyConditionalsSinceBreak = true; // all elements so far (paragraph start or last hard break) are conditional blocks
         String line;
         while ((line = reader.nextLine()) != null && !line.isBlank()) {
-            final var stripped = line.strip();
+            // only the ascii white space, which the trim() of doParse removes too, so doParse reads each line ending the
+            // paragraph here (''' followed by u3000 went back and forth for ever); a comment block opens at the first
+            // column, as the reader skips it
+            final var stripped = scanner.stripTrailingAscii(scanner.stripLeadingAscii(line));
             if (line.startsWith("=") ||
                     (line.startsWith("[") && line.endsWith("]")) ||
-                    reader.isCommentBlockDelimiter(stripped) ||
+                    reader.isCommentBlockDelimiter(line) ||
                     isHorizontalRule(stripped) ||
                     sibling.attributeEntry(stripped) != null ||
                     ("+".equals(stripped) && reader instanceof ListItemReader)) {

@@ -51,6 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.IdentityHashMap;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -78,6 +79,7 @@ import static io.yupiik.asciidoc.model.Text.Style.SUP;
 import static java.util.Map.entry;
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -5723,6 +5725,80 @@ class ParserTest {
         assertEquals(TEXT, body.children().get(0).type());
         assertEquals(HORIZONTAL_RULE, body.children().get(1).type());
         assertEquals(TEXT, body.children().get(2).type());
+    }
+
+    @Test
+    void ruleLineFollowedByANonAsciiWhiteSpaceIsText() { // as asciidoctor, which strips only ascii white spaces; it looped forever
+        for (final var rule : List.of("'''", "---", "-----")) {
+            final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                    "a", "", rule + "\u3000", "", "b")), null));
+            assertEquals(List.of(
+                    new Text(List.of(), "a", Map.of()),
+                    new Text(List.of(), rule + "\u3000", Map.of()),
+                    new Text(List.of(), "b", Map.of())), body.children());
+        }
+    }
+
+    @Test
+    void ruleLineFollowedByANonAsciiWhiteSpaceContinuesTheParagraph() { // one paragraph as in asciidoctor, which also keeps the u3000 of the line join; it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "text", "'''\u3000", "more")), null));
+        assertEquals(List.of(new Text(List.of(), "text ''' more", Map.of())), body.children());
+    }
+
+    @Test
+    void ruleLineEndingWithAControlCharacterContinuesTheParagraph() { // as asciidoctor, which strips only ascii white space
+        final var body = new Parser().parseBody(new Reader(List.of("text", "'''\u0001", "more")), null);
+        assertEquals(List.of(new Text(List.of(), "text '''\u0001 more", Map.of())), body.children());
+    }
+
+    @Test
+    void ruleLineEndingWithAnInformationSeparatorContinuesTheParagraph() { // one paragraph as in asciidoctor, which also keeps the u001c of the line join; strip() removed it, so master read a rule
+        final var body = new Parser().parseBody(new Reader(List.of("text", "'''\u001c", "more")), null);
+        assertEquals(List.of(new Text(List.of(), "text ''' more", Map.of())), body.children());
+    }
+
+    @Test
+    void commentDelimiterAfterAControlCharacterIsText() { // as asciidoctor; the reader skips a comment block from the first column only
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "a", "", "\u0001////", "x")), null));
+        assertEquals(List.of(
+                new Text(List.of(), "a", Map.of()),
+                new Text(List.of(), "\u0001//// x", Map.of())), body.children());
+    }
+
+    @Test
+    void commentDelimiterAfterABlankInAParagraphIsText() { // as asciidoctor; it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "text", "more", " ////", "end")), null));
+        assertEquals(List.of(new Text(List.of(), "text more //// end", Map.of())), body.children());
+    }
+
+    @Test
+    void attributeEntryAfterANonAsciiWhiteSpaceIsText() { // as asciidoctor; it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "\u3000:a: b")), null));
+        assertEquals(List.of(new Text(List.of(), "\u3000:a: b", Map.of())), body.children());
+    }
+
+    @Test
+    void commentDelimiterAfterANonAsciiWhiteSpaceIsText() { // as asciidoctor; it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "a", "", "\u3000////", "x")), null));
+        assertEquals(List.of(
+                new Text(List.of(), "a", Map.of()),
+                new Text(List.of(), "\u3000//// x", Map.of())), body.children());
+    }
+
+    @Test
+    void ruleLineFollowedByANonAsciiWhiteSpaceInAListItemIsText() { // as asciidoctor; it looped forever
+        final var body = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> new Parser().parseBody(new Reader(List.of(
+                "* item", "+", "-----\u3000", "b", "", "after")), null));
+        assertEquals(List.of(
+                new UnOrderedList(List.of(new Paragraph(List.of(
+                        new Paragraph(List.of(new Text(List.of(), "item", Map.of())), Map.of()),
+                        new Paragraph(List.of(new Text(List.of(), "----- b", Map.of())), Map.of())), Map.of())), Map.of()),
+                new Text(List.of(), "after", Map.of())), body.children());
     }
 
     @Test
