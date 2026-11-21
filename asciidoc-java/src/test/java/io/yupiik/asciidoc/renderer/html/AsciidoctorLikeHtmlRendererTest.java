@@ -3888,6 +3888,22 @@ class AsciidoctorLikeHtmlRendererTest {
     }
 
     @Test
+    void unknownMacroTextKeepsTheAttributeListAsWritten() { // as asciidoctor, with its blanks, its quotes and each value in its place, escaped
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\n" +
+                        "See tooltip:x[Otherwise, fail the build.] and tooltip:y[\"a <b>\", role=r].",
+                " <div class=\"paragraph\">\n" +
+                        " <p>See tooltip:x[Otherwise, fail the build.] and tooltip:y[&quot;a &lt;b&gt;&quot;, role=r].</p>\n" +
+                        " </div>\n");
+        assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\ntooltip::z[a\\] b, c]\n",
+                " <div class=\"paragraph\">\n <p>\ntooltip::z[a\\] b, c]\n </p>\n </div>\n");
+        final var error = assertThrows(IllegalArgumentException.class,
+                () -> assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: fail\n\nSee tooltip:x[a, b] here.", ""));
+        assertEquals("Unknown macro 'tooltip' in 'tooltip:x[a, b]', set the attribute " +
+                        "yupiik-renderer-asciidoctorlikehtml-unknownMacro or Configuration.setUnknownMacro() to 'text' or 'ignore' to render it",
+                error.getMessage());
+    }
+
+    @Test
     void unknownBlockMacroIsAParagraph() { // asciidoctor reads foo::bar[baz] as a paragraph, not as a block
         assertRenderingContent(":yupiik-renderer-asciidoctorlikehtml-unknownMacro: text\n\nbefore\n\nfoo::bar[baz]\n\nafter\n",
                 " <div class=\"paragraph\">\n <p>\nbefore\n </p>\n </div>\n" +
