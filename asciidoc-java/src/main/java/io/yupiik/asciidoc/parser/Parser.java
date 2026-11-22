@@ -698,7 +698,7 @@ public class Parser {
             } else if (Objects.equals("<<<", stripped)) {
                 elements.add(new PageBreak(options == null ? Map.of() : options));
                 options = null;
-            } else if (stripped.startsWith("> ")) {
+            } else if (next.startsWith(">") && stripped.startsWith("> ")) { // as parseQuote, the > is in the first column
                 reader.rewind();
                 elements.add(parseQuote(enclosingDocument, reader, options, resolver, attributes));
                 options = null;
