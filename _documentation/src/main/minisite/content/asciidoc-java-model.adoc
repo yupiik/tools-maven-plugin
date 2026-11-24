@@ -1,6 +1,6 @@
 = Asciidoc Java: model and visitors
-:minisite-nav-prev-label: Markdown renderer
-:minisite-nav-prev-link: asciidoc-java-markdown.html
+:minisite-nav-prev-label: PDF renderer
+:minisite-nav-prev-link: asciidoc-java-pdf.html
 
 The parser of xref:asciidoc-java.adoc[Asciidoc Java] turns a document into a model of Java records, and a renderer is a `Visitor` that walks that model.
 This page is for the developer who reads the model, extends a renderer or writes one.

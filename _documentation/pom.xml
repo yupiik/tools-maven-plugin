@@ -68,6 +68,13 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>asciidoc-pdf-dependencies</artifactId>
+      <version>${project.version}</version>
+      <type>pom</type>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>io.yupiik.dev</groupId>
       <artifactId>env-manager</artifactId>
       <version>${project.version}</version>
@@ -131,7 +138,7 @@
           <plugin> <!-- for dev: cd target/ && http-server . && open http://localhost:8080/tools-maven-plugin/ -->
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.0</version>
+            <version>3.7.0</version>
             <executions>
               <execution>
                 <id>minisite</id>

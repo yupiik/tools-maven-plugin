@@ -1,8 +1,8 @@
 = Asciidoc Java: Markdown renderer
 :minisite-nav-prev-label: HTML renderer
 :minisite-nav-prev-link: asciidoc-java-html.html
-:minisite-nav-next-label: Model and visitors
-:minisite-nav-next-link: asciidoc-java-model.html
+:minisite-nav-next-label: PDF renderer
+:minisite-nav-next-link: asciidoc-java-pdf.html
 
 `GithubFlavoredMarkdownRenderer` renders the model the parser gives (see xref:asciidoc-java.adoc[Asciidoc Java]) as GitHub-flavored Markdown, for example to publish a Markdown copy of a page for AI agents or to feed a text pipeline.
 It reads the document as the xref:asciidoc-java-html.adoc[HTML renderer] does, so the two outputs agree on ids, cross references and conditionals.

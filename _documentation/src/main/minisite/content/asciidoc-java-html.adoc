@@ -29,6 +29,8 @@ The attributes of the configuration are what the renderer reads when the documen
 
 `AsciidoctorLikeHtmlRenderer.Configuration` changes the HTML the renderer writes.
 The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc.` properties, such as `yupiik.asciidoc.sectionIdOnTitle`.
+Select HTML with `yupiik.asciidoc.renderer=html` or `asciidoctor`; the selector also accepts `shower`, `markdown`/`md`, and `pdf`, case-insensitively, while retaining fully qualified custom visitor class names.
+See xref:asciidoc-java-pdf.adoc#_parameter_mapping[the plugin parameter mapping] for shared options and PDF-specific settings.
 
 [cols="2,1,4",options="header"]
 |===
@@ -68,11 +70,11 @@ The `asciidoc` goal of the Maven plugin sets these options with `yupiik.asciidoc
 
 |`assetsBase`
 |unset
-|The directory the `data-uri` attribute reads the image files from, or its `imagesdir` subdirectory when the configuration attributes set `imagesdir`; the `:imagesdir:` of the document changes the `src` of the images, not where `data-uri` reads them. Needed with `data-uri`.
+|The directory the `data-uri` attribute reads the image files from, or its `imagesdir` subdirectory when the configuration attributes set `imagesdir`; the `:imagesdir:` of the document changes the `src` of the images, not where `data-uri` reads them. Needed with `data-uri`. The goal's `assetsBase` File parameter (`yupiik.asciidoc.assetsBase`) overrides the renderer resource base without changing `base` for includes; when omitted, the goal uses `base` or the input file's parent directory.
 
 |`resolver`
 |reads the files
-|The `DataResolver` that reads an asset for `data-uri`, from `assetsBase` by default.
+|The `DataResolver` that reads an asset for `data-uri`, from `assetsBase` by default. The goal's `dataResolver` String parameter (`yupiik.asciidoc.dataResolver`) names a subclass with a public constructor taking `Path assetsBase`; the goal creates and closes that resolver.
 
 |`unknownMacro`
 |`TEXT`
@@ -181,4 +183,3 @@ A subclass renders its own macros in `onMissingMacro`.
 
 `ShowerRenderer` extends the HTML renderer for slide decks: each section is a `<section>` with its id on the section tag, without the `sectionbody` and `content` wrappers, so a slide theme addresses each slide by its id.
 Its `ShowerRenderer.Configuration` carries the attributes, the assets base, the `DataResolver`, the data attributes, the `ascii2svg` option and the `fontHandler`.
-

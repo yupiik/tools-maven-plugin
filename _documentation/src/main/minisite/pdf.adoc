@@ -1,0 +1,211 @@
+= Yupiik Tools
+Contact <contact@yupiik.com>
+1.0, November 24, 2021
+:toc:
+:toclevels: 3
+:yupiik-renderer-pdf-unknownMacro: text
+
+//
+// See io.yupiik.tools.doc.DocPDFGenerator.
+//
+// IMPORTANT: ensure to pre-render the minisite to get generated content before launching the DocPDFGenerator main.
+//
+// TIP: pdf-source gives included pages independent destinations and maps their existing xrefs to internal PDF links without rewriting them.
+// Keep example macros such as tooltip:foo[a hint] as text even when the caller selects a strict macro policy.
+//
+
+[pdf-source="mojos.adoc"]
+== Maven Plugin
+
+include::{contentsdir}/mojos.adoc[lines=7..-1,leveloffset=+1]
+
+== Slides
+
+// Slides usage and theme documentation currently live in the repository README.
+include::{basedir}/../../../../README.adoc[lines=224..298,leveloffset=-1]
+
+[pdf-source="minisite-theme.adoc"]
+== Minisite Theme
+
+include::{contentsdir}/minisite-theme.adoc[lines=5..-1,leveloffset=+1]
+
+[pdf-source="minisite-llm.adoc"]
+== Minisite LLM Chat
+
+include::{contentsdir}/minisite-llm.adoc[lines=3..-1,leveloffset=+1]
+
+[pdf-source="cli.adoc"]
+== CLI
+
+include::{contentsdir}/cli.adoc[lines=7..-1,leveloffset=+1]
+
+[pdf-source="cli/generic-site-generator/index.adoc"]
+=== Generic Site Generator
+
+include::{contentsdir}/cli/generic-site-generator/index.adoc[leveloffset=+2]
+
+[pdf-source="cli/generic-site-generator/generic-static-generator.adoc"]
+==== Command Reference
+
+include::{contentsdir}/cli/generic-site-generator/generic-static-generator.adoc[lines=5..-1,leveloffset=+3]
+
+[pdf-source="_partials/generated/static-generator.helpers.adoc"]
+=== Template Helpers
+
+include::{contentsdir}/_partials/generated/static-generator.helpers.adoc[leveloffset=+1]
+
+[pdf-source="_partials/generated/static-generator.contributors.adoc"]
+=== Context Contributors
+
+include::{contentsdir}/_partials/generated/static-generator.contributors.adoc[leveloffset=+1]
+
+[pdf-source="asciidoc-java.adoc"]
+== Asciidoc Java
+
+include::{contentsdir}/asciidoc-java.adoc[lines=9..-1,leveloffset=+1]
+
+[pdf-source="asciidoc-java-syntax.adoc"]
+=== Supported Syntax
+
+include::{contentsdir}/asciidoc-java-syntax.adoc[lines=7..-1,leveloffset=+2]
+
+[pdf-source="asciidoc-java-html.adoc"]
+=== HTML Renderer
+
+include::{contentsdir}/asciidoc-java-html.adoc[lines=7..-1,leveloffset=+2]
+
+[pdf-source="asciidoc-java-markdown.adoc"]
+=== Markdown Renderer
+
+include::{contentsdir}/asciidoc-java-markdown.adoc[lines=7..-1,leveloffset=+2]
+
+[pdf-source="asciidoc-java-pdf.adoc"]
+=== PDF Renderer
+
+include::{contentsdir}/asciidoc-java-pdf.adoc[lines=7..-1,leveloffset=+2]
+
+[pdf-source="asciidoc-java-model.adoc"]
+=== Model and Visitors
+
+include::{contentsdir}/asciidoc-java-model.adoc[lines=5..-1,leveloffset=+2]
+
+[pdf-source="ascii2svg.adoc"]
+== Ascii2SVG
+
+include::{contentsdir}/ascii2svg.adoc[lines=7..-1,leveloffset=+1]
+
+[pdf-source="yem.adoc"]
+== YEM (Environment Manager)
+
+// Includes the generated configuration and command reference through the YEM page.
+include::{contentsdir}/yem.adoc[lines=7..-1,leveloffset=+1]
+
+[pdf-source="mojo/yupiik-tools-maven-plugin.adoc"]
+== Maven Goal Reference
+
+include::{contentsdir}/mojo/yupiik-tools-maven-plugin.adoc[lines=3..-1,leveloffset=+1]
+
+[pdf-source="mojo/asciidoc.adoc"]
+=== asciidoc
+
+include::{contentsdir}/mojo/asciidoc.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/audit.adoc"]
+=== audit
+
+include::{contentsdir}/mojo/audit.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/crypt-properties.adoc"]
+=== crypt-properties
+
+include::{contentsdir}/mojo/crypt-properties.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/crypt-value.adoc"]
+=== crypt-value
+
+include::{contentsdir}/mojo/crypt-value.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/cucumber2asciidoc.adoc"]
+=== cucumber2asciidoc
+
+include::{contentsdir}/mojo/cucumber2asciidoc.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/decrypt-properties.adoc"]
+=== decrypt-properties
+
+include::{contentsdir}/mojo/decrypt-properties.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/decrypt-value.adoc"]
+=== decrypt-value
+
+include::{contentsdir}/mojo/decrypt-value.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/generate-blog-post-releases.adoc"]
+=== generate-blog-post-releases
+
+include::{contentsdir}/mojo/generate-blog-post-releases.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/generic-static-generator.adoc"]
+=== generic-static-generator
+
+include::{contentsdir}/mojo/generic-static-generator.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/git-report.adoc"]
+=== git-report
+
+include::{contentsdir}/mojo/git-report.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/inject-version.adoc"]
+=== inject-version
+
+include::{contentsdir}/mojo/inject-version.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/list-github-releases.adoc"]
+=== list-github-releases
+
+include::{contentsdir}/mojo/list-github-releases.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/minisite.adoc"]
+=== minisite
+
+include::{contentsdir}/mojo/minisite.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/pdf.adoc"]
+=== pdf
+
+include::{contentsdir}/mojo/pdf.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/script-cli-skeleton.adoc"]
+=== script-cli-skeleton
+
+include::{contentsdir}/mojo/script-cli-skeleton.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/serve-minisite.adoc"]
+=== serve-minisite
+
+include::{contentsdir}/mojo/serve-minisite.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/serve-slides.adoc"]
+=== serve-slides
+
+include::{contentsdir}/mojo/serve-slides.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/simple-dependencies.adoc"]
+=== simple-dependencies
+
+include::{contentsdir}/mojo/simple-dependencies.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/slides.adoc"]
+=== slides
+
+include::{contentsdir}/mojo/slides.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/synchronize-github-releases.adoc"]
+=== synchronize-github-releases
+
+include::{contentsdir}/mojo/synchronize-github-releases.adoc[lines=3..-1,leveloffset=+2]
+
+[pdf-source="mojo/watch-pdf.adoc"]
+=== watch-pdf
+
+include::{contentsdir}/mojo/watch-pdf.adoc[lines=3..-1,leveloffset=+2]
