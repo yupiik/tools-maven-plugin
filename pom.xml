@@ -54,6 +54,8 @@
     <module>html-versioning-injector</module>
     <module>codec-core</module>
     <module>ascii2svg</module>
+    <module>asciidoc-pdf-dependencies</module>
+    <module>simple-language-tokenizer</module>
     <module>asciidoc-java</module>
     <module>env-manager</module>
     <module>generic-static-generator</module>
@@ -62,6 +64,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox</artifactId>
+        <version>3.0.8</version>
+      </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-compress</artifactId>

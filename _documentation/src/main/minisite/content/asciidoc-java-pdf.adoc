@@ -1,0 +1,475 @@
+= Asciidoc Java: PDF renderer
+:minisite-nav-prev-label: Markdown renderer
+:minisite-nav-prev-link: asciidoc-java-markdown.html
+:minisite-nav-next-label: Model and visitors
+:minisite-nav-next-link: asciidoc-java-model.html
+
+`PdfRenderer` renders the parsed AsciiDoc model directly to XSL-FO and then PDF using Apache FOP, without HTML, a browser, or an Asciidoctor runtime.
+
+== Dependency
+
+For Java applications using `asciidoc-java` directly, add the PDF dependency aggregate alongside the library dependency:
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>asciidoc-pdf-dependencies</artifactId>
+  <version>${yupiik-tools.version}</version>
+  <type>pom</type>
+</dependency>
+----
+
+Use the same `yupiik-tools.version` as for `asciidoc-java`.
+This is an ordinary dependency of type `pom`, not a BOM import under `<dependencyManagement>`: its normal transitive dependencies supply Apache FOP and the default fonts.
+The aggregate declares `org.apache.xmlgraphics:fop:2.12`, `com.formdev:flatlaf-fonts-inter:4.1` and `com.formdev:flatlaf-fonts-jetbrains-mono:2.304`.
+`asciidoc-java` declares the aggregate as *optional*, so applications consuming the library do not inherit these PDF dependencies unless they explicitly add the aggregate.
+HTML, Markdown and XSL-FO generation remain usable without it.
+
+The Maven plugin and CLI declare the aggregate non-optionally, so FOP and the default fonts are available there out of the box; no extra PDF dependency declarations are needed.
+For a custom library setup, the individual artifacts can be declared instead of the aggregate.
+Keep FOP's transitive dependencies, which include its image and SVG support.
+There is no automatic runtime dependency download or fallback renderer: requesting PDF output without FOP fails with an explicit dependency hint.
+
+Fonts are read directly from the classpath, not bundled into the `asciidoc-java` jar.
+No desktop font installation, runtime download or asset extraction is needed.
+Missing default font jars fail with an explicit dependency hint before the destination is opened; a custom FOP configuration can replace them.
+
+== Maven plugin usage
+
+The `asciidoc` goal selects PDF output with `<renderer>pdf</renderer>` (property `yupiik.asciidoc.renderer`), using the same goal as HTML, slides and Markdown.
+`output` remains the destination file; there is no separate PDF output parameter.
+For a document at `src/main/asciidoc/guide.adoc`, add this plugin under `<build><plugins>` and define `yupiik-tools.version` with the plugin version to use:
+
+[source,xml]
+----
+<plugin>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>yupiik-tools-maven-plugin</artifactId>
+  <version>${yupiik-tools.version}</version>
+  <executions>
+    <execution>
+      <id>guide-pdf</id>
+      <phase>prepare-package</phase>
+      <goals>
+        <goal>asciidoc</goal>
+      </goals>
+      <configuration>
+        <renderer>pdf</renderer>
+        <input>${project.basedir}/src/main/asciidoc/guide.adoc</input>
+        <output>${project.build.directory}/guide.pdf</output>
+        <base>${project.basedir}/src/main/asciidoc</base>
+        <assetsBase>${project.basedir}/src/main/asciidoc</assetsBase>
+        <attributes>
+          <toc>true</toc>
+        </attributes>
+        <unknownMacro>FAIL</unknownMacro>
+        <pdf>
+          <titlePage>true</titlePage>
+          <syntaxHighlighting>true</syntaxHighlighting>
+          <sectionFooter>true</sectionFooter>
+          <fopConfiguration>${project.basedir}/src/main/asciidoc/fop.xconf</fopConfiguration>
+          <theme>
+            <primary>#D858FF</primary>
+            <secondary>#056EBB</secondary>
+            <text>#212121</text>
+            <muted>#656565</muted>
+            <background>#F4F4F4</background>
+            <border>#E3E3E3</border>
+            <sans>Inter</sans>
+            <mono>JetBrains Mono</mono>
+            <pageWidth>210mm</pageWidth>
+            <pageHeight>297mm</pageHeight>
+            <margin>20mm</margin>
+          </theme>
+        </pdf>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+----
+
+The PDF renderer uses the plugin realm classloader for resources, fonts and images.
+FOP and the default font jars are already supplied by the plugin's dependency on `asciidoc-pdf-dependencies`.
+Put custom font jars, packaged FOP configurations and other classpath resource jars under the plugin's `<dependencies>`, not only the project's dependencies.
+The optional `<pdf><fopConfiguration>...</fopConfiguration></pdf>` entry above assumes that you provide that FOP configuration file; omit it to use the default font registration.
+
+=== Parameter mapping
+
+[cols="1,2,4",options="header"]
+|===
+|Plugin parameter |Property |Use
+|`renderer` |`yupiik.asciidoc.renderer` |Case-insensitive aliases: `html` or `asciidoctor` for HTML, `shower` for slides, `markdown` or `md` for Markdown, and `pdf` for PDF. Fully qualified class names for custom visitors remain supported.
+|`input` |`yupiik.asciidoc.input` |Required source document.
+|`output` |`yupiik.asciidoc.output` |Required destination file, such as `${project.build.directory}/guide.pdf`.
+|`base` |`yupiik.asciidoc.base` |Base directory for parser includes; defaults to the input file's parent directory.
+|`assetsBase` (`File`) |`yupiik.asciidoc.assetsBase` |Shared renderer resource base, overriding `base` for assets only. When omitted, uses `base` or the input file's parent directory; it does not change include resolution.
+|`dataResolver` (`String`) |`yupiik.asciidoc.dataResolver` |Fully qualified name of a `DataResolver` subclass with a public constructor taking `Path assetsBase`. The goal creates it with the effective assets base, supplies it to the renderer and closes it when done.
+|`attributes` |`yupiik.asciidoc.attributes` |Shared attributes passed to the parser and renderer, including PDF and Markdown. Document attributes take precedence.
+|`unknownMacro` |`yupiik.asciidoc.unknownMacro` |Shared unknown-macro policy, including PDF and Markdown: `TEXT` (default), `FAIL` or `IGNORE`. The renderer-specific document attribute wins over this parameter.
+|`pdf.fopConfiguration` (`String`) |None (nested XML) |Optional local path or URI configured under `<pdf><fopConfiguration>...</fopConfiguration></pdf>`, including `classpath:/pdf/fop.xconf` and `jar:file:/path/to/resources.jar!/pdf/fop.xconf`. Replaces the default font registration.
+|`pdf.titlePage` (`boolean`) |None (nested XML) |Enable the separate title page when the effective title is nonblank; defaults to `true`.
+|`pdf.syntaxHighlighting` (`boolean`) |None (nested XML) |Enable syntax highlighting for supported source languages; defaults to `true`.
+|`pdf.sectionFooter` (`boolean`) |None (nested XML) |Show the current section in the left footer instead of the document title; defaults to `true`.
+|`pdf.theme` |None (nested XML) |Optional theme overrides, configured with `<pdf><theme><pageWidth>...</pageWidth>...</theme></pdf>`. Omitted fields retain the default theme values.
+|===
+
+For PDF, the overriding unknown-macro attribute is `yupiik-renderer-pdf-unknownMacro`; the corresponding renderer-specific attribute applies when selecting HTML or Markdown.
+Mermaid is diagram support, not a document backend selected with `renderer`.
+The goal owns and closes a resolver created through `dataResolver`, unlike the caller-owned resolver in the Java API below.
+
+The `pdf` and `pdf.theme` configuration objects and individual theme defaults are initialized inline, so the entire `<pdf>` element, its `<theme>` element or any individual theme field can be omitted to retain defaults.
+Nested fields have no direct Maven properties; standard Maven property substitution can be used in XML, for example `<pdf><theme><primary>${some.property}</primary></theme></pdf>` with `some.property` defined in your POM or supplied externally.
+All `PdfTheme` fields are available under `<pdf><theme>...</theme></pdf>`:
+
+[cols="1,1,3",options="header"]
+|===
+|Field |Default |Use
+|`primary` |`#D858FF` |Primary accent color.
+|`secondary` |`#056EBB` |Secondary accent and link color.
+|`text` |`#212121` |Main text color.
+|`muted` |`#656565` |Muted text color.
+|`background` |`#F4F4F4` |Panel background color.
+|`border` |`#E3E3E3` |Border color.
+|`sans` |`Inter` |Document font family.
+|`mono` |`JetBrains Mono` |Monospaced font family.
+|`pageWidth` |`210mm` |Page width in XSL-FO units.
+|`pageHeight` |`297mm` |Page height in XSL-FO units.
+|`margin` |`20mm` |Page margin in XSL-FO units.
+|===
+
+Changing `sans` or `mono` selects font-family names; register those families in a custom FOP configuration when replacing the default fonts.
+
+== CLI usage
+
+The CLI's `asciidoc` command supports the same renderer aliases and includes FOP and the default fonts.
+For example, using the CLI fat jar:
+
+[source,shell]
+----
+java -jar yupiik-tools-cli-<version>-fatjar.jar asciidoc \
+  --input=src/main/asciidoc/guide.adoc \
+  --output=target/guide.pdf \
+  --renderer=pdf \
+  --pdf-title-page=true \
+  --pdf-syntax-highlighting=true \
+  --pdf-section-footer=true \
+  --pdf-theme-page-width=210mm \
+  --pdf-theme-page-height=297mm
+----
+
+PDF options are grouped in a `Pdf` options class containing a nested `Theme` class.
+The command-line names are `--pdf-fop-configuration` and `--pdf-theme-<field>`, where the theme fields are `primary`, `secondary`, `text`, `muted`, `background`, `border`, `sans`, `mono`, `page-width`, `page-height` and `margin`.
+The boolean options `--pdf-title-page`, `--pdf-syntax-highlighting` and `--pdf-section-footer` all default to `true`.
+Pass an explicit value such as `--pdf-title-page=false` to disable a feature.
+Omitting PDF options or supplying only some theme overrides retains the initialized defaults for all other fields.
+For a packaged FOP configuration, use `--pdf-fop-configuration=classpath:/pdf/fop.xconf`.
+As with Maven, a custom FOP configuration replaces the default font registration.
+
+Shared options include `--base`, `--assetsBase`, `--attributes`, `--unknownMacro`, `--dataResolver` and `--assets`.
+Pass attributes using properties syntax, for example `--attributes=product=Example`.
+The command also supports the HTML configuration switches, plus `--watch`, `--port` and `--openBrowser` for watch mode.
+A resolver selected by `--dataResolver` is owned and closed by the command.
+
+== Java API usage
+
+[source,java]
+----
+import io.yupiik.asciidoc.parser.Parser;
+import io.yupiik.asciidoc.parser.resolver.ContentResolver;
+import io.yupiik.asciidoc.renderer.pdf.PdfConfiguration;
+import io.yupiik.asciidoc.renderer.pdf.PdfRenderer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+final var source = Path.of("docs/guide.adoc").toAbsolutePath();
+final var base = source.getParent();
+final var document = new Parser().parse(
+        Files.readString(source), new Parser.ParserContext(ContentResolver.of(base)));
+final var configuration = new PdfConfiguration()
+        .setAssetsBase(base)
+        .setTitlePage(true)
+        .setSyntaxHighlighting(true)
+        .setSectionFooter(true)
+        .setOutput(Path.of("target/guide.pdf"));
+final var renderer = new PdfRenderer(configuration);
+renderer.visit(document);
+final Path pdf = renderer.result();
+----
+
+`PdfRenderer` implements `Visitor<Path>`: `visit(document)` generates and validates the FO, while `result()` loads FOP, writes the PDF and returns the configured output location.
+No PDF file is opened and no FOP classes are loaded by `visit(document)`.
+The output defaults to `target/document.pdf`; `assetsBase` defaults to the working directory and is unrelated to the output location.
+`result()` creates missing parent directories and closes its own output stream.
+Repeated calls return the same path without rewriting the file until another document is visited.
+Calling `result()` before a successful visit fails explicitly.
+The model is validated and FOP initialized before the destination file is opened.
+An error during FOP layout or writing can still leave a partially written PDF.
+A renderer can be reused for successive documents and reuses its FOP factory, but it is not thread safe.
+Configure the renderer before constructing it; changing its configuration afterwards is not supported.
+
+To inspect or save the intermediate XSL-FO without loading FOP:
+
+[source,java]
+----
+final var fo = new io.yupiik.asciidoc.renderer.pdf.FoRenderer(configuration);
+fo.visit(document);
+Files.writeString(Path.of("target/guide.fo"), fo.toString()); // same FO as fo.result()
+----
+
+== Shared renderer options
+
+`PdfConfiguration` follows the HTML renderer's fluent configuration conventions with `setAttributes`, `setAssetsBase`, `setResolver`, and `setUnknownMacro`, in addition to PDF-specific output, theme and FOP settings.
+`setAttributes(Map<String, String>)` supplies fallback attributes for substitutions, conditionals, section indexing, cross-reference labels and the table of contents.
+Document attributes take precedence over configuration attributes.
+Also pass these attributes to `Parser` when parser-stage includes or whole-line conditionals depend on them; a renderer cannot restore content already discarded during parsing.
+As with HTML, unknown macros default to `UnknownMacro.TEXT`, which writes their escaped AsciiDoc source as text.
+Use `setUnknownMacro(UnknownMacro.FAIL)` for strict output or `UnknownMacro.IGNORE` to omit them.
+The `yupiik-renderer-pdf-unknownMacro` attribute overrides this setting, first from the document and then from the configuration's attributes; its values are `text`, `fail` or `ignore`, case-insensitive.
+Both PDF and FO rendering use the same policy.
+
+=== PDF feature switches
+
+The following typed settings all default to `true` and can be overridden by document or configuration attributes:
+
+[cols="1,1,3",options="header"]
+|===
+|Java setter |Attribute |Use
+|`setTitlePage(boolean)` |`pdf-title-page` |Enable a separate cover when its effective title is nonblank.
+|`setSyntaxHighlighting(boolean)` |`pdf-syntax-highlighting` |Enable source-code token coloring for supported languages.
+|`setSectionFooter(boolean)` |`pdf-section-footer` |Use the current section rather than the document title in the left footer.
+|===
+
+Precedence is document attributes, then configuration attributes supplied by `setAttributes` (or Maven/CLI attributes), then typed configuration.
+For these three attributes, a blank value, `true`, `yes` or `on` enables the feature, while `false`, `no` or `off` disables it.
+For example, `:pdf-title-page: false` in the document overrides `setTitlePage(true)` or `<titlePage>true</titlePage>`.
+
+=== Image and resource resolution
+
+Without a custom resolver, images are read from local files first and then from the configured classloader, including WebJar paths such as `META-INF/resources/webjars/example/1.0/diagram.svg`.
+Explicit `classpath:/...` and local `jar:file:...!/....` targets are supported without extraction; HTTP images are rejected rather than fetched implicitly.
+`assetsBase` need not exist for classpath-only rendering.
+`setClassLoader(loader)` selects a caller-owned loader for fonts, images and FOP resources; the default is the thread context classloader, falling back to the library's loader.
+`setFopConfiguration(URI.create("classpath:/pdf/fop.xconf"))` loads a packaged FOP configuration, whose fonts can also use `classpath:/` URIs.
+The renderer does not close the configured classloader.
+`setResolver(DataResolver)` supplies a caller-owned resolver that receives the substituted target including `imagesdir` and embeds its returned data in the FO.
+This allows explicit HTTP, cached or virtual image resolution; the renderer never closes the supplied resolver.
+The caller must close a resolver it creates when it is no longer needed.
+
+== Print theme
+
+The default is A4 portrait with 20 mm margins, white pages, charcoal text (`#212121`), light gray panels (`#F4F4F4`), purple accents (`#D858FF`) and dark-blue links (`#056EBB`).
+It shares the Yupiik brand palette with minisite, but follows the company document baseline instead of copying screen CSS, dark mode, or web navigation into print.
+Small text on light backgrounds uses dark colors for readability; source code boxes use a dark-gray canvas with vivid official brand accents for contrast and readability rather than dull green and brown tones.
+Inter is the document face, consistent with minisite, and JetBrains Mono is the code face.
+Regular, bold, italic and bold-italic fonts are read directly from the separate font jars and subset-embedded in the PDF, not repackaged into `asciidoc-java`.
+Their upstream licenses remain in those dependency jars.
+Custom fonts can likewise live in classpath or WebJar resources; use FOP font entries such as `embed-url="classpath:/META-INF/resources/webjars/my-font/1.0/fonts/regular.ttf"` rather than extracting them to disk.
+FOP needs a supported font format such as TTF or OTF; a webfont package containing only WOFF/WOFF2 is not a drop-in PDF font source.
+
+`PdfTheme` is an immutable record that allows changing colors, font-family names, and page dimensions.
+Use `configuration.setTheme(theme)` to select a theme.
+To register different fonts or configure FOP, use `configuration.setFopConfiguration(Path.of("fop.xconf"))`.
+This configuration replaces the default font registration, so it must register the theme's font families.
+
+Montserrat is the official brand font, but using it requires custom FOP font registration and an appropriately licensed font resource.
+No Montserrat binary is shipped and no new font licensing is assumed; the default remains Inter with JetBrains Mono for code.
+
+== Title page and page furniture
+
+With title pages enabled, a nonblank effective title produces a separate, unnumbered cover without a running header or footer.
+Content starts at page 1 and the total page count excludes the cover.
+The default cover is white with a left-aligned, charcoal 32 pt title and a purple rule.
+Cover metadata is inherited from the parsed header: author names, not email addresses, and the available revision number, date and remark.
+Parsed header authors with an email address appear as clickable names linked with `mailto:`, while email addresses remain hidden as visible text.
+Explicit `pdf-title-page-authors` or `authors` overrides remain plain literal text and do not implicitly inherit a parsed author's mailbox.
+Missing metadata does not produce invented authors, dates or revision values.
+All cover paragraphs retain their default behavior; their horizontal indents follow `theme.margin` independently of the full-bleed cover background.
+
+The following optional document or configuration attributes customize the cover, with document attributes taking precedence:
+
+[cols="2,3",options="header"]
+|===
+|Attribute |Default or behavior
+|`pdf-title-page-title` |Parsed header title.
+|`pdf-title-page-subtitle` |The `subtitle` attribute, when present.
+|`pdf-title-page-authors` |The `authors` attribute, falling back to the parsed header author-name list.
+|`pdf-title-page-revision` |Available header revision metadata, formatted as `Version {revnumber} - {revdate}` when both values are present.
+|`pdf-title-page-label` |Optional label; none by default.
+|`pdf-title-page-logo` |Optional image target resolved by the normal image resolver, rendered at a width of 45 mm.
+|`pdf-title-page-background` |`#FFFFFF`.
+|`pdf-title-page-text-color` |`theme.text` (`#212121` by default).
+|`pdf-title-page-title-size` |`32pt`; an XSL-FO length.
+|`pdf-title-page-title-top` |`40mm`; space before the title, after any logo and label, in XSL-FO units.
+|===
+
+The header's `revremark`, when present, is shown below the revision.
+For example, a dark-blue cover can use an approved white-letter logo without changing the default fonts:
+
+[source,asciidoc]
+----
+= Guide
+Jane Doe <jane@example.org>
+1.0, 2026-11-24: Approved release
+:pdf-title-page-background: #056EBB
+:pdf-title-page-text-color: #FFFFFF
+:pdf-title-page-logo: images/approved-white-letter-logo.svg
+----
+
+Supply the approved logo asset yourself; its target follows the same resource resolution rules as other images.
+Content pages have a ruled, muted footer with the current section on the left and `Page n/N` on the right.
+Nested sections include their immediate parent in that label, such as `watch-pdf / Configuration`, so repeated generic headings remain identifiable.
+Set `setSectionFooter(false)`, `<sectionFooter>false</sectionFooter>`, `--pdf-section-footer=false` or `:pdf-section-footer: false` to use the document title on the left instead.
+
+== Syntax highlighting
+
+Syntax highlighting is enabled by default and uses the dependency-free `simple-language-tokenizer` module in `io.yupiik.language.tokenizer`, not a full language parser.
+`SyntaxHighlighter` delegates to one tokenizer per language in the `io.yupiik.language.tokenizer.languages` package.
+Its no-argument constructor registers all default language aliases; `new SyntaxHighlighter(new SyntaxHighlighter.Configuration().setRegisteredTokenizers(registry))` instead uses the supplied registry, with normalized case-insensitive aliases.
+Each language tokenizer implements `io.yupiik.language.tokenizer.Tokenizer` with `List<Token> tokenize(String source)`, and unknown aliases retain the plain-text fallback.
+The module has no runtime dependencies on AsciiDoc, PDF rendering or third-party libraries and can be used independently:
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.yupiik.maven</groupId>
+  <artifactId>simple-language-tokenizer</artifactId>
+  <version>${yupiik-tools.version}</version>
+</dependency>
+----
+
+[source,java]
+----
+import io.yupiik.language.tokenizer.SyntaxHighlighter;
+import io.yupiik.language.tokenizer.Tokenizer;
+import io.yupiik.language.tokenizer.languages.JavaTokenizer;
+import java.util.Map;
+
+final var highlighter = new SyntaxHighlighter();
+final var tokens = highlighter.highlight("java", "public class Example {}");
+final Map<String, Tokenizer> registry = Map.of("custom-java", new JavaTokenizer());
+final var custom = new SyntaxHighlighter(new SyntaxHighlighter.Configuration()
+        .setRegisteredTokenizers(registry)
+        .setLanguageResolver(String::strip));
+----
+
+The immutable set returned by `supportedLanguages()` contains the instance's registered aliases, including aliases from a replacement registry.
+`supportsLanguage(language)` checks those aliases after case and whitespace normalization; it does not guess a language from the source.
+The instance method `highlighter.resolveLanguage(info)` explicitly resolves a registered language or the first language identifier in a fence label, such as `Java 21`, and returns `null` for an unknown label.
+It does not search for language names inside arbitrary words, so JavaScript cannot accidentally select Java.
+The instance method `highlighter.guessLanguage(path)` explicitly maps known basenames and extensions to registered language names, including Windows paths and Dockerfiles, without reading a file.
+Both helpers respect the instance registry, including custom aliases, and never return a language that the instance cannot tokenize.
+`new SyntaxHighlighter(new SyntaxHighlighter.Configuration().setLanguageResolver(resolver))` allows callers to supply their own language-label resolution policy; the default configuration retains strict alias lookup.
+
+Token kinds are semantic, not colors: `TAG` identifies XML/HTML element names, `ATTRIBUTE` identifies keys and attribute names, and `TYPE` identifies recognized type names.
+Renderers can map `KEYWORD`, `STRING`, `COMMENT`, `NUMBER`, `ANNOTATION`, `TAG`, `ATTRIBUTE` and `TYPE` to their own styles while allowing `PLAIN` and `OPERATOR` to inherit the surrounding foreground.
+Tokens do not contain ANSI codes or rendering markup.
+All built-in tokenizers are reusable and stateless between calls, and their returned token lists are immutable.
+The dispatcher retains no source or token cache; applications own cache size limits and invalidation when themes or configuration change.
+A nullable language selects plain text, while a null source is rejected.
+Empty source returns an empty token list.
+`GenericTokenizer` is an explicit opt-in for common keywords, strings, comments and numbers when an application wants a generic fallback; unknown aliases still remain plain in the standard dispatcher.
+
+`Tokenizing.lines(tokens)` splits a whole-block token list into immutable per-line token lists while preserving token kinds and source characters other than line terminators.
+CRLF counts as one line break even when the CR and LF belong to different tokens; lone CR and LF are also line breaks.
+Empty input produces one empty line, and a trailing line terminator produces a final empty line.
+Tokenizing a whole block before splitting preserves multiline lexical state; independently tokenizing each line does not preserve state across lines and is not an incremental parsing API.
+There is no cross-call tokenizer session or edit-range API.
+
+`asciidoc-pdf-dependencies` already includes this module for PDF rendering.
+Source language names are case-insensitive and support these families and aliases:
+
+[cols="1,2",options="header"]
+|===
+|Family |Language names
+|Java |`java`
+|JavaScript |`js`, `javascript`, `mjs`, `cjs`, `jsx`
+|TypeScript |`ts`, `typescript`, `mts`, `cts`, `tsx`
+|JSON variants |`json`, `jsonc`, `json5`
+|XML and HTML |`xml`, `html`, `htm`, `svg`, `xhtml`
+|CSS and preprocessor subsets |`css`, `scss`, `less`
+|SQL |`sql`
+|Python |`py`, `python`, `pyw`
+|Shell |`sh`, `shell`, `bash`, `zsh`
+|YAML |`yaml`, `yml`
+|Go |`go`, `golang`
+|Properties |`properties`, `java-properties`
+|TOML |`toml`
+|INI |`ini`
+|Markdown |`md`, `markdown`
+|AsciiDoc |`adoc`, `asciidoc`
+|Dockerfile |`dockerfile`, `docker`
+|Kotlin |`kotlin`, `kt`, `kts`
+|Groovy |`groovy`, `gradle`
+|Explicit plain text |`text`, `txt`, `plain`, `plaintext`, `console`, `log`
+|===
+
+These are conservative lexical boundaries, not full parsers or semantic validation.
+The shell aliases share a common subset, not complete Bash or Zsh syntax support.
+YAML block scalars use lexical state rather than full YAML parsing.
+Dockerfile highlighting does not provide full embedded-shell parsing.
+Kotlin supports nested comments, while Groovy slashy literals are recognized conservatively.
+JSONC supports comments, while JSON5 additionally recognizes single-quoted strings, unquoted keys and extended numeric literals.
+JSX and TSX aliases select the JavaScript and TypeScript lexical subsets; they do not implement JSX element parsing.
+CSS preprocessing, Markdown constructs and AsciiDoc constructs are lexical subsets; they are not evaluated or converted into document models.
+Markdown and AsciiDoc inline candidates use a fixed 512-character lookahead window to avoid unbounded rescanning; longer candidates remain plain, while whole-line headings and opaque blocks have no such limit.
+Language aliases are explicit registry keys; `highlight` does not infer a language from a filename or from the source text unless the caller explicitly supplies a resolver.
+An absent or unknown language produces plain monospaced text.
+The tokenizer handles multiline input and preserves source characters and callouts.
+Inline code is styled independently, not syntax-tokenized; `Listing` blocks are not syntax-tokenized either.
+Disable highlighting with `setSyntaxHighlighting(false)`, `<syntaxHighlighting>false</syntaxHighlighting>`, `--pdf-syntax-highlighting=false` or `:pdf-syntax-highlighting: false`.
+
+Source code boxes default to a dark-gray canvas (`#212121`) with light plain text (`#F4F4F4`) and vivid purple, green and blue official brand accents.
+This palette emphasizes contrast and readability rather than dull green and brown token colors; it does not import the site's web CSS.
+The existing `pdf-code-<kind>-color` overrides remain supported.
+Override the canvas, plain text and token colors with document or configuration attributes, with document attributes taking precedence:
+
+[cols="2,2",options="header"]
+|===
+|Attribute |Default
+|`pdf-code-background` |`#212121`.
+|`pdf-code-text-color` |`#F4F4F4`.
+|`pdf-code-keyword-color` |`theme.primary` (`#D858FF` by default).
+|`pdf-code-string-color` |`#46F72F`.
+|`pdf-code-comment-color` |`#B8B8B8`.
+|`pdf-code-number-color` |`theme.primary` (`#D858FF` by default).
+|`pdf-code-attribute-color` |`#02ABEA`.
+|`pdf-code-type-color` |`#02ABEA`.
+|`pdf-code-tag-color` |`#02ABEA`.
+|`pdf-code-annotation-color` |`#46F72F`.
+|`pdf-code-operator-color` |The effective `pdf-code-text-color` (`#F4F4F4` by default).
+|===
+
+Inline code uses the theme's monospaced font at 90% size, without padding that would create artificial gaps around short code spans, independently of source-code token colors.
+Inside tables it inherits the text color and has no background, border or padding; table headers use consistent bold sans-serif typography instead of body-column styles.
+Its default text, background and border colors can be overridden with document or configuration attributes, with document attributes taking precedence:
+
+[cols="2,2",options="header"]
+|===
+|Attribute |Default
+|`pdf-inline-code-color` |`#7D2493`.
+|`pdf-inline-code-background` |`#F7EDFC`.
+|`pdf-inline-code-border-color` |`#E9C7F3`.
+|===
+
+== Supported content and boundaries
+
+The renderer supports document titles, sections, text styles, paragraphs, code and callouts, lists, description lists, admonitions, tables, quotes, open blocks, page breaks, horizontal rules, links, internal cross references, and local images.
+Long tokens in tables wrap within their cells using invisible discretionary breaks between characters, never after the last character or immediately before whitespace, preserving visible glyphs without clipping or per-cell font shrinking.
+Tables with more than two rows use a slightly smaller 9.5 pt base font; smaller tables retain the document's 10.5 pt base size.
+Callout numbers and descriptions share the same line, with wrapped descriptions aligned beneath the description rather than the number.
+The document line height is 1.2, while code blocks use 1.25 with 4 pt of space before and 7 pt after their padded box.
+PDF bookmarks and running page headers and footers are generated automatically.
+Set the document's `toc` attribute to request a table of contents with page citations and muted dark-gray entries (`theme.muted`).
+Includes must be resolved by the parser before rendering.
+Relative image paths are resolved against `assetsBase` and the effective `imagesdir` attribute.
+
+This is a native print backend, not a CSS or HTML renderer and not a complete replacement for Asciidoctor PDF.
+Table row and column spans, raw passthroughs, footnotes, mathematical formulas, media, and diagram macros are not supported in this backend.
+Image data URIs are accepted and normalized before being sent to FOP.
+Cross-document references can target pages assembled into the same PDF by marking their enclosing sections with `pdf-source="relative/page.adoc"`; page-local anchors are namespaced independently.
+References to documents outside that assembled PDF fail explicitly.
+Syntax highlighting is limited to the source languages and token categories described above.
+The document title is substituted plain text rather than parsed inline markup.
+Unsupported structural constructs fail explicitly; unsupported macros follow the configured unknown-macro policy and are not evaluated.
+Custom FOP configurations, custom resolvers and SVG images should be trusted inputs; disabling external XML entities in the generated FO parser does not sandbox FOP's resource handling.

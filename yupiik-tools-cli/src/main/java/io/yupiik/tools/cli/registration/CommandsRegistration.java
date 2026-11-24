@@ -15,6 +15,7 @@
  */
 package io.yupiik.tools.cli.registration;
 
+import io.yupiik.tools.cli.command.AsciidocCommand;
 import io.yupiik.tools.cli.command.MinisiteCommand;
 import io.yupiik.tools.cli.command.SlidesCommand;
 import io.yupiik.tools.cli.command.VersionInjectorCommand;
@@ -50,6 +51,6 @@ public class CommandsRegistration implements Loader {
 
     @Override
     public Iterator<Class<?>> iterator() {
-        return List.of(MinisiteCommand.class, SlidesCommand.class, AsciidoctorProvider.class, VersionInjectorCommand.class).iterator();
+        return List.of(AsciidocCommand.class, MinisiteCommand.class, SlidesCommand.class, AsciidoctorProvider.class, VersionInjectorCommand.class).iterator();
     }
 }

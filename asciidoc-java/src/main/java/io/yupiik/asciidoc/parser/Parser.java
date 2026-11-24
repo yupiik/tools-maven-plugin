@@ -2355,14 +2355,17 @@ public class Parser {
                     }
                 }
                 case '`' -> {
-                    final var opening = scanner.openingPassthrough(line, i);
-                    final int end = line.indexOf('`', opening == null ? i + 1 : opening.end());
+                    final var unconstrained = line.startsWith("``", i);
+                    final var delimiter = unconstrained ? "``" : "`";
+                    final int contentStart = i + delimiter.length();
+                    final var opening = unconstrained ? null : scanner.openingPassthrough(line, i);
+                    final int end = line.indexOf(delimiter, opening == null ? contentStart : opening.end());
                     if (end > 0) {
                         if (start != i) {
                             flushText(elements, line.substring(start, i));
                         }
-                        final var content = line.substring(i + 1, end);
-                        final var link = isDirectLink(content) ? // this looks like a bad practise but can happen
+                        final var content = line.substring(contentStart, end);
+                        final var link = !unconstrained && isDirectLink(content) ? // this looks like a bad practise but can happen
                                 unwrapElementIfPossible(parseParagraph(
                                         enclosingDocument, new Reader(List.of(content)), Map.of(), resolver, Map.of(), false)) :
                                 null;
@@ -2376,10 +2379,10 @@ public class Parser {
                                                             Stream.of(entry("role", (l.options().getOrDefault("role", "") + " inline-code").stripLeading())))
                                                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue))));
                         } else { // `https://x.io foo` is not one link: asciidoctor links the URL inside the code, a Code holds its text
-                            elements.add(new Code(codeSpanText(line, i + 1, end, opening), Map.of(), true, List.of()));
+                            elements.add(new Code(unconstrained ? content : codeSpanText(line, contentStart, end, opening), Map.of(), true, List.of()));
                         }
-                        i = end;
-                        start = end + 1;
+                        i = end + delimiter.length() - 1;
+                        start = i + 1;
                     }
                 }
                 case '<' -> {

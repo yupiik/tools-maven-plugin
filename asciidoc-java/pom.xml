@@ -36,6 +36,20 @@
       <optional>true</optional>
     </dependency>
 
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>asciidoc-pdf-dependencies</artifactId>
+      <version>${project.version}</version>
+      <type>pom</type>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- are you sure? probably think one more time -->
   </dependencies>
 

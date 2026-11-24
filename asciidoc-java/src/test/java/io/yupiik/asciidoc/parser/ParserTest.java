@@ -1401,6 +1401,33 @@ class ParserTest {
     }
 
     @Test
+    void doubleBacktickLiteralKeepsLinkMacroAndInnerBackticks() {
+        assertEquals(
+                List.of(new Code(" link:#id[`+a[i].b+`] ", Map.of(), true, List.of())),
+                new Parser().parseBody(new Reader(List.of("`` link:#id[`+a[i].b+`] ``")), null).children());
+    }
+
+    @Test
+    void doubleBacktickLiteralKeepsReferencesAndSurroundingText() {
+        assertEquals(
+                List.of(new Paragraph(List.of(
+                        new Text(List.of(), "before", Map.of()),
+                        new Code("link:#id[`text`] <<missing>> xref:missing[] [[anchor]]", Map.of(), true, List.of()),
+                        new Text(List.of(), "after ", Map.of()),
+                        new Code("code", Map.of(), true, List.of()),
+                        new Text(List.of(), ".", Map.of())), Map.of())),
+                new Parser().parseBody(new Reader(List.of(
+                        "before``link:#id[`text`] <<missing>> xref:missing[] [[anchor]]``after `code`.")), null).children());
+    }
+
+    @Test
+    void doubleBacktickLiteralDoesNotPromoteDirectUrlToLink() {
+        assertEquals(
+                List.of(new Code("https://yupiik.io[Yupiik OSS]", Map.of(), true, List.of())),
+                new Parser().parseBody(new Reader(List.of("``https://yupiik.io[Yupiik OSS]``")), null).children());
+    }
+
+    @Test
     void linkInCode() {
         final var body = new Parser().parseBody(new Reader(List.of("`https://yupiik.io[Yupiik OSS]`")), null);
         assertEquals(

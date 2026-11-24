@@ -17,6 +17,7 @@ package io.yupiik.maven.service.action.builtin;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,8 +27,48 @@ import java.util.Map;
 
 import static java.util.stream.Collectors.toMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MojoDocumentationGenerationTest {
+    @Test
+    void rejectsInternalEntities(@TempDir final Path dir) throws IOException {
+        assertRejectedXml(dir, "<!DOCTYPE plugin [<!ENTITY value 'expanded'>]>\n<plugin>&value;</plugin>");
+    }
+
+    @Test
+    void rejectsExternalEntities(@TempDir final Path dir) throws IOException {
+        final var secret = Files.writeString(dir.resolve("secret.txt"), "private data");
+        assertRejectedXml(dir, "<!DOCTYPE plugin [<!ENTITY value SYSTEM '" + secret.toUri() +
+                "'>]>\n<plugin>&value;</plugin>");
+    }
+
+    @Test
+    void rejectsExternalDtd(@TempDir final Path dir) throws IOException {
+        final var dtd = Files.writeString(dir.resolve("external.dtd"), "<!ENTITY value 'expanded'>");
+        assertRejectedXml(dir, "<!DOCTYPE plugin SYSTEM '" + dtd.toUri() + "'>\n<plugin>&value;</plugin>");
+    }
+
+    @Test
+    void rejectsExternalParameterEntities(@TempDir final Path dir) throws IOException {
+        final var dtd = Files.writeString(dir.resolve("external.dtd"), "<!ENTITY value 'expanded'>");
+        assertRejectedXml(dir, "<!DOCTYPE plugin [<!ENTITY % external SYSTEM '" + dtd.toUri() +
+                "'>%external;]>\n<plugin>&value;</plugin>");
+    }
+
+    private void assertRejectedXml(final Path dir, final String xml) throws IOException {
+        final var plugin = Files.writeString(dir.resolve("plugin.xml"), xml);
+        final var output = dir.resolve("output");
+        final var error = assertThrows(IllegalStateException.class, () -> new MojoDocumentationGeneration(
+                dir, Map.of("pluginXml", plugin.toString(), "toBase", output.toString())).run());
+        final var cause = assertInstanceOf(SAXException.class, error.getCause());
+        assertTrue(cause.getMessage().contains("DOCTYPE"), cause::getMessage);
+        try (final var files = Files.list(output)) {
+            assertEquals(0, files.count());
+        }
+    }
+
     @Test
     void generate(@TempDir final Path dir) throws IOException {
         final Path output = dir.resolve("output");

@@ -6,9 +6,11 @@
 :minisite-nav-next-label: Supported syntax
 :minisite-nav-next-link: asciidoc-java-syntax.html
 
-`asciidoc-java` is an AsciiDoc parser and two renderers written in plain Java.
-It reads a document into a model you can walk, then renders that model as the HTML Asciidoctor writes or as GitHub-flavored Markdown.
-It needs no JRuby and depends only on `ascii2svg`, an optional dependency needed for the `[a2s]` diagram blocks, so it embeds in any Java application and runs in a native image.
+`asciidoc-java` is an AsciiDoc parser and renderers written in plain Java.
+It reads a document into a model you can walk, then renders that model as the HTML Asciidoctor writes, as GitHub-flavored Markdown, or as PDF.
+It needs no JRuby; `ascii2svg` is optional for `[a2s]` diagram blocks and `asciidoc-pdf-dependencies` is optional for PDF output when embedding the library.
+The Maven plugin and CLI include the PDF dependency aggregate by default.
+HTML and Markdown rendering do not require FOP.
 It implements a large subset of AsciiDoc, with Asciidoctor as the reference for what each construct gives.
 
 The documentation of the module is split into pages:
@@ -17,6 +19,7 @@ The documentation of the module is split into pages:
 * [[_syntax]][[_commonmark_syntax]][[_parser_attributes]]xref:asciidoc-java-syntax.adoc[Supported syntax]: the AsciiDoc and Markdown constructs the parser reads, the attributes that change how it reads them, and the known differences from Asciidoctor.
 * [[_html_renderer_configuration]]xref:asciidoc-java-html.adoc[HTML renderer]: `AsciidoctorLikeHtmlRenderer`, its options, the attributes it reads, icon fonts and slides.
 * [[_markdown_output]]xref:asciidoc-java-markdown.adoc[Markdown renderer]: `GithubFlavoredMarkdownRenderer` and what each construct becomes in Markdown.
+* xref:asciidoc-java-pdf.adoc[PDF renderer]: native XSL-FO output, the PDF dependency aggregate, and the Yupiik print theme.
 * [[_reading_the_model_in_a_visitor]][[_source_positions]]xref:asciidoc-java-model.adoc[Model and visitors]: the parsed model, the `Visitor` contract, the readings the renderers share, source positions, and how to write your own renderer.
 
 == Quick start
@@ -91,7 +94,8 @@ The same document renders to Markdown with `GithubFlavoredMarkdownRenderer` in p
 == Where it is used
 
 * The `minisite` goal of the Maven plugin renders the pages with this parser instead of AsciidoctorJ when `yupiik.minisite.preferYupiikAsciidoc` is `true`; the `yupiik-tools-cli` minisite command does the same with `--useYupiikAsciidoc`.
-* The `asciidoc` goal of the Maven plugin renders one document with it and sets the renderer options with `yupiik.asciidoc.` properties, see xref:asciidoc-java-html.adoc#_configuration_options[the HTML renderer options]; with `yupiik.asciidoc.renderer` set to `shower` it renders a slide deck through the `ShowerRenderer`, see xref:asciidoc-java-html.adoc#_slides[Slides].
+* The `asciidoc` goal of the Maven plugin renders one document to `output` and selects its backend with `yupiik.asciidoc.renderer`: case-insensitive `html`/`asciidoctor`, `shower`, `markdown`/`md`, or `pdf`; fully qualified custom visitor class names remain supported.
+See xref:asciidoc-java-html.adoc#_configuration_options[HTML renderer options], xref:asciidoc-java-html.adoc#_slides[Slides], and xref:asciidoc-java-pdf.adoc#_maven_plugin_usage[PDF plugin execution and shared parameter mapping].
 * Any Java application that embeds the module, as in the quick start above.
 
 == Compatibility
