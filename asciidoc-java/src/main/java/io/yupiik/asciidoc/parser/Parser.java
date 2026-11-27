@@ -2691,8 +2691,19 @@ public class Parser {
             // in a list item, the paragraphs that a + separates stay apart, as the paragraphs of the item itself
             return doParse(resolved.path(), included, l -> true, resolver, currentAttributes, true, false, inListItem && keepsParagraphs(currentAttributes));
         }
+        final var verbatim = String.join("\n", content) + '\n';
+        if (!isAsciidocInclude(macro.label())) { // a sample of another format shows its own include lines as they are
+            return List.of(new Text(List.of(), verbatim, Map.of()));
+        }
         // as for a parsed include, the includes of the included content are relative to it
-        return handleIncludes(resolved.path(), String.join("\n", content) + '\n', resolver, currentAttributes, false);
+        return handleIncludes(resolved.path(), verbatim, resolver, currentAttributes, false);
+    }
+
+    // as asciidoctor, the include lines of an included file are read only when the name of the file ends with
+    // .adoc, .asciidoc, .asc, .ad or .txt, the case kept
+    protected boolean isAsciidocInclude(final String target) {
+        return target.endsWith(".adoc") || target.endsWith(".asciidoc") || target.endsWith(".asc") ||
+                target.endsWith(".ad") || target.endsWith(".txt");
     }
 
     // the smallest indentation of the non-blank lines is removed from each line, then the requested indentation is added
