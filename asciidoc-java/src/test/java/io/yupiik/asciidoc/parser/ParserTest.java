@@ -2668,6 +2668,60 @@ class ParserTest {
     }
 
     @Test
+    void codeIncludeOfAnotherFormatKeepsItsIncludeLines(@TempDir final Path work) throws IOException {
+        // as asciidoctor: only a file named .adoc, .asciidoc, .asc, .ad or .txt has its own include lines read,
+        // so a sample document shown in a listing keeps them, with an attribute nobody defines and a missing target
+        final var sample = "= Sample\ninclude::{examples}/Missing.java[tag=x]\n\\include::leaf.txt[]\ninclude::leaf.txt[]\n";
+        Files.writeString(work.resolve("sample.adoctxt"), sample);
+        Files.writeString(work.resolve("sample.adoc"), "= Sample\ninclude::leaf.txt[]\n");
+        Files.writeString(work.resolve("leaf.txt"), "leaf\n");
+        final var body = new Parser().parseBody(new Reader(List.of("""
+                [source,asciidoc]
+                ----
+                include::sample.adoctxt[]
+                ----
+
+                [source,asciidoc]
+                ----
+                include::sample.adoc[]
+                ----
+                """.split("\n"))), ContentResolver.of(work));
+        assertEquals(
+                List.of(
+                        new Code(sample, Map.of("language", "asciidoc"), false, List.of()),
+                        new Code("= Sample\nleaf\n", Map.of("language", "asciidoc"), false, List.of())),
+                body.children());
+    }
+
+    @Test
+    void codeIncludeReadsIncludeLinesByFileName(@TempDir final Path work) throws IOException {
+        // the five endings asciidoctor reads, then the same endings in capitals and a name without ending, which it does not
+        Files.writeString(work.resolve("leaf.txt"), "leaf\n");
+        Files.writeString(work.resolve("s.java"), "include::leaf.txt[]\n");
+        for (final var name : List.of("s.adoc", "s.asciidoc", "s.asc", "s.ad", "s.txt")) {
+            Files.writeString(work.resolve(name), "include::leaf.txt[]\n");
+            assertEquals(
+                    List.of(new Code("leaf\n", Map.of(), false, List.of())),
+                    new Parser().parseBody(new Reader(List.of("----", "include::" + name + "[]", "----")), ContentResolver.of(work)).children(),
+                    name);
+        }
+        assertEquals( // a literal and a passthrough block follow the same rule
+                List.of(
+                        new Listing("leaf\n", Map.of()), new PassthroughBlock("leaf\n", Map.of()),
+                        new Listing("include::leaf.txt[]\n", Map.of()), new PassthroughBlock("include::leaf.txt[]\n", Map.of())),
+                new Parser().parseBody(new Reader(List.of(
+                        "....", "include::s.txt[]", "....", "", "++++", "include::s.txt[]", "++++", "",
+                        "....", "include::s.java[]", "....", "", "++++", "include::s.java[]", "++++")), ContentResolver.of(work)).children());
+        for (final var name : List.of("s.ADOC", "s.TXT", "s")) {
+            Files.writeString(work.resolve(name), "include::leaf.txt[]\n");
+            assertEquals(
+                    List.of(new Code("include::leaf.txt[]\n", Map.of(), false, List.of())),
+                    new Parser().parseBody(new Reader(List.of("----", "include::" + name + "[]", "----")), ContentResolver.of(work)).children(),
+                    name);
+        }
+    }
+
+    @Test
     void codeIncludeNested(@TempDir final Path work) throws IOException {
         final var code = "foo::\nbar\ndummy::\nsomething\n[source]\n----\ntest\n\n----\n\nother::\nend";
         Files.writeString(work.resolve("content.properties"), code);
